@@ -59,7 +59,6 @@
 (load "octave-mod")
 (load "vc-ediff")
 (load "magit")
-(require 'org-install)
 (load "epresent.el")
 
 ; centos doesn't support a lot of things
@@ -113,6 +112,13 @@
 				  auto-dmacro-alist))
 
 (setq gdb-command-name "/usr/bin/gdb")
+
+;; org-mode
+(require 'org-install)
+(defun my-org-hook ()
+  (local-set-key [(control c) (control ?.)] 'org-time-stamp)
+  )
+(add-hook 'org-mode-hook 'my-org-hook)
 
 ;; Python use python-mode
 (setq ipython-command "ipython")
@@ -655,7 +661,7 @@
 
 ;;; Cedet - Note! Run make in cedet file!
 (load-file (concat emacs-git "/cedet/common/cedet.el"))
-;(global-ede-mode t)
+(global-ede-mode t)
 (semantic-load-enable-minimum-features)
 (require 'semantic-ia)
 
