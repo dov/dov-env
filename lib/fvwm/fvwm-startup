@@ -1,0 +1,14 @@
+#========================================================================#
+# fvwm-startup
+#========================================================================#
+
+# Do this stuff on startup...
+
+########################Initialization Functions ############################
+AddToFunc InitFunction 	  "I" Module FvwmPager 0 0
++			  "I" Module FvwmBanner
++			  "I" exec xv -root -quit /home/dov/lib/tiles/Sister-Bluebird-1.png
+
+AddToFunc RestartFunction "I" Module FvwmPager 0 0
++			  "I" exec xv -root -quit /home/dov/lib/tiles/Sister-Bluebird-1.png
+

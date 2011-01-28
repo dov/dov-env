@@ -1,0 +1,159 @@
+xkb_keymap "dovhebrew" {
+    xkb_keycodes  { include "evdev"       };
+    xkb_types     { include "complete"      };
+    xkb_compat    { include "complete"      };
+    xkb_geometry  { include "pc(pc105)"     };
+
+    xkb_symbols         { 
+    include "pc(pc105)+us+group(toggle)"
+
+    name[Group1]= "US/DVORAK";
+    name[Group2]= "Hebrew";
+
+    key <TLDE> {	[	    grave,	asciitilde	],
+			[     	semicolon,     	asciitilde	]	};
+    key	<AB01> {	[	semicolon,      colon	        ],
+			[     hebrew_zain,   	U200E	        ]	};
+    key	<AC01> {	[		a,	 A	],
+			[     hebrew_shin,    	U05BB]	};
+    key	<AD01> {	[      apostrophe,     quotedbl	],
+			[ 	    slash,      U05b0	]	};
+    key	<AE01> {	[		1,	    exclam	],
+			[		1,	    exclam 	]	};
+    key	<AB02> {	[		q,		 Q	],
+			[   hebrew_samech,    	U200F	]	};
+    key	<AC02> {	[		o,		 O	],
+			[    hebrew_dalet,     U05BC	]	};
+    key	<AD02> {	[	comma,		 less	],
+			[      U05F3,    	 U05B1	]	};
+    key	<AE02> {	[		2,		at	],
+			[		2,        	at	]	};
+    key	<AB03> {	[		j,		 J	],
+			[      hebrew_bet,       U05C4	]	};
+    key	<AC03> {	[		e,		 E	],
+			[    hebrew_gimel,       U05BD	]	};
+    key	<AD03> {	[		period,	 greater	],
+			[     hebrew_qoph,	U05B2	]	};
+    key	<AE03> {	[		3,	numbersign	],
+			[		3,      numbersign	]	};
+    key	<AB04> {	[		k,		 K	],
+			[     	hebrew_he,     		 K	]	};
+    key	<AC04> {	[		u,		 U	],
+			[     hebrew_kaph,      U05BE	]	};
+    key	<AD04> {	[		p,		 P	],
+			[     hebrew_resh,      U05B3	]	};
+    key	<AE04> {	[		4,	    dollar	],
+			[		4,          dollar	]	};
+    key	<AB05> {	[		x,		 X	],
+			[      hebrew_nun,		 X	]	};
+    key	<AC05> {	[		i,		 I	],
+			[     hebrew_ayin,      U05BF	]	};
+    key	<AD05> {	[		y,		 Y	],
+			[    hebrew_aleph,      U05B4	]	};
+    key	<AE05> {	[		5,	   percent	],
+			[		5,	   percent	]	};
+    key	<AB06> {	[		b,		 B	],
+			[      hebrew_mem,     		 B	]	};
+    key	<AC06> {	[		d,		 D	],
+			[      hebrew_yod,     	U05C0	]	};
+    key	<AD06> {	[		f,		 F	],
+			[      hebrew_tet,      U05B5	]	};
+    key	<AE06> {	[		6,     asciicircum	],
+			[		6,     asciicircum	]	};
+    key	<AB07> {	[		m,		 M	],
+			[     hebrew_zade,		 M	]	};
+    key	<AC07> {	[		h,		 H	],
+			[     hebrew_chet,	U05C1	]	};
+    key	<AD07> {	[		g,		 G	],
+			[      hebrew_waw,  	U05B6	]	};
+    key	<AE07> {	[		7,	 ampersand	],
+			[		7,	 ampersand	]	};
+    key	<AB08> {	[	    w,	      W	],
+			[      hebrew_taw,     	      U200B	]	};
+    key	<AC08> {	[		t,		 T	],
+			[    hebrew_lamed,     	U05C2	]	};
+    key	<AD08> {	[		c,		 C	],
+			[ hebrew_finalnun,     U05B7	]	};
+    key	<AE08> {	[		8,	  asterisk	],
+			[		8,	  asterisk	]	};
+    key	<AB09> {	[	        v,	         V	],
+			[hebrew_finalzade,               V	]	};
+    key	<AC09> {	[		n,		 N	],
+			[hebrew_finalkaph,     	U05C3	]	};
+    key	<AD09> {	[		r,		 R	],
+			[ hebrew_finalmem,     U05B8	]	};
+    key	<AE09> {	[		9,	 parenleft	],
+			[		9,	 parenleft	]	};
+    key	<AB10> {	[	        z,	         Z	],
+			[	   period,	 question    	]	};
+    key	<AC10> {	[	        s,	         S	],
+			[  hebrew_finalpe,     colon	]	};
+    key	<AD10> {	[		l,		 L	],
+			[       hebrew_pe,     U05B9	]	};
+    key	<AE10> {	[		0,	parenright	],
+			[		0,	parenright	]	};
+    key	<AC11> {	[           minus,	  underscore	],
+			[	    comma,	  quotedbl	]	};
+    key	<AD11> {	[           slash,	     question	],
+			[     bracketleft,	 braceleft	]	};
+    key	<AE11> {	[bracketleft     , braceleft       	],
+			[	    minus,	underscore	]	};
+    key	<AD12> {	[   equal       ,	plus      	],
+			[    bracketright,	braceright	]	};
+    key	<AE12> {	[  bracketright ,	braceright	],
+			[	    equal,	      plus	]	};
+    key	<BKSL> {	[	backslash,	       bar	],
+			[	backslash,             bar	]	};
+    key <CAPS> {        [   Control_L ],
+			[   Control_L ] };
+//    key <LCTL> {        [  Alt_L ],
+//			[  Alt_L ] };
+    key <LALT> {        [  Meta_L ],
+			[  Meta_L ] };
+    key <RWIN>  {       [  Multi_key], [Multi_key] };
+    key <LWIN>  {       [  Super_L], [Super_L] };
+    key <I6A> {         [  UE000 ],
+			[  UE000 ] };
+    key <I69> {         [  UE001 ],
+			[  UE001 ] };
+    key <I68> {         [  UE002 ],
+			[  UE002 ] };
+    // Begin "Keypad" section
+//    key <NMLK> {	[  Num_Lock,	Pointer_EnableKeys	]	};
+//    key <KPEQ> {	[  equal				]	};
+//    key <KPDV> {	[  KP_Divide				]	};
+//    key <KPMU> {	[  KP_Multiply				]	};
+// 
+//    key  <KP7> {	[  KP_Home			]	};
+//    key  <KP8> {	[  KP_Up			]	};
+//    key  <KP9> {	[  KP_Prior		]	};
+//    key <KPSU> {	[  KP_Subtract				]	};
+// 
+//    key  <KP4> {	[  KP_Left			]	};
+//    key  <KP5> {	[  KP_Begin		]	};
+//    key  <KP6> {	[  KP_Right		]	};
+//    key <KPAD> {	[  KP_Add				]	};
+// 
+//    key  <KP1> {	[  KP_End			]	};
+//    key  <KP2> {	[  KP_Down			]	};
+//    key  <KP3> {	[  KP_Next			]	};
+//    key <KPEN> {	[  KP_Enter				]	};
+//    key  <KP0> {	[  KP_Insert		]	};
+//    key <KPDL> { 	[  KP_Delete		]	};
+
+    // Begin modifier mappings 
+
+//    modifier_map Shift  { Shift_L, Shift_R };
+//    modifier_map Lock   { Caps_Lock, ISO_Lock };
+//    modifier_map Control { Control_L };
+    modifier_map Mod4   { Super_L };
+//    modifier_map Mod1   { Alt_L };
+    modifier_map Mod2   { Alt_L };
+//    modifier_map Mod3   { Mode_switch };
+    };
+
+};
+
+
+
+

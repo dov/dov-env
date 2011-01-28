@@ -1,0 +1,68 @@
+XTerm*VT100*translations:       #override \
+        Shift<Key>Prior:scroll-back(1,page)\n\
+        Shift<Key>Next:scroll-forw(1,page)\n\
+        Shift<Key>F29:scroll-back(1,page)\n\
+        Shift<Key>F35:scroll-forw(1,page)\n\
+	<Key>F35: string("0x1b") string("[5~") \n\
+	<Key>F29: string("0x1b") string("[6~") \n\
+	Ctrl<Key>Right: string("0x1b") string("[a") \n\
+	Ctrl<Key>Left: string("0x1b") string("[b") \n\
+	Ctrl<Key>Up: string("0x1b") string("[d") \n\
+	Ctrl<Key>Down: string("0x1b") string("[e") \n\
+	Ctrl<Key>BackSpace: string("0x1b") string("[c")
+
+
+XTerm*VT100*font: LucidaSansTypewriter-Bold-14
+XTerm*VT100*scrollBar: true
+XTerm*VT100*scrollLines: 1000
+XTerm*Locale: no
+XTerm*VT100.Background: black
+XTerm*VT100.Foreground: green
+XTerm*VT100*eightBitInput:  yes
+XTerm*VT100*eightBitOutput:  yes
+XTerm*VT100*titeInhibit:    no
+*colorBD:	yellow
+*customization: -color
+*VT100*color0: black
+*VT100*color2: orange1
+*VT100*color3: yellow
+*VT100*color4: aquamarine1
+*VT100*color5: aquamarine1
+*VT100*color6: aquamarine1
+*VT100*color7: white
+*VT100*color8: black
+*VT100*color9: orange1
+*VT100*color10: yellow
+*VT100*color11: yellow
+*VT100*color12: aquamarine1
+*VT100*color13: aquamarine1
+*VT100*color14: white
+*VT100*color15: white
+XTerm*thickness: 8
+*VT100*dynamicColors: off
+*VT100*background: grey20
+*VT100*foreground: green
+*VT100*cursorColor: green
+XTerm*color0: grey70
+XTerm*color3: yellow
+XTerm*color4: aquamarine1
+XTerm*color2: orange1
+XTerm*color7: white
+XTerm**colorBD: white
+XTerm**colorUL: yellow
+XTerm**colorBL: white
+XTerm**colorAttrMode: true
+XTerm**colorBDMode: true
+XTerm**colorULMode: true
+XTerm**underLine: false
+%Gdraw.Background: white
+%Gdraw.GGadget.Box.BorderBrightest: #eeeeee
+%Gdraw.GGadget.Box.BorderBrighter: #dddddd
+%Gdraw.GGadget.Box.DisabledBackground: #d8d8d8
+%Gdraw.GGadget.Box.PressedBackground: #a0a0a0
+%fontforge.CharView.SelectedPointColor: #c8c800
+fontforge.FontView.FontFamily: Sans
+fontforge.FontView.FontSize: 14
+%fontforge.FontView.SelectedColor: #c8c8ff
+
+

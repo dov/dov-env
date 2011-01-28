@@ -1,0 +1,123 @@
+#========================================================================#
+# fvwm-theme
+#========================================================================#
+
+# Fonts
+
+WindowFont	-b&h-lucida-bold-r-*-*-12-*-*-*-*-*-*-*
+IconFont	fixed
+
+# Main Look
+
+Style "*" 	ForeColor black
+Style "*" 	BackColor grey60
+HilightColor	White grey60
+MenuStyle 	black grey60 grey30 -b&h-lucida-bold-r-*-*-10-*-*-*-*-*-*-* fvwm
+
+# Background
+
+Exec xsetroot -solid "#11194c" &
+
+# General Feel
+
+Style "*" 	ClickToFocus
+Style "*" 	MWMFunctions
+Style "*" 	HintOverride
+Style "*" 	MWMDecor
+Style "*" 	DecorateTransient
+Style "*" 	SmartPlacement
+Style "*" 	NoPPosition
+Style "*"	IconBox -110 0 -0 600
+Style "*"	StickyIcon
+OpaqueMoveSize 	50
+EdgeScroll 	100 100
+EdgeResistance 	100 0
+DeskTopSize 	2x2
+
+# Specific Window Styles
+
+Style "*"		BorderWidth 5, HandleWidth 5
+Style "Fvwm*"		NoTitle, Sticky, WindowListSkip, NoHandles
+Style "FvwmPager"	StaysOnTop
+Style "*"		Icon trans.xpm
+Style "A*"		Icon trans.xpm
+Style "B*"		Icon trans.xpm
+Style "C*"		Icon trans.xpm
+Style "D*"		Icon trans.xpm
+Style "E*"		Icon trans.xpm
+Style "F*"		Icon trans.xpm
+Style "G*"		Icon trans.xpm
+Style "H*"		Icon trans.xpm
+Style "I*"		Icon trans.xpm
+Style "J*"		Icon trans.xpm
+Style "K*"		Icon trans.xpm
+Style "L*"		Icon trans.xpm
+Style "M*"		Icon trans.xpm
+Style "N*"		Icon trans.xpm
+Style "O*"		Icon trans.xpm
+Style "P*"		Icon trans.xpm
+Style "Q*"		Icon trans.xpm
+Style "R*"		Icon trans.xpm
+Style "S*"		Icon trans.xpm
+Style "T*"		Icon trans.xpm
+Style "U*"		Icon trans.xpm
+Style "V*"		Icon trans.xpm
+Style "W*"		Icon trans.xpm
+Style "X*"		Icon trans.xpm
+Style "Y*"		Icon trans.xpm
+Style "Z*"		Icon trans.xpm
+
+# General Window Setings
+
+BorderStyle		Simple -- HiddenHandles NoInset
+TitleStyle		Centered -- Flat
+AddTitleStyle		VGradient 64 2 grey60 80 grey20 20 grey20
+AddTitleStyle		Pixmap 3bars.xpm -- right
+AddTitleStyle   	Pixmap 3bars2.xpm -- left
+ButtonStyle All		VGradient 64 2 grey60 80 grey20 20 grey20 -- flat
+AddButtonStyle 1	InActive Pixmap close.xpm -- flat
+AddButtonStyle 1	ActiveUp Pixmap close.xpm -- flat
+AddButtonStyle 1	ActiveDown Pixmap close2.xpm -- flat
+AddButtonStyle 4	InActive Pixmap iconify.xpm -- flat
+AddButtonStyle 4	ActiveUp Pixmap iconify.xpm -- flat
+AddButtonStyle 4	ActiveDown Pixmap iconify2.xpm -- flat
+AddButtonStyle 2	InActive Pixmap shade.xpm -- flat
+AddButtonStyle 2	ActiveUp Pixmap shade.xpm -- flat
+AddButtonStyle 2	ActiveDown Pixmap shade2.xpm -- flat
+
+# Complex Functions
+
+AddToFunc "Raise/Move/Shade"
++ 			"M" Raise
++                      	"M" Move
++                   	"C" Raise
++                    	"D" WindowShade
+
+AddToFunc "Raise/Move/Iconify"
++			"M" Raise
++			"M" Move
++			"C" Raise
++                    	"D" Iconify -1
+
+AddToFunc "Raise/Resize" 
++			"M" Raise
++          		"M" Resize
++                    	"C" Raise
+
+# Mouse Bindings
+
+#     Button	Context Modifier 	Function
+Mouse 1		R   	A       	Menu "Menu" Nop
+Mouse 2		R    	A       	Menu "Window Ops" Nop
+Mouse 3         R       A       	WindowList
+Mouse 0		1    	A      		Delete
+Mouse 0         2       A       	WindowShade
+Mouse 0		4    	A     		Iconify 1
+Mouse 0		F	A		Function "Raise/Resize"
+Mouse 0		TS	A		Function "Raise/Move/Shade"
+Mouse 0		I	A		Function "Raise/Move/Iconify"
+
+
+
+
+

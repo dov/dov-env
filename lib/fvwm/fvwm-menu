@@ -1,0 +1,95 @@
+#========================================================================#
+# fvwm-menu
+#========================================================================#
+
+########################Menus ########################################
+AddToMenu RootMenu	"RootMenu"	Title 	
++			"Remote Logins"	Popup Remote-Logins
++			"Xterm"%mini.xterm.xpm%		exec color_xterm  -fn lucidasanstypewriter-bold-14 -bg grey20 -fg green -cr green -sb -sl 1000 -e zsh &
++			"Xmag"%mini.xmag.xpm%		Exec  exec xmag_multivis &
++			"xv"%mini.xv.xpm%		Exec  exec xv &
++			"gimp"%mini.gimp.xpm%		Exec  exec gimp &
++			"netscape4"	Exec  exec netscape4 &
++			"xemacs"	Exec  exec xemacs-20.4 &
++			"Music"%mini.music.xpm%	Popup Music-Popup
++			""		Nop
++			"Workshop"	Popup Workshop-Popup
++			""		Nop		
++			"Modules"	Popup Module-Popup
++			""		Nop		
++			"Exit Fvwm"	Popup Quit-Verify
+
+AddToMenu Window-Ops	"Window Ops"	Title		
++			"Move"		Move-or-Raise2
++			"Resize"	Resize-or-Raise2
++			"Raise"		Raise
++			"Lower"		Lower 
++		 	"(De)Iconify"	Iconify
++			"(Un)Stick"	Stick		
++			"(Un)Maximize"	maximize_func
++			""		Nop  
++			"Delete"	Delete	 
++			"Close"		Close	 
++			"Destroy"	Destroy
++			""		Nop		
++			"Refresh Screen" Refresh		
+AddToMenu Window-Ops2	"Move"		Move-or-Raise
++			"Resize"	Resize-or-Raise
++			"Raise"		Raise   	
++			"Lower"		Lower   	
++			"Iconify"	Iconify 	
++			"(Un)Stick"	Stick		
++			""		Nop     	
++			"Delete"	Delete	
++			"Close"		Close	  	
++			"Destroy"	Destroy 	
++			""		Nop 		
++			"ScrollBar" 	Module FvwmScroll 2 2	
++			"Print"         PrintFunction
+
+AddToMenu Remote-Logins	"Remote Logins" Title
++	"xemacs@ridley" Exec xrsh ridley xemacs-20.4
++	"xemacs@kolwir"	Exec xrsh kolwir xemacs-20.4
++	"xemacs@pulsar"	Exec xrsh pulsar xemacs-20.4
++	"matlab@pulsar"	Exec xrsh pulsar color_xterm -fn lucidasanstypewriter-bold-14 -bg grey20 -fg green -cr green -sb -sl 1000 -e matlab
++	"pulsar"	Exec xrsh pulsar color_xterm -fn lucidasanstypewriter-bold-14 -bg grey20 -fg green -cr green -sb -sl 1000 -e zsh
++	"karm"		Exec xrsh karm color_xterm -fn lucidasanstypewriter-bold-14 -bg grey20 -fg green -cr green -sb -sl 1000 -e zsh
++	"xterm - prompt host"		Exec xrsh `gprompt "Remote host:"` color_xterm -fn lucidasanstypewriter-bold-14 -bg grey20 -fg green -cr green -sb -sl 1000 -e zsh
++	"wolf"		Exec xrsh wolf color_xterm -fn lucidasanstypewriter-bold-14 -bg grey20 -fg green -cr green -sb -sl 1000 -e zsh
++       ""		Nop
++       "rainbow@gilva" Exec xrsh gilva -l rainbow color_xterm -fn lucidasanstypewriter-bold-14 -bg grey20 -fg green -cr green -sb -sl 1000
+
+AddToMenu Workshop-Popup "Workshop" Title
++        "Teamware"	Exec teamware &
++        "FileMerge"	Exec filemerge &
+
+AddToMenu Music-Popup "Music" Title
++        "xmcd"	        Exec csh -c "setenv XAPPLRESDIR /data/alg/local/lib/X11/app-defaults/; /data/alg/local/bin/xmcd -geometry +939+959"  &
++        "gqmpeg"	Exec gqmpeg &
+
+AddToMenu Module-Popup	"Modules"	Title	
++			"Button-Bar"	Module	FvwmButtons
++			"Clean-Up"	Module	FvwmClean
++			"Identify"	Module	FvwmIdent
++			"SaveDesktop"	Module  FvwmSave
++			"Debug"		Module	FvwmDebug
++			"Pager"		Module  FvwmPager 0 1
++			"WinList"	Module  FvwmWinList
++			"Background"	Module  FvwmBacker
++			"IconBox"	Module	FvwmIconBox
++			"Banner"	Module	FvwmBanner
++			"Audio"		Module	FvwmAudio
++			"Talk"  	Module	FvwmTalk
++			"Prompt"	Module	FvwmPrompt "hello" raise
+
+AddToMenu Quit-Verify 	"Really Quit Fvwm?" Title	
++		      	"Yes, Really Quit"  Quit	
++		      	"Restart Fvwm2"	    Restart fvwm2	
++		      	"Restart Fvwm95"    Restart fvwm95-2
++		      	"Restart Wmaker"    Restart wmaker
++		      	"Start Fvwm"	    Restart fvwm	
++		      	"Start Enlightment"	    Restart En
++		      	"Start mwm"    	    Restart mwm
++	      	      	"Start olwm"        Restart /usr/openwin/bin/olwm
++		      	""		    Nop	
++		      	"No, Don't Quit"    Nop	

@@ -1,0 +1,16 @@
+#========================================================================#
+# fvwm-main
+#========================================================================#
+
+# Paths
+
+ModulePath $FVWM_MODULEDIR
+PixmapPath /data/alg/local/include/X11/pixmaps/:$HOME/lib/fvwm/pixmaps:$HOME/lib/fvwm/icons:$HOME/lib/fvwm/pixmaps/
+IconPath   /data/alg/local/include/X11/bitmaps/:$HOME/lib/fvwm/pixmaps:$HOME/lib/fvwm/icons:$HOME/lib/fvwm/pixmaps/
+
+# Read
+
+Read .fvwm-startup
+Read .fvwm-modules
+Read .fvwm-theme
+Read .fvwm-menu
