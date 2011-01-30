@@ -5,12 +5,17 @@
 
 (if (string-match "mingw-nt" system-configuration)
     (progn
-      (setq emacs-git "h:/dov/.config/emacs")
-      (setq emacs-persistance-dir "c:/Document and Settings/dov")
+      (setq emacs-git "c:/users/dov/emacs")
+      (setq emacs-persistance-dir "c:/Document and Settings/dovg")
 ;      (set-default-font "-*-Lucida Console-*-*-*-*-15-*-*-*-*-*-*")
       (set-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
+      (setq browse-url-generic-program "c:/Program Files (x86)/Mozilla Firefox/firefox.exe")
+
+      ;; don't use Hebrew locale!
+      (setq system-time-locale "C")
       )
   (progn
+    (setq browse-url-generic-program "firefox")
     (setq emacs-git "/home/dov/.config/emacs")
     (setq emacs-persistance-dir "/home/dov/.emacs.d")
     (condition-case err
@@ -97,6 +102,12 @@
 
 ;; Text mode stuff
 (add-hook 'text-mode-hook 'visual-line-mode)
+
+(defun remove-dos-eol ()
+  "Removes the disturbing '^M' showing up in files containing mixed UNIX and DOS line endings."
+  (interactive)
+  (setq buffer-display-table (make-display-table))
+  (aset buffer-display-table ?\^M []))
 
 ;; DMacro
 (load "dmacro")
@@ -242,11 +253,20 @@
 (load "org-exp-blocks")
 
 ; Choose applications to open external files .
-(setq org-file-apps
-      (append
-       '(("png" . "eog %s"))
-       '(("pdf" . "evince %s"))
-       org-file-apps))
+
+(if (string-match "mingw-nt" system-configuration)
+    (progn
+      (setq org-file-apps
+            (append
+             '(("png" . "c:/progra~2/IrfanView/i_view32.exe %s"))
+             org-file-apps))
+      )
+  (progn 
+    (setq org-file-apps
+          (append
+           '(("png" . "eog %s"))
+           '(("pdf" . "evince %s"))
+           org-file-apps))))
 
 (setq org-src-lang-modes
       '(("elisp" . emacs-lisp)
@@ -727,12 +747,21 @@
 (put 'narrow-to-region 'disabled nil)
 
 ;; More customization
-(setq my-indent 4)
+(setq my-indent 2)
+(setq my-substatement 4)
+(setq my-substatement-open 4)
 
 (defun orbo-indent-mode ()
   "Set indent tabs to 4 as is standard at Orbotech."
   (interactive)
   (setq my-indent 4))
+
+(defun xjet-indent-mode ()
+  "Set indent tabs to 4 as is standard at Orbotech."
+  (interactive)
+  (setq my-indent 2)
+  (setq my-substatement 2)
+  (setq my-substatement-open 0))
 
 (defun gnu-indent-mode ()
   "Set indent tabs to 2 as is standard by gnome."
@@ -750,6 +779,9 @@
 
 (defun my-cmode-stuff (map) ""
   (setq c-basic-offset my-indent)
+  (c-set-offset 'substatement my-substatement)
+  (c-set-offset 'substatement-open my-substatement-open)
+
   (setq indent-tabs-mode nil)
   (define-key map [return] 'newline-and-indent)
   (define-key map [(control c) (control e)] 'compile)
@@ -783,7 +815,7 @@
                            ))
 (add-hook 'python-mode-hook '(lambda() 
                                (define-key python-mode-map [return] 'py-newline-and-indent)
-                               ))
+                               (remove-dos-eol)))
 (add-hook 'csv-mode-hook '(lambda() 
                            (setq truncate-lines t)
                            (setq word-wrap nil)
