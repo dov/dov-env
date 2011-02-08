@@ -180,10 +180,7 @@ D  	QDataStream 		QGraphicsRectItem 	P  	QPageSetupDialog 		QStyleOptionDockWidg
 (defun qtdoc-lookup ()
   "Lookup a class name in the Qt documentation."
   (interactive)
-  (let* ((mode (cond ((info-lookup->mode-value 'symbol
-                                               (info-lookup-select-mode))
-                      info-lookup-mode)
-                     ((info-lookup-change-mode 'symbol))))
+  (let* ((info-lookup-mode 'c-mode)
          (default (info-lookup-guess-default 'symbol info-lookup-mode))
          (name
           (completing-read
