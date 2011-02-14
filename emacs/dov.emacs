@@ -5,10 +5,10 @@
 
 (if (string-match "mingw-nt" system-configuration)
     (progn
-      (setq emacs-git "c:/users/dov/emacs")
+      (setq emacs-git "h:/dov/git/dov-env/emacs")
       (setq emacs-persistance-dir "c:/Document and Settings/dovg")
 ;      (set-default-font "-*-Lucida Console-*-*-*-*-15-*-*-*-*-*-*")
-      (set-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
+;      (set-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
       (setq browse-url-generic-program "c:/Program Files (x86)/Mozilla Firefox/firefox.exe")
 
       ;; don't use Hebrew locale!
@@ -749,6 +749,8 @@
 (setq my-indent 2)
 (setq my-substatement 4)
 (setq my-substatement-open 4)
+(setq my-access-label 0)
+(setq my-topmost-intro 4)
 
 (defun orbo-indent-mode ()
   "Set indent tabs to 4 as is standard at Orbotech."
@@ -760,7 +762,9 @@
   (interactive)
   (setq my-indent 2)
   (setq my-substatement 2)
-  (setq my-substatement-open 0))
+  (setq my-substatement-open 0)
+  (setq my-access-label 0)
+  (setq my-topmost-intro 2))
 
 (defun gnu-indent-mode ()
   "Set indent tabs to 2 as is standard by gnome."
@@ -780,6 +784,8 @@
   (setq c-basic-offset my-indent)
   (c-set-offset 'substatement my-substatement)
   (c-set-offset 'substatement-open my-substatement-open)
+  (c-set-offset 'access-label my-access-label)
+  (c-set-offset 'topmost-intro my-topmost-intro)
 
   (setq indent-tabs-mode nil)
   (define-key map [return] 'newline-and-indent)
