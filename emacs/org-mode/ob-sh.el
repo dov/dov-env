@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 7.3
+;; Version: 7.5
 
 ;; This file is part of GNU Emacs.
 
@@ -45,12 +45,18 @@
   "Command used to invoke a shell.
 This will be passed to  `shell-command-on-region'")
 
+(defcustom org-babel-sh-var-quote-fmt
+  "$(cat <<'BABEL_TABLE'\n%s\nBABEL_TABLE\n)"
+  "Format string used to escape variables when passed to shell scripts."
+  :group 'org-babel
+  :type 'string)
+
 (defun org-babel-execute:sh (body params)
   "Execute a block of Shell commands with Babel.
 This function is called by `org-babel-execute-src-block'."
   (let* ((session (org-babel-sh-initiate-session
 		   (cdr (assoc :session params))))
-         (result-params (cdr (assoc :result-params params))) 
+         (result-params (cdr (assoc :result-params params)))
          (full-body (org-babel-expand-body:generic
 		     body params (org-babel-variable-assignments:sh params))))
     (org-babel-reassemble-table
@@ -95,35 +101,20 @@ This function is called by `org-babel-execute-src-block'."
   "Convert an elisp value to a shell variable.
 Convert an elisp var into a string of shell commands specifying a
 var of the same value."
-  (if (listp var)
-      (flet ((deep-string (el)
-                          (if (listp el)
-                              (mapcar #'deep-string el)
-			    (org-babel-sh-var-to-sh el sep))))
-	(format "$(cat <<BABEL_TABLE\n%s\nBABEL_TABLE\n)"
-		(orgtbl-to-generic
-		 (deep-string (if (listp (car var)) var (list var)))
-		 (list :sep (or sep "\t")))))
-    (if (stringp var)
-	(if (string-match "[\n\r]" var)
-	    (format "$(cat <<BABEL_STRING\n%s\nBABEL_STRING\n)" var)
-	  (format "%s" var))
-      (format "%S" var))))
+  (flet ((echo-var (v) (if (stringp v) v (format "%S" v))))
+    ((lambda (var) (format org-babel-sh-var-quote-fmt var))
+     (cond
+      ((and (listp var) (listp (car var)))
+       (orgtbl-to-generic var  (list :sep (or sep "\t") :fmt #'echo-var)))
+      ((listp var)
+       (mapconcat #'echo-var var "\n"))
+      (t (echo-var var))))))
 
 (defun org-babel-sh-table-or-results (results)
   "Convert RESULTS to an appropriate elisp value.
 If the results look like a table, then convert them into an
 Emacs-lisp table, otherwise return the results as a string."
-  (org-babel-read
-   (if (string-match "^\\[.+\\]$" results)
-       (org-babel-read
-        (concat "'"
-                (replace-regexp-in-string
-                 "\\[" "(" (replace-regexp-in-string
-                            "\\]" ")" (replace-regexp-in-string
-                                       ", " " " (replace-regexp-in-string
-                                                 "'" "\"" results))))))
-     results)))
+  (org-babel-script-escape results))
 
 (defun org-babel-sh-initiate-session (&optional session params)
   "Initiate a session named SESSION according to PARAMS."

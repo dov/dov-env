@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 7.3
+;; Version: 7.5
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -417,6 +417,12 @@ LIMIT."
 	      (goto-char pos)
 	      (looking-at (concat "\\(?:"  regexp "\\)\\'")))))
       (not (null pos)))))
+
+(defun org-floor* (x &optional y)
+  "Return a list of the floor of X and the fractional part of X.
+With two arguments, return floor and remainder of their quotient."
+  (let ((q (floor x y)))
+    (list q (- x (if y (* y q) q)))))
 
 (provide 'org-compat)
 

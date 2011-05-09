@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 7.3
+;; Version: 7.5
 
 ;; This file is part of GNU Emacs.
 
@@ -63,13 +63,12 @@ This function is called by `org-babel-execute-src-block'."
 		     body params (org-babel-variable-assignments:ruby params)))
          (result (org-babel-ruby-evaluate
 		  session full-body result-type result-params)))
-    (or (cdr (assoc :file params))
-        (org-babel-reassemble-table
-         result
-         (org-babel-pick-name (cdr (assoc :colname-names params))
-			      (cdr (assoc :colnames params)))
-         (org-babel-pick-name (cdr (assoc :rowname-names params))
-			      (cdr (assoc :rownames params)))))))
+    (org-babel-reassemble-table
+     result
+     (org-babel-pick-name (cdr (assoc :colname-names params))
+			  (cdr (assoc :colnames params)))
+     (org-babel-pick-name (cdr (assoc :rowname-names params))
+			  (cdr (assoc :rownames params))))))
 
 (defun org-babel-prep-session:ruby (session params)
   "Prepare SESSION according to the header arguments specified in PARAMS."
@@ -116,16 +115,7 @@ specifying a variable of the same value."
   "Convert RESULTS into an appropriate elisp value.
 If RESULTS look like a table, then convert them into an
 Emacs-lisp table, otherwise return the results as a string."
-  (org-babel-read
-   (if (and (stringp results) (string-match "^\\[.+\\]$" results))
-       (org-babel-read
-        (concat "'"
-                (replace-regexp-in-string
-                 "\\[" "(" (replace-regexp-in-string
-                            "\\]" ")" (replace-regexp-in-string
-                                       ", " " " (replace-regexp-in-string
-						 "'" "\"" results))))))
-     results)))
+  (org-babel-script-escape results))
 
 (defun org-babel-ruby-initiate-session (&optional session params)
   "Initiate a ruby session.

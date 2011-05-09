@@ -5,8 +5,10 @@
 
 (if (string-match "mingw-nt" system-configuration)
     (progn
-      (setq emacs-git "c:/users/dov/emacs")
-      (setq emacs-persistance-dir "c:/Document and Settings/dovg")
+      (if (not (boundp 'emacs-git))
+          (setq emacs-git "c:/users/dov/emacs"))
+      (if (not boundp 'emacs-persistance-dir)
+          (setq emacs-persistance-dir "c:/Document and Settings/dovg"))
 ;      (set-default-font "-*-Lucida Console-*-*-*-*-15-*-*-*-*-*-*")
       (set-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
       (setq browse-url-generic-program "c:/Program Files (x86)/Mozilla Firefox/firefox.exe")
@@ -16,8 +18,10 @@
       )
   (progn
     (setq browse-url-generic-program "firefox")
-    (setq emacs-git "/home/dov/.config/emacs")
-    (setq emacs-persistance-dir "/home/dov/.emacs.d")
+    (if (not (boundp 'emacs-git))
+        (setq emacs-git "/home/dov/.config/emacs"))
+    (if (not (boundp 'emacs-persistance-dir))
+        (setq emacs-persistance-dir "/home/dov/.emacs.d"))
     (condition-case err
      (set-default-font "Liberation Mono 8")
 ;    (set-default-font "Consolas 12") 
@@ -129,8 +133,22 @@
 (require 'org-install)
 (defun my-org-hook ()
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
+  (local-set-key "\M-I" 'org-toggle-iimage-in-org)
   )
 (add-hook 'org-mode-hook 'my-org-hook)
+
+(require 'iimage)
+(add-to-list 'iimage-mode-image-regex-alist
+             (cons (concat "\\[\\[file:\\(~?" iimage-mode-image-filename-regex
+                           "\\)\\]")  1))
+
+(defun org-toggle-iimage-in-org ()
+  "display images in your org file"
+  (interactive)
+  (if (face-underline-p 'org-link)
+      (set-face-underline-p 'org-link nil)
+      (set-face-underline-p 'org-link t))
+  (iimage-mode))
 
 ;; Python use python-mode
 (setq ipython-command "ipython")
