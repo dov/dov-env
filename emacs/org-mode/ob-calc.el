@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 7.3
+;; Version: 7.5
 
 ;; This file is part of GNU Emacs.
 
@@ -29,7 +29,8 @@
 ;;; Code:
 (require 'ob)
 (require 'calc)
-(require 'calc-trail)
+(require 'calc-store)
+(unless (featurep 'xemacs) (require 'calc-trail))
 (eval-when-compile (require 'ob-comint))
 
 (defvar org-babel-default-header-args:calc nil
@@ -40,6 +41,8 @@
 
 (defun org-babel-execute:calc (body params)
   "Execute a block of calc code with Babel."
+  (unless (get-buffer "*Calculator*")
+    (save-window-excursion (calc) (calc-quit)))
   (let* ((vars (mapcar #'cdr (org-babel-get-header params :var)))
 	 (var-syms (mapcar #'car vars))
 	 (var-names (mapcar #'symbol-name var-syms)))
@@ -48,7 +51,7 @@
        (calc-push-list (list (cdr pair)))
        (calc-store-into (car pair)))
      vars)
-    (mapcar
+    (mapc
      (lambda (line)
        (when (> (length line) 0)
 	 (cond
@@ -66,27 +69,33 @@
 		      ((math-read-number res) (math-read-number res))
 		      ((listp res) (error "calc error \"%s\" on input \"%s\""
 					  (cadr res) line))
-		      (t (calc-eval
-			  (math-evaluate-expr
-			   ;; resolve user variables, calc built in
-			   ;; variables are handled automatically
-			   ;; upstream by calc
-			   (mapcar (lambda (el)
-				     (if (and (consp el) (equal 'var (car el))
-					      (member (cadr el) var-syms))
-					 (progn
-					   (calc-recall (cadr el))
-					   (prog1 (calc-top 1)
-					     (calc-pop 1)))
-				       el))
-				   ;; parse line into calc objects
-				   (first (math-read-exprs line))))))))
+		      (t (replace-regexp-in-string
+			  "'\\[" "["
+			  (calc-eval
+			   (math-evaluate-expr
+			    ;; resolve user variables, calc built in
+			    ;; variables are handled automatically
+			    ;; upstream by calc
+			    (mapcar #'ob-calc-maybe-resolve-var
+				    ;; parse line into calc objects
+				    (car (math-read-exprs line)))))))))
 		   (calc-eval line))))))))
      (mapcar #'org-babel-trim
 	     (split-string (org-babel-expand-body:calc body params) "[\n\r]"))))
   (save-excursion
-    (set-buffer (get-buffer "*Calculator*"))
-    (calc-eval (calc-top 1))))
+    (with-current-buffer (get-buffer "*Calculator*")
+      (calc-eval (calc-top 1)))))
+
+(defvar var-syms) ; Dynamically scoped from org-babel-execute:calc
+(defun ob-calc-maybe-resolve-var (el)
+  (if (consp el)
+      (if (and (equal 'var (car el)) (member (cadr el) var-syms))
+	  (progn
+	    (calc-recall (cadr el))
+	    (prog1 (calc-top 1)
+	      (calc-pop 1)))
+	(mapcar #'ob-calc-maybe-resolve-var el))
+    el))
 
 (provide 'ob-calc)
 

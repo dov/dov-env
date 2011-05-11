@@ -4,7 +4,7 @@
 ;;
 ;; Author: Piotr Zielinski <piotr dot zielinski at gmail dot com>
 ;; Maintainer: Carsten Dominik <carsten at orgmode dot org>
-;; Version: 7.3
+;; Version: 7.5
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -580,8 +580,8 @@ SCHEDULED: or DEADLINE: or ANYTHINGLIKETHIS:"
 (defun org-mouse-for-each-item (funct)
   ;; Functions called by `org-apply-on-list' need an argument
   (let ((wrap-fun (lambda (c) (funcall funct))))
-    (when (org-in-item-p)
-      (org-apply-on-list wrap-fun nil))))
+    (when (ignore-errors (goto-char (org-in-item-p)))
+      (save-excursion (org-apply-on-list wrap-fun nil)))))
 
 (defun org-mouse-bolp ()
   "Return true if there only spaces, tabs, and '*' before point.
@@ -614,12 +614,12 @@ This means, between the beginning of line and the point."
   (beginning-of-line))
 
 (defadvice dnd-insert-text (around org-mouse-dnd-insert-text activate)
-  (if (eq major-mode 'org-mode)
+  (if (org-mode-p)
       (org-mouse-insert-item text)
     ad-do-it))
 
 (defadvice dnd-open-file (around org-mouse-dnd-open-file activate)
-  (if (eq major-mode 'org-mode)
+  (if (org-mode-p)
       (org-mouse-insert-item uri)
     ad-do-it))
 
@@ -1100,10 +1100,10 @@ This means, between the beginning of line and the point."
 	 "--"
 	 ["Day View" org-agenda-day-view
 	  :active (org-agenda-check-type nil 'agenda)
-	  :style radio :selected (equal org-agenda-ndays 1)]
+	  :style radio :selected (eq org-agenda-current-span 'day)]
 	 ["Week View" org-agenda-week-view
 	  :active (org-agenda-check-type nil 'agenda)
-	  :style radio :selected (equal org-agenda-ndays 7)]
+	  :style radio :selected (eq org-agenda-current-span 'week)]
 	 "--"
 	 ["Show Logbook entries" org-agenda-log-mode
 	  :style toggle :selected org-agenda-show-log

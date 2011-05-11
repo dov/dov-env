@@ -5,7 +5,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 7.3
+;; Version: 7.5
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -113,12 +113,14 @@ t          create unique labels of the form [fn:1], [fn:2], ...
 confirm    like t, but let the user edit the created value.  In particular,
            the label can be removed from the minibuffer, to create
            an anonymous footnote.
+random	   Automatically generate a unique, random label.
 plain      Automatically create plain number labels like [1]"
   :group 'org-footnote
   :type '(choice
 	  (const :tag "Prompt for label" nil)
 	  (const :tag "Create automatic [fn:N]" t)
 	  (const :tag "Offer automatic [fn:N] for editing" confirm)
+	  (const :tag "Create a random label" random)
 	  (const :tag "Create automatic [N]" plain)))
 
 (defcustom org-footnote-auto-adjust nil
@@ -158,7 +160,7 @@ If yes, return the beginning position, the label, and the definition, if local."
 (defun org-footnote-at-definition-p ()
   "Is the cursor at a footnote definition.
 This matches only pure definitions like [1] or [fn:name] at the beginning
-of a line.  It does not a references like [fn:name:definition], where the
+of a line.  It does not match references like [fn:name:definition], where the
 footnote text is included and defined locally.
 The return value will be nil if not at a footnote definition, and a list
 with start and label of the footnote if there is a definition at point."
@@ -253,16 +255,22 @@ This command prompts for a label.  If this is a label referencing an
 existing label, only insert the label.  If the footnote label is empty
 or new, let the user edit the definition of the footnote."
   (interactive)
-  (let* ((labels (org-footnote-all-labels))
+  (let* ((labels (and (not (equal org-footnote-auto-label 'random))
+		      (org-footnote-all-labels)))
 	 (propose (org-footnote-unique-label labels))
 	 (label
-	  (if (member org-footnote-auto-label '(t plain))
-	      propose
+	  (cond 
+	   ((member org-footnote-auto-label '(t plain))
+	    propose)
+	   ((equal org-footnote-auto-label 'random)
+	    (require 'org-id)
+	    (substring (org-id-uuid) 0 8))
+	   (t
 	    (completing-read
 	     "Label (leave empty for anonymous): "
 	     (mapcar 'list labels) nil nil
 	     (if (eq org-footnote-auto-label 'confirm) propose nil)
-	     'org-footnote-label-history))))
+	     'org-footnote-label-history)))))
     (setq label (org-footnote-normalize-label label))
     (cond
      ((equal label "")
@@ -291,6 +299,7 @@ or new, let the user edit the definition of the footnote."
 	  ;; No section, put footnote into the current outline node
 	  nil
 	;; Try to find or make the special node
+	(goto-char (point-min))
 	(setq re (concat "^\\*+[ \t]+" org-footnote-section "[ \t]*$"))
 	(unless (or (re-search-forward re nil t)
 		    (and (progn (widen) t)
@@ -303,18 +312,18 @@ or new, let the user edit the definition of the footnote."
      (t
       (setq re (concat "^" org-footnote-tag-for-non-org-mode-files "[ \t]*$"))
       (unless (re-search-forward re nil t)
-	(let ((max (if (and (eq major-mode 'message-mode)
+	(let ((max (if (and (derived-mode-p 'message-mode)
 			    (re-search-forward message-signature-separator nil t))
 		       (progn (beginning-of-line) (point))
 		     (goto-char (point-max)))))
 	  (skip-chars-backward " \t\r\n")
 	  (delete-region (point) max)
 	  (insert "\n\n")
-	  (insert org-footnote-tag-for-non-org-mode-files "\n")))))
-    ;; Skip existing footnotes
-    (while (re-search-forward "^[[:space:]]*\\[[^]]+\\] " nil t)
-      (forward-line))
-    (insert "[" label "] \n")
+	  (insert org-footnote-tag-for-non-org-mode-files "\n")))
+	;; Skip existing footnotes
+      (while (re-search-forward "^[[:space:]]*\\[[^]]+\\] " nil t)
+	(forward-line))))
+    (insert "\n[" label "] \n")
     (goto-char (1- (point)))
     (message "Edit definition and go back with `C-c &' or, if unique, with `C-c C-c'.")))
 
@@ -500,7 +509,7 @@ ENTRY is (fn-label num-mark definition)."
     (when (re-search-forward (format ".\\[%s[]:]" (regexp-quote (car entry)))
 			     nil t)
       (org-footnote-goto-local-insertion-point)
-      (insert (format "\n\n[%s] %s" (car entry) (nth 2 entry))))))
+      (insert (format "\n[%s] %s\n" (car entry) (nth 2 entry))))))
 
 (defun org-footnote-goto-local-insertion-point ()
   "Find insertion point for footnote, just before next outline heading."

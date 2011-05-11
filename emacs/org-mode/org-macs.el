@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 7.3
+;; Version: 7.5
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -35,7 +35,14 @@
 
 (eval-and-compile
   (unless (fboundp 'declare-function)
-    (defmacro declare-function (fn file &optional arglist fileonly))))
+    (defmacro declare-function (fn file &optional arglist fileonly)))
+  (if (>= emacs-major-version 23)
+      (defsubst org-char-to-string(c)
+	"Defsubst to decode UTF-8 character values in emacs 23 and beyond."
+	(char-to-string c))
+    (defsubst org-char-to-string (c)
+      "Defsubst to decode UTF-8 character values in emacs 22."
+      (string (decode-char 'ucs c)))))
 
 (declare-function org-add-props "org-compat" (string plist &rest props))
 (declare-function org-string-match-p "org-compat" (&rest args))
@@ -46,8 +53,15 @@
      (if (or (> emacs-major-version 23)
 	     (and (>= emacs-major-version 23)
 		  (>= emacs-minor-version 2)))
-	 (called-interactively-p ,kind)
+	 (with-no-warnings (called-interactively-p ,kind)) ;; defined with no argument in <=23.1
        (interactive-p))))
+
+(if (and (not (fboundp 'with-silent-modifications))
+	 (or (< emacs-major-version 23)
+	     (and (= emacs-major-version 23)
+		  (< emacs-minor-version 2))))
+    (defmacro with-silent-modifications (&rest body)
+      `(org-unmodified ,@body)))
 
 (defmacro org-bound-and-true-p (var)
   "Return the value of symbol VAR if it is bound, else nil."
@@ -120,11 +134,12 @@ We use a macro so that the test can happen at compilation time."
 
 (defmacro org-with-point-at (pom &rest body)
   "Move to buffer and point of point-or-marker POM for the duration of BODY."
-  `(save-excursion
-     (if (markerp ,pom) (set-buffer (marker-buffer ,pom)))
+  `(let ((pom ,pom))
      (save-excursion
-       (goto-char (or ,pom (point)))
-       ,@body)))
+       (if (markerp pom) (set-buffer (marker-buffer pom)))
+       (save-excursion
+	 (goto-char (or pom (point)))
+	 ,@body))))
 (put 'org-with-point-at 'lisp-indent-function 1)
 
 (defmacro org-no-warnings (&rest body)
@@ -177,6 +192,7 @@ We use a macro so that the test can happen at compilation time."
 	 ;; remember which buffer to undo
 	 (push (list _cmd _cline _buf1 _c1 _buf2 _c2)
 	       org-agenda-undo-list)))))
+(put 'org-with-remote-undo 'lisp-indent-function 1)
 
 (defmacro org-no-read-only (&rest body)
   "Inhibit read-only for BODY."
@@ -307,16 +323,25 @@ but it also means that the buffer should stay alive
 during the operation, because otherwise all these markers will
 point nowhere."
   (declare (indent 1))
-  `(let ((data (org-outline-overlay-data ,use-markers)))
+  `(let ((data (org-outline-overlay-data ,use-markers))
+	 rtn)
      (unwind-protect
 	 (progn
-	   ,@body
+	   (setq rtn (progn ,@body))
 	   (org-set-outline-overlay-data data))
        (when ,use-markers
 	 (mapc (lambda (c)
 		 (and (markerp (car c)) (move-marker (car c) nil))
 		 (and (markerp (cdr c)) (move-marker (cdr c) nil)))
-	       data)))))
+	       data)))
+     rtn))
+
+(defmacro org-with-wide-buffer (&rest body)
+ "Execute body while temporarily widening the buffer."
+ `(save-excursion
+    (save-restriction
+       (widen)
+       ,@body)))
 
 (defmacro org-with-limited-levels (&rest body)
   "Execute BODY with limited number of outline levels."
@@ -329,7 +354,6 @@ point nowhere."
   "Return outline-regexp with limited number of levels.
 The number of levels is controlled by `org-inlinetask-min-level'"
   (if (or (not (org-mode-p)) (not (featurep 'org-inlinetask)))
-
       outline-regexp
     (let* ((limit-level (1- org-inlinetask-min-level))
 	   (nstars (if org-odd-levels-only (1- (* limit-level 2)) limit-level)))

@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 7.3
+;; Version: 7.5
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -38,7 +38,7 @@
   :tag "Org Export ASCII"
   :group 'org-export)
 
-(defcustom org-export-ascii-underline '(?\$ ?\# ?^ ?\~ ?\= ?\-)
+(defcustom org-export-ascii-underline '(?\- ?\= ?\~ ?^ ?\# ?\$)
   "Characters for underlining headings in ASCII export.
 In the given sequence, these characters will be used for level 1, 2, ..."
   :group 'org-export-ascii
@@ -294,7 +294,7 @@ publishing directory."
 	 (lines (org-split-string
 		 (org-export-preprocess-string
 		  region
-		  :for-ascii t
+		  :for-backend 'ascii
 		  :skip-before-1st-heading
 		  (plist-get opt-plist :skip-before-1st-heading)
 		  :drawers (plist-get opt-plist :drawers)
@@ -303,6 +303,7 @@ publishing directory."
 		  :footnotes (plist-get opt-plist :footnotes)
 		  :timestamps (plist-get opt-plist :timestamps)
 		  :todo-keywords (plist-get opt-plist :todo-keywords)
+		  :tasks (plist-get opt-plist :tasks)
 		  :verbatim-multiline t
 		  :select-tags (plist-get opt-plist :select-tags)
 		  :exclude-tags (plist-get opt-plist :exclude-tags)
@@ -577,8 +578,8 @@ publishing directory."
       (replace-match "\\1\\2")))
   ;; Remove list start counters
   (goto-char (point-min))
-  (while (org-search-forward-unenclosed
-	  "\\[@\\(?:start:\\)?[0-9]+\\][ \t]*" nil t)
+  (while (org-list-search-forward
+	  "\\[@\\(?:start:\\)?\\([0-9]+\\|[A-Za-z]\\)\\][ \t]*" nil t)
     (replace-match ""))
   (remove-text-properties
    (point-min) (point-max)
@@ -652,7 +653,8 @@ publishing directory."
       (if (or (not (equal (char-before) ?\n))
 	      (not (equal (char-before (1- (point))) ?\n)))
 	  (insert "\n"))
-      (setq char (nth (- umax level) (reverse org-export-ascii-underline)))
+      (setq char (or (nth (1- level) org-export-ascii-underline)
+      		     (car (last org-export-ascii-underline))))
       (unless org-export-with-tags
 	(if (string-match (org-re "[ \t]+\\(:[[:alnum:]_@#%:]+:\\)[ \t]*$") title)
 	    (setq title (replace-match "" t t title))))

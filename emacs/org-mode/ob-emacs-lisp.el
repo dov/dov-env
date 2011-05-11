@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 7.3
+;; Version: 7.5
 
 ;; This file is part of GNU Emacs.
 
@@ -57,7 +57,10 @@
   "Execute a block of emacs-lisp code with Babel."
   (save-window-excursion
     (org-babel-reassemble-table
-     (eval (read (format "(progn %s)"
+     (eval (read (format (if (member "output"
+				     (cdr (assoc :result-params params)))
+			     "(with-output-to-string %s)"
+			   "(progn %s)")
 			 (org-babel-expand-body:emacs-lisp body params))))
      (org-babel-pick-name (cdr (assoc :colname-names params))
 			  (cdr (assoc :colnames params)))
