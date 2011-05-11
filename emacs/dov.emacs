@@ -131,6 +131,17 @@
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   )
 (add-hook 'org-mode-hook 'my-org-hook)
+(add-to-list 'iimage-mode-image-regex-alist
+             (cons (concat "\\[\\[file:\\(~?" iimage-mode-image-filename-regex
+                           "\\)\\]")  1))
+
+(defun org-toggle-iimage-in-org ()
+  "display images in your org file"
+  (interactive)
+  (if (face-underline-p 'org-link)
+      (set-face-underline-p 'org-link nil)
+      (set-face-underline-p 'org-link t))
+  (iimage-mode))
 
 ;; Python use python-mode
 (setq ipython-command "ipython")
@@ -517,6 +528,34 @@
   ; prepare for user input
   (end-of-buffer))
 
+;; Hide unregistered files from vc-buffer.
+;; Copied from: http://groups.google.com/group/gnu.emacs.bug/msg/4a58d078b4aae650
+(defun my-vc-dir-hide-some (states)
+  "Hide files whose state is in STATES."
+  (interactive
+   (list
+    (progn
+      (unless vc-ewoc
+        (error "Not in a vc-dir buffer"))
+      (mapcar 'intern
+              (completing-read-multiple
+               "Hide files that are in state(s): "
+               (let (possible-states)
+                 (ewoc-map (lambda (item)
+                             (let ((state (vc-dir-fileinfo->state item)))
+                               (when state
+                                 (pushnew state possible-states))
+                               nil))
+                           vc-ewoc)
+                 (mapcar 'symbol-name possible-states))
+               nil t)))))
+  (let ((inhibit-read-only t))
+    (ewoc-filter vc-ewoc
+                 (lambda (file)
+                   (not (memq (vc-dir-fileinfo->state file) states))))))
+(eval-after-load "vc-dir"
+  '(define-key vc-dir-mode-map "H" 'my-vc-dir-hide-some))
+
 (global-set-key "\M-[" 'find-matching-keyword)
 (global-set-key "\M-]" 'c-beginning-of-defun)
 (global-set-key [(control ?') ?'] 'find-matching-keyword)
@@ -764,7 +803,7 @@
   (setq my-substatement 2)
   (setq my-substatement-open 0)
   (setq my-access-label 0)
-  (setq my-topmost-intro 2))
+  (setq my-topmost-intro 0))
 
 (defun gnu-indent-mode ()
   "Set indent tabs to 2 as is standard by gnome."
@@ -823,7 +862,10 @@
                                (local-set-key (kbd "RET") 'py-newline-and-indent)
                                (remove-dos-eol)
                                (setq py-indent-offset my-indent)
+                               (setq python-indent my-indent)
                                (remove-dos-eol)))
+(add-hook 'diff-mode-hook '(lambda() 
+                             (remove-dos-eol)))
 (add-hook 'csv-mode-hook '(lambda() 
                            (setq truncate-lines t)
                            (setq word-wrap nil)
