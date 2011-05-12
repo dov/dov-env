@@ -22,8 +22,10 @@
         (setq emacs-git "/home/dov/.config/emacs"))
     (if (not (boundp 'emacs-persistance-dir))
         (setq emacs-persistance-dir "/home/dov/.emacs.d"))
+    (if (not (boundp 'my-default-font))
+        (setq my-default-font "Liberation Mono 8"))
     (condition-case err
-     (set-default-font "Liberation Mono 8")
+     (set-default-font my-default-font)
 ;    (set-default-font "Consolas 12") 
 ;     (set-default-font "lucidasanstypewriter-bold-14")
 ;     (set-default-font "lucidasanstypewriter-bold-12")
@@ -70,6 +72,7 @@
 (load "vc-ediff")
 (load "magit")
 (load "epresent.el")
+(load "compile.el")
 
 ; centos doesn't support a lot of things
 (if (eq (string-match "21.4.1" emacs-version) nil)
@@ -88,6 +91,10 @@
 (load "dired-details")
 (load "dired-details+")
 (load "csv-mode")
+(load "sourcepair")
+
+(define-key global-map "\C-xc" 'sourcepair-load)
+
 
 (autoload 'octave-help "octave-hlp" nil t)
 (load-library "matlab-load")
@@ -136,9 +143,6 @@
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
   )
 (add-hook 'org-mode-hook 'my-org-hook)
-(add-to-list 'iimage-mode-image-regex-alist
-             (cons (concat "\\[\\[file:\\(~?" iimage-mode-image-filename-regex
-                           "\\)\\]")  1))
 
 (defun org-toggle-iimage-in-org ()
   "display images in your org file"
