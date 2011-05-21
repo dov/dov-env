@@ -102,6 +102,9 @@ NOTE: In process of obsoleting this."
   '( ("__THROW" . "")
      ("__const" . "const")
      ("__restrict" . "")
+     ("__attribute_malloc__" . "")
+     ("__nonnull" . "")
+     ("__wur" . "")
      ("__declspec" . ((spp-arg-list ("foo") 1 . 2)))
      ("__attribute__" . ((spp-arg-list ("foo") 1 . 2)))
      )
@@ -969,58 +972,25 @@ M-x semantic-c-debug-mode-init
 now.
 ")
     (remove-hook 'post-command-hook 'semantic-c-debug-mode-init-pch)))
-  
+
 (defun semantic-expand-c-tag (tag)
   "Expand TAG into a list of equivalent tags, or nil."
   (let ((return-list nil)
 	)
     ;; Expand an EXTERN C first.
     (when (eq (semantic-tag-class tag) 'extern)
-      (let* ((mb (semantic-tag-get-attribute tag :members))
-	     (ret mb))
-	(while mb
-	  (let ((mods (semantic-tag-get-attribute (car mb) :typemodifiers)))
-	    (setq mods (cons "extern" (cons "\"C\"" mods)))
-	    (semantic-tag-put-attribute (car mb) :typemodifiers mods))
-	  (setq mb (cdr mb)))
-	(setq return-list ret)))
+      (setq return-list (semantic-expand-c-extern-C tag))
+      ;; The members will be expanded in the next iteration. The
+      ;; 'extern' tag itself isn't needed anymore.
+      (setq tag nil))
 
-    ;; Function or variables that have a :type that is some complex
-    ;; thing, extract it, and replace it with a reference.
-    ;;
-    ;; Thus, struct A { int a; } B;
-    ;;
-    ;; will create 2 toplevel tags, one is type A, and the other variable B
-    ;; where the :type of B is just a type tag A that is a prototype, and
-    ;; the actual struct info of A is it's own toplevel tag.
+    ;; Check if we have a complex type
     (when (or (semantic-tag-of-class-p tag 'function)
 	      (semantic-tag-of-class-p tag 'variable))
-      (let* ((basetype (semantic-tag-type tag))
-	     (typeref nil)
-	     (tname (when (consp basetype)
-		      (semantic-tag-name basetype))))
-	;; Make tname be a string.
-	(when (consp tname) (setq tname (car (car tname))))
-	;; Is the basetype a full type with a name of its own?
-	(when (and basetype (semantic-tag-p basetype)
-		   (not (semantic-tag-prototype-p basetype))
-		   tname
-		   (not (string= tname "")))
-	  ;; a type tag referencing the type we are extracting.
-	  (setq typeref (semantic-tag-new-type
-			 (semantic-tag-name basetype)
-			 (semantic-tag-type basetype)
-			 nil nil
-			 :prototype t))
-	  ;; Convert original tag to only have a reference.
-	  (setq tag (semantic-tag-copy tag))
-	  (semantic-tag-put-attribute tag :type typeref)
-	  ;; Convert basetype to have the location information.
-	  (semantic--tag-copy-properties tag basetype)
-	  (semantic--tag-set-overlay basetype
-				     (semantic-tag-overlay tag))
-	  ;; Store the base tag as part of the return list.
-	  (setq return-list (cons basetype return-list)))))
+      (setq tag (semantic-expand-c-complex-type tag))
+      ;; Extract new basetag
+      (setq return-list (car tag))
+      (setq tag (cdr tag)))
 
     ;; Name of the tag is a list, so expand it.  Tag lists occur
     ;; for variables like this: int var1, var2, var3;
@@ -1041,12 +1011,62 @@ now.
       ;; If we didn't have a list, but the return-list is non-empty,
       ;; that means we still need to take our existing tag, and glom
       ;; it onto our extracted type.
-      (if (consp return-list)
+      (if (and tag (consp return-list))
 	  (setq return-list (cons tag return-list)))
       )
 
     ;; Default, don't change the tag means returning nil.
     return-list))
+
+(defun semantic-expand-c-extern-C (tag)
+  "Expand TAG containing an 'extern \"C\"' statement.
+This will return all members of TAG with 'extern \"C\"' added to
+the typemodifiers attribute."
+    (when (eq (semantic-tag-class tag) 'extern)
+      (let* ((mb (semantic-tag-get-attribute tag :members))
+	     (ret mb))
+	(while mb
+	  (let ((mods (semantic-tag-get-attribute (car mb) :typemodifiers)))
+	    (setq mods (cons "extern" (cons "\"C\"" mods)))
+	    (semantic-tag-put-attribute (car mb) :typemodifiers mods))
+	  (setq mb (cdr mb)))
+	(nreverse ret))))
+
+(defun semantic-expand-c-complex-type (tag)
+  "Check if TAG has a full :type with a name on its own.
+If so, extract it, and replace it with a reference to that type.
+Thus, 'struct A { int a; } B;' will create 2 toplevel tags, one
+is type A, and the other variable B where the :type of B is just
+a type tag A that is a prototype, and the actual struct info of A
+is it's own toplevel tag.  This function will return (cons A B)."
+  (let* ((basetype (semantic-tag-type tag))
+	 (typeref nil)
+	 (ret nil)
+	 (tname (when (consp basetype)
+		  (semantic-tag-name basetype))))
+    ;; Make tname be a string.
+    (when (consp tname) (setq tname (car (car tname))))
+    ;; Is the basetype a full type with a name of its own?
+    (when (and basetype (semantic-tag-p basetype)
+	       (not (semantic-tag-prototype-p basetype))
+	       tname
+	       (not (string= tname "")))
+      ;; a type tag referencing the type we are extracting.
+      (setq typeref (semantic-tag-new-type
+		     (semantic-tag-name basetype)
+		     (semantic-tag-type basetype)
+		     nil nil
+		     :prototype t))
+      ;; Convert original tag to only have a reference.
+      (setq tag (semantic-tag-copy tag))
+      (semantic-tag-put-attribute tag :type typeref)
+      ;; Convert basetype to have the location information.
+      (semantic--tag-copy-properties tag basetype)
+      (semantic--tag-set-overlay basetype
+				 (semantic-tag-overlay tag))
+      ;; Store the base tag as part of the return list.
+      (setq ret (cons basetype ret)))
+    (cons ret tag)))
 
 (defun semantic-expand-c-tag-namelist (tag)
   "Expand TAG whose name is a list into a list of tags, or nil."
@@ -1408,6 +1428,21 @@ Override function for `semantic-tag-protection'."
 	    'public
 	  nil))))
 
+(define-mode-local-override semantic-find-tags-included c-mode
+  (&optional table)
+  "Find all tags in TABLE that are of the 'include class.
+TABLE is a tag table.  See `semantic-something-to-tag-table'.
+For C++, we also have to search namespaces for include tags."
+  (let ((tags (semantic-find-tags-by-class 'include table))
+	(namespaces (semantic-find-tags-by-type "namespace" table)))
+    (dolist (cur namespaces)
+      (setq tags
+	    (append tags
+		    (semantic-find-tags-by-class
+		     'include
+		     (semantic-tag-get-attribute cur :members)))))
+    tags))
+
 (define-mode-local-override semantic-tag-components c-mode (tag)
   "Return components for TAG."
   (if (and (eq (semantic-tag-class tag) 'type)
@@ -1511,7 +1546,7 @@ SCOPE is not used, and TYPE-DECLARATION is used only if TYPE is not a typedef."
            (string= (semantic-tag-type type) "typedef"))
       (let ((dt (semantic-tag-get-attribute type :typedef)))
         (cond ((and (semantic-tag-p dt)
-                    (not (semantic-analyze-tag-prototype-p dt)))
+                    (not (semantic-tag-prototype-p dt)))
 	       ;; In this case, DT was declared directly.  We need
 	       ;; to clone DT and apply a filename to it.
 	       (let* ((fname (semantic-tag-file-name type))
@@ -1830,6 +1865,57 @@ For types with a :parent, create faux namespaces to put TAG into."
 	  newtag)
       ;; Else, return tag unmodified.
       tag)))
+
+(define-mode-local-override semanticdb-find-table-for-include c-mode
+  (includetag &optional table)
+  "For a single INCLUDETAG found in TABLE, find a `semanticdb-table' object
+INCLUDETAG is a semantic TAG of class 'include.
+TABLE is a semanticdb table that identifies where INCLUDETAG came from.
+TABLE is optional if INCLUDETAG has an overlay of :filename attribute.
+
+For C++, we also have to check if the include is inside a
+namespace, since this means all tags inside this include will
+have to be wrapped in that namespace."
+  (let ((inctable (semanticdb-find-table-for-include-default includetag table))
+	(inside-ns (semantic-tag-get-attribute includetag :inside-ns))
+	tags newtags namespaces prefix parenttable newtable)
+    (if (or (null inside-ns)
+	    (not (slot-boundp inctable 'tags)))
+	inctable
+      (when (and (eq inside-ns t)
+		 ;; Get the table which has this include.
+		 (setq parenttable
+		       (semanticdb-find-table-for-include-default
+			(semantic-tag-new-include
+			 (semantic--tag-get-property includetag :filename) nil)))
+		 table)
+	;; Find the namespace where this include is located.
+	(setq namespaces
+	      (semantic-find-tags-by-type "namespace" parenttable))
+	(when (and namespaces
+		   (slot-boundp inctable 'tags))
+	  (dolist (cur namespaces)
+	    (when (semantic-find-tags-by-name
+		   (semantic-tag-name includetag)
+		   (semantic-tag-get-attribute cur :members))
+	      (setq inside-ns (semantic-tag-name cur))
+	      ;; Cache the namespace value.
+	      (semantic-tag-put-attribute includetag :inside-ns inside-ns)))))
+      (unless (semantic-find-tags-by-name
+	       inside-ns
+	       (semantic-find-tags-by-type "namespace" inctable))
+	(setq tags (oref inctable tags))
+	;; Wrap tags inside namespace tag
+	(setq newtags
+	      (list (semantic-tag-new-type inside-ns "namespace" tags nil)))
+	;; Create new semantic-table for the wrapped tags, since we don't want
+	;; the namespace to actually be a part of the header file.
+	(setq newtable (semanticdb-table "include with context"))
+	(oset newtable tags newtags)
+	(oset newtable parent-db (oref inctable parent-db))
+	(oset newtable file (oref inctable file)))
+      newtable)))
+
 
 (define-mode-local-override semantic-get-local-variables c++-mode ()
   "Do what `semantic-get-local-variables' does, plus add `this' if needed."

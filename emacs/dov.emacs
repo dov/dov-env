@@ -32,6 +32,10 @@
 ;       (set-default-font "Bitstream Vera Sans Mono-11")
 
      (error "No such font, but who cares"))
+
+    ; Use Miriam mono font for Hebrew
+    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam Mono CLM:bold")
+
     (setq load-path (append (list
                              "/usr/local/share/emacs/site-lisp/vm"
                              ) load-path))
@@ -46,6 +50,12 @@
                   emacs-git
                   )
                  load-path))
+
+;; Emacs 24 support
+(when (>= emacs-major-version 24)
+  ; Hebrew support
+  (setq-default bidi-display-reordering t)
+  )
 
 (defconst inhibit-startup-message t)
 
@@ -741,34 +751,35 @@
 				     '(("miniperl" . perl-mode))))
 ; (load "perl-mode")   ; old mode
 
-;;; Cedet - Note! Run make in cedet file!
-(load-file (concat emacs-git "/cedet/common/cedet.el"))
-(global-ede-mode t)
-(semantic-load-enable-minimum-features)
-(require 'semantic-ia)
+(if (>= emacs-major-version 23)
+  ;;; Cedet - Note! Run make in cedet file!
+  (load-file (concat emacs-git "/cedet/common/cedet.el"))
+  (global-ede-mode t)
+  (semantic-load-enable-minimum-features)
+  (require 'semantic-ia)
 
-;; Support Qt
-(add-to-list 'semantic-lex-c-preprocessor-symbol-map '("Q_GUI_EXPORT" . ""))
-(add-to-list 'semantic-lex-c-preprocessor-symbol-map '("Q_CORE_EXPORT" . ""))
+  ;; Support Qt
+  (add-to-list 'semantic-lex-c-preprocessor-symbol-map '("Q_GUI_EXPORT" . ""))
+  (add-to-list 'semantic-lex-c-preprocessor-symbol-map '("Q_CORE_EXPORT" . ""))
+  
+  (setq qt4-base-dir "/usr/include")
+  (setq qt4-gui-dir "/usr/include/QtGui") 
+  (semantic-add-system-include qt4-base-dir 'c++-mode)
+  (semantic-add-system-include qt4-gui-dir 'c++-mode) 
+  (add-to-list 'auto-mode-alist (cons qt4-base-dir 'c++-mode))
+  (add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qconfig.h"))
+  (add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qconfig-dist.h"))
+  (add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qglobal.h"))
 
-(setq qt4-base-dir "/usr/include")
-(setq qt4-gui-dir "/usr/include/QtGui") 
-(semantic-add-system-include qt4-base-dir 'c++-mode)
-(semantic-add-system-include qt4-gui-dir 'c++-mode) 
-(add-to-list 'auto-mode-alist (cons qt4-base-dir 'c++-mode))
-(add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qconfig.h"))
-(add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qconfig-dist.h"))
-(add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qglobal.h"))
+  (defun my-cedet-hook ()
+    (local-set-key "\M-/" 'semantic-ia-complete-symbol)
+    (local-set-key [(control ?.)] 'semantic-ia-complete-symbol)
+    (local-set-key "\C-c?" 'semantic-ia-complete-symbol-menu)
+    (local-set-key "\C-c>" 'semantic-complete-analyze-inline)
+    (local-set-key "\C-cp" 'semantic-analyze-proto-impl-toggle)
+    )
 
-(defun my-cedet-hook ()
-  (local-set-key "\M-/" 'semantic-ia-complete-symbol)
-  (local-set-key [(control ?.)] 'semantic-ia-complete-symbol)
-  (local-set-key "\C-c?" 'semantic-ia-complete-symbol-menu)
-  (local-set-key "\C-c>" 'semantic-complete-analyze-inline)
-  (local-set-key "\C-cp" 'semantic-analyze-proto-impl-toggle)
-  )
-
-(add-hook 'c-mode-common-hook 'my-cedet-hook)
+  (add-hook 'c-mode-common-hook 'my-cedet-hook))
 
 ;; qt docs lookup
 (load "qtdoc")
