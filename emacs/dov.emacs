@@ -17,6 +17,7 @@
       (setq system-time-locale "C")
       )
   (progn
+    (setq my-default-family "Liberation Mono")
     (setq browse-url-generic-program "firefox")
     (if (not (boundp 'emacs-git))
         (setq emacs-git "/home/dov/.config/emacs"))
@@ -55,7 +56,8 @@
 (when (>= emacs-major-version 24)
   ; Hebrew support
   (setq-default bidi-display-reordering t)
-  )
+  (setq x-select-enable-primary t)
+  (setq x-select-enable-clipboard nil))
 
 (defconst inhibit-startup-message t)
 
@@ -151,29 +153,26 @@
 (defun my-org-hook ()
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
+  (variable-pitch-mode t)
+  (set-face-attribute 'org-table nil :family my-default-family)
+  (set-face-attribute 'org-checkbox nil :family my-default-family)
+  (set-face-attribute 'org-block nil :family my-default-family)
+  (set-face-attribute 'org-verbatim nil :family my-default-family)
   )
 (add-hook 'org-mode-hook 'my-org-hook)
 
 (defun org-toggle-iimage-in-org ()
   "display images in your org file"
   (interactive)
-  (if (face-underline-p 'org-link)
-      (set-face-underline-p 'org-link nil)
-      (set-face-underline-p 'org-link t))
+  (if iimage-mode
+      (set-face-underline-p 'org-link t)
+      (set-face-underline-p 'org-link nil))
   (iimage-mode))
 
 (require 'iimage)
 (add-to-list 'iimage-mode-image-regex-alist
              (cons (concat "\\[\\[file:\\(~?" iimage-mode-image-filename-regex
                            "\\)\\]")  1))
-
-(defun org-toggle-iimage-in-org ()
-  "display images in your org file"
-  (interactive)
-  (if (face-underline-p 'org-link)
-      (set-face-underline-p 'org-link nil)
-      (set-face-underline-p 'org-link t))
-  (iimage-mode))
 
 ;; Python use python-mode
 (setq ipython-command "ipython")
@@ -292,8 +291,48 @@
    (emacs-lisp . t)
    (python . t)
    (ditaa . t)
-   ))
+   (dot . t)
+   )) 
 (load "org-exp-blocks")
+(defun my-org-confirm-babel-evaluate (lang body)
+  (not
+   (or (string= lang "ditaa")
+       (string= lang "dot"))))  ; don't ask for ditaa
+(setq org-confirm-babel-evaluate 'my-org-confirm-babel-evaluate)
+
+;; Got the follownig from: http://eschulte.github.com/babel-dev/DONE-In-buffer-graphical-results.html
+(defun my-iimage-mode-buffer (arg &optional refresh)
+"Display/undisplay images.
+With numeric ARG, display the images if and only if ARG is positive."
+  (interactive)
+  (let ((ing (if (numberp arg)
+                 (> arg 0)
+               iimage-mode))
+        (modp (buffer-modified-p (current-buffer)))
+        file img)
+    (save-excursion
+      (goto-char (point-min))
+      (dolist (pair iimage-mode-image-regex-alist)
+        (while (re-search-forward (car pair) nil t)
+          (if (and (setq file (match-string (cdr pair)))
+                   (setq file (iimage-locate-file file
+                                   (cons default-directory
+                                         iimage-mode-image-search-path))))
+              (if ing
+                  (let ((img (create-image file)))
+                    (add-text-properties (match-beginning 0) (match-end 0) (list 'display img))
+                    (if refresh (image-refresh img)))
+                (remove-text-properties (match-beginning 0) (match-end 0) '(display)))))))
+    (set-buffer-modified-p modp)))
+
+(defun my-org-iimage-refresh ()
+  (interactive)
+  (redisplay t)
+  (set-face-underline-p 'org-link nil)
+  (my-iimage-mode-buffer 1 'refresh)
+  (redisplay t))
+
+(add-hook 'org-babel-after-execute-hook 'my-org-iimage-refresh)
 
 ; Choose applications to open external files .
 
