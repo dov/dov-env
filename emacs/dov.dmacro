@@ -550,7 +550,38 @@ elisp	expand	elisp source section
 
 ######
 ditaa	expand	elisp source section
-#+begin_ditaa
-  ~@
-#+end_ditaa
+#+begin_src ditaa :file~@ .png :cmdline -r -s 0.8 :exports both
+
+#+end_src
 #
+
+######
+dot	expand	elisp source section
+#+begin_src dot :file ~@ :cmdline -Tsvg
+digraph g {
+
+}
+#+end_src
+#
+
+######
+asymptote	expand	elisp source section
+#+begin_src asymptote :file ~@ :cmdline -Tsvg
+#+end_src
+#
+
+######
+matplotlib	expand	elisp source section
+#+begin_src python :results file
+import matplotlib.pyplot as plt
+
+fig = plt.figure(figsize=(4,3))
+ax = fig.add_subplot(111)
+
+# Set output filename
+fn  = "out.svg"
+fig.savefig(fn)
+return fn
+#+end_src
+#
+

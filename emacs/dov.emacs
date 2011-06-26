@@ -292,6 +292,7 @@
    (python . t)
    (ditaa . t)
    (dot . t)
+   (asymptote . t)
    )) 
 (load "org-exp-blocks")
 (defun my-org-confirm-babel-evaluate (lang body)
@@ -356,7 +357,7 @@ With numeric ARG, display the images if and only if ARG is positive."
         ("asymptote" . asy)
         ("dot" . fundamental)
         ("perl" . cperl)
-        ("pyhon" . python)
+        ("python" . python)
         ))
 ;; )
 
