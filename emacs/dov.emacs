@@ -7,11 +7,12 @@
     (progn
       (if (not (boundp 'emacs-git))
           (setq emacs-git "c:/users/dov/emacs"))
-      (if (not boundp 'emacs-persistance-dir)
+      (if (not (boundp 'emacs-persistance-dir))
           (setq emacs-persistance-dir "c:/Document and Settings/dovg"))
 ;      (set-default-font "-*-Lucida Console-*-*-*-*-15-*-*-*-*-*-*")
-;      (set-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
+      (set-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
       (setq browse-url-generic-program "c:/Program Files (x86)/Mozilla Firefox/firefox.exe")
+      (setq my-default-family "DejaVu Sans Mono")
 
       ;; don't use Hebrew locale!
       (setq system-time-locale "C")
@@ -157,7 +158,7 @@
   (set-face-attribute 'org-table nil :family my-default-family)
   (set-face-attribute 'org-checkbox nil :family my-default-family)
   (set-face-attribute 'org-block nil :family my-default-family)
-  (set-face-attribute 'org-verbatim nil :family my-default-family)
+  (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
   )
 (add-hook 'org-mode-hook 'my-org-hook)
 
