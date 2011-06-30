@@ -174,6 +174,7 @@
 (add-to-list 'iimage-mode-image-regex-alist
              (cons (concat "\\[\\[file:\\(~?" iimage-mode-image-filename-regex
                            "\\)\\]")  1))
+(load "org-mediawiki.el")
 
 ;; Python use python-mode
 (setq ipython-command "ipython")

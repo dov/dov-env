@@ -179,7 +179,7 @@
 
 (defun org-mw-export-lists ()
   "Export lists"
-  (while (re-search-forward org-item-beginning-re nil t)
+  (while (re-search-forward (org-item-beginning-re) nil t)
     (move-beginning-of-line 1)
     (org-list-to-mw (org-list-parse-list t))))
 
@@ -243,3 +243,4 @@ of list we are in at LEVEL."
 (defun org-mw-export-footer () "")
 (defun org-mw-export-section-beginning (section-properties) "")
 (defun org-mw-export-section-end (section-properties) "")
+(defun org-mw-export-mark-list-ending (foo) "")
