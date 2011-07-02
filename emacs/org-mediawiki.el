@@ -170,16 +170,16 @@
   (let (start env)
     (while (re-search-forward "^[ \t]*#\\+BEGIN_\\(EXAMPLE\\|SRC\\).*\n" nil t)
       (setq env (match-string 1))
-      (replace-match "")
+      (replace-match "<pre>")
       (setq start (point))
       (re-search-forward (concat "^[ \t]*#\\+END_" env ".*\n") nil t)
-      (replace-match "")
-      (string-rectangle start (point) ": ")
+      (replace-match "</pre>\n")
+;;;      (string-rectangle start (point) ": ")
       (delete-char 1))))
 
 (defun org-mw-export-lists ()
   "Export lists"
-  (while (re-search-forward org-item-beginning-re nil t)
+  (while (re-search-forward (org-item-beginning-re) nil t)
     (move-beginning-of-line 1)
     (org-list-to-mw (org-list-parse-list t))))
 
