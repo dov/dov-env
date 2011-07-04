@@ -58,13 +58,19 @@
 
 (require 'org-export)
 
+; Note that to play with a defvar variable it first needs to be undefined!
+;(makunbound 'org-mw-emphasis-alist)
 (defvar org-mw-emphasis-alist
   '(("*" "'''%s'''" nil)
     ("/" "''%s''" nil)
     ("_" "<u>%s</u>" nil)
     ("+" "<s>%s</s>" nil)
-    ("=" "<tt>%s</tt>" nil))
+    ("=" "<tt>%s</tt>" nil)
+    ("~" "<tt>%s</tt>" nil))
   "The list of fontification expressions for mediawiki.")
+
+;(assoc "~" org-mw-emphasis-alist)
+
 
 (defvar org-mw-export-table-table-style "")
 (defvar org-mw-export-table-header-style "")
