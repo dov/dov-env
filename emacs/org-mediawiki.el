@@ -249,3 +249,4 @@ of list we are in at LEVEL."
 (defun org-mw-export-footer () "")
 (defun org-mw-export-section-beginning (section-properties) "")
 (defun org-mw-export-section-end (section-properties) "")
+(defun org-mw-export-mark-list-ending (foo) "")
