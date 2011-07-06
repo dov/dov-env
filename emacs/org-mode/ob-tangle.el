@@ -154,7 +154,7 @@ used to limit the exported source code blocks by language."
     (save-window-excursion
       (find-file file)
       (setq to-be-removed (current-buffer))
-      (org-babel-tangle target-file lang))
+      (org-babel-tangle nil target-file lang))
     (unless visited-p
       (kill-buffer to-be-removed))))
 
@@ -163,15 +163,24 @@ used to limit the exported source code blocks by language."
   (mapc (lambda (el) (copy-file el pub-dir t)) (org-babel-tangle-file filename)))
 
 ;;;###autoload
-(defun org-babel-tangle (&optional target-file lang)
+(defun org-babel-tangle (&optional only-this-block target-file lang)
   "Write code blocks to source-specific files.
 Extract the bodies of all source code blocks from the current
 file into their own source-specific files.  Optional argument
 TARGET-FILE can be used to specify a default export file for all
 source blocks.  Optional argument LANG can be used to limit the
 exported source code blocks by language."
-  (interactive)
+  (interactive "P")
   (run-hooks 'org-babel-pre-tangle-hook)
+  ;; possibly restrict the buffer to the current code block
+  (save-restriction
+  (when only-this-block
+    (unless (org-babel-where-is-src-block-head)
+      (error "Point is not currently inside of a code block"))
+    (unless target-file
+      (setq target-file
+	    (read-from-minibuffer "Tangle to: " (buffer-file-name))))
+    (narrow-to-region (match-beginning 0) (match-end 0)))
   (save-excursion
     (let ((block-counter 0)
 	  (org-babel-default-header-args
@@ -221,7 +230,7 @@ exported source code blocks by language."
                       (delete-file file-name))
                     ;; drop source-block to file
                     (with-temp-buffer
-                      (when (fboundp lang-f) (funcall lang-f))
+                      (when (fboundp lang-f) (ignore-errors (funcall lang-f)))
                       (when (and she-bang (not (member file-name she-banged)))
                         (insert (concat she-bang "\n"))
                         (setq she-banged (cons file-name she-banged)))
@@ -252,7 +261,7 @@ exported source code blocks by language."
 	   (org-babel-with-temp-filebuffer file
 	     (run-hooks 'org-babel-post-tangle-hook)))
 	 path-collector))
-      path-collector)))
+      path-collector))))
 
 (defun org-babel-tangle-clean ()
   "Remove comments inserted by `org-babel-tangle'.
@@ -269,6 +278,7 @@ references."
                    (save-excursion (end-of-line 1) (forward-char 1) (point)))))
 
 (defvar org-stored-links)
+(defvar org-bracket-link-regexp)
 (defun org-babel-tangle-collect-blocks (&optional language)
   "Collect source blocks in the current Org-mode file.
 Return an association list of source-code block specifications of

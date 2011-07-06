@@ -296,7 +296,7 @@
    (asymptote . t)
    )) 
 (load "org-exp-blocks")
-(load "org-mediawiki")
+(load "org-mw")
 (defun my-org-confirm-babel-evaluate (lang body)
   (not
    (or (string= lang "ditaa")

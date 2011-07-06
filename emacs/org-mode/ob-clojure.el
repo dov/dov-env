@@ -42,6 +42,7 @@
 
 (declare-function slime-eval "ext:slime" (sexp &optional package))
 
+(defvar org-babel-tangle-lang-exts)
 (add-to-list 'org-babel-tangle-lang-exts '("clojure" . "clj"))
 
 (defvar org-babel-default-header-args:clojure '())
@@ -77,7 +78,9 @@
   (require 'slime) (require 'swank-clojure)
   (with-temp-buffer
     (insert (org-babel-expand-body:clojure body params))
-    ((lambda (result) (condition-case nil (read result) (error result)))
+    ((lambda (result) (condition-case nil
+		     (read (org-babel-script-escape result 'force))
+		   (error result)))
      (slime-eval
       `(swank:interactive-eval-region
 	,(buffer-substring-no-properties (point-min) (point-max)))
