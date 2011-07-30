@@ -6,7 +6,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 7.5
+;; Version: 7.7
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -347,16 +347,19 @@ point nowhere."
 
 (defmacro org-with-limited-levels (&rest body)
   "Execute BODY with limited number of outline levels."
-  `(let* ((outline-regexp (org-get-limited-outline-regexp)))
+  `(let* ((org-outline-regexp (org-get-limited-outline-regexp))
+	  (outline-regexp org-outline-regexp)
+	  (org-outline-regexp-at-bol (concat "^" org-outline-regexp)))
      ,@body))
 
+(defvar org-outline-regexp) ; defined in org.el
 (defvar org-odd-levels-only) ; defined in org.el
 (defvar org-inlinetask-min-level) ; defined in org-inlinetask.el
 (defun org-get-limited-outline-regexp ()
   "Return outline-regexp with limited number of levels.
 The number of levels is controlled by `org-inlinetask-min-level'"
   (if (or (not (org-mode-p)) (not (featurep 'org-inlinetask)))
-      outline-regexp
+      org-outline-regexp
     (let* ((limit-level (1- org-inlinetask-min-level))
 	   (nstars (if org-odd-levels-only (1- (* limit-level 2)) limit-level)))
       (format "\\*\\{1,%d\\} " nstars))))
@@ -366,12 +369,6 @@ The number of levels is controlled by `org-inlinetask-min-level'"
   (if (fboundp 'format-seconds)
       (format-seconds string seconds)
     (format-time-string string (seconds-to-time seconds))))
-
-(unless (or (and (>= 24 emacs-major-version)
-		 (>= 1 emacs-minor-version))
-	    (boundp 'filter-buffer-substring-functions))
-  (defvaralias 'filter-buffer-substring-functions
-    'buffer-substring-filters))
 
 (provide 'org-macs)
 

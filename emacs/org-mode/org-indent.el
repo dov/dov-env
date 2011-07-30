@@ -4,7 +4,7 @@
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 7.5
+;; Version: 7.7
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -157,8 +157,8 @@ FIXME:  How to update when broken?"
       (org-set-local 'org-hide-leading-stars-before-indent-mode
 		     org-hide-leading-stars)
       (org-set-local 'org-hide-leading-stars t))
-    (make-local-variable 'filter-buffer-substring-functions)
-    (add-to-list 'filter-buffer-substring-functions
+    (make-local-variable 'buffer-substring-filters)
+    (add-to-list 'buffer-substring-filters
 		 'org-indent-remove-properties-from-string)
     (org-add-hook 'org-after-demote-entry-hook
 		  'org-indent-refresh-section nil 'local)
@@ -177,9 +177,9 @@ FIXME:  How to update when broken?"
 	(when (boundp 'org-hide-leading-stars-before-indent-mode)
 	  (org-set-local 'org-hide-leading-stars
 			 org-hide-leading-stars-before-indent-mode))
-	(setq filter-buffer-substring-functions
+	(setq buffer-substring-filters
 	      (delq 'org-indent-remove-properties-from-string
-		    filter-buffer-substring-functions))
+		    buffer-substring-filters))
 	(remove-hook 'org-after-promote-entry-hook
 		     'org-indent-refresh-section 'local)
 	(remove-hook 'org-after-demote-entry-hook
@@ -212,12 +212,12 @@ useful to make it ever so slightly different."
       (remove-text-properties beg end '(line-prefix nil wrap-prefix nil)))))
 
 (defun org-indent-remove-properties-from-string (string)
-  "Remove indentations between BEG and END."
+  "Remove indentation properties from STRING."
   (remove-text-properties 0 (length string)
 			  '(line-prefix nil wrap-prefix nil) string)
   string)
 
-(defvar org-indent-outline-re (concat "^" org-outline-regexp)
+(defvar org-indent-outline-re org-outline-regexp-bol
   "Outline heading regexp.")
 
 (defun org-indent-add-properties (beg end)
@@ -273,7 +273,7 @@ Point is assumed to be at the beginning of a headline."
   (when org-indent-mode
     (let (beg end)
       (save-excursion
-	(when (ignore-errors (let ((outline-regexp (format "\\*\\{1,%s\\}[ \t]+"
+	(when (ignore-errors (let ((org-outline-regexp (format "\\*\\{1,%s\\}[ \t]+"
 				(if (featurep 'org-inlinetask)
 				    (1- org-inlinetask-min-level)
 				  ""))))
@@ -290,7 +290,7 @@ Point is assumed to be at the beginning of a headline."
   (when org-indent-mode
     (let ((beg (point)) (end limit))
       (save-excursion
-	(and (ignore-errors (let ((outline-regexp (format "\\*\\{1,%s\\}[ \t]+"
+	(and (ignore-errors (let ((org-outline-regexp (format "\\*\\{1,%s\\}[ \t]+"
 				(if (featurep 'org-inlinetask)
 				    (1- org-inlinetask-min-level)
 				  ""))))

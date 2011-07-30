@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 7.5
+;; Version: 7.7
 
 ;; This file is part of GNU Emacs.
 
@@ -63,6 +63,8 @@ functions which are assigned key bindings, and see
     ("g" . org-babel-goto-named-src-block)
     ("r" . org-babel-goto-named-result)
     ("\C-r" . org-babel-goto-named-result)
+    ("k" . org-babel-kill-results)
+    ("\C-k" . org-babel-kill-results)
     ("\C-b" . org-babel-execute-buffer)
     ("b" . org-babel-execute-buffer)
     ("\C-s" . org-babel-execute-subtree)
@@ -79,6 +81,8 @@ functions which are assigned key bindings, and see
     ("l" . org-babel-load-in-session)
     ("\C-i" . org-babel-lob-ingest)
     ("i" . org-babel-lob-ingest)
+    ("\C-I" . org-babel-view-src-block-info)
+    ("I" . org-babel-view-src-block-info)
     ("\C-z" . org-babel-switch-to-session)
     ("z" . org-babel-switch-to-session-with-code)
     ("\C-a" . org-babel-sha1-hash)

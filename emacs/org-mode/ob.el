@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte, Dan Davison
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 7.5
+;; Version: 7.7
 
 ;; This file is part of GNU Emacs.
 
@@ -65,6 +65,7 @@
 (declare-function orgtbl-to-orgtbl "org-table" (table params))
 (declare-function org-babel-tangle-comment-links "ob-tangle" (&optional info))
 (declare-function org-babel-lob-get-info "ob-lob" nil)
+(declare-function org-babel-map-call-lines "ob-lob" (file &rest body))
 (declare-function org-babel-ref-split-args "ob-ref" (arg-string))
 (declare-function org-babel-ref-parse "ob-ref" (assignment))
 (declare-function org-babel-ref-resolve "ob-ref" (ref))
@@ -137,18 +138,19 @@ remove code block execution from the C-c C-c keybinding."
    ;; (4) header arguments
    "\\([^\n]*\\)\n"
    ;; (5) body
-   "\\([^\000]*?\\)[ \t]*#\\+end_src")
+   "\\([^\000]*?\n\\)?[ \t]*#\\+end_src")
   "Regexp used to identify code blocks.")
 
-(defvar org-babel-inline-src-block-regexp
-  (concat
-   ;; (1) replacement target (2) lang
-   "[^-[:alnum:]]\\(src_\\([^ \f\t\n\r\v]+\\)"
-   ;; (3,4) (unused, headers)
-   "\\(\\|\\[\\(.*?\\)\\]\\)"
-   ;; (5) body
-   "{\\([^\f\n\r\v]+?\\)}\\)")
-  "Regexp used to identify inline src-blocks.")
+(eval-when-compile
+  (defvar org-babel-inline-src-block-regexp
+    (concat
+     ;; (1) replacement target (2) lang
+     "[^-[:alnum:]]\\(src_\\([^ \f\t\n\r\v]+\\)"
+     ;; (3,4) (unused, headers)
+     "\\(\\|\\[\\(.*?\\)\\]\\)"
+     ;; (5) body
+     "{\\([^\f\n\r\v]+?\\)}\\)")
+    "Regexp used to identify inline src-blocks."))
 
 (defun org-babel-get-header (params key &optional others)
   "Select only header argument of type KEY from a list.
@@ -249,6 +251,34 @@ then run `org-babel-execute-src-block'."
     (if info
 	(progn (org-babel-eval-wipe-error-buffer)
 	       (org-babel-execute-src-block current-prefix-arg info) t) nil)))
+
+;;;###autoload
+(defun org-babel-view-src-block-info ()
+  "Display information on the current source block.
+This includes header arguments, language and name, and is largely
+a window into the `org-babel-get-src-block-info' function."
+  (interactive)
+  (let ((info (org-babel-get-src-block-info 'light)))
+    (flet ((full (it) (> (length it) 0))
+	   (printf (fmt &rest args) (princ (apply #'format fmt args))))
+      (when info
+	(with-help-window (help-buffer)
+	  (let ((name        (nth 4 info))
+		(lang        (nth 0 info))
+		(switches    (nth 3 info))
+		(header-args (nth 2 info)))
+	    (when name            (printf "Name: %s\n"     name))
+	    (when lang            (printf "Lang: %s\n"     lang))
+	    (when (full switches) (printf "Switches: %s\n" switches))
+	    (printf "Header Arguments:\n")
+	    (dolist (pair (sort header-args
+				(lambda (a b) (string< (symbol-name (car a))
+						  (symbol-name (car b))))))
+	      (when (full (cdr pair))
+		(printf "\t%S%s\t%s\n"
+			(car pair)
+			(if (> (length (format "%S" (car pair))) 7) "" "\t")
+			(cdr pair))))))))))
 
 ;;;###autoload
 (defun org-babel-expand-src-block-maybe ()
@@ -373,7 +403,7 @@ block."
 			  (string= "yes" (cdr (assoc :cache params)))))
 	     (result-params (cdr (assoc :result-params params)))
 	     (new-hash (when cache? (org-babel-sha1-hash info)))
-	     (old-hash (when cache? (org-babel-result-hash info)))
+	     (old-hash (when cache? (org-babel-current-result-hash)))
 	     (body (setf (nth 1 info)
 			 (let ((noweb (cdr (assoc :noweb params))))
 			   (if (and noweb
@@ -693,12 +723,11 @@ end-body --------- point at the end of the body"
        (unless visited-p (kill-buffer to-be-removed))
        (goto-char point))))
 
-;;;###autoload
-(defmacro org-babel-map-inline-src-blocks (file &rest body)
-  "Evaluate BODY forms on each inline source-block in FILE.
+(defmacro org-babel-map-regexp (regexp file &rest body)
+  "Evaluate BODY forms on each match of REGEXP in FILE.
 If FILE is nil evaluate BODY forms on source blocks in current
 buffer."
-  (declare (indent 1))
+  (declare (indent 2))
   (let ((tempvar (make-symbol "file")))
     `(let* ((,tempvar ,file)
 	    (visited-p (or (null ,tempvar)
@@ -708,12 +737,20 @@ buffer."
 	 (when ,tempvar (find-file ,tempvar))
 	 (setq to-be-removed (current-buffer))
 	 (goto-char (point-min))
-	 (while (re-search-forward org-babel-inline-src-block-regexp nil t)
+	 (while (re-search-forward ,regexp nil t)
 	   (goto-char (match-beginning 1))
 	   (save-match-data ,@body)
 	   (goto-char (match-end 0))))
        (unless visited-p (kill-buffer to-be-removed))
        (goto-char point))))
+
+;;;###autoload
+(defmacro org-babel-map-inline-src-blocks (file &rest body)
+  "Evaluate BODY forms on each inline source-block in FILE.
+If FILE is nil evaluate BODY forms on source blocks in current
+buffer."
+  (declare (indent 1))
+  `(org-babel-map-regexp ,org-babel-inline-src-block-regexp ,file ,@body))
 
 ;;;###autoload
 (defun org-babel-execute-buffer (&optional arg)
@@ -754,7 +791,7 @@ the current subtree."
 		   (setq lst (remove p lst)))
 		 lst)
 	     (norm (arg)
-		   (let ((v (if (listp (cdr arg))
+		   (let ((v (if (and (listp (cdr arg)) (null (cddr arg)))
 				(copy-seq (cdr arg))
 			      (cdr arg))))
 		     (when (and v (not (and (sequencep v)
@@ -782,9 +819,9 @@ the current subtree."
 			 (nth 1 info))))
 	 (sha1 it))))))
 
-(defun org-babel-result-hash (&optional info)
+(defun org-babel-current-result-hash ()
   "Return the in-buffer hash associated with INFO."
-  (org-babel-where-is-src-block-result nil info)
+  (org-babel-where-is-src-block-result)
   (org-babel-clean-text-properties (match-string 3)))
 
 (defun org-babel-hide-hash ()
@@ -957,7 +994,12 @@ may be specified in the current buffer."
 	 (lang (org-babel-clean-text-properties (match-string 2)))
          (lang-headers (intern (concat "org-babel-default-header-args:" lang)))
 	 (switches (match-string 3))
-         (body (org-babel-clean-text-properties (match-string 5)))
+         (body (org-babel-clean-text-properties
+		(let* ((body (match-string 5))
+		       (sub-length (- (length body) 1)))
+		  (if (string= "\n" (substring body sub-length))
+		      (substring body 0 sub-length)
+		    body))))
 	 (preserve-indentation (or org-src-preserve-indentation
 				   (string-match "-i\\>" switches))))
     (list lang
@@ -1292,6 +1334,7 @@ With optional prefix argument ARG, jump backward ARG many source blocks."
        (goto-char (match-beginning 5))))
    (org-babel-where-is-src-block-head)))
 
+;;;###autoload
 (defun org-babel-demarcate-block (&optional arg)
   "Wrap or split the code in the region or on the point.
 When called from inside of a code block the current block is
@@ -1333,6 +1376,17 @@ region is not active then the point is demarcated."
 				(string-match "[\r\n]$" body)) "" "\n")
 			"#+end_src\n"))
 	(goto-char start) (move-end-of-line 1)))))
+
+;;;###autoload
+(defun org-babel-kill-results (arg)
+  "Remove the results from the current code block or call line.
+When called with prefix argument remove all results in the current file."
+  (interactive "P")
+  (if (null arg)
+      (org-babel-remove-result)
+    (org-babel-map-call-lines nil (org-babel-remove-result))
+    (org-babel-map-src-blocks nil (org-babel-remove-result))
+    (org-babel-map-inline-src-blocks nil (org-babel-remove-result))))
 
 (defvar org-babel-lob-one-liner-regexp)
 (defvar org-babel-inline-lob-one-liner-regexp)
@@ -1723,7 +1777,7 @@ Later elements of PLISTS override the values of previous elements.
 This takes into account some special considerations for certain
 parameters when merging lists."
   (let ((results-exclusive-groups
-	 '(("file" "list" "vector" "table" "scalar" "raw" "org"
+	 '(("file" "list" "vector" "table" "scalar" "verbatim" "raw" "org"
             "html" "latex" "code" "pp" "wrap")
 	   ("replace" "silent" "append" "prepend")
 	   ("output" "value")))
@@ -1943,7 +1997,8 @@ block but are passed literally to the \"example-block\"."
 
 (defun org-babel-strip-protective-commas (body)
   "Strip protective commas from bodies of source blocks."
-  (replace-regexp-in-string "^,#" "#" body))
+  (when body
+    (replace-regexp-in-string "^,#" "#" body)))
 
 (defun org-babel-script-escape (str &optional force)
   "Safely convert tables into elisp lists."
@@ -1955,7 +2010,9 @@ block but are passed literally to the \"example-block\"."
 		  (or (and (string-equal "[" (substring str 0 1))
 			   (string-equal "]" (substring str -1)))
 		      (and (string-equal "{" (substring str 0 1))
-			   (string-equal "}" (substring str -1))))))
+			   (string-equal "}" (substring str -1)))
+		      (and (string-equal "(" (substring str 0 1))
+			   (string-equal ")" (substring str -1))))))
 	 (org-babel-read
 	  (concat
 	   "'"

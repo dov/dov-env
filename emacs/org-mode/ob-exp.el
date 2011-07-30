@@ -5,7 +5,7 @@
 ;; Author: Eric Schulte, Dan Davison
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://orgmode.org
-;; Version: 7.5
+;; Version: 7.7
 
 ;; This file is part of GNU Emacs.
 
@@ -118,6 +118,7 @@ none ----- do not display either code or results upon export"
 		(nth 1 info)))
 	(org-babel-exp-do-export info 'block hash)))))
 
+(defvar org-babel-inline-src-block-regexp)
 (defun org-babel-exp-inline-src-blocks (start end)
   "Process inline source blocks between START and END for export.
 See `org-babel-exp-src-block' for export options, currently the
@@ -165,13 +166,13 @@ has taken place."
 Example and verbatim code include escaped portions of
 an org-mode buffer code that should be treated as normal
 org-mode text."
-  (or (org-in-indented-comment-line) 
+  (or (org-in-indented-comment-line)
       (save-match-data
 	(save-excursion
 	  (goto-char (point-at-bol))
 	  (looking-at "[ \t]*:[ \t]")))
       (org-in-verbatim-emphasis)
-      (org-in-regexps-block-p "^[ \t]*#\\+begin_src" "^[ \t]*#\\+end_src")))
+      (org-between-regexps-p "^[ \t]*#\\+begin_src" "^[ \t]*#\\+end_src")))
 
 (defvar org-babel-default-lob-header-args)
 (defun org-babel-exp-lob-one-liners (start end)
@@ -243,9 +244,7 @@ This function is called by `org-babel-exp-do-export'.  The code
 block will be evaluated.  Optional argument SILENT can be used to
 inhibit insertion of results into the buffer."
   (when (and org-export-babel-evaluate
-	     (not (and hash
-		       (equal hash (org-babel-exp-in-export-file (nth 0 info)
-				     (org-babel-result-hash info))))))
+	     (not (and hash (equal hash (org-babel-current-result-hash)))))
     (let ((lang (nth 0 info))
 	  (body (nth 1 info)))
       ;; skip code blocks which we can't evaluate

@@ -1,11 +1,11 @@
-;;; org-babel-maxima.el --- org-babel functions for maxima evaluation
+;;; ob-maxima.el --- org-babel functions for maxima evaluation
 
 ;; Copyright (c) 2009, 2010, 2011 Eric S Fraga, Eric Schulte
 
 ;; Author: Eric S Fraga, Eric Schulte
 ;; Keywords: literate programming, reproducible research, maxima
 ;; Homepage: http://orgmode.org
-;; Version: 0.01
+;; Version: 7.7
 
 ;;; License:
 
@@ -77,4 +77,4 @@ called by `org-babel-execute-src-block'."
 
 ;; arch-tag: d86c97ac-7eab-4349-8d8b-302dd09779a8
 
-;;; org-babel-maxima.el ends here
+;;; ob-maxima.el ends here
