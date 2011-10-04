@@ -84,8 +84,14 @@
 (load "octave-mod")
 (load "vc-ediff")
 (load "magit")
+(setq magit-diff-options "-w")
+(load "mo-git-blame")
+(global-set-key [?\C-c ?g ?c] 'mo-git-blame-current)
+(global-set-key [?\C-c ?g ?f] 'mo-git-blame-file)
+
 (load "epresent.el")
 (load "compile.el")
+(setq compilation-scroll-output 'first-error)
 
 ; centos doesn't support a lot of things
 (if (eq (string-match "21.4.1" emacs-version) nil)
@@ -137,12 +143,27 @@
 (load "dmacro")
 (load "dired")  ;; Since I am using a dired function below
 (dmacro-load (concat emacs-git "/dov.dmacro"))
-(def-dmacro-function pwdleaf () (basename (substring (pwd) 20 -1)))
+(def-dmacro-function pwdleaf() (basename (substring (pwd) 0 -1)))
+(def-dmacro-function pwdleaf-spacefill ()
+  (substring
+   (concat
+    (basename (substring (pwd) 0 -1))
+    "                               ")
+   0 20))
+;; A version of (file-name) that space fills the result
+(def-dmacro-function buffername-spacefill ()
+  (substring
+   (concat
+    (replace-regexp-in-string "\\.\\w+$" "" (buffer-name))
+    "                               ")
+   0 20))
 (global-set-key "\C-cm" 'insert-dmacro)
 (global-set-key "\C-ci" 'magit-status)
 
+(setq auto-dmacro-alist '())
 (setq auto-dmacro-alist (append '(("\\.h$" . dot-h)
 				  ("\\.H$" . dot-h)
+				  ("\\.cpp$" . dot-cpp)
 				  ("SConstruct" . sconstruct)
 				  ("SConscript" . sconscript))
 				  auto-dmacro-alist))
@@ -295,7 +316,10 @@
    (ditaa . t)
    (dot . t)
    (asymptote . t)
+   (plantuml . t)
    )) 
+(setq org-plantuml-jar-path
+      (concat emacs-git "/org-mode/scripts/plantuml.jar"))
 (load "org-exp-blocks")
 (load "org-mw")
 (defun my-org-confirm-babel-evaluate (lang body)
@@ -303,6 +327,11 @@
    (or (string= lang "ditaa")
        (string= lang "dot"))))  ; don't ask for ditaa
 (setq org-confirm-babel-evaluate 'my-org-confirm-babel-evaluate)
+
+;; Shell colors
+(setq ansi-color-names-vector
+      '("white" "red" "green" "yellow" "blue" "magenta" "cyan" "black"))
+
 
 ;; Got the follownig from: http://eschulte.github.com/babel-dev/DONE-In-buffer-graphical-results.html
 (defun my-iimage-mode-buffer (arg &optional refresh)
@@ -319,7 +348,7 @@ With numeric ARG, display the images if and only if ARG is positive."
       (dolist (pair iimage-mode-image-regex-alist)
         (while (re-search-forward (car pair) nil t)
           (if (and (setq file (match-string (cdr pair)))
-                   (setq file (iimage-locate-file file
+                   (setq file (locate-file file
                                    (cons default-directory
                                          iimage-mode-image-search-path))))
               (if ing
@@ -352,6 +381,8 @@ With numeric ARG, display the images if and only if ARG is positive."
           (append
            '(("png" . "eog %s"))
            '(("pdf" . "evince %s"))
+           '(("svg" . "inkscape %s"))
+           '(("doc" . "openoffice.org %s"))
            org-file-apps))))
 
 (setq org-src-lang-modes
@@ -603,6 +634,12 @@ With numeric ARG, display the images if and only if ARG is positive."
   ; prepare for user input
   (end-of-buffer))
 
+(defun current-filename-to-clip-buffer ()
+  "Copy the current buffer file name to the clip buffer"
+  (interactive)
+  (kill-new buffer-file-name)
+  (message "%s" buffer-file-name))
+
 ;; Hide unregistered files from vc-buffer.
 ;; Copied from: http://groups.google.com/group/gnu.emacs.bug/msg/4a58d078b4aae650
 (defun my-vc-dir-hide-some (states)
@@ -667,6 +704,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;(global-set-key [f31] 'recenter)
 (global-set-key "\C-x\C-k" 'kill-compilation)
 (global-set-key [(alt d)] 'goto-end-of-gud-buffer)
+(global-set-key (kbd "A-C-f") 'current-filename-to-clip-buffer)
 
 ;; Shortcuts to go to special buffers
 (global-set-key [(alt meta d)] 'goto-end-of-gud-buffer)
@@ -747,6 +785,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control ?0)] 'end-kbd-macro)
 (global-set-key [(find)] 'toolbar-mail)
 (global-set-key [(meta \`)] 'next-error)
+(global-set-key [(meta \~)] '(lambda () (interactive) (next-error -1)))
 (global-set-key [(control meta up)] '(lambda () (interactive) (scroll-other-window 1)))
 (global-set-key [(control meta down)] '(lambda () (interactive) (scroll-other-window -1)))
 (global-set-key [(meta prior)] '(lambda () (interactive) (scroll-other-window-down nil)))

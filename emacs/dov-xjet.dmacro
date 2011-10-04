@@ -5,235 +5,32 @@
 #######
 
 #######
-# MODE:	c-mode
-#######
-#######
-b	indent	curly braces
-{
-~@
-}
-#
-#######
-ife	indent	if/else 
-if (~@)
-   ~(mark)
-else
-   ~(mark)
-
-#
-#######
-ifd	indent	#ifdef/#endif
-#ifdef ~@
-~(mark)
-#endif 
-
-#
-#######
-if	indent	if statement
-if (~@)
- ~(mark)
-
-#
-#######
-mal	indent	call to malloc (prompts for var type)
-= (~(prompt type "Variable type: ") *) ~(dmacro malloc)(~@sizeof(~(prompt)));
-
-#
-#######
-history	expand	a new HISTORY entry in the masthead
-     ~(user-id) - ~(mon) ~dd, ~(year): 
-#
-#######
-while	indent	while statement
-while (~@) {
-   ~mark
-}
-#
-#######
-main	indent	an empty main() function with args
-int main(int argc, char **argv)
-{
-    ~@
-    exit(0);
-}
-#
-#######
-maincl expand	Dov's standard template for command line main.
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
-
-static void die(const char *fmt, ...)
-{
-    va_list ap;
-    va_start(ap,fmt); 
-    
-    vfprintf(stderr, fmt, ap);
-    exit(-1);
-}
-
-#define CASE(s) if (!strcmp(s, S_))
-
-int main(int argc, char **argv)
-{
-    int argp = 1;
-
-    while(argp < argc && argv[argp][0] == '-') {
-        char *S_ = argv[argp++];
-
-        CASE("-help") {
-            printf("~(pwdleaf) - ~@\n\n"
-                   "Syntax:\n"
-                   "    ~(pwdleaf) [] ...\n"
-                   "\n"
-                   "Options:\n"
-                   "    -x x    Foo\n");
-            exit(0);
-        }
-        die("Unknown option %s!\n", S_);
-    }
-    exit(0);
-    return(0);
-}
-
-#
-#######
-ifz	expand	#ifdef zero
-#if 0
-~@
-#endif /* NEVER */
-
-#
-#######
-iifnd	expand	#ifndef/#endif (prompts for condition)
-#ifndef ~(prompt constant "#ifndef condition: ")
-~@
-#endif /* ~(prompt) */
-
-#
-#######
-ifmal	indent	malloc with check for error (prompts for var type)
-if ((~@ = (~(prompt type "Variable type: ") *) ~(dmacro malloc)(~(mark)sizeof(~(prompt)))) == NULLP(~(prompt)))
-
-#
-#######
-switch	indent	switch statement
-switch (~@) {
-    default:
-        break;
-}
-#
-#######
-p	indent	printf
-printf("~@\n"~mark);
-#
-#######
-ifor	indent	interactive for statment (prompts for variable name)
-for (~(prompt var "Variable: ") = 0; ~prompt < ~@; ~prompt++) {
-   ~mark
-}
-
-#
-#######
-dot-h	expand	comment block for the top of a .h file
-~(dmacro cppmasthead t)~(dmacro hifndef)
-#
-#######
-fori	indent	for statement (increments variable i)
-for (i = 0; i < ~@; i++) {
- ~mark
-}
-
-#
-#######
-iifed	expand	#ifdef/#else/#endif (prompts for condition)
-#ifdef ~(prompt constant "#ifdef condition: ")
-~@
-#else
- ~(mark)
-#endif /* ~(prompt) */
-
-#
-#######
-for	indent	for statment
-for (~@; ; ) {
-   ~mark
-}
-
-#
-#######
-i	expand	simple #include directive
-#include <~@.h>
-
-#
-#######
-hifndef	expand	used by dot-h macro
-#ifndef ~((file-name) :up)_H
-#define ~((file-name) :up)_H
-
-~@
-
-#endif /* ~((file-name) :up) */
-#
-#######
-func	indent	function definition (prompts for type and name)
-~(prompt type "Function type: ") ~(prompt name "Function name: ")(~@)
-{
-~mark
-} /* ~(prompt name) */
-
-#
-#######
-case	indent	case/break
-case ~@:
-
-break;
-#
-#######
-d	expand	
-#define 
-#
-#######
-masthead	expand	comment block for the top of a .c file
-/*======================================================================
-//  ~(file-name).~(file-ext) - ~point
-//
-//  Dov Grobgeld <dov.grobgeld@gmail.com>
-//  ~(chron)
-//----------------------------------------------------------------------
-*/
-
-#
-#######
-cppmasthead	expand	comment block for the top of a .c file
-//======================================================================
-//  ~(file-name).~(file-ext) - ~point
-//
-//  Dov Grobgeld <dov.grobgeld@gmail.com>
-//  ~(chron)
-//----------------------------------------------------------------------
-
-#
-#######
-iifd	expand	#ifdef/#endif (prompts for condition)
-#ifdef ~(prompt constant "#ifdef condition: ")
-~@
-#endif /* ~(prompt) */
-#
-
-#######
 # MODE:	c++-mode
 #######
-cppmasthead	expand	comment block for the top of a .c file
-//======================================================================
-//  ~(file-name).~(file-ext) - ~point
-//
-//  Dov Grobgeld <dov.grobgeld@gmail.com>
-//  ~(chron)
-//----------------------------------------------------------------------
+
+#######
+cppmasthead	expand	comment block for the top of a .cpp file
+/********************************************************************
+ * Project: ~(pwdleaf-spacefill)                                    *
+ * Module: ~(buffername-spacefill)                                     *
+ * Module Description:                                              *
+ *                                                                  *
+ * Compilation:                                                     *
+ *                                                                  *
+ * Author: Dov Grobgeld                                             *
+ ********************************************************************/
 
 #
+
+#######
+exception	expand	An exception inclusion
+#include "RException.h"
+
+// Exception class for the ~((file-name))
+DEFINE_EXCEPTION(E~((file-name)));
+
+#
+
 #######
 b	indent	curly braces
 {
@@ -382,19 +179,32 @@ for (~(prompt var "Variable: ") = 0; ~prompt < ~@; ~prompt++) {
 #
 #######
 dot-h	expand	comment block for the top of a .h file
-~(dmacro cppmasthead)~(dmacro hifndef)
-#
-#######
-fori	indent	for statement (increments variable i)
-for (i = 0; i < ~@; i++) {
- ~mark
+~(dmacro cppmasthead)
+#ifndef _~((file-name) :up)_H_
+#define _~((file-name) :up)_H_
+
+#include "RTypes.h"
+
+class C~((file-name))
+{
+  private:
+    int m_~((file-name));
+
+  public:
+    // Constructor
+    C~((file-name))(void) {};
+
+    ~@
 }
+
+#endif /* ~((file-name) :up) */
 
 #
 #######
 dot-cpp	expand	comment block for the top of a .cpp file
 ~(dmacro cppmasthead)
 #include "~((file-name)).h"
+
 
 ~@
 #
@@ -428,8 +238,8 @@ i	expand	simple #include directive
 #
 #######
 hifndef	expand	used by dot-h macro
-#ifndef ~((file-name) :up)_H
-#define ~((file-name) :up)_H
+#ifndef _~((file-name) :up)_H_
+#define _~((file-name) :up)_H_
 
 ~@
 

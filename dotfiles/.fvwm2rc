@@ -210,7 +210,6 @@ Style "*irebird*"     Icon /data/junk/cat/local/MozillaFirebird/icons/mozicon50.
 Style "*irefox*"     Icon /data/junk/cat/local/firefox/icons/mozicon50.xpm, MiniIcon /data/junk/cat/local/firefox/icons/mozicon50.xpm
 Style "*wmCalClock*" geometry +500-0
 Style "*Windows 2000*" MiniIcon mini-win2000.xpm
-Style "*emacs*" MiniIcon mini-xemacs.xpm
 Style "*sdd-tool*" Icon sdd-tool.xpm, MiniIcon mini-sdd-tool.xpm
 Style "*- OpenOffice*" Icon mini-oo-logo.xpm, MiniIcon mini-oo-logo.xpm
 Style "*Gimp*" Icon gimp-icon.xpm, MiniIcon mini.gimp.xpm
@@ -237,7 +236,10 @@ Key E           A	4	WindowShade
 Key J           A	4	Recapture
 Key k           A	4	UpdateDecor
 Key L           A	4	exec xscreensaver-command -lock
-Key M           A	4	exec xemacs &
+#Key M           A	4	exec emacs &
+Key M           A	4S	Maximize 100 100
+Key M           A	4M	Maximize 100 0
+Key M           A	4	Maximize 0 100
 Key I           A	4	Iconify
 Key P           A	4	Exec prompt-xterm &
 Key U           A	4	exec ssh -X marsalis color_xterm -cr green -sb -sl 1000 -T dov\@marsalis -e /product/pcb-aoi/sw/DSV/Alg_Doc/bin/zsh &
@@ -332,7 +334,8 @@ AddToMenu RootMenu	"RootMenu"	Title
 +			"firefox"	Exec  exec firefox -ProfileManager &
 +                       "gthumb"        Exec gthumb &
 +			"skype"	        Exec  exec skype&
-+			"emacs"	        Exec  exec env -u XMODIFIERS ssh-agent emacs-23.1 &
++			"emacs"	        Exec  exec env -u XMODIFIERS ssh-agent emacs &
++			"emacs-24"	        Exec  exec env -u XMODIFIERS ssh-agent /usr/local/public-dev/bin/emacs &
 #+			"VirtualBox"%mini-win2000.xpm%	Exec  exec VirtualBox --startvm WinXPE &
 +			"VirtualBox"%mini-win2000.xpm%	Exec  exec VirtualBox &
 +			"pgcalc"	Exec  exec pgcalc2 &
