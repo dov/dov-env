@@ -386,7 +386,8 @@ With numeric ARG, display the images if and only if ARG is positive."
            '(("png" . "eog %s"))
            '(("pdf" . "evince %s"))
            '(("svg" . "inkscape %s"))
-           '(("doc" . "openoffice.org %s"))
+           '(("doc" . "libreoffice %s"))
+           '(("gnumeric" . "gnumeric %s"))
            org-file-apps))))
 
 (setq org-src-lang-modes
@@ -1144,7 +1145,7 @@ Does not delete the prompt."
       (eval-when (WHEN load) '(ad-activate 'compile))
     (eval-after-load "compile" '(ad-activate 'compile))))
 
-;; Emacs customization
+;; Emacs customization - this might be overwritten in the .emacs file
 
 (custom-set-faces
   ;; custom-set-faces was added by Custom.
@@ -1157,3 +1158,17 @@ Does not delete the prompt."
  '(font-mediawiki-italic-face ((((class color) (background light)) (:inherit italic :foreground "Midnightblue"))))
  '(font-mediawiki-sedate-face ((((class color) (background light)) (:foreground "Black" :weight bold))))
  '(show-paren-match ((((class color) (background light)) (:background "#b4eeb4")))))
+
+(custom-set-variables
+ '(blink-cursor-mode nil)
+ '(column-number-mode t)
+ '(org-emphasis-alist
+   (quote
+    (
+     ("*" bold "<b>" "</b>")
+     ("/" italic "<i>" "</i>")
+     ("_" underline "<span style=\"text-decoration:underline;\">" "</span>")
+     ("=" org-code "<code>" "</code>" verbatim)
+     ("~" org-verbatim "<code>" "</code>" verbatim))))
+ '(show-paren-mode t)
+ '(tool-bar-mode nil))

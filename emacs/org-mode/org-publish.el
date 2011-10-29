@@ -1,11 +1,9 @@
 ;;; org-publish.el --- publish related org-mode files as a website
-;; Copyright (C) 2006, 2007, 2008, 2009, 2010
-;;          Free Software Foundation, Inc.
+;; Copyright (C) 2006-2011 Free Software Foundation, Inc.
 
 ;; Author: David O'Toole <dto@gnu.org>
 ;; Maintainer: Carsten Dominik <carsten DOT dominik AT gmail DOT com>
 ;; Keywords: hypermedia, outlines, wp
-;; Version: 7.7
 
 ;; This file is part of GNU Emacs.
 ;;
@@ -602,6 +600,7 @@ PUB-DIR is the publishing directory."
 		   org-export-preprocess-after-headline-targets-hook)
 	   org-export-preprocess-after-headline-targets-hook)))
      ,@body))
+(def-edebug-spec org-publish-with-aux-preprocess-maybe (body))
 
 (defvar project-plist)
 (defun org-publish-org-to-latex (plist filename pub-dir)
@@ -685,7 +684,7 @@ See `org-publish-projects'."
 	 (pub-dir
 	  (file-name-as-directory
 	   (file-truename
-	    (or (plist-get project-plist :publishing-directory)
+	    (or (eval (plist-get project-plist :publishing-directory))
 		(error "Project %s does not have :publishing-directory defined"
 		       (car project))))))
 	 tmp-pub-dir)
@@ -1106,7 +1105,7 @@ so that the file including them will be republished as well."
       (setq buf (find-file (expand-file-name filename)))
       (with-current-buffer buf
 	(goto-char (point-min))
-	(while (re-search-forward "^#\\+INCLUDE:[ \t]+\"?\\([^ \t\"]*\\)\"?[ \t]*.*$" nil t)
+	(while (re-search-forward "^#\\+INCLUDE:[ \t]+\"?\\([^ \t\n\r\"]*\\)\"?[ \t]*.*$" nil t)
 	  (let* ((included-file (expand-file-name (match-string 1))))
 	    (add-to-list 'included-files-ctime
 			 (org-publish-cache-ctime-of-src included-file) t))))
@@ -1182,7 +1181,5 @@ Returns value on success, else nil."
      (cadr (nth 5 src-attr)))))
 
 (provide 'org-publish)
-
-;; arch-tag: 72807f3c-8af0-4a6b-8dca-c3376eb25adb
 
 ;;; org-publish.el ends here

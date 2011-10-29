@@ -1,12 +1,10 @@
 ;;; org-archive.el --- Archiving for Org-mode
 
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
-;;   Free Software Foundation, Inc.
+;; Copyright (C) 2004-2011 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
 ;; Homepage: http://orgmode.org
-;; Version: 7.7
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -255,7 +253,7 @@ this heading."
 	(let (this-command) (org-copy-subtree 1 nil t))
 	(set-buffer buffer)
 	;; Enforce org-mode for the archive buffer
-	(if (not (org-mode-p))
+	(if (not (eq major-mode 'org-mode))
 	    ;; Force the mode for future visits.
 	    (let ((org-insert-mode-line-in-empty-file t)
 		  (org-inhibit-startup t))
@@ -355,7 +353,7 @@ sibling does not exist, it will be created at the end of the subtree."
     (widen)
     (let (b e pos leader level)
       (org-back-to-heading t)
-      (looking-at outline-regexp)
+      (looking-at org-outline-regexp)
       (setq leader (match-string 0)
 	    level (funcall outline-level))
       (setq pos (point))
@@ -406,7 +404,7 @@ sibling does not exist, it will be created at the end of the subtree."
 If the cursor is not on a headline, try all level 1 trees.  If
 it is on a headline, try all direct children.
 When TAG is non-nil, don't move trees, but mark them with the ARCHIVE tag."
-  (let ((re (concat org-outline-regexp-bol "+" org-not-done-regexp)) re1
+  (let ((re org-not-done-heading-regexp) re1
 	(rea (concat ".*:" org-archive-tag ":"))
 	(begm (make-marker))
 	(endm (make-marker))
@@ -482,7 +480,5 @@ This command is set with the variable `org-archive-default-command'."
     (error "Abort")))
 
 (provide 'org-archive)
-
-;; arch-tag: 0837f601-9699-43c3-8b90-631572ae6c85
 
 ;;; org-archive.el ends here

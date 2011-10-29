@@ -1,10 +1,9 @@
 ;;; org-docbook.el --- DocBook exporter for org-mode
 ;;
-;; Copyright (C) 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2011 Free Software Foundation, Inc.
 ;;
 ;; Emacs Lisp Archive Entry
 ;; Filename: org-docbook.el
-;; Version: 7.7
 ;; Author: Baoqiu Cui <cbaoqiu AT yahoo DOT com>
 ;; Maintainer: Baoqiu Cui <cbaoqiu AT yahoo DOT com>
 ;; Keywords: org, wp, docbook
@@ -294,7 +293,7 @@ then use this command to convert it."
   (interactive "r")
   (let (reg docbook buf)
     (save-window-excursion
-      (if (org-mode-p)
+      (if (eq major-mode 'org-mode)
 	  (setq docbook (org-export-region-as-docbook
 			 beg end t 'string))
 	(setq reg (buffer-substring beg end)
@@ -499,8 +498,9 @@ publishing directory."
 	 ;; We will use HTML table formatter to export tables to DocBook
 	 ;; format, so need to set html-table-tag here.
 	 (html-table-tag (plist-get opt-plist :html-table-tag))
-	 (quote-re0   (concat "^[ \t]*" org-quote-string "\\>"))
-	 (quote-re    (concat "^\\(\\*+\\)\\([ \t]+" org-quote-string "\\>\\)"))
+	 (quote-re0   (concat "^ *" org-quote-string "\\( +\\|[ \t]*$\\)"))
+	 (quote-re    (format org-heading-keyword-regexp-format
+			      org-quote-string))
 	 (inquote     nil)
 	 (infixed     nil)
 	 (inverse     nil)
@@ -970,7 +970,7 @@ publishing directory."
 		    (push (cons num 1) footref-seen))))))
 
 	  (cond
-	   ((string-match "^\\(\\*+\\)[ \t]+\\(.*\\)" line)
+	   ((string-match "^\\(\\*+\\)\\(?: +\\(.*?\\)\\)?[ \t]*$" line)
 	    ;; This is a headline
 	    (setq level (org-tr-level (- (match-end 1) (match-beginning 1)
 					 level-offset))
@@ -1445,5 +1445,4 @@ the alist of previous items."
 
 (provide 'org-docbook)
 
-;; arch-tag: a24a127c-d365-4c2a-9e9b-f7dcb0ebfdc3
 ;;; org-docbook.el ends here
