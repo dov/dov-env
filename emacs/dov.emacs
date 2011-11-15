@@ -18,7 +18,8 @@
       (setq system-time-locale "C")
       )
   (progn
-    (setq my-default-family "Liberation Mono")
+;    (setq my-default-family "Liberation Mono")
+    (setq my-default-family "Inconsolata")
     (setq browse-url-generic-program "firefox")
     (if (not (boundp 'emacs-git))
         (setq emacs-git "/home/dov/.config/emacs"))
@@ -86,7 +87,8 @@
 (load "magit")
 (load "markdown-mode")
 (setq magit-diff-options "-w")
-;(load "mo-git-blame")
+(load "mo-git-blame")
+(load "xmsi-math-symbols-input.el")
 ;(global-set-key [?\C-c ?g ?c] 'mo-git-blame-current)
 ;(global-set-key [?\C-c ?g ?f] 'mo-git-blame-file)
 

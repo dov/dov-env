@@ -195,7 +195,7 @@ class C~((file-name))
     C~((file-name))(void) {};
 
     ~@
-}
+};
 
 #endif /* ~((file-name) :up) */
 
@@ -204,6 +204,7 @@ class C~((file-name))
 dot-cpp	expand	comment block for the top of a .cpp file
 ~(dmacro cppmasthead)
 #include "~((file-name)).h"
+#include "RTrace.h"
 
 
 ~@
