@@ -178,6 +178,7 @@
 (defun my-org-hook ()
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
+  (local-set-key "\C-c\M-c" 'org-screenshot)
   (variable-pitch-mode t)
   (set-face-attribute 'org-table nil :family my-default-family)
   (set-face-attribute 'org-checkbox nil :family my-default-family)
@@ -195,6 +196,13 @@
       (set-face-underline-p 'org-link t)
       (set-face-underline-p 'org-link nil))
   (iimage-mode))
+
+(defun org-screenshot ()
+  "Insert a screenshot in org-mode"
+  (interactive)
+  (call-interactively 'screenshot)
+  (iimage-recenter t))
+
 
 (require 'iimage)
 (add-to-list 'iimage-mode-image-regex-alist
