@@ -658,9 +658,18 @@
   (puthash "<=2" "⇐" xmsi-abrvs)
   (puthash "=>" "⇒" xmsi-abrvs)
 
+  ;; Dov's additions
+
   ;; A vertical bar that doesn't interfer with org mode
   (puthash "|" "❘" xmsi-abrvs)
   (puthash "|:" "¦" xmsi-abrvs)
+
+  (puthash "min" "▽" xmsi-abrvs)
+  (puthash "max" "△" xmsi-abrvs)
+  (puthash "sq" "□" xmsi-abrvs)
+  (puthash "<=>" "⇔" xmsi-abrvs)
+  (puthash "~>" "↝" xmsi-abrvs)
+  (puthash "<~" "↜" xmsi-abrvs)
   )
 
 (defun xmsi-hash-to-list (hashtable)

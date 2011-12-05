@@ -511,6 +511,7 @@ from elisp.
           (insert "\n")))
 
     (setq args (list (plist-get mo-git-blame-vars :current-revision) "--" (plist-get mo-git-blame-vars :file-name)))
+    (setq args (append '("-w") args))
     (if start-line
         (setq args (append (list "-L" (format "%d,+%d" start-line lines-to-blame))
                            args)))
@@ -530,6 +531,7 @@ from elisp.
     (if start-line
         (setq args (append (list "-L" (format "%d,+%d" start-line lines-to-blame))
                            args)))
+    (setq args (append '("-w") args))
     (mo-git-blame-assert-not-running)
     (apply 'mo-git-blame-run* "blame" args)))
 

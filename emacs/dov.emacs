@@ -86,7 +86,7 @@
 (load "vc-ediff")
 (load "magit")
 (load "markdown-mode")
-(setq magit-diff-options "-w")
+(setq magit-diff-options '("-w"))
 (load "mo-git-blame")
 (load "xmsi-math-symbols-input.el")
 ;(global-set-key [?\C-c ?g ?c] 'mo-git-blame-current)
@@ -174,18 +174,24 @@
 (setq gdb-command-name "/usr/bin/gdb")
 
 ;; org-mode
+(load "screenshot.el")
 (require 'org-install)
 (defun my-org-hook ()
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
   (local-set-key "\C-c\M-c" 'org-screenshot)
+  (local-set-key "\C-c\C-pe" 'org-toggle-emphasis-markers)
+  (local-set-key "\C-c\C-pp" 'org-toggle-pretty-entities)
+  (local-set-key "\C-c\C-pi" 'org-toggle-iimage-inorg)
   (variable-pitch-mode t)
   (set-face-attribute 'org-table nil :family my-default-family)
   (set-face-attribute 'org-checkbox nil :family my-default-family)
   (set-face-attribute 'org-block nil :family my-default-family)
   (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
-  (setq org-hide-emphasis-markers 't)
+  (setq org-hide-emphasis-markers nil)
   (setq org-confirm-babel-evaluate nil)
+  (xmsi-mode)
+  (org-toggle-pretty-entities)
   )
 (add-hook 'org-mode-hook 'my-org-hook)
 
@@ -197,12 +203,17 @@
       (set-face-underline-p 'org-link nil))
   (iimage-mode))
 
+(defun org-toggle-emphasis-markers ()
+  "Toggle the emphasis of markers"
+  (interactive)
+  (setq org-hide-emphasis-markers (not org-hide-emphasis-markers))
+  (font-lock-fontify-buffer))
+  
 (defun org-screenshot ()
   "Insert a screenshot in org-mode"
   (interactive)
   (call-interactively 'screenshot)
-  (iimage-recenter t))
-
+  (iimage-recenter nil))
 
 (require 'iimage)
 (add-to-list 'iimage-mode-image-regex-alist
