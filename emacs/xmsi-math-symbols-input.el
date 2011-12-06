@@ -2,7 +2,7 @@
 ;; xmsi-math-symbols-input.el -- a mode to input math chars
 
 ;; Copyright © 2010-12-08 by Xah Lee
-
+;; Personal changes by Dov Grobgeld
 ;; Author: Xah Lee ( http://xahlee.org/ )
 ;; Keywords: math symbols, unicode, input
 
@@ -526,6 +526,7 @@
   (puthash "[[f" "«»" xmsi-abrvs)
   (puthash "floor" "⌊⌋" xmsi-abrvs)
   (puthash "ceiling" "⌈⌉" xmsi-abrvs)
+  (puthash "ceil" "⌈⌉" xmsi-abrvs)
 
   (puthash "angle" "∠" xmsi-abrvs)
   (puthash "rightangle" "⦜" xmsi-abrvs)
@@ -651,10 +652,24 @@
   (puthash "downarrow" "↓" xmsi-abrvs)
   (puthash "<-" "←" xmsi-abrvs) (puthash "leftarrow" "←" xmsi-abrvs)
   (puthash "->" "→" xmsi-abrvs) (puthash "rightarrow" "→" xmsi-abrvs)
+  (puthash "<--" "←" xmsi-abrvs)
+  (puthash "-->" "→" xmsi-abrvs)
 
   (puthash "<=2" "⇐" xmsi-abrvs)
   (puthash "=>" "⇒" xmsi-abrvs)
 
+  ;; Dov's additions
+
+  ;; A vertical bar that doesn't interfer with org mode
+  (puthash "|" "❘" xmsi-abrvs)
+  (puthash "|:" "¦" xmsi-abrvs)
+
+  (puthash "min" "▽" xmsi-abrvs)
+  (puthash "max" "△" xmsi-abrvs)
+  (puthash "sq" "□" xmsi-abrvs)
+  (puthash "<=>" "⇔" xmsi-abrvs)
+  (puthash "~>" "↝" xmsi-abrvs)
+  (puthash "<~" "↜" xmsi-abrvs)
   )
 
 (defun xmsi-hash-to-list (hashtable)

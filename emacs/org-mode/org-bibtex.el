@@ -1,12 +1,11 @@
 ;;; org-bibtex.el --- Org links to BibTeX entries
 ;;
-;; Copyright (C) 2007, 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2011 Free Software Foundation, Inc.
 ;;
 ;; Author: Bastien Guerry <bzg at altern dot org>
 ;;         Carsten Dominik <carsten dot dominik at gmail dot com>
 ;;         Eric Schulte <schulte dot eric at gmail dot com>
 ;; Keywords: org, wp, remember
-;; Version: 7.7
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -275,12 +274,20 @@ This variable is relevant only if `org-bibtex-export-tags-as-keywords` is t."
   :group 'org-bibtex
   :type '(repeat :tag "Tag" (string)))
 
+(defcustom org-bibtex-type-property-name "btype"
+  "Property in which to store bibtex entry type (e.g., article)."
+  :group 'org-bibtex
+  :type 'string)
+
 
 ;;; Utility functions
 (defun org-bibtex-get (property)
   ((lambda (it) (when it (org-babel-trim it)))
-   (or (org-entry-get (point) (upcase property))
-       (org-entry-get (point) (concat org-bibtex-prefix (upcase property))))))
+   (let ((org-special-properties
+	  (delete "FILE" (copy-sequence org-special-properties))))
+     (or
+      (org-entry-get (point) (upcase property))
+      (org-entry-get (point) (concat org-bibtex-prefix (upcase property)))))))
 
 (defun org-bibtex-put (property value)
   (let ((prop (upcase (if (keywordp property)
@@ -303,7 +310,7 @@ This variable is relevant only if `org-bibtex-export-tags-as-keywords` is t."
                                    lsts))))
     (let ((notes (buffer-string))
           (id (org-bibtex-get org-bibtex-key-property))
-          (type (org-bibtex-get "type"))
+          (type (org-bibtex-get org-bibtex-type-property-name))
 	  (tags (when org-bibtex-tags-are-keywords
 		  (delq nil
 			(mapcar
@@ -317,16 +324,20 @@ This variable is relevant only if `org-bibtex-export-tags-as-keywords` is t."
         (let ((entry (format
                       "@%s{%s,\n%s\n}\n" type id
                       (mapconcat
-                       (lambda (pair) (format "  %s={%s}" (car pair) (cdr pair)))
+                       (lambda (pair)
+			 (format "  %s={%s}" (car pair) (cdr pair)))
                        (remove nil
 			 (if (and org-bibtex-export-arbitrary-fields
 				  org-bibtex-prefix)
 			     (mapcar
 			      (lambda (kv)
 				(let ((key (car kv)) (val (cdr kv)))
-				  (when (and (string-match org-bibtex-prefix key)
-					     (not (string=
-						   (downcase (concat org-bibtex-prefix "TYPE")) (downcase key))))
+				  (when (and
+					 (string-match org-bibtex-prefix key)
+					 (not (string=
+					       (downcase (concat org-bibtex-prefix
+								 org-bibtex-type-property-name))
+					       (downcase key))))
 				    (cons (downcase (replace-regexp-in-string
 						     org-bibtex-prefix "" key))
 					  val))))
@@ -525,7 +536,7 @@ With prefix argument OPTIONAL also prompt for optional fields."
   (save-restriction
     (org-narrow-to-subtree)
     (let ((type ((lambda (name) (when name (intern (concat ":" name))))
-                 (org-bibtex-get "TYPE"))))
+                 (org-bibtex-get org-bibtex-type-property-name))))
       (when type (org-bibtex-fleshout type optional)))))
 
 (defun org-bibtex-check-all (&optional optional)
@@ -542,7 +553,8 @@ If nonew is t, add data to the headline of the entry at point."
 		"Type: " (mapcar (lambda (type)
 				   (substring (symbol-name (car type)) 1))
 				 org-bibtex-types)
-		nil nil (when nonew (org-bibtex-get "TYPE"))))
+		nil nil (when nonew
+			  (org-bibtex-get org-bibtex-type-property-name))))
 	 (type (if (keywordp type) type (intern (concat ":" type))))
 	 (org-bibtex-treat-headline-as-title (if nonew nil t)))
     (unless (assoc type org-bibtex-types)
@@ -553,7 +565,8 @@ If nonew is t, add data to the headline of the entry at point."
       (let ((title (org-bibtex-ask :title)))
 	(insert title)
 	(org-bibtex-put "TITLE" title)))
-    (org-bibtex-put "TYPE" (substring (symbol-name type) 1))
+    (org-bibtex-put org-bibtex-type-property-name
+		    (substring (symbol-name type) 1))
     (org-bibtex-fleshout type arg)
     (mapc (lambda (tag) (org-toggle-tag tag 'on)) org-bibtex-tags)))
 
@@ -598,7 +611,7 @@ This uses `bibtex-parse-entry'."
       (org-insert-heading)
       (insert (val :title))
       (org-bibtex-put "TITLE" (val :title))
-      (org-bibtex-put "TYPE"  (downcase (val :type)))
+      (org-bibtex-put org-bibtex-type-property-name (downcase (val :type)))
       (dolist (pair entry)
         (case (car pair)
           (:title    nil)
@@ -637,11 +650,10 @@ This function relies `org-search-view' to locate results."
   (let ((org-agenda-overriding-header "Bib search results:")
         (org-agenda-search-view-always-boolean t))
     (org-search-view nil
-		     (format "%s +{:%sTYPE:}"
-			     string org-bibtex-prefix))))
+		     (format "%s +{:%s%s:}"
+			     string org-bibtex-prefix
+			     org-bibtex-type-property-name))))
 
 (provide 'org-bibtex)
-
-;; arch-tag: 83987d5a-01b8-41c7-85bc-77700f1285f5
 
 ;;; org-bibtex.el ends here

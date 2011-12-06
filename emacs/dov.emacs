@@ -174,17 +174,24 @@
 (setq gdb-command-name "/usr/bin/gdb")
 
 ;; org-mode
+(load "screenshot.el")
 (require 'org-install)
 (defun my-org-hook ()
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
+  (local-set-key "\C-c\M-c" 'org-screenshot)
+  (local-set-key "\C-c\C-pe" 'org-toggle-emphasis-markers)
+  (local-set-key "\C-c\C-pp" 'org-toggle-pretty-entities)
+  (local-set-key "\C-c\C-pi" 'org-toggle-iimage-inorg)
   (variable-pitch-mode t)
   (set-face-attribute 'org-table nil :family my-default-family)
   (set-face-attribute 'org-checkbox nil :family my-default-family)
   (set-face-attribute 'org-block nil :family my-default-family)
   (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
-  (setq org-hide-emphasis-markers 't)
+  (setq org-hide-emphasis-markers nil)
   (setq org-confirm-babel-evaluate nil)
+  (xmsi-mode)
+  (org-toggle-pretty-entities)
   )
 (add-hook 'org-mode-hook 'my-org-hook)
 
@@ -195,6 +202,18 @@
       (set-face-underline-p 'org-link t)
       (set-face-underline-p 'org-link nil))
   (iimage-mode))
+
+(defun org-toggle-emphasis-markers ()
+  "Toggle the emphasis of markers"
+  (interactive)
+  (setq org-hide-emphasis-markers (not org-hide-emphasis-markers))
+  (font-lock-fontify-buffer))
+  
+(defun org-screenshot ()
+  "Insert a screenshot in org-mode"
+  (interactive)
+  (call-interactively 'screenshot)
+  (iimage-recenter nil))
 
 (require 'iimage)
 (add-to-list 'iimage-mode-image-regex-alist
@@ -388,7 +407,8 @@ With numeric ARG, display the images if and only if ARG is positive."
            '(("png" . "eog %s"))
            '(("pdf" . "evince %s"))
            '(("svg" . "inkscape %s"))
-           '(("doc" . "openoffice.org %s"))
+           '(("doc" . "libreoffice %s"))
+           '(("gnumeric" . "gnumeric %s"))
            org-file-apps))))
 
 (setq org-src-lang-modes
@@ -1139,7 +1159,7 @@ Does not delete the prompt."
       (eval-when (WHEN load) '(ad-activate 'compile))
     (eval-after-load "compile" '(ad-activate 'compile))))
 
-;; Emacs customization
+;; Emacs customization - this might be overwritten in the .emacs file
 
 (custom-set-faces
   ;; custom-set-faces was added by Custom.
@@ -1152,3 +1172,17 @@ Does not delete the prompt."
  '(font-mediawiki-italic-face ((((class color) (background light)) (:inherit italic :foreground "Midnightblue"))))
  '(font-mediawiki-sedate-face ((((class color) (background light)) (:foreground "Black" :weight bold))))
  '(show-paren-match ((((class color) (background light)) (:background "#b4eeb4")))))
+
+(custom-set-variables
+ '(blink-cursor-mode nil)
+ '(column-number-mode t)
+ '(org-emphasis-alist
+   (quote
+    (
+     ("*" bold "<b>" "</b>")
+     ("/" italic "<i>" "</i>")
+     ("_" underline "<span style=\"text-decoration:underline;\">" "</span>")
+     ("=" org-code "<code>" "</code>" verbatim)
+     ("~" org-verbatim "<code>" "</code>" verbatim))))
+ '(show-paren-mode t)
+ '(tool-bar-mode nil))

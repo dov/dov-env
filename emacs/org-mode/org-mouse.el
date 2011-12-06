@@ -1,10 +1,10 @@
 ;;; org-mouse.el --- Better mouse support for org-mode
 
-;; Copyright (C) 2006, 2007, 2008, 2009, 2010 Free Software Foundation
+;; Copyright (C) 2006-2011 Free Software Foundation
 ;;
 ;; Author: Piotr Zielinski <piotr dot zielinski at gmail dot com>
 ;; Maintainer: Carsten Dominik <carsten at orgmode dot org>
-;; Version: 7.7
+
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -70,8 +70,7 @@
 ;;
 ;; Since version 5.10: Changes are listed in the general org-mode docs.
 ;;
-;; Version 5.09
-;; + Version number synchronization with Org-mode.
+;; Version 5.09;; + Version number synchronization with Org-mode.
 ;;
 ;; Version 0.25
 ;; + made compatible with org-mode 4.70 (thanks to Carsten for the patch)
@@ -616,12 +615,12 @@ This means, between the beginning of line and the point."
   (beginning-of-line))
 
 (defadvice dnd-insert-text (around org-mouse-dnd-insert-text activate)
-  (if (org-mode-p)
+  (if (eq major-mode 'org-mode)
       (org-mouse-insert-item text)
     ad-do-it))
 
 (defadvice dnd-open-file (around org-mouse-dnd-open-file activate)
-  (if (org-mode-p)
+  (if (eq major-mode 'org-mode)
       (org-mouse-insert-item uri)
     ad-do-it))
 
@@ -631,13 +630,6 @@ This means, between the beginning of line and the point."
       (save-match-data
 	(set-match-data ',match)
 	(apply ',function rest)))))
-
-(defun org-mouse-match-todo-keyword ()
-  (save-excursion
-    (org-back-to-heading)
-    (if (looking-at org-outline-regexp) (goto-char (match-end 0)))
-    (or (looking-at (concat " +" org-todo-regexp " *"))
-	(looking-at " \\( *\\)"))))
 
 (defun org-mouse-yank-link (click)
   (interactive "e")
@@ -1145,7 +1137,5 @@ This means, between the beginning of line and the point."
 	    (:right (org-agenda-later 1)))))))
 
 (provide 'org-mouse)
-
-;; arch-tag: ff1ae557-3529-41a3-95c6-baaebdcc280f
 
 ;;; org-mouse.el ends here
