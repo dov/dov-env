@@ -477,7 +477,7 @@ Where possible, use the standard interface for changing this line."
        ((equal major-mode 'org-agenda-mode)
 	(org-columns-eval eval)
 	;; The following let preserves the current format, and makes sure
-	;; that in only a single file things need to be upated.
+	;; that in only a single file things need to be updated.
 	(let* ((org-agenda-overriding-columns-format org-columns-current-fmt)
 	       (buffer (marker-buffer pom))
 	       (org-agenda-contributing-files
@@ -608,7 +608,7 @@ an integer, select that value."
      ((equal major-mode 'org-agenda-mode)
       (org-columns-eval '(org-entry-put pom key nval))
       ;; The following let preserves the current format, and makes sure
-      ;; that in only a single file things need to be upated.
+      ;; that in only a single file things need to be updated.
       (let* ((org-agenda-overriding-columns-format org-columns-current-fmt)
 	     (buffer (marker-buffer pom))
 	     (org-agenda-contributing-files
@@ -1142,6 +1142,8 @@ calc         function to get values from base elements"
 
 ;;; Dynamic block for Column view
 
+(defvar org-heading-regexp) ; defined in org.el
+(defvar org-heading-keyword-regexp-format) ; defined in org.el
 (defun org-columns-capture-view (&optional maxlevel skip-empty-rows)
   "Get the column view of the current buffer or subtree.
 The first optional argument MAXLEVEL sets the level limit.  A
