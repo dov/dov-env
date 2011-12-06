@@ -86,7 +86,7 @@
 (load "vc-ediff")
 (load "magit")
 (load "markdown-mode")
-(setq magit-diff-options "-w")
+(setq magit-diff-options '("-w"))
 (load "mo-git-blame")
 (load "xmsi-math-symbols-input.el")
 ;(global-set-key [?\C-c ?g ?c] 'mo-git-blame-current)
@@ -593,17 +593,12 @@ With numeric ARG, display the images if and only if ARG is positive."
   (save-some-buffers 1)
   (message "saved"))
 
-;; Some utility functions for quickly getting to my todo list
-(defun todo ()
+(defun open-notes-file ()
   "Load my personal todo list"
   (interactive)
-  (find-file "~/light/log-book.html")
+  (find-file default-notes-file)
   (font-lock-fontify-buffer)
-)
-(defun view-todo ()
-  "View my personal todo list"
-  (interactive)
-  (w3-open-local "~/html/todo.html")
+  (end-of-buffer)
 )
 
 (defun move-to-first-window-line()
@@ -796,9 +791,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control meta down)] '(lambda () (interactive) (scroll-other-window -1)))
 (global-set-key [(meta prior)] '(lambda () (interactive) (scroll-other-window-down nil)))
 (global-set-key [(meta next)] '(lambda () (interactive) (scroll-other-window nil)))
-(global-set-key [f5] 'todo)
-(global-set-key [(control f5)] 'view-todo)
-(global-set-key [(control shift u)] 'ucs-insert)
+(global-set-key [f5] 'open-notes-file)
 
 (define-key global-map " " 'space-or-undo)
 (define-key global-map "\C-x\C-m" 'save-buffers-dont-ask)
