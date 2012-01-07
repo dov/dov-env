@@ -342,6 +342,9 @@
    (dot . t)
    (asymptote . t)
    (plantuml . t)
+   (octave . t)
+   (R . t)
+   (C . t)
    )) 
 (setq org-plantuml-jar-path
       (concat emacs-git "/org-mode/scripts/plantuml.jar"))
@@ -988,7 +991,12 @@ With numeric ARG, display the images if and only if ARG is positive."
 (defun gnu-indent-mode ()
   "Set indent tabs to 2 as is standard by gnome."
   (interactive)
-  (setq my-indent 2))
+  (setq my-indent 2)
+  (setq my-substatement 2)
+  (setq my-substatement-open 2)
+  (setq my-access-label 0)
+  (setq my-topmost-intro 0)
+  (update-indent-mode))
 
 (defun outline-keys (map) ""
   (define-key map [(control kp-subtract)] 'hide-subtree)
@@ -999,12 +1007,15 @@ With numeric ARG, display the images if and only if ARG is positive."
   (define-key map [(control down)] 'scroll-down-line)
   )
 
-(defun my-cmode-stuff (map) ""
+(defun update-indent-mode ()
   (setq c-basic-offset my-indent)
   (c-set-offset 'substatement my-substatement)
   (c-set-offset 'substatement-open my-substatement-open)
   (c-set-offset 'access-label my-access-label)
-  (c-set-offset 'topmost-intro my-topmost-intro)
+  (c-set-offset 'topmost-intro my-topmost-intro))
+  
+(defun my-cmode-stuff (map) ""
+  (update-indent-mode)
 
   (setq indent-tabs-mode nil)
   (define-key map [return] 'newline-and-indent)
