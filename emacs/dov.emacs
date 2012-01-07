@@ -613,17 +613,12 @@ With numeric ARG, display the images if and only if ARG is positive."
   (save-some-buffers 1)
   (message "saved"))
 
-;; Some utility functions for quickly getting to my todo list
-(defun todo ()
+(defun open-notes-file ()
   "Load my personal todo list"
   (interactive)
-  (find-file "~/light/log-book.html")
+  (find-file default-notes-file)
   (font-lock-fontify-buffer)
-)
-(defun view-todo ()
-  "View my personal todo list"
-  (interactive)
-  (w3-open-local "~/html/todo.html")
+  (end-of-buffer)
 )
 
 (defun move-to-first-window-line()
@@ -732,14 +727,60 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(alt d)] 'goto-end-of-gud-buffer)
 (global-set-key (kbd "A-C-f") 'current-filename-to-clip-buffer)
 
+(defun find-first-buffer-match (buffers pattern)
+  (let ((f (car buffers)))
+    (if (eq f '())
+        nil
+      (if (string-match pattern (buffer-name f))
+          f
+        (find-first-buffer-match (cdr buffers) pattern)))))
+
+(defun find-most-recent-pattern-buffer (pattern)
+  "find the most recent code buffer in the history and switch to it"
+  (let ((f (find-first-buffer-match (cdr (buffer-list)) pattern)))
+    (if (not (eq f nil))
+        (switch-to-buffer f))))
+
+(defun find-most-recent-python-buffer ()
+  "find the most recent code buffer in the history and switch to it"
+  (interactive)
+  (find-most-recent-pattern-buffer "\\.py"))
+
+(defun find-most-recent-c-buffer ()
+  "find the most recent code buffer in the history and switch to it"
+  (interactive)
+  (find-most-recent-pattern-buffer "\\.\\(cpp\\|h\\|cc\\|hh\\)$"))
+
+(defun find-most-recent-emacs-buffer ()
+  "find the most recent code buffer in the history and switch to it"
+  (interactive)
+  (find-most-recent-pattern-buffer "\\.el\\$\\|dov.emacs"))
+
+(defun find-most-recent-magit-buffer ()
+  "find the most recent code buffer in the history and switch to it"
+  (interactive)
+  (find-most-recent-pattern-buffer "magit"))
+
+(defun find-most-recent-org-buffer ()
+  "find the most recent code buffer in the history and switch to it"
+  (interactive)
+  (find-most-recent-pattern-buffer "\\.org\$"))
+
 ;; Shortcuts to go to special buffers
 (global-set-key [(alt meta d)] 'goto-end-of-gud-buffer)
+(global-set-key [(alt meta c) ?c] 'find-most-recent-c-buffer)
+(global-set-key [(alt meta c) ?p] 'find-most-recent-python-buffer)
+(global-set-key [(control c) ?b ?c] 'find-most-recent-c-buffer)
+(global-set-key [(control c) ?b ?e] 'find-most-recent-emacs-buffer)
+(global-set-key [(control c) ?b ?p] 'find-most-recent-python-buffer)
+(global-set-key [(control c) ?b ?m] 'find-most-recent-magit-buffer)
+(global-set-key [(control c) ?b ?o] 'find-most-recent-org-buffer)
+(global-set-key [(alt meta m)] 'find-most-recent-magit-buffer)
+(global-set-key [(alt meta y)] 'find-most-recent-python-buffer)
+(global-set-key [(alt meta n)] '(lambda () (interactive) 
+  (switch-to-buffer "notes.org")))
 (global-set-key [(alt meta h)] '(lambda () (interactive) 
   (switch-to-buffer "*shell*")
-  ; prepare for user input
-  (end-of-buffer)))
-(global-set-key [(alt meta m)] '(lambda () (interactive) 
-  (switch-to-buffer "*MATLAB*")
   ; prepare for user input
   (end-of-buffer)))
 (global-set-key [(alt meta s)] '(lambda () (interactive) 
@@ -816,9 +857,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control meta down)] '(lambda () (interactive) (scroll-other-window -1)))
 (global-set-key [(meta prior)] '(lambda () (interactive) (scroll-other-window-down nil)))
 (global-set-key [(meta next)] '(lambda () (interactive) (scroll-other-window nil)))
-(global-set-key [f5] 'todo)
-(global-set-key [(control f5)] 'view-todo)
-(global-set-key [(control shift u)] 'ucs-insert)
+(global-set-key [f5] 'open-notes-file)
 
 (define-key global-map " " 'space-or-undo)
 (define-key global-map "\C-x\C-m" 'save-buffers-dont-ask)
