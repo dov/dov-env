@@ -766,6 +766,10 @@ With numeric ARG, display the images if and only if ARG is positive."
   (interactive)
   (find-most-recent-pattern-buffer "\\.org\$"))
 
+;; git find file
+(load "git-find-file.el")
+(global-set-key [(control c) ?g] 'git-find-file)
+
 ;; Shortcuts to go to special buffers
 (global-set-key [(alt meta d)] 'goto-end-of-gud-buffer)
 (global-set-key [(alt meta c) ?c] 'find-most-recent-c-buffer)
