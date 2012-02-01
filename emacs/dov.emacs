@@ -410,6 +410,7 @@ With numeric ARG, display the images if and only if ARG is positive."
            '(("png" . "eog %s"))
            '(("pdf" . "evince %s"))
            '(("svg" . "inkscape %s"))
+           '(("giv" . "giv %s"))
            '(("doc" . "libreoffice %s"))
            '(("gnumeric" . "gnumeric %s"))
            org-file-apps))))
@@ -768,6 +769,15 @@ With numeric ARG, display the images if and only if ARG is positive."
   "find the most recent code buffer in the history and switch to it"
   (interactive)
   (find-most-recent-pattern-buffer "\\.org\$"))
+
+;; git find file
+(load "git-find-file.el")
+(global-set-key [(control c) ?g] 'git-find-file)
+
+;; git grep
+(load "dov-git-grep")
+(global-set-key [(control c) ?s] 'dov-git-grep)
+
 
 ;; Shortcuts to go to special buffers
 (global-set-key [(alt meta d)] 'goto-end-of-gud-buffer)
