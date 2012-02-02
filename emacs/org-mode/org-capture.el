@@ -333,7 +333,8 @@ calendar                |  %:type %:date"
 
 (defcustom org-capture-before-finalize-hook nil
   "Hook that is run right before a capture process is finalized.
-The capture buffer is still current when this hook runs."
+The capture buffer is still current when this hook runs and it is
+widened to the entire buffer."
   :group 'org-capture
   :type 'hook)
 
@@ -777,7 +778,8 @@ already gone.  Any prefix argument will be passed to the refile command."
 	    (let ((prompt-time (org-read-date
 				nil t nil "Date for tree entry:"
 				(current-time))))
-	      (org-capture-put :prompt-time prompt-time)
+	      (org-capture-put :prompt-time prompt-time
+			       :default-time prompt-time)
 	      (time-to-days prompt-time)))
 	   (t
 	    ;; current date, possible corrected for late night workers
@@ -848,6 +850,7 @@ it.  When it is a variable, retrieve the value.  Return whatever we get."
   (goto-char (org-capture-get :pos))
   (org-set-local 'org-capture-target-marker
 		 (move-marker (make-marker) (point)))
+  (org-set-local 'outline-level 'org-outline-level)
   (let* ((template (org-capture-get :template))
 	 (type (org-capture-get :type)))
     (case type

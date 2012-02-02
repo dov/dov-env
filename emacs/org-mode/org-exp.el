@@ -1283,6 +1283,9 @@ on this string to produce the exported version."
       ;; Remove #+TBLFM and #+TBLNAME lines
       (org-export-handle-table-metalines)
 
+      ;; Remove #+results and #+name lines
+      (org-export-res/src-name-cleanup)
+
       ;; Run the final hook
       (run-hooks 'org-export-preprocess-final-hook)
 
@@ -1640,6 +1643,7 @@ from the buffer."
       (org-if-unprotected
        (replace-match "")))))
 
+(defvar org-heading-keyword-regexp-format) ; defined in org.el
 (defun org-export-protect-quoted-subtrees ()
   "Mark quoted subtrees with the protection property."
   (let ((org-re-quote (format org-heading-keyword-regexp-format
@@ -1991,6 +1995,18 @@ When it is nil, all comments will be removed."
 	(replace-match "")
 	(goto-char (max (point-min) (1- pos)))))))
 
+(defun org-export-res/src-name-cleanup ()
+  "Clean up #+results and #+name lines for export.
+This function should only be called after all block processing
+has taken place."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (while (org-re-search-forward-unprotected
+	      "#\\+\\(name\\|results\\(\\[[a-z0-9]+\\]\\)?\\):" nil t)
+	(delete-region (match-beginning 0) (progn (forward-line) (point)))))))
+
 (defun org-export-mark-radio-links ()
   "Find all matches for radio targets and turn them into internal links."
   (let ((re-radio (and org-target-link-regexp
@@ -2150,24 +2166,31 @@ can work correctly."
 		   (save-excursion (outline-next-heading) (point)))))
 	(when (re-search-forward "^[ \t]*[^|# \t\r\n].*\n" end t)
 	  ;; Mark the line so that it will not be exported as normal text.
-	  (org-unmodified
-	   (add-text-properties (match-beginning 0) (match-end 0)
-				(list :org-license-to-kill t)))
+	  (unless (org-in-block-p org-list-forbidden-blocks)
+	    (org-unmodified
+	     (add-text-properties (match-beginning 0) (match-end 0)
+				  (list :org-license-to-kill t))))
 	  ;; Return the title string
 	  (org-trim (match-string 0)))))))
 
 (defun org-export-get-title-from-subtree ()
   "Return subtree title and exclude it from export."
   (let ((rbeg (region-beginning)) (rend (region-end))
-	(inhibit-read-only t) title)
+	(inhibit-read-only t)
+	(tags (plist-get (org-infile-export-plist) :tags))
+	title)
     (save-excursion
       (goto-char rbeg)
       (when (and (org-at-heading-p)
 		 (>= (org-end-of-subtree t t) rend))
+	(when (plist-member org-export-opt-plist :tags)
+	  (setq tags (or (plist-get org-export-opt-plist :tags) tags)))
 	;; This is a subtree, we take the title from the first heading
 	(goto-char rbeg)
-	(looking-at org-todo-line-regexp)
-	(setq title (match-string 3))
+	(looking-at org-todo-line-tags-regexp)
+	(setq title (if (eq tags t)
+			(format "%s\t%s" (match-string 3) (match-string 4))
+		      (match-string 3)))
 	(org-unmodified
 	 (add-text-properties (point) (1+ (point-at-eol))
 			      (list :org-license-to-kill t)))
@@ -3279,7 +3302,7 @@ If yes remove the column and the special lines."
 
 (defun org-export-push-to-kill-ring (format)
   "Push buffer content to kill ring.
-The depends on the variable `org-export-copy-to-kill'."
+The depends on the variable `org-export-copy-to-kill-ring'."
   (when org-export-copy-to-kill-ring
     (org-kill-new (buffer-string))
     (when (fboundp 'x-set-selection)
