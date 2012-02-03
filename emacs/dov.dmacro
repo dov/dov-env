@@ -543,6 +543,27 @@ python	expand	perl source section
 #
 
 #######
+octave	expand	octave source section
+#+begin_src octave
+~@
+#+end_src
+#
+
+#######
+octave-plot	expand	octave source section
+#+begin_src octave
+x = -10:0.1:10;
+y = sin(x)
+figure(1,"visible","off");
+plot(x,y);
+print "-S800,500"  -dsvg ~@ chart.svg;
+ans = ""
+#+end_src
+
+[[chart.svg]]
+#
+
+#######
 src	expand	perl source section
 #+begin_src ~@
 
