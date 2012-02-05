@@ -9,13 +9,17 @@
 
 (defun ffip-project-files (repo)
   "Return an alist of all filenames in the project and their path."
-  (cd repo)
-  (let ((file-alist nil))
-    (mapcar (lambda (file)
-              (let ((file-cons (cons (file-name-nondirectory file) file)))
-                (add-to-list 'file-alist file-cons)
-                file-cons))
-            (split-string (shell-command-to-string "git ls-files")))))
+  (let ((file-alist nil)
+        (old-dir default-directory))
+    (progn 
+      (cd repo)
+      (setq ret (mapcar (lambda (file)
+                          (let ((file-cons (cons (file-name-nondirectory file) file)))
+                            (add-to-list 'file-alist file-cons)
+                            file-cons))
+                        (split-string (shell-command-to-string "git ls-files"))))
+      (cd old-dir)
+      ret)
 
 (defun find-git-repo (dir)
   "Find base git directory"
