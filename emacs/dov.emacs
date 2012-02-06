@@ -195,6 +195,24 @@
   )
 (add-hook 'org-mode-hook 'my-org-hook)
 
+;; Make all font-lock faces fonts use inconsolata
+(dolist (face '(font-lock-builtin-face 	
+                font-lock-comment-delimiter-face
+                font-lock-comment-face 	
+                font-lock-constant-face
+                font-lock-doc-face 	
+                font-lock-function-name-face
+                font-lock-keyword-face 	
+                font-lock-negation-char-face
+                font-lock-preprocessor-face 	
+                font-lock-regexp-grouping-backslash
+                font-lock-regexp-grouping-construct 	
+                font-lock-string-face
+                font-lock-type-face 	
+                font-lock-variable-name-face
+                font-lock-warning-face))
+  (set-face-attribute face nil :family my-default-family))
+
 (defun org-toggle-iimage-in-org ()
   "display images in your org file"
   (interactive)
@@ -731,13 +749,12 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(alt d)] 'goto-end-of-gud-buffer)
 (global-set-key (kbd "A-C-f") 'current-filename-to-clip-buffer)
 
+;; Find first and return first buffer matching a given pattern
 (defun find-first-buffer-match (buffers pattern)
   (let ((f (car buffers)))
-    (if (eq f '())
-        nil
-      (if (string-match pattern (buffer-name f))
-          f
-        (find-first-buffer-match (cdr buffers) pattern)))))
+    (cond ((eq f '()) nil)
+          ((string-match pattern (buffer-name f)) f)
+          (t (find-first-buffer-match (cdr buffers) pattern)))))
 
 (defun find-most-recent-pattern-buffer (pattern)
   "find the most recent code buffer in the history and switch to it"
@@ -1016,6 +1033,11 @@ With numeric ARG, display the images if and only if ARG is positive."
   (define-key map [(control up)] 'scroll-up-line)
   (define-key map [(control down)] 'scroll-down-line)
   )
+
+(defun find-dov-env ()
+  "Edit this file"
+  (interactive)
+  (find-file (concat emacs-git "/dov.emacs")))
 
 (defun update-indent-mode ()
   (setq c-basic-offset my-indent)

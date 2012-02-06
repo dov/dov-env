@@ -2572,7 +2572,7 @@ $1->    %s\n" orig formula form0 form))
 	    (message "")))
 	(if (listp ev) (setq fmt nil ev "#ERROR"))
 	(org-table-justify-field-maybe
-	 (format "~%s~" (if fmt (format fmt (string-to-number ev)) ev)))
+	 (format "%s" (if fmt (format fmt (string-to-number ev)) ev)))
 	(if (and down (> ndown 0) (looking-at ".*\n[ \t]*|[^-]"))
 	    (call-interactively 'org-return)
 	  (setq ndown 0)))
