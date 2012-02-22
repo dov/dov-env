@@ -16,7 +16,9 @@
 
       ;; don't use Hebrew locale!
       (setq system-time-locale "C")
-      )
+
+      ;; Load windows utilities
+      (load "win-utils.el"))
   (progn
 ;    (setq my-default-family "Liberation Mono")
     (setq my-default-family "Inconsolata")
