@@ -104,6 +104,10 @@
 (load "compile.el")
 (setq compilation-scroll-output 'first-error)
 
+; Encryption
+(require 'epa-file)
+(epa-file-enable)
+
 ; centos doesn't support a lot of things
 (if (eq (string-match "21.4.1" emacs-version) nil)
     (progn
@@ -201,6 +205,12 @@
   (org-toggle-pretty-entities)
   )
 (add-hook 'org-mode-hook 'my-org-hook)
+(require 'org-crypt)
+(org-crypt-use-before-save-magic)
+(setq org-tags-exclude-from-inheritance (quote ("crypt")))
+;; GPG key to use for encryption
+;; Either the Key ID or set to nil to use symmetric encryption.
+(setq org-crypt-key "C1CC1169")
 
 ;; Make all font-lock faces fonts use inconsolata
 (dolist (face '(font-lock-builtin-face 	
