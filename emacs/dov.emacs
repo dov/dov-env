@@ -16,7 +16,9 @@
 
       ;; don't use Hebrew locale!
       (setq system-time-locale "C")
-      )
+
+      ;; Load windows utilities
+      (load "win-utils.el"))
   (progn
 ;    (setq my-default-family "Liberation Mono")
     (setq my-default-family "Inconsolata")
@@ -92,6 +94,12 @@
 ;(global-set-key [?\C-c ?g ?c] 'mo-git-blame-current)
 ;(global-set-key [?\C-c ?g ?f] 'mo-git-blame-file)
 
+(add-to-list 'load-path (concat emacs-git "/pde"))
+(load "pde-load")
+; pde turns this on, which I don't like
+(ido-mode nil)
+(global-set-key "\C-ci" 'magit-status)
+
 (load "epresent.el")
 (load "compile.el")
 (setq compilation-scroll-output 'first-error)
@@ -161,7 +169,6 @@
     "                               ")
    0 20))
 (global-set-key "\C-cm" 'insert-dmacro)
-(global-set-key "\C-ci" 'magit-status)
 
 (setq auto-dmacro-alist '())
 (setq auto-dmacro-alist (append '(("\\.h$" . dot-h)
@@ -303,7 +310,10 @@
             (define-key c-mode-map [(return)] 'newline-and-indent)))
 (add-hook 'cperl-mode-hook
           (lambda ()
-            (define-key cperl-mode-map [(return)] 'newline-and-indent)))
+            (define-key cperl-mode-map [(return)] 'newline-and-indent)
+            (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
+            (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
+            ))
 
 (autoload 'vala-mode "vala-mode.el" "Valamode" t)
 (autoload 'pov-mode "pov-mode.el" "PoVray scene file mode" t)
@@ -514,6 +524,12 @@ With numeric ARG, display the images if and only if ARG is positive."
 (setq mime-editor/split-message nil)
 (setq vm-reply-ignored-addresses '("^dov@orbotechcom.com"
                                    "[ \<]dov@orbotech.com"))
+
+(defun perl-execute-buffer()
+  "Execute perl on the region or the buffer"
+  (interactive)
+  (shell-command-on-region
+    (min (point) (mark)) (max (point) (mark)) "perl "))
 
 ;; Some functions defined by me
 (defun perl-pe-region()

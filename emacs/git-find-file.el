@@ -19,7 +19,7 @@
                             file-cons))
                         (split-string (shell-command-to-string "git ls-files"))))
       (cd old-dir)
-      ret)
+      ret)))
 
 (defun find-git-repo (dir)
   "Find base git directory"
