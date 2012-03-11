@@ -308,7 +308,6 @@
 (add-hook 'java-mode-hook 'font-lock-mode)
 (add-hook 'sgml-mode-hook 'font-lock-mode)
 (add-hook 'c-mode-common-hook 'font-lock-mode)
-(add-hook 'cperl-mode-hook 'font-lock-mode)
 (add-hook 'octave-mode-hook
           (lambda ()
             (abbrev-mode 1)
@@ -323,6 +322,14 @@
             (define-key cperl-mode-map [(return)] 'newline-and-indent)
             (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
             (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
+            (define-key cperl-mode-map ";" 'self-insert-command)
+            (define-key cperl-mode-map " " 'self-insert-command)
+            (define-key cperl-mode-map "}" 'self-insert-command)
+            (setq cperl-electric-keywords nil)
+            (setq-default abbrev-mode nil)
+            (abbrev-mode 0)
+            ;; The only way I managed to turn of this #@%$# mode!
+            (defun abbrev-mode (foo) (interactive))
             ))
 
 (autoload 'vala-mode "vala-mode.el" "Valamode" t)
@@ -513,6 +520,12 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 (setq-default cperl-indent-level 4)
 (setq cperl-indent-parens-as-block t) 
+(setq cperl-electric-parens nil)
+(setq cperl-electric-linefeed nil)
+(setq cperl-electric-keywords nil)
+(setq cperl-hairy nil)
+(setq cperl-mode-abbrev-table nil)
+
 (setq diff-switches "-w")
 (setq vc-diff-switches "-w -c")
 (setq tex-dvi-view-command "xdvi")
@@ -774,6 +787,8 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key "\C-x\C-k" 'kill-compilation)
 (global-set-key [(alt d)] 'goto-end-of-gud-buffer)
 (global-set-key (kbd "A-C-f") 'current-filename-to-clip-buffer)
+(global-set-key [(control insert)] 'clipboard-kill-ring-save)
+(global-set-key [(shift insert)] 'x-clipboard-yank)
 
 ;; Find first and return first buffer matching a given pattern
 (defun find-first-buffer-match (buffers pattern)
