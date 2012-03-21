@@ -1,6 +1,9 @@
 """
 Open a file in visual studio, optionally on the requested linenumber.
 
+This should be replaced with the more complete solution:
+  - http://badbyteblues.blogspot.com/2007/08/automating-developer-studio.html
+
 Dov Grobgeld <dov.grobgeld@gmail.com>
 Wednesday 2012-02-22 17:10 
 """

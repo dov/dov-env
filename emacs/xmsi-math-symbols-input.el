@@ -670,6 +670,12 @@
   (puthash "<=>" "⇔" xmsi-abrvs)
   (puthash "~>" "↝" xmsi-abrvs)
   (puthash "<~" "↜" xmsi-abrvs)
+  (puthash "check" "✓" xmsi-abrvs)
+  (puthash "checkbold" "✔" xmsi-abrvs)
+  (puthash "ballotx" "✗" xmsi-abrvs)
+  (puthash "ballotxbold" "✘" xmsi-abrvs)
+  (puthash "ballotsqcheck" "☐" xmsi-abrvs)
+  (puthash "ballotsqcheck" "☑" xmsi-abrvs)
   )
 
 (defun xmsi-hash-to-list (hashtable)

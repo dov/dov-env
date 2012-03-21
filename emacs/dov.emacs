@@ -18,7 +18,7 @@
       (setq system-time-locale "C")
 
       ;; Load windows utilities
-      (load "win-utils.el"))
+      (load (concat emacs-git "win-utils.el")))
   (progn
 ;    (setq my-default-family "Liberation Mono")
     (setq my-default-family "Inconsolata")
@@ -103,6 +103,10 @@
 (load "epresent.el")
 (load "compile.el")
 (setq compilation-scroll-output 'first-error)
+
+; Encryption
+(require 'epa-file)
+(epa-file-enable)
 
 ; centos doesn't support a lot of things
 (if (eq (string-match "21.4.1" emacs-version) nil)
@@ -201,6 +205,12 @@
   (org-toggle-pretty-entities)
   )
 (add-hook 'org-mode-hook 'my-org-hook)
+(require 'org-crypt)
+(org-crypt-use-before-save-magic)
+(setq org-tags-exclude-from-inheritance (quote ("crypt")))
+;; GPG key to use for encryption
+;; Either the Key ID or set to nil to use symmetric encryption.
+(setq org-crypt-key "C1CC1169")
 
 ;; Make all font-lock faces fonts use inconsolata
 (dolist (face '(font-lock-builtin-face 	
@@ -298,7 +308,6 @@
 (add-hook 'java-mode-hook 'font-lock-mode)
 (add-hook 'sgml-mode-hook 'font-lock-mode)
 (add-hook 'c-mode-common-hook 'font-lock-mode)
-(add-hook 'cperl-mode-hook 'font-lock-mode)
 (add-hook 'octave-mode-hook
           (lambda ()
             (abbrev-mode 1)
@@ -313,6 +322,14 @@
             (define-key cperl-mode-map [(return)] 'newline-and-indent)
             (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
             (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
+            (define-key cperl-mode-map ";" 'self-insert-command)
+            (define-key cperl-mode-map " " 'self-insert-command)
+            (define-key cperl-mode-map "}" 'self-insert-command)
+            (setq cperl-electric-keywords nil)
+            (setq-default abbrev-mode nil)
+            (abbrev-mode 0)
+            ;; The only way I managed to turn of this #@%$# mode!
+            (defun abbrev-mode (foo) (interactive))
             ))
 
 (autoload 'vala-mode "vala-mode.el" "Valamode" t)
@@ -503,6 +520,12 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 (setq-default cperl-indent-level 4)
 (setq cperl-indent-parens-as-block t) 
+(setq cperl-electric-parens nil)
+(setq cperl-electric-linefeed nil)
+(setq cperl-electric-keywords nil)
+(setq cperl-hairy nil)
+(setq cperl-mode-abbrev-table nil)
+
 (setq diff-switches "-w")
 (setq vc-diff-switches "-w -c")
 (setq tex-dvi-view-command "xdvi")
@@ -764,6 +787,8 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key "\C-x\C-k" 'kill-compilation)
 (global-set-key [(alt d)] 'goto-end-of-gud-buffer)
 (global-set-key (kbd "A-C-f") 'current-filename-to-clip-buffer)
+(global-set-key [(control insert)] 'clipboard-kill-ring-save)
+(global-set-key [(shift insert)] 'x-clipboard-yank)
 
 ;; Find first and return first buffer matching a given pattern
 (defun find-first-buffer-match (buffers pattern)
