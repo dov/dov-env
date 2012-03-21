@@ -18,7 +18,7 @@
       (setq system-time-locale "C")
 
       ;; Load windows utilities
-      (load "win-utils.el"))
+      (load (concat emacs-git "win-utils.el")))
   (progn
 ;    (setq my-default-family "Liberation Mono")
     (setq my-default-family "Inconsolata")
