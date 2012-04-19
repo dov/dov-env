@@ -186,6 +186,11 @@
 
 ;; org-mode
 (load "screenshot.el")
+(load "org-man.el")
+(load "org-git-hyperlink.el")
+(load "org-wp.el")
+(load "org-learning.el")
+
 (require 'org-install)
 (defun my-org-hook ()
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
