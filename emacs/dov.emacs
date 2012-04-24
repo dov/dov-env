@@ -189,7 +189,6 @@
 (load "org-man.el")
 (load "org-git-hyperlink.el")
 (load "org-wp.el")
-(load "org-learning.el")
 
 (require 'org-install)
 (defun my-org-hook ()
