@@ -62,7 +62,7 @@
   (setq-default bidi-display-reordering t)
   (setq x-select-enable-primary t)
   (setq x-select-enable-clipboard nil))
-
+  
 (defconst inhibit-startup-message t)
 
 (menu-bar-mode 't)
@@ -400,7 +400,7 @@
        (list (cons "\\.tcl$"  'tcl-mode))
        (list (cons "\\.doc$"  'doc-mode))
        (list (cons "\\.adc$"  'doc-mode))
-       (list (cons "\\.m$" 'matlab-mode)) 
+       (list (cons "\\.m$" 'octave-mode)) 
        (list (cons "\\.xml$" 'xml-mode)) 
        (list (cons "notes.txt" 'mediawiki-mode)) 
        (list (cons "\\.txt$" 'org-mode)) 
@@ -879,6 +879,10 @@ With numeric ARG, display the images if and only if ARG is positive."
   (switch-to-buffer "notes.org")))
 (global-set-key [(alt meta h)] '(lambda () (interactive) 
   (switch-to-buffer "*shell*")
+  ; prepare for user input
+  (end-of-buffer)))
+(global-set-key [(alt meta o)] '(lambda () (interactive) 
+  (switch-to-buffer "*Inferior Octave*")
   ; prepare for user input
   (end-of-buffer)))
 (global-set-key [(alt meta s)] '(lambda () (interactive) 
