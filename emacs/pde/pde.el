@@ -280,6 +280,11 @@ With prefix argument, reflesh the formated manpage."
           (display-buffer buf))
       (message "No pod found in current buffer"))))
 
+(defcustom pde-hooks nil
+  "Hooks run after loading pde"
+  :group 'pde
+  :type 'hook)
+
 ;;;###autoload 
 (defun pde-perl-mode-hook ()
   "Hooks run when enter perl-mode"
@@ -344,7 +349,8 @@ With prefix argument, reflesh the formated manpage."
   (add-hook 'after-save-hook 'executable-make-buffer-file-executable-if-script-p nil t)
   (set (make-local-variable 'compile-dwim-check-tools) nil)
   (when pde-extra-setting
-    (tempo-use-tag-list 'tempo-perl-tags)))
+    (tempo-use-tag-list 'tempo-perl-tags))
+  (run-hooks 'pde-hook))
 
 (provide 'pde)
 ;;; pde.el ends here

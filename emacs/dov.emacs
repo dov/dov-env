@@ -21,7 +21,7 @@
       (load (concat emacs-git "win-utils.el")))
   (progn
 ;    (setq my-default-family "Liberation Mono")
-    (setq my-default-family "Inconsolata")
+    (setq my-default-family "InconsolataDov")
     (setq browse-url-generic-program "firefox")
     (if (not (boundp 'emacs-git))
         (setq emacs-git "/home/dov/.config/emacs"))
@@ -186,6 +186,10 @@
 
 ;; org-mode
 (load "screenshot.el")
+(load "org-man.el")
+(load "org-git-hyperlink.el")
+(load "org-wp.el")
+
 (require 'org-install)
 (defun my-org-hook ()
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
@@ -317,21 +321,52 @@
 (add-hook 'vala-mode-hook
           (lambda ()
             (define-key c-mode-map [(return)] 'newline-and-indent)))
-(add-hook 'cperl-mode-hook
-          (lambda ()
-            (define-key cperl-mode-map [(return)] 'newline-and-indent)
-            (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
-            (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
-            (define-key cperl-mode-map ";" 'self-insert-command)
-            (define-key cperl-mode-map " " 'self-insert-command)
-            (define-key cperl-mode-map "}" 'self-insert-command)
-            (setq cperl-electric-keywords nil)
-            (setq-default abbrev-mode nil)
-            (abbrev-mode 0)
-            ;; The only way I managed to turn of this #@%$# mode!
-            (defun abbrev-mode (foo) (interactive))
-            ))
 
+; Example of how to read argument from minibuffer or use default params.
+(defun my-message (&optional arg)
+  (interactive
+   (list (if current-prefix-arg
+             (read-from-minibuffer "MyPrompt: ")
+           nil)))
+  (if arg
+      (message arg)
+    (message "NO ARG")))
+
+;(global-set-key "\C-c\C-t" 'my-message)
+
+(defun my-compile-dwim-run (&optional arg)
+  (interactive "P")
+  (if arg
+    (call-interactively 'compile-dwim-run)
+    (compile-dwim-run "foo")))
+
+;;; Why can't I get this to run automatically in the perl-mode hook
+(defun my-perl-mode-hook ()
+  (interactive)
+  (define-key cperl-mode-map [(return)] 'newline-and-indent)
+  (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
+  (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
+  (define-key cperl-mode-map ";" 'self-insert-command)
+  (define-key cperl-mode-map " " 'self-insert-command)
+  (define-key cperl-mode-map "{" 'self-insert-command)
+  (setq-default abbrev-mode nil)
+  (setq cperl-auto-newline nil)
+  (setq-default cperl-auto-newline nil)
+  (setq-default cperl-indent-level 4)
+  (setq cperl-indent-parens-as-block t) 
+  (setq cperl-electric-parens nil)
+  (setq cperl-electric-linefeed nil)
+  (setq cperl-electric-keywords nil)
+  (setq cperl-hairy nil)
+  (setq cperl-mode-abbrev-table nil)
+  
+  (abbrev-mode 0)
+  (message "my-perl-mode-hook")
+  )
+
+(add-hook 'pde-hook 'my-perl-mode-hook)
+(add-hook 'cperl-mode 'my-perl-mode-hook)
+  
 (autoload 'vala-mode "vala-mode.el" "Valamode" t)
 (autoload 'pov-mode "pov-mode.el" "PoVray scene file mode" t)
 (autoload 'sather-mode "sather.el" "Sather mode" t nil)
@@ -517,14 +552,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 (setq sgml-catalog-files
       '("CATALOG" "/data/alg/local/sgml/CATALOG"))
-
-(setq-default cperl-indent-level 4)
-(setq cperl-indent-parens-as-block t) 
-(setq cperl-electric-parens nil)
-(setq cperl-electric-linefeed nil)
-(setq cperl-electric-keywords nil)
-(setq cperl-hairy nil)
-(setq cperl-mode-abbrev-table nil)
 
 (setq diff-switches "-w")
 (setq vc-diff-switches "-w -c")

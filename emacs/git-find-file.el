@@ -17,7 +17,7 @@
                           (let ((file-cons (cons (file-name-nondirectory file) file)))
                             (add-to-list 'file-alist file-cons)
                             file-cons))
-                        (split-string (shell-command-to-string "git ls-files"))))
+                        (split-string (shell-command-to-string "git ls-files") "\n")))
       (cd old-dir)
       ret)))
 
@@ -38,6 +38,19 @@ ido is used for the completing read if available."
 
 (defun last-component (str sep)
   (car (last (split-string str sep t))))
+
+(defun git-find-file-in-repo (root file-name)
+  "Prompt with a completing list of all files in the project to find one."
+  (interactive)
+  (let* ((project-files (ffip-project-files root))
+         (files (delete-dups (mapcar 'car project-files)))
+         (file-paths (delq 'nil (mapcar '(lambda (file-cons)
+                                           (when (string= file-name (car file-cons))
+                                             (cdr file-cons))) project-files)))
+         (file-path (if (cdr file-paths)
+                        (ffip-completing-read "Disambiguate: " file-paths)
+                      (car file-paths))))
+    (find-file (concat root file-path))))
 
 (defun git-find-file ()
   "Prompt with a completing list of all files in the project to find one."
