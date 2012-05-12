@@ -87,6 +87,7 @@
 (load "octave-mod")
 (load "vc-ediff")
 (load "magit")
+(load "magit-blame")
 (load "markdown-mode")
 (setq magit-diff-options '("-w"))
 (load "mo-git-blame")
@@ -95,10 +96,13 @@
 ;(global-set-key [?\C-c ?g ?f] 'mo-git-blame-file)
 
 (add-to-list 'load-path (concat emacs-git "/pde"))
-(load "pde-load")
-; pde turns this on, which I don't like
-(ido-mode nil)
+(when (>= emacs-major-version 24)
+  (load "pde-load")
+  ; pde turns this on, which I don't like
+  (ido-mode nil))
+
 (global-set-key "\C-ci" 'magit-status)
+(global-set-key "\C-c\C-b" 'magit-blame-mode)
 
 (load "epresent.el")
 (load "compile.el")
@@ -978,7 +982,10 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control kp_5)] 'move-to-middle-window-line)
 (global-set-key [kp_5] 'recenter)
 (define-key sgml-mode-map [(meta f2)] 'html-date-line)
-(define-key minibuffer-local-completion-map [tab] 'icicle-prefix-complete)
+
+; icicle completion does not work for 
+(if (< emacs-major-version 24)
+    (define-key minibuffer-local-completion-map [tab] 'icicle-prefix-complete))
 (define-key minibuffer-local-completion-map [backtab] 'icicle-apropos-complete)
 (global-set-key [(super f8)] 'toggle-decorations)
 (global-set-key [(super f7)] 'toggle-toolbar)
@@ -1000,7 +1007,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 				     '(("miniperl" . perl-mode))))
 ; (load "perl-mode")   ; old mode
 
-(if (>= emacs-major-version 23)
+(when (eq emacs-major-version 23)
   ;;; Cedet - Note! Run make in cedet file!
   (load-file (concat emacs-git "/cedet/common/cedet.el"))
   (global-ede-mode t)

@@ -676,6 +676,8 @@
   (puthash "ballotxbold" "✘" xmsi-abrvs)
   (puthash "bsq" "☐" xmsi-abrvs)
   (puthash "bsqv" "☑" xmsi-abrvs)
+  (puthash "curarr" "↷" xmsi-abrvs)
+  (puthash "|->" "↦" xmsi-abrvs)
   )
 
 (defun xmsi-hash-to-list (hashtable)
