@@ -211,6 +211,7 @@
   (setq org-confirm-babel-evaluate nil)
   (xmsi-mode)
   (org-toggle-pretty-entities)
+  (setq bidi-paragraph-direction nil)
   )
 (add-hook 'org-mode-hook 'my-org-hook)
 (require 'org-crypt)
@@ -1007,10 +1008,12 @@ With numeric ARG, display the images if and only if ARG is positive."
 				     '(("miniperl" . perl-mode))))
 ; (load "perl-mode")   ; old mode
 
-(when (eq emacs-major-version 23)
+; This currently doesn't work!
+(when (eq emacs-major-version 999923)
   ;;; Cedet - Note! Run make in cedet file!
   (load-file (concat emacs-git "/cedet/common/cedet.el"))
   (global-ede-mode t)
+  (require 'cedet/semantic/sb)
   (semantic-load-enable-minimum-features)
   (require 'semantic-ia)
 
