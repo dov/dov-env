@@ -1,6 +1,6 @@
 ;;; org-compat.el --- Compatibility code for Org-mode
 
-;; Copyright (C) 2004-2011 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2012  Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -34,7 +34,6 @@
 
 (require 'org-macs)
 
-(declare-function find-library-name "find-func"  (library))
 (declare-function w32-focus-frame "term/w32-win" (frame))
 
 ;; The following constant is for backward compatibility.  We do not use
@@ -275,7 +274,7 @@ Works on both Emacs and XEmacs."
     nil))
 
 (defmacro org-xemacs-without-invisibility (&rest body)
-  "Turn off exents with invisibility while executing BODY."
+  "Turn off extents with invisibility while executing BODY."
   `(let ((ext-inv (extent-list nil (point-at-bol) (point-at-eol)
 			       'all-extents-closed-open 'invisible))
 	 ext-inv-specs)
@@ -331,15 +330,8 @@ Works on both Emacs and XEmacs."
       (org-no-properties (substring string (or from 0) to))
     (substring-no-properties string from to)))
 
-(defun org-find-library-name (library)
-  (if (fboundp 'find-library-name)
-      (file-name-directory (find-library-name library))
-    ; XEmacs does not have `find-library-name'
-    (flet ((find-library-name-helper (filename ignored-codesys)
-				     filename)
-	   (find-library-name (library)
-	    (find-library library nil 'find-library-name-helper)))
-      (file-name-directory (find-library-name library)))))
+(defmacro org-find-library-dir (library)
+  `(file-name-directory (locate-library ,library)))
 
 (defun org-count-lines (s)
   "How many lines in string S?"

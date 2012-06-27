@@ -1,6 +1,6 @@
 ;;; org-datetree.el --- Create date entries in a tree
 
-;; Copyright (C) 2009-2011 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2012  Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -63,7 +63,7 @@ tree can be found."
       (goto-char (prog1 (point) (widen))))))
 
 (defun org-datetree-find-year-create (year)
-  (let ((re "^\\*+[ \t]+\\([12][0-9][0-9][0-9]\\)$")
+  (let ((re "^\\*+[ \t]+\\([12][0-9][0-9][0-9]\\)\\s-*$")
 	match)
     (goto-char (point-min))
     (while (and (setq match (re-search-forward re nil t))

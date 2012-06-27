@@ -1,6 +1,6 @@
 ;;; org-entities.el --- Support for special entities in Org-mode
 
-;; Copyright (C) 2010-2011 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2012 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>,
 ;;         Ulf Stegemann <ulf at zeitform dot de>
@@ -44,6 +44,7 @@
 For example, this will replace \"\\nsup\" with \"[not a superset of]\"
 in backends where the corresponding character is not available."
   :group 'org-entities
+  :version "24.1"
   :type 'boolean)
 
 (defcustom org-entities-user nil
@@ -68,6 +69,7 @@ utf-8 replacement    Use the special characters available in utf-8.
 If you define new entities here that require specific LaTeX packages to be
 loaded, add these packages to `org-export-latex-packages-alist'."
   :group 'org-entities
+  :version "24.1"
   :type '(repeat
 	  (list
 	   (string :tag "name  ")
@@ -250,7 +252,7 @@ loaded, add these packages to `org-export-latex-packages-alist'."
 
     "* Other"
     "** Misc. (often used)"
-    ("circ" "\\circ" t "&circ;" "^" "^" "ˆ")
+    ("circ" "\\^{}" nil "&circ;" "^" "^" "ˆ")
     ("vert" "\\vert{}" t "&#124;" "|" "|" "|")
     ("brvbar" "\\textbrokenbar{}" nil "&brvbar;" "|" "¦" "¦")
     ("sect" "\\S" nil "&sect;" "paragraph" "§" "§")
@@ -258,6 +260,11 @@ loaded, add these packages to `org-export-latex-packages-alist'."
     ("lt" "\\textless{}" nil "&lt;" "<" "<" "<")
     ("gt" "\\textgreater{}" nil "&gt;" ">" ">" ">")
     ("tilde" "\\~{}" nil "&tilde;" "~" "~" "~")
+    ("slash" "/" nil "/" "/" "/" "/")
+    ("plus" "+" nil "+" "+" "+" "+")
+    ("under" "\\_" nil "_" "_" "_" "_")
+    ("equal" "=" nil "=" "=" "=" "=")
+    ("asciicirc" "\\textasciicircum{}" nil "^" "^" "^" "^")
     ("dagger" "\\textdagger{}" nil "&dagger;" "[dagger]" "[dagger]" "†")
     ("Dagger" "\\textdaggerdbl{}" nil "&Dagger;" "[doubledagger]" "[doubledagger]" "‡")
 
