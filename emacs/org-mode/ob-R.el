@@ -70,15 +70,17 @@
 
 (defvar org-babel-default-header-args:R '())
 
-(defvar org-babel-R-command "R --slave --no-save"
-  "Name of command to use for executing R code.")
+(defcustom org-babel-R-command "R --slave --no-save"
+  "Name of command to use for executing R code."
+  :group 'org-babel
+  :version "24.1"
+  :type 'string)
 
 (defvar ess-local-process-name)
 (defun org-babel-edit-prep:R (info)
   (let ((session (cdr (assoc :session (nth 2 info)))))
     (when (and session (string-match "^\\*\\(.+?\\)\\*$" session))
-      (save-match-data (org-babel-R-initiate-session session nil))
-      (setq ess-local-process-name (match-string 1 session)))))
+      (save-match-data (org-babel-R-initiate-session session nil)))))
 
 (defun org-babel-expand-body:R (body params &optional graphics-file)
   "Expand BODY according to PARAMS, return the expanded body."
@@ -142,7 +144,7 @@ This function is called by `org-babel-execute-src-block'."
 ;; helper functions
 
 (defun org-babel-variable-assignments:R (params)
-  "Return list of R statements assigning the block's variables"
+  "Return list of R statements assigning the block's variables."
   (let ((vars (mapcar #'cdr (org-babel-get-header params :var))))
     (mapcar
      (lambda (pair)
@@ -286,7 +288,7 @@ current code buffer."
   (body result-type result-params column-names-p row-names-p)
   "Evaluate BODY in external R process.
 If RESULT-TYPE equals 'output then return standard output as a
-string. If RESULT-TYPE equals 'value then return the value of the
+string.  If RESULT-TYPE equals 'value then return the value of the
 last statement in BODY, as elisp."
   (case result-type
     (value
@@ -313,7 +315,7 @@ last statement in BODY, as elisp."
   (session body result-type result-params column-names-p row-names-p)
   "Evaluate BODY in SESSION.
 If RESULT-TYPE equals 'output then return standard output as a
-string. If RESULT-TYPE equals 'value then return the value of the
+string.  If RESULT-TYPE equals 'value then return the value of the
 last statement in BODY, as elisp."
   (case result-type
     (value
