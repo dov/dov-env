@@ -90,7 +90,7 @@
 (defvar org-mobile-force-id-on-agenda-items)  ; defined in org-mobile.el
 (defvar org-habit-show-habits)                ; defined in org-habit.el
 (defvar org-habit-show-habits-only-for-today)
-(defvar org-habit-show-all-today nil)
+(defvar org-habit-show-all-today)
 
 ;; Defined somewhere in this file, but used before definition.
 (defvar org-agenda-buffer-name "*Org Agenda*")
@@ -160,8 +160,8 @@ before assigned to the variables.  So make sure to quote values you do
 	   (sexp :tag "Value"))))
 
 (defcustom org-agenda-before-write-hook '(org-agenda-add-entry-text)
-  "Hook run in temporary buffer before writing it to an export file.
-A useful function is `org-agenda-add-entry-text'."
+  "Hook run in a temporary buffer before writing the agenda to an export file.
+A useful function for this hook is `org-agenda-add-entry-text'."
   :group 'org-agenda-export
   :type 'hook
   :options '(org-agenda-add-entry-text))
@@ -169,7 +169,7 @@ A useful function is `org-agenda-add-entry-text'."
 (defcustom org-agenda-add-entry-text-maxlines 0
   "Maximum number of entry text lines to be added to agenda.
 This is only relevant when `org-agenda-add-entry-text' is part of
-`org-agenda-before-write-hook', which it is by default.
+`org-agenda-before-write-hook', which is the default.
 When this is 0, nothing will happen.  When it is greater than 0, it
 specifies the maximum number of lines that will be added for each entry
 that is listed in the agenda view.
@@ -224,8 +224,7 @@ or, if you want to keep the style in a file,
    <link rel=\"stylesheet\" type=\"text/css\" href=\"mystyles.css\">
 
 As the value of this option simply gets inserted into the HTML <head> header,
-you can \"misuse\" it to also add other text to the header.  However,
-<style>...</style> is required, if not present the variable will be ignored."
+you can \"misuse\" it to also add other text to the header."
   :group 'org-agenda-export
   :group 'org-export-html
   :type 'string)
@@ -902,7 +901,12 @@ to nil."
 
 (make-obsolete-variable 'org-finalize-agenda-hook 'org-agenda-finalize-hook "24.3")
 (defcustom org-agenda-finalize-hook nil
-  "Hook run just before displaying an agenda buffer."
+  "Hook run just before displaying an agenda buffer.
+The buffer is still writable when the hook is called.
+
+You can modify some of the buffer substrings but you should be
+extra careful not to modify the text properties of the agenda
+headlines as the agenda display heavily relies on them."
   :group 'org-agenda-startup
   :type 'hook)
 
@@ -1488,6 +1492,7 @@ This format works similar to a printf format, with the following meaning:
   %c   the category of the item, \"Diary\" for entries from the diary,
        or as given by the CATEGORY keyword or derived from the file name
   %e   the effort required by the item
+  %l   the level of the item (insert X space(s) if item is of level X)
   %i   the icon category of the item, see `org-agenda-category-icon-alist'
   %T   the last tag of the item (ignore inherited tags, which come first)
   %t   the HH:MM time-of-day specification if one applies to the entry
@@ -1496,7 +1501,7 @@ This format works similar to a printf format, with the following meaning:
                 by the result
 
 All specifiers work basically like the standard `%s' of printf, but may
-contain two additional characters:  a question mark just after the `%'
+contain two additional characters: a question mark just after the `%'
 and a whitespace/punctuation character just before the final letter.
 
 If the first character after `%' is a question mark, the entire field
@@ -1850,7 +1855,8 @@ works you probably want to add it to `org-agenda-custom-commands' for good."
 (defvar org-agenda-redo-command nil)
 (defvar org-agenda-query-string nil)
 (defvar org-agenda-mode-hook nil
-  "Hook for `org-agenda-mode', run after the mode is turned on.")
+  "Hook run after `org-agenda-mode' is turned on.
+The buffer is still writable when this hook is called.")
 (defvar org-agenda-type nil)
 (defvar org-agenda-force-single-file nil)
 (defvar org-agenda-bulk-marked-entries nil
@@ -2669,13 +2675,12 @@ L   Timeline for current buffer         #   List stuck projects (!=configure)
 				 ((stringp match)
 				  (setq match (copy-sequence match))
 				  (org-add-props match nil 'face 'org-warning))
-				 (match
-				  (format "set of %d commands" (length match)))
-				 (t ""))))
+				 ((listp type)
+				  (format "set of %d commands" (length type))))))
 		(if (org-string-nw-p match)
 		    (add-text-properties
 		     0 (length line) (list 'help-echo
-					   (concat "Matcher: "match)) line)))
+					   (concat "Matcher: " match)) line)))
 	      (push line lines)))
 	  (setq lines (nreverse lines))
 	  (when prefixes
@@ -3052,8 +3057,7 @@ If AGENDA-BUFFER-NAME, use this as the buffer name for the agenda to write."
 	      ((string-match "\\.html?\\'" file)
 	       (require 'htmlize)
 	       (set-buffer (htmlize-buffer (current-buffer)))
-	       (when (and org-agenda-export-html-style
-			  (string-match "<style>" org-agenda-export-html-style))
+	       (when org-agenda-export-html-style
 		 ;; replace <style> section with org-agenda-export-html-style
 		 (goto-char (point-min))
 		 (kill-region (- (search-forward "<style") 6)
@@ -3437,14 +3441,14 @@ generating a new one."
 	(org-agenda-entry-text-show))
       (if (functionp 'org-habit-insert-consistency-graphs)
 	  (org-habit-insert-consistency-graphs))
-      (run-hooks 'org-agenda-finalize-hook)
+      (let ((inhibit-read-only t))
+	(run-hooks 'org-agenda-finalize-hook))
       (setq org-agenda-type (org-get-at-bol 'org-agenda-type))
       (when (or org-agenda-tag-filter (get 'org-agenda-tag-filter :preset-filter))
 	(org-agenda-filter-apply org-agenda-tag-filter 'tag))
       (when (or org-agenda-category-filter (get 'org-agenda-category-filter :preset-filter))
 	(org-agenda-filter-apply org-agenda-category-filter 'category))
-      (org-add-hook 'kill-buffer-hook 'org-agenda-reset-markers 'append 'local)
-      )))
+      (org-add-hook 'kill-buffer-hook 'org-agenda-reset-markers 'append 'local))))
 
 (defun org-agenda-mark-clocking-task ()
   "Mark the current clock entry in the agenda if it is present."
@@ -4130,7 +4134,7 @@ in `org-agenda-text-search-extra-files'."
 	 (full-words org-agenda-search-view-force-full-words)
 	 (org-agenda-text-search-extra-files org-agenda-text-search-extra-files)
 	 regexp rtn rtnall files file pos
-	 marker category category-pos tags c neg re boolean
+	 marker category category-pos level tags c neg re boolean
 	 ee txt beg end words regexps+ regexps- hdl-only buffer beg1 str)
     (unless (and (not edit-at)
 		 (stringp string)
@@ -4282,16 +4286,18 @@ in `org-agenda-text-search-extra-files'."
 			(goto-char beg)
 			(setq marker (org-agenda-new-marker (point))
 			      category (org-get-category)
+			      level (make-string (org-reduced-level (org-outline-level)) ? )
 			      category-pos (get-text-property (point) 'org-category-position)
 			      tags (org-get-tags-at (point))
 			      txt (org-agenda-format-item
 				   ""
 				   (buffer-substring-no-properties
 				    beg1 (point-at-eol))
-				   category tags))
+				   level category tags))
 			(org-add-props txt props
 			  'org-marker marker 'org-hd-marker marker
 			  'org-todo-regexp org-todo-regexp
+			  'level level
 			  'org-complex-heading-regexp org-complex-heading-regexp
 			  'priority 1000 'org-category category
 			  'org-category-position category-pos
@@ -4777,7 +4783,7 @@ of what a project is and how to check if it stuck, customize the variable
       (setq entries
 	    (mapcar
 	     (lambda (x)
-	       (setq x (org-agenda-format-item "" x "Diary" nil 'time))
+	       (setq x (org-agenda-format-item "" x nil "Diary" nil 'time))
 	       ;; Extend the text properties to the beginning of the line
 	       (org-add-props x (text-properties-at (1- (length x)) x)
 		 'type "diary" 'date date 'face 'org-agenda-diary))
@@ -4987,7 +4993,7 @@ the documentation of `org-diary'."
 					       "|")
 					      "\\|") "\\)"))
 			  (t org-not-done-regexp))))
-	 marker priority category category-pos tags todo-state
+	 marker priority category category-pos level tags todo-state
 	 ee txt beg end)
     (goto-char (point-min))
     (while (re-search-forward regexp nil t)
@@ -5007,12 +5013,14 @@ the documentation of `org-diary'."
 	      txt (org-trim
 		   (buffer-substring (match-beginning 2) (match-end 0)))
 	      tags (org-get-tags-at (point))
-	      txt (org-agenda-format-item "" txt category tags)
+	      level (make-string (org-reduced-level (org-outline-level)) ? )
+	      txt (org-agenda-format-item "" txt level category tags)
 	      priority (1+ (org-get-priority txt))
 	      todo-state (org-get-todo-state))
 	(org-add-props txt props
 	  'org-marker marker 'org-hd-marker marker
 	  'priority priority 'org-category category
+	  'level level
 	  'org-category-position category-pos
 	  'type "todo" 'todo-state todo-state)
 	(push txt ee)
@@ -5128,7 +5136,7 @@ This function is invoked if `org-agenda-todo-ignore-deadlines',
 	   "\\|\\(<[0-9]+-[0-9]+-[0-9]+[^>\n]+?\\+[0-9]+[hdwmy]>\\)"
 	   "\\|\\(<%%\\(([^>\n]+)\\)>\\)"))
 	 marker hdmarker deadlinep scheduledp clockp closedp inactivep
-	 donep tmp priority category category-pos ee txt timestr tags
+	 donep tmp priority category category-pos level ee txt timestr tags
 	 b0 b3 e3 head todo-state end-of-match show-all warntime)
     (goto-char (point-min))
     (while (setq end-of-match (re-search-forward regexp nil t))
@@ -5180,18 +5188,19 @@ This function is invoked if `org-agenda-todo-ignore-deadlines',
 		     (assoc (point) deadline-position-alist))
 		(throw :skip nil))
 	    (setq hdmarker (org-agenda-new-marker)
-		  tags (org-get-tags-at))
+		  tags (org-get-tags-at)
+		  level (make-string (org-reduced-level (org-outline-level)) ? ))
 	    (looking-at "\\*+[ \t]+\\([^\r\n]+\\)")
 	    (setq head (or (match-string 1) ""))
 	    (setq txt (org-agenda-format-item
 		       (if inactivep org-agenda-inactive-leader nil)
-		       head category tags timestr
+		       head level category tags timestr
 		       remove-re)))
 	  (setq priority (org-get-priority txt))
-	  (org-add-props txt props
-	    'org-marker marker 'org-hd-marker hdmarker)
-	  (org-add-props txt nil 'priority priority
+	  (org-add-props txt props 'priority priority
+			 'org-marker marker 'org-hd-marker hdmarker
 			 'org-category category 'date date
+			 'level level
 			 'org-category-position category-pos
 			 'todo-state todo-state
 			 'warntime warntime
@@ -5211,7 +5220,7 @@ This function is invoked if `org-agenda-todo-ignore-deadlines',
 		      (format "mouse-2 or RET jump to org file %s"
 			      (abbreviate-file-name buffer-file-name))))
 	 (regexp "^&?%%(")
-	 marker category extra category-pos ee txt tags entry
+	 marker category extra category-pos level ee txt tags entry
 	 result beg b sexp sexp-entry todo-state warntime)
     (goto-char (point-min))
     (while (re-search-forward regexp nil t)
@@ -5228,6 +5237,7 @@ This function is invoked if `org-agenda-todo-ignore-deadlines',
 	(setq result (org-diary-sexp-entry sexp sexp-entry date))
 	(when result
 	  (setq marker (org-agenda-new-marker beg)
+		level (make-string (org-reduced-level (org-outline-level)) ? )
 		category (org-get-category beg)
 		category-pos (get-text-property beg 'org-category-position)
 		tags (save-excursion (org-backward-heading-same-level 0)
@@ -5245,13 +5255,11 @@ This function is invoked if `org-agenda-todo-ignore-deadlines',
 	    (if (string-match "\\S-" r)
 		(setq txt r)
 	      (setq txt "SEXP entry returned empty string"))
-
-	    (setq txt (org-agenda-format-item
-		       extra txt category tags 'time))
-	    (org-add-props txt props 'org-marker marker)
-	    (org-add-props txt nil
+	    (setq txt (org-agenda-format-item extra txt level category tags 'time))
+	    (org-add-props txt props 'org-marker marker
 	      'org-category category 'date date 'todo-state todo-state
 	      'org-category-position category-pos 'tags tags
+	      'level level
 	      'type "sexp" 'warntime warntime)
 	    (push txt ee)))))
     (nreverse ee)))
@@ -5363,7 +5371,7 @@ please use `org-class' instead."
 			    (list 0 0 0 (nth 1 date) (car date) (nth 2 date))))
 		    1 11))))
 	 (org-agenda-search-headline-for-time nil)
-	 marker hdmarker priority category category-pos tags closedp
+	 marker hdmarker priority category category-pos level tags closedp
 	 statep clockp state ee txt extra timestr rest clocked)
     (goto-char (point-min))
     (while (re-search-forward regexp nil t)
@@ -5402,7 +5410,8 @@ please use `org-class' instead."
 	      (setq txt org-agenda-no-heading-message)
 	    (goto-char (match-beginning 0))
 	    (setq hdmarker (org-agenda-new-marker)
-		  tags (org-get-tags-at))
+		  tags (org-get-tags-at)
+		  level (make-string (org-reduced-level (org-outline-level)) ? ))
 	    (looking-at "\\*+[ \t]+\\([^\r\n]+\\)")
 	    (setq txt (match-string 1))
 	    (when extra
@@ -5415,12 +5424,13 @@ please use `org-class' instead."
 			(closedp "Closed:    ")
 			(statep (concat "State:     (" state ")"))
 			(t (concat "Clocked:   (" clocked  ")")))
-		       txt category tags timestr)))
+		       txt level category tags timestr)))
 	  (setq priority 100000)
 	  (org-add-props txt props
 	    'org-marker marker 'org-hd-marker hdmarker 'face 'org-agenda-done
 	    'priority priority 'org-category category
 	    'org-category-position category-pos
+	    'level level
 	    'type "closed" 'date date
 	    'undone-face 'org-warning 'done-face 'org-agenda-done)
 	  (push txt ee))
@@ -5558,7 +5568,7 @@ See also the user option `org-agenda-clock-consistency-checks'."
 	 (regexp org-deadline-time-regexp)
 	 (todayp (org-agenda-todayp date)) ; DATE bound by calendar
 	 (d1 (calendar-absolute-from-gregorian date))  ; DATE bound by calendar
-	 d2 diff dfrac wdays pos pos1 category category-pos
+	 d2 diff dfrac wdays pos pos1 category category-pos level
 	 tags suppress-prewarning ee txt head face s todo-state
 	 show-all upcomingp donep timestr warntime)
     (goto-char (point-min))
@@ -5612,6 +5622,7 @@ See also the user option `org-agenda-clock-consistency-checks'."
 		    (setq txt org-agenda-no-heading-message)
 		  (goto-char (match-end 0))
 		  (setq pos1 (match-beginning 0))
+		  (setq level (make-string (org-reduced-level (org-outline-level)) ? ))
 		  (setq tags (org-get-tags-at pos1))
 		  (setq head (buffer-substring-no-properties
 			      (point)
@@ -5631,13 +5642,14 @@ See also the user option `org-agenda-clock-consistency-checks'."
 				    diff date)
 				 (format (nth 1 org-agenda-deadline-leaders)
 					 diff)))
-			     head category tags
+			     head level category tags
 			     (if (not (= diff 0)) nil timestr)))))
 	      (when txt
 		(setq face (org-agenda-deadline-face dfrac))
 		(org-add-props txt props
 		  'org-marker (org-agenda-new-marker pos)
 		  'warntime warntime
+		  'level level
 		  'org-hd-marker (org-agenda-new-marker pos1)
 		  'priority (+ (- diff)
 			       (org-get-priority txt))
@@ -5678,7 +5690,7 @@ FRACTION is what fraction of the head-warning time has passed."
 					     0 'org-hd-marker a))
 				   (cons (marker-position mm) a)))
 		  deadline-results))
-	 d2 diff pos pos1 category category-pos tags donep
+	 d2 diff pos pos1 category category-pos level tags donep
 	 ee txt head pastschedp todo-state face timestr s habitp show-all
 	 did-habit-check-p warntime)
     (goto-char (point-min))
@@ -5708,6 +5720,7 @@ FRACTION is what fraction of the head-warning time has passed."
 		  ;; org-is-habit-p uses org-entry-get, which is expansive
 		  ;; so we go extra mile to only call it once
 		  (and todayp
+		       (boundp 'org-habit-show-all-today)
 		       org-habit-show-all-today
 		       (setq did-habit-check-p t)
 		       (setq habitp (and (functionp 'org-is-habit-p)
@@ -5732,6 +5745,7 @@ FRACTION is what fraction of the head-warning time has passed."
 		(if habitp
 		    (if (or (not org-habit-show-habits)
 			    (and (not todayp)
+				 (boundp 'org-habit-show-habits-only-for-today)
 				 org-habit-show-habits-only-for-today))
 			(throw :skip nil))
 		  (if (and
@@ -5741,6 +5755,7 @@ FRACTION is what fraction of the head-warning time has passed."
 		       (setq mm (assoc pos1 deadline-position-alist)))
 		      (throw :skip nil)))
 		(setq tags (org-get-tags-at))
+		(setq level (make-string (org-reduced-level (org-outline-level)) ? ))
 		(setq head (buffer-substring-no-properties
 			    (point)
 			    (progn (skip-chars-forward "^\r\n") (point))))
@@ -5753,7 +5768,7 @@ FRACTION is what fraction of the head-warning time has passed."
 			       (car org-agenda-scheduled-leaders)
 			     (format (nth 1 org-agenda-scheduled-leaders)
 				     (- 1 diff)))
-			   head category tags
+			   head level category tags
 			   (if (not (= diff 0)) nil timestr)
 			   nil habitp))))
 	    (when txt
@@ -5772,6 +5787,7 @@ FRACTION is what fraction of the head-warning time has passed."
 		'type (if pastschedp "past-scheduled" "scheduled")
 		'date (if pastschedp d2 date)
 		'warntime warntime
+		'level level
 		'priority (if habitp
 			      (org-habit-get-priority habitp)
 			    (+ 94 (- 5 diff) (org-get-priority txt)))
@@ -5795,7 +5811,7 @@ FRACTION is what fraction of the head-warning time has passed."
 	 (regexp org-tr-regexp)
 	 (d0 (calendar-absolute-from-gregorian date))
 	 marker hdmarker ee txt d1 d2 s1 s2 category category-pos
-	 todo-state tags pos head donep)
+	 level todo-state tags pos head donep)
     (goto-char (point-min))
     (while (re-search-forward regexp nil t)
       (catch :skip
@@ -5823,6 +5839,7 @@ FRACTION is what fraction of the head-warning time has passed."
 		  (goto-char (match-beginning 0))
 		  (setq hdmarker (org-agenda-new-marker (point)))
 		  (setq tags (org-get-tags-at))
+		  (setq level (make-string (org-reduced-level (org-outline-level)) ? ))
 		  (looking-at "\\*+[ \t]+\\([^\r\n]+\\)")
 		  (setq head (match-string 1))
 		  (let ((remove-re
@@ -5837,7 +5854,7 @@ FRACTION is what fraction of the head-warning time has passed."
 				(nth (if (= d1 d2) 0 1)
 				     org-agenda-timerange-leaders)
 				(1+ (- d0 d1)) (1+ (- d2 d1)))
-			       head category tags
+			       head level category tags
 			       (cond ((and (= d1 d0) (= d2 d0))
 				      (concat "<" start-time ">--<" end-time ">"))
                                      ((= d1 d0)
@@ -5848,6 +5865,7 @@ FRACTION is what fraction of the head-warning time has passed."
 		(org-add-props txt props
 		  'org-marker marker 'org-hd-marker hdmarker
 		  'type "block" 'date date
+		  'level level
 		  'todo-state todo-state
 		  'priority (org-get-priority txt) 'org-category category
 		  'org-category-position category-pos)
@@ -5880,20 +5898,23 @@ The flag is set if the currently compiled format contains a `%e'.")
 	  (return (cadr entry))
 	(return (apply 'create-image (cdr entry)))))))
 
-(defun org-agenda-format-item (extra txt &optional category tags dotime
+(defun org-agenda-format-item (extra txt &optional level category tags dotime
 				     remove-re habitp)
   "Format TXT to be inserted into the agenda buffer.
-In particular, it adds the prefix and corresponding text properties.  EXTRA
-must be a string and replaces the `%s' specifier in the prefix format.
-CATEGORY (string, symbol or nil) may be used to overrule the default
+In particular, add the prefix and corresponding text properties.
+
+EXTRA must be a string to replace the `%s' specifier in the prefix format.
+LEVEL may be a string to replace the `%l' specifier.
+CATEGORY (a string, a symbol or nil) may be used to overrule the default
 category taken from local variable or file name.  It will replace the `%c'
-specifier in the format.  DOTIME, when non-nil, indicates that a
-time-of-day should be extracted from TXT for sorting of this entry, and for
-the `%t' specifier in the format.  When DOTIME is a string, this string is
-searched for a time before TXT is.  TAGS can be the tags of the headline.
+specifier in the format.
+DOTIME, when non-nil, indicates that a time-of-day should be extracted from
+TXT for sorting of this entry, and for the `%t' specifier in the format.
+When DOTIME is a string, this string is searched for a time before TXT is.
+TAGS can be the tags of the headline.
 Any match of REMOVE-RE will be removed from TXT."
   ;; We keep the org-prefix-* variable values along with a compiled
-  ;; formatter, so that multiple agendas existing at the same time, do
+  ;; formatter, so that multiple agendas existing at the same time do
   ;; not step on each other toes.
   ;;
   ;; It was inconvenient to make these variables buffer local in
@@ -5906,13 +5927,14 @@ Any match of REMOVE-RE will be removed from TXT."
 	  do (set var value))
     (save-match-data
       ;; Diary entries sometimes have extra whitespace at the beginning
-      (if (string-match "^ +" txt) (setq txt (replace-match "" nil nil txt)))
+      (setq txt (org-trim txt))
 
       ;; Fix the tags part in txt
       (setq txt (org-agenda-fix-displayed-tags
 		 txt tags
 		 org-agenda-show-inherited-tags
 		 org-agenda-hide-tags-regexp))
+
       (let* ((category (or category
 			   (if (stringp org-category)
 			       org-category
@@ -6092,6 +6114,11 @@ The modified list may contain inherited tags, and tags matched by
 (defvar org-agenda-sorting-strategy-selected nil)
 
 (defun org-agenda-add-time-grid-maybe (list ndays todayp)
+  "Add a time-grid for agenda items which need it.
+
+LIST is the list of agenda items formatted by `org-agenda-list'.
+NDAYS is the span of the current agenda view.
+TODAYP is `t' when the current agenda view is on today."
   (catch 'exit
     (cond ((not org-agenda-use-time-grid) (throw 'exit list))
 	  ((and todayp (member 'today (car org-agenda-time-grid))))
@@ -6113,16 +6140,14 @@ The modified list may contain inherited tags, and tags matched by
 	(unless (and remove (member time have))
 	  (setq time (replace-regexp-in-string " " "0" (format "%04s" time)))
 	  (push (org-agenda-format-item
-		 nil string "" nil
+		 nil string nil "" nil
 		 (concat (substring time 0 -2) ":" (substring time -2)))
 		new)
 	  (put-text-property
 	   2 (length (car new)) 'face 'org-time-grid (car new))))
       (when (and todayp org-agenda-show-current-time-in-grid)
 	(push (org-agenda-format-item
-	       nil
-	       org-agenda-current-time-string
-	       "" nil
+	       nil org-agenda-current-time-string nil "" nil
 	       (format-time-string "%H:%M "))
 	      new)
 	(put-text-property
@@ -6136,7 +6161,8 @@ The modified list may contain inherited tags, and tags matched by
   "Compile the prefix format into a Lisp form that can be evaluated.
 The resulting form and associated variable bindings is returned
 and stored in the variable `org-prefix-format-compiled'."
-  (setq org-prefix-has-time nil org-prefix-has-tag nil
+  (setq org-prefix-has-time nil
+	org-prefix-has-tag nil
 	org-prefix-category-length nil
 	org-prefix-has-effort nil)
   (let ((s (cond
@@ -6147,10 +6173,10 @@ and stored in the variable `org-prefix-format-compiled'."
 	    (t "  %-12:c%?-12t% s")))
 	(start 0)
 	varform vars var e c f opt)
-    (while (string-match "%\\(\\?\\)?\\([-+]?[0-9.]*\\)\\([ .;,:!?=|/<>]?\\)\\([ctsei]\\|(.+)\\)"
+    (while (string-match "%\\(\\?\\)?\\([-+]?[0-9.]*\\)\\([ .;,:!?=|/<>]?\\)\\([cltsei]\\|(.+)\\)"
 			 s start)
       (setq var (or (cdr (assoc (match-string 4 s)
-				'(("c" . category) ("t" . time) ("s" . extra)
+				'(("c" . category) ("t" . time) ("l" . level) ("s" . extra)
 				  ("i" . category-icon) ("T" . tag) ("e" . effort))))
 		    'eval)
 	    c (or (match-string 3 s) "")
@@ -7872,19 +7898,22 @@ use the dedicated frame)."
   (interactive)
   (if (and current-prefix-arg (listp current-prefix-arg))
       (org-agenda-do-tree-to-indirect-buffer)
-    (let ((agenda-window (selected-window))
+    (let ((agenda-buffer (buffer-name))
+	  (agenda-window (selected-window))
           (indirect-window
 	   (and org-last-indirect-buffer
 		(get-buffer-window org-last-indirect-buffer))))
       (save-window-excursion (org-agenda-do-tree-to-indirect-buffer))
-      (unwind-protect
-          (progn
-            (unless (and indirect-window (window-live-p indirect-window))
-              (setq indirect-window (split-window agenda-window)))
-            (select-window indirect-window)
-            (switch-to-buffer org-last-indirect-buffer :norecord)
-            (fit-window-to-buffer indirect-window))
-        (select-window (get-buffer-window org-agenda-buffer-name))))))
+      (unless (or (eq org-indirect-buffer-display 'new-frame)
+		  (eq org-indirect-buffer-display 'dedicated-frame))
+	(unwind-protect
+	    (progn
+	      (unless (and indirect-window (window-live-p indirect-window)))
+	      (setq indirect-window (split-window agenda-window)))
+	  (and indirect-window (select-window indirect-window))
+	  (switch-to-buffer org-last-indirect-buffer :norecord)
+	  (fit-window-to-buffer indirect-window)))
+      (select-window (get-buffer-window agenda-buffer)))))
 
 (defun org-agenda-do-tree-to-indirect-buffer ()
   "Same as `org-agenda-tree-to-indirect-buffer' without saving window."
@@ -7990,7 +8019,7 @@ If FORCE-TAGS is non nil, the car of it returns the new tags."
 		    (save-excursion (save-restriction (widen)
 						      (goto-char hdmarker)
 						      (org-get-tags-at)))))
-	 props m pl undone-face done-face finish new dotime cat tags)
+	 props m pl undone-face done-face finish new dotime level cat tags)
     (save-excursion
       (goto-char (point-max))
       (beginning-of-line 1)
@@ -8002,6 +8031,7 @@ If FORCE-TAGS is non nil, the car of it returns the new tags."
 	  (setq props (text-properties-at (point))
 		dotime (org-get-at-bol 'dotime)
 		cat (org-get-at-bol 'org-category)
+		level (org-get-at-bol 'level)
 		tags thetags
 		new
 		(let ((org-prefix-format-compiled
@@ -8012,7 +8042,7 @@ If FORCE-TAGS is non nil, the car of it returns the new tags."
 		    (save-excursion
 		      (save-restriction
 			(widen)
-			(org-agenda-format-item extra newhead cat tags dotime)))))
+			(org-agenda-format-item extra newhead level cat tags dotime)))))
 		pl (text-property-any (point-at-bol) (point-at-eol) 'org-heading t)
 		undone-face (org-get-at-bol 'undone-face)
 		done-face (org-get-at-bol 'done-face))
@@ -8556,7 +8586,7 @@ the resulting entry will not be shown.  When TEXT is empty, switch to
 	    ;; Use org-agenda-format-item to parse text for a time-range and
 	    ;; remove it.  FIXME: This is a hack, we should refactor
 	    ;; that function to make time extraction available separately
-	    (setq fmt (org-agenda-format-item nil text nil nil t)
+	    (setq fmt (org-agenda-format-item nil text nil nil nil t)
 		  time (get-text-property 0 'time fmt)
 		  time2 (if (> (length time) 0)
 			    ;; split-string removes trailing ...... if
@@ -8960,24 +8990,14 @@ The prefix arg is passed through to the command if possible."
 	  (setq cmd `(org-agenda-set-tags ,tag ,(if (eq action ?+) ''on ''off))))
 
 	 ((memq action '(?s ?d))
-	  (let* ((date (unless arg
-			 (or org-overriding-default-time
-			     (org-read-date
-			      nil nil nil
-			      (if (eq action ?s) "(Re)Schedule to" "(Re)Set Deadline to")
-			      nil (format-time-string (car org-time-stamp-formats)
-						      (org-get-cursor-date))))))
-		 (ans (if arg nil org-read-date-final-answer))
+	  (let* ((time
+		  (unless arg
+		    (org-read-date
+		     nil nil nil
+		     (if (eq action ?s) "(Re)Schedule to" "(Re)Set Deadline to")
+		     org-overriding-default-time)))
 		 (c1 (if (eq action ?s) 'org-agenda-schedule 'org-agenda-deadline)))
-	    (setq cmd `(let* ((bound (fboundp 'read-string))
-			      (old (and bound (symbol-function 'read-string))))
-			 (unwind-protect
-			     (progn
-			       (fset 'read-string (lambda (&rest ignore) ,ans))
-			       (eval '(,c1 arg)))
-			   (if bound
-			       (fset 'read-string old)
-			     (fmakunbound 'read-string)))))))
+	    (setq cmd `(eval '(,c1 arg ,time)))))
 
 	 ((equal action ?S)
 	  (if (not (org-agenda-check-type nil 'agenda 'timeline 'todo))

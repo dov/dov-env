@@ -248,8 +248,8 @@ Don't modify it, set `org-element-affiliated-keywords' instead.")
 The key is the old name and the value the new one.  The property
 holding their value will be named after the translated name.")
 
-(defconst org-element-multiple-keywords '("HEADER")
-  "List of affiliated keywords that can occur more that once in an element.
+(defconst org-element-multiple-keywords '("CAPTION" "HEADER")
+  "List of affiliated keywords that can occur more than once in an element.
 
 Their value will be consed into a list of strings, which will be
 returned as the value of the property.
@@ -706,7 +706,7 @@ Assume point is at beginning of the headline."
 	    (and todo (if (member todo org-done-keywords) 'done 'todo)))
 	   (tags (let ((raw-tags (nth 5 components)))
 		   (and raw-tags (org-split-string raw-tags ":"))))
-	   (raw-value (nth 4 components))
+	   (raw-value (or (nth 4 components) ""))
 	   (quotedp
 	    (let ((case-fold-search nil))
 	      (string-match (format "^%s +" org-quote-string) raw-value)))
@@ -849,8 +849,9 @@ CONTENTS is the contents of the element."
 Return a list whose CAR is `inlinetask' and CDR is a plist
 containing `:title', `:begin', `:end', `:hiddenp',
 `:contents-begin' and `:contents-end', `:level', `:priority',
-`:tags', `:todo-keyword', `:todo-type', `:scheduled',
-`:deadline', `:timestamp', `:clock' and `:post-blank' keywords.
+`:raw-value', `:tags', `:todo-keyword', `:todo-type',
+`:scheduled', `:deadline', `:timestamp', `:clock' and
+`:post-blank' keywords.
 
 The plist also contains any property set in the property drawer,
 with its name in lowercase, the underscores replaced with hyphens
@@ -870,6 +871,7 @@ Assume point is at beginning of the inline task."
 			   (if (member todo org-done-keywords) 'done 'todo)))
 	   (tags (let ((raw-tags (nth 5 components)))
 		   (and raw-tags (org-split-string raw-tags ":"))))
+	   (raw-value (or (nth 4 components) ""))
 	   ;; Normalize property names: ":SOME_PROP:" becomes
 	   ;; ":some-prop".
 	   (standard-props (let (plist)
@@ -906,7 +908,8 @@ Assume point is at beginning of the inline task."
 	   (inlinetask
 	    (list 'inlinetask
 		  (nconc
-		   (list :begin begin
+		   (list :raw-value raw-value
+			 :begin begin
 			 :end end
 			 :hiddenp hidden
 			 :contents-begin contents-begin
@@ -925,9 +928,9 @@ Assume point is at beginning of the inline task."
 		   (cadr keywords)))))
       (org-element-put-property
        inlinetask :title
-       (if raw-secondary-p (nth 4 components)
+       (if raw-secondary-p raw-value
 	 (org-element-parse-secondary-string
-	  (nth 4 components)
+	  raw-value
 	  (org-element-restriction 'inlinetask)
 	  inlinetask))))))
 
@@ -3367,6 +3370,9 @@ element it has to parse."
 	(org-element-section-parser
 	 (or (save-excursion (org-with-limited-levels (outline-next-heading)))
 	     limit)))
+       ;; When not at bol, point is at the beginning of an item or
+       ;; a footnote definition: next item is always a paragraph.
+       ((not (bolp)) (org-element-paragraph-parser limit))
        ;; Planning and Clock.
        ((and (looking-at org-planning-or-clock-line-re))
 	(if (equal (match-string 1) org-clock-string)
@@ -3508,7 +3514,7 @@ CDR a plist of keywords and values."
 	  output)
       (unless (bobp)
 	(while (and (not (bobp)) (progn (forward-line -1) (looking-at key-re)))
-	  (let* ((raw-kwd (upcase (or (match-string 2) (match-string 1))))
+	  (let* ((raw-kwd (upcase (match-string 1)))
 		 ;; Apply translation to RAW-KWD.  From there, KWD is
 		 ;; the official keyword.
 		 (kwd (or (cdr (assoc raw-kwd trans-list)) raw-kwd))
@@ -3522,7 +3528,7 @@ CDR a plist of keywords and values."
 		 ;; value.  Maybe parse it.
 		 (dual-value
 		  (and (member kwd duals)
-		       (let ((sec (org-match-string-no-properties 3)))
+		       (let ((sec (org-match-string-no-properties 2)))
 			 (if (or (not sec) (not (member kwd parsed))) sec
 			   (org-element-parse-secondary-string sec restrict)))))
 		 ;; Attribute a property name to KWD.

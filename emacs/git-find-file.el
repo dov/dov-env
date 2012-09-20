@@ -43,14 +43,17 @@ ido is used for the completing read if available."
   "Prompt with a completing list of all files in the project to find one."
   (interactive)
   (let* ((project-files (ffip-project-files root))
-         (files (delete-dups (mapcar 'car project-files)))
-         (file-paths (delq 'nil (mapcar '(lambda (file-cons)
-                                           (when (string= file-name (car file-cons))
-                                             (cdr file-cons))) project-files)))
+         (files (delete-dups (mapcar 'car project-files))))
+    (if (eq nil file-name)
+        (find-file root)
+      (let*
+        ((file-paths (delq 'nil (mapcar '(lambda (file-cons)
+                                          (when (string= file-name (car file-cons))
+                                            (cdr file-cons))) project-files)))
          (file-path (if (cdr file-paths)
                         (ffip-completing-read "Disambiguate: " file-paths)
                       (car file-paths))))
-    (find-file (concat root file-path))))
+        (find-file (concat root file-path))))))
 
 (defun git-find-file ()
   "Prompt with a completing list of all files in the project to find one."

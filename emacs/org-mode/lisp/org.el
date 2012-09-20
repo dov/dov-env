@@ -115,6 +115,7 @@ Stars are put in group 1 and the trimmed body in group 2.")
 (declare-function org-at-clock-log-p "org-clock" ())
 (declare-function org-clock-timestamps-up "org-clock" ())
 (declare-function org-clock-timestamps-down "org-clock" ())
+(declare-function org-clock-sum-current-item "org-clock" (&optional tstart))
 
 ;; load languages based on value of `org-babel-load-languages'
 (defvar org-babel-load-languages)
@@ -976,7 +977,7 @@ the values `folded', `children', or `subtree'."
 The function(s) in this hook must accept a single argument which indicates
 the new state that was set by the most recent `org-cycle' command.  The
 argument is a symbol.  After a global state change, it can have the values
-`overview', `content', or `all'.  After a local state change, it can have
+`overview', `contents', or `all'.  After a local state change, it can have
 the values `folded', `children', or `subtree'."
   :group 'org-cycle
   :type 'hook)
@@ -1461,11 +1462,11 @@ t     Create an ID if needed to make a link to the current entry.
 create-if-interactive
       If `org-store-link' is called directly (interactively, as a user
       command), do create an ID to support the link.  But when doing the
-      job for remember, only use the ID if it already exists.  The
+      job for capture, only use the ID if it already exists.  The
       purpose of this setting is to avoid proliferation of unwanted
       IDs, just because you happen to be in an Org file when you
       call `org-capture' that automatically and preemptively creates a
-      link.  If you do want to get an ID link in a remember template to
+      link.  If you do want to get an ID link in a capture template to
       an entry not having an ID, create it first by explicitly creating
       a link to it, using `C-c C-l' first.
 
@@ -1870,14 +1871,15 @@ This is just a default location to look for Org files.  There is no need
 at all to put your files into this directory.  It is only used in the
 following situations:
 
-1. When a remember template specifies a target file that is not an
+1. When a capture template specifies a target file that is not an
    absolute path.  The path will then be interpreted relative to
    `org-directory'
-2. When a remember note is filed away in an interactive way (when exiting the
+2. When a capture note is filed away in an interactive way (when exiting the
    note buffer with `C-1 C-c C-c'.  The user is prompted for an org file,
    with `org-directory' as the default path."
   :group 'org-refile
   :group 'org-remember
+  :group 'org-capture
   :type 'directory)
 
 (defcustom org-default-notes-file (convert-standard-filename "~/.notes")
@@ -1886,6 +1888,7 @@ Used as a fall back file for org-remember.el and org-capture.el, for
 templates that do not specify a target file."
   :group 'org-refile
   :group 'org-remember
+  :group 'org-capture
   :type '(choice
 	  (const :tag "Default from remember-data-file" nil)
 	  file))
@@ -1915,6 +1918,7 @@ When nil, new notes will be filed to the end of a file or entry.
 This can also be a list with cons cells of regular expressions that
 are matched against file names, and values."
   :group 'org-remember
+  :group 'org-capture
   :group 'org-refile
   :type '(choice
 	  (const :tag "Reverse always" t)
@@ -2846,7 +2850,7 @@ This has influence for the following applications:
   the time given here, the day recognized as TODAY is actually yesterday.
 - When a date is read from the user and it is still before the time given
   here, the current date and time will be assumed to be yesterday, 23:59.
-  Also, timestamps inserted in remember templates follow this rule.
+  Also, timestamps inserted in capture templates follow this rule.
 
 IMPORTANT:  This is a feature whose implementation is and likely will
 remain incomplete.  Really, it is only here because past midnight seems to
@@ -2861,6 +2865,14 @@ For example, if `org-extend-today-until' is 8, and it's 4am, then the
 23:59 of the previous day."
   :group 'org-time
   :version "24.1"
+  :type 'boolean)
+
+(defcustom org-use-last-clock-out-time-as-effective-time nil
+  "When non-nil, use the last clock out time for `org-todo'.
+Note that this option has precedence over the combined use of
+`org-use-effective-time' and `org-extend-today-until'."
+  :group 'org-time
+  ;; :version "24.3"
   :type 'boolean)
 
 (defcustom org-edit-timestamp-down-means-later nil
@@ -3356,8 +3368,10 @@ points to a file, `org-agenda-diary-entry' will be used instead."
 This is a property list with the following properties:
 :foreground  the foreground color for images embedded in Emacs, e.g. \"Black\".
              `default' means use the foreground of the default face.
+             `auto' means use the foreground from the text face.
 :background  the background color, or \"Transparent\".
              `default' means use the background of the default face.
+             `auto' means use the background from the text face.
 :scale       a scaling factor for the size of the images, to get more pixels
 :html-foreground, :html-background, :html-scale
              the same numbers for HTML export.
@@ -3854,7 +3868,7 @@ Normal means, no org-mode-specific context."
 (declare-function org-agenda-skip "org-agenda" ())
 (declare-function
  org-agenda-format-item "org-agenda"
- (extra txt &optional category tags dotime noprefix remove-re habitp))
+ (extra txt &optional level category tags dotime noprefix remove-re habitp))
 (declare-function org-agenda-new-marker "org-agenda" (&optional pos))
 (declare-function org-agenda-change-all-lines "org-agenda"
 		  (newhead hdmarker &optional fixface just-this))
@@ -4824,7 +4838,7 @@ but the stars and the body are.")
 	    (concat "^\\(\\*+\\)"
 		    "\\(?: +" org-todo-regexp "\\)?"
 		    "\\(?: +\\(\\[#.\\]\\)\\)?"
-		    "\\(?: +\\(.*?\\)\\)?"
+		    "\\(?: +\\(.*?\\)\\)??"
 		    (org-re "\\(?:[ \t]+\\(:[[:alnum:]_@#%:]+:\\)\\)?")
 		    "[ \t]*$")
 	    org-complex-heading-regexp-format
@@ -4842,7 +4856,7 @@ but the stars and the body are.")
 	    org-todo-line-tags-regexp
 	    (concat "^\\(\\*+\\)"
 		    "\\(?: +" org-todo-regexp "\\)?"
-		    "\\(?: +\\(.*?\\)\\)?"
+		    "\\(?: +\\(.*?\\)\\)??"
 		    (org-re "\\(?:[ \t]+\\(:[[:alnum:]:_@#%]+:\\)\\)?")
 		    "[ \t]*$")
 	    org-deadline-regexp (concat "\\<" org-deadline-string)
@@ -4946,7 +4960,7 @@ Respect keys that are already there."
   "Used in various places to store a window configuration.")
 (defvar org-finish-function nil
   "Function to be called when `C-c C-c' is used.
-This is for getting out of special buffers like remember.")
+This is for getting out of special buffers like capture.")
 
 
 ;; FIXME: Occasionally check by commenting these, to make sure
@@ -5168,7 +5182,16 @@ The following commands are available:
       (require 'org-indent)
       (org-indent-mode 1))
     (unless org-inhibit-startup-visibility-stuff
-      (org-set-startup-visibility))))
+      (org-set-startup-visibility)))
+  ;; Try to set org-hide correctly
+  (set-face-foreground
+   'org-hide
+   (or (face-background 'default)
+       (face-background 'org-default)
+       (cdr (assoc 'background-color default-frame-alist))
+       (cdr (assoc 'background-color initial-frame-alist))
+       (cdr (assoc 'background-color window-system-default-frame-alist))
+       (face-foreground 'org-hide))))
 
 (when (fboundp 'abbrev-table-put)
   (abbrev-table-put org-mode-abbrev-table
@@ -5453,24 +5476,18 @@ will be prompted for."
   "Run through the buffer and add overlays to links."
   (catch 'exit
     (let (f)
-      (if (and (re-search-forward (concat org-plain-link-re) limit t)
-	       (or (not (member 'bracket org-activate-links))
-		   (save-excursion
-		     (save-match-data
-		       (goto-char (match-beginning 0))
-		       (not (looking-back "\\[\\["))))))
-	  (progn
-	    (org-remove-flyspell-overlays-in (match-beginning 0) (match-end 0))
-	    (setq f (get-text-property (match-beginning 0) 'face))
-	    (if (or (eq f 'org-tag)
-		    (and (listp f) (memq 'org-tag f)))
-		nil
-	      (add-text-properties (match-beginning 0) (match-end 0)
-				   (list 'mouse-face 'highlight
-					 'face 'org-link
-					 'keymap org-mouse-map))
-	      (org-rear-nonsticky-at (match-end 0)))
-	    t)))))
+      (when (re-search-forward (concat org-plain-link-re) limit t)
+	(org-remove-flyspell-overlays-in (match-beginning 0) (match-end 0))
+	(setq f (get-text-property (match-beginning 0) 'face))
+	(if (or (eq f 'org-tag)
+		(and (listp f) (memq 'org-tag f)))
+	    nil
+	  (add-text-properties (match-beginning 0) (match-end 0)
+			       (list 'mouse-face 'highlight
+				     'face 'org-link
+				     'keymap org-mouse-map))
+	  (org-rear-nonsticky-at (match-end 0)))
+	t))))
 
 (defun org-activate-code (limit)
   (if (re-search-forward "^[ \t]*\\(:\\(?: .*\\|$\\)\n?\\)" limit t)
@@ -5876,13 +5893,15 @@ between words."
 
 (defun org-outline-level ()
   "Compute the outline level of the heading at point.
-This function assumes that the cursor is at the beginning of a line matched
-by `outline-regexp'.  Otherwise it returns garbage.
 If this is called at a normal headline, the level is the number of stars.
 Use `org-reduced-level' to remove the effect of `org-odd-levels'."
   (save-excursion
-    (looking-at org-outline-regexp)
-    (1- (- (match-end 0) (match-beginning 0)))))
+    (if (not (condition-case nil
+		 (org-back-to-heading t)
+	       (error nil)))
+	0
+      (looking-at org-outline-regexp)
+      (1- (- (match-end 0) (match-beginning 0))))))
 
 (defvar org-font-lock-keywords nil)
 
@@ -8854,7 +8873,7 @@ Special properties are:
               this when inserting this link into an Org-mode buffer.
 
 In addition to these, any additional properties can be specified
-and then used in remember templates.")
+and then used in capture templates.")
 
 (defun org-add-link-type (type &optional follow export)
   "Add TYPE to the list of `org-link-types'.
@@ -11531,10 +11550,12 @@ nil or a string to be used for the todo mark." )
   (let* ((ct (org-current-time))
 	 (dct (decode-time ct))
 	 (ct1
-	  (if (and org-use-effective-time
-		   (< (nth 2 dct) org-extend-today-until))
-	      (encode-time 0 59 23 (1- (nth 3 dct)) (nth 4 dct) (nth 5 dct))
-	    ct)))
+	  (cond
+	   (org-use-last-clock-out-time-as-effective-time
+	    (or (org-clock-get-last-clock-out-time) ct))
+	   ((and org-use-effective-time (< (nth 2 dct) org-extend-today-until))
+	    (encode-time 0 59 23 (1- (nth 3 dct)) (nth 4 dct) (nth 5 dct)))
+	   (t ct))))
     ct1))
 
 (defun org-todo-yesterday (&optional arg)
@@ -13197,7 +13218,7 @@ headlines matching this string."
 	  (setq todo (if (match-end 1) (org-match-string-no-properties 2))
 		tags (if (match-end 4) (org-match-string-no-properties 4)))
 	  (goto-char (setq lspos (match-beginning 0)))
-	  (setq level (org-reduced-level (funcall outline-level))
+	  (setq level (org-reduced-level (org-outline-level))
 		category (org-get-category))
 	  (setq i llast llast level)
 	  ;; remove tag lists from same and sublevels
@@ -13256,7 +13277,6 @@ headlines matching this string."
 		      (and (eq action 'agenda) org-agenda-archives-mode))))
 
 	    ;; select this headline
-
 	    (cond
 	     ((eq action 'sparse-tree)
 	      (and org-highlight-sparse-tree-matches
@@ -13271,7 +13291,7 @@ headlines matching this string."
 			  (if (eq org-tags-match-list-sublevels 'indented)
 			      (make-string (1- level) ?.) "")
 			  (org-get-heading))
-			 category
+			 level category
 			 tags-list)
 		    priority (org-get-priority txt))
 	      (goto-char lspos)
@@ -14753,7 +14773,7 @@ and the new value.")
 	(org-set-tags nil 'align))
        ((equal property "CLOCKSUM")
 	(if (not (re-search-forward
-		  (concat org-clock-string "\\]--\\(\\[[^]]+\\]\\)") nil t))
+		  (concat org-clock-string ".*\\]--\\(\\[[^]]+\\]\\)") nil t))
 	    (error "Cannot find a clock log")
 	  (goto-char (- (match-end 1) 2))
 	  (cond
@@ -15630,15 +15650,14 @@ user."
       (setq ans "+0"))
 
     (when (setq delta (org-read-date-get-relative ans (current-time) org-def))
-      (unless (save-match-data (string-match org-plain-time-of-day-regexp ans))
-	(setq ans (replace-match "" t t ans)
-	      deltan (car delta)
-	      deltaw (nth 1 delta)
-	      deltadef (nth 2 delta))))
+      (setq ans (replace-match "" t t ans)
+	    deltan (car delta)
+	    deltaw (nth 1 delta)
+	    deltadef (nth 2 delta)))
 
-    ;; Check if there is an iso week date in there
-    ;; If yes, store the info and postpone interpreting it until the rest
-    ;; of the parsing is done
+    ;; Check if there is an iso week date in there.  If yes, store the
+    ;; info and postpone interpreting it until the rest of the parsing
+    ;; is done.
     (when (string-match "\\<\\(?:\\([0-9]+\\)-\\)?[wW]\\([0-9]\\{1,2\\}\\)\\(?:-\\([0-6]\\)\\)?\\([ \t]\\|$\\)" ans)
       (setq iso-year (if (match-end 1)
 			 (org-small-year-to-year
@@ -16198,6 +16217,7 @@ days in order to avoid rounding problems."
     (apply 'format fmt (nreverse l))))
 
 (defun org-time-string-to-time (s &optional buffer pos)
+  "Convert a timestamp string into internal time."
   (condition-case errdata
       (apply 'encode-time (org-parse-time-string s))
     (error (error "Bad timestamp `%s'%s\nError was: %s"
@@ -16207,6 +16227,7 @@ days in order to avoid rounding problems."
 		  (cdr errdata)))))
 
 (defun org-time-string-to-seconds (s)
+  "Convert a timestamp string to a number of seconds."
   (org-float-time (org-time-string-to-time s)))
 
 (defun org-time-string-to-absolute (s &optional daynr prefer show-all buffer pos)
@@ -17360,12 +17381,13 @@ Some of the options can be changed using the variable
 	 (absprefix (expand-file-name prefix dir))
 	 (todir (file-name-directory absprefix))
 	 (opt org-format-latex-options)
+	 (optnew org-format-latex-options)
 	 (matchers (plist-get opt :matchers))
 	 (re-list org-latex-regexps)
 	 (org-format-latex-header-extra
 	  (plist-get (org-infile-export-plist) :latex-header-extra))
 	 (cnt 0) txt hash link beg end re e checkdir
-	 executables-checked string
+	 string
 	 m n block-type block linkfile movefile ov)
     ;; Check the different regular expressions
     (while (setq e (pop re-list))
@@ -17405,14 +17427,27 @@ Some of the options can be changed using the variable
 	      (setq txt (match-string n)
 		    beg (match-beginning n) end (match-end n)
 		    cnt (1+ cnt))
-	      (let (print-length print-level) ; make sure full list is printed
+	      (let ((face (face-at-point))
+		    (fg (plist-get opt :foreground))
+		    (bg (plist-get opt :background))
+		    print-length print-level)         ; make sure full list is printed
+		(when forbuffer
+	          ; Get the colors from the face at point
+		  (goto-char beg)
+		  (when (eq fg 'auto)
+		    (setq fg (face-attribute face :foreground nil 'default)))
+		  (when (eq bg 'auto)
+		    (setq bg (face-attribute face :background nil 'default)))
+		  (setq optnew (copy-sequence opt))
+		  (plist-put optnew :foreground fg)
+		  (plist-put optnew :background bg))
 		(setq hash (sha1 (prin1-to-string
 				  (list org-format-latex-header
 					org-format-latex-header-extra
 					org-export-latex-default-packages-alist
 					org-export-latex-packages-alist
 					org-format-latex-options
-					forbuffer txt)))
+					forbuffer txt fg bg)))
 		      linkfile (format "%s_%s.png" prefix hash)
 		      movefile (format "%s_%s.png" absprefix hash)))
 	      (setq link (concat block "[[file:" linkfile "]]" block))
@@ -17421,25 +17456,8 @@ Some of the options can be changed using the variable
 	      (unless checkdir ; make sure the directory exists
 		(setq checkdir t)
 		(or (file-directory-p todir) (make-directory todir t)))
-	      (cond
-	       ((eq processing-type 'dvipng)
-		(unless executables-checked
-		  (org-check-external-command
-		   "latex" "needed to convert LaTeX fragments to images")
-		  (org-check-external-command
-		   "dvipng" "needed to convert LaTeX fragments to images")
-		  (setq executables-checked t))
-		(unless (file-exists-p movefile)
-		  (org-create-formula-image-with-dvipng
-		   txt movefile opt forbuffer)))
-	       ((eq processing-type 'imagemagick)
-		(unless executables-checked
-		  (org-check-external-command
-		   "convert" "you need to install imagemagick")
-		  (setq executables-checked t))
-		(unless (file-exists-p movefile)
-		  (org-create-formula-image-with-imagemagick
-		   txt movefile opt forbuffer))))
+	      (org-create-formula-image
+	       txt movefile optnew forbuffer processing-type)
 	      (if overlays
 		  (progn
 		    (mapc (lambda (o)
@@ -17469,10 +17487,8 @@ Some of the options can be changed using the variable
 				  (if block-type 'paragraph 'character))))))
 	     ((eq processing-type 'mathml)
 	      ;; Process to MathML
-	      (unless executables-checked
-		(unless (save-match-data (org-format-latex-mathml-available-p))
-		  (error "LaTeX to MathML converter not configured"))
-		(setq executables-checked t))
+	      (unless (save-match-data (org-format-latex-mathml-available-p))
+		(error "LaTeX to MathML converter not configured"))
 	      (setq txt (match-string n)
 		    beg (match-beginning n) end (match-end n)
 		    cnt (1+ cnt))
@@ -17574,6 +17590,31 @@ inspection."
        0 (1- (length latex-frag)) '(org-protected t) latex-frag)
       latex-frag)))
 
+(defun org-create-formula-image (string tofile options buffer &optional type)
+  "Create an image from LaTeX source using dvipng or convert.
+This function calls either `org-create-formula-image-with-dvipng'
+or `org-create-formula-image-with-imagemagick' depending on the
+value of `org-latex-create-formula-image-program' or on the value
+of the optional TYPE variable.
+
+Note: ultimately these two function should be combined as they
+share a good deal of logic."
+  (org-check-external-command
+   "latex" "needed to convert LaTeX fragments to images")
+  (funcall
+   (case (or type org-latex-create-formula-image-program)
+     ('dvipng
+      (org-check-external-command
+       "dvipng" "needed to convert LaTeX fragments to images")
+      #'org-create-formula-image-with-dvipng)
+     ('imagemagick
+      (org-check-external-command
+       "convert" "you need to install imagemagick")
+      #'org-create-formula-image-with-imagemagick)
+     (t (error
+         "invalid value of `org-latex-create-formula-image-program'")))
+   string tofile options buffer))
+
 ;; This function borrows from Ganesh Swami's latex2png.el
 (defun org-create-formula-image-with-dvipng (string tofile options buffer)
   "This calls dvipng."
@@ -17595,8 +17636,10 @@ inspection."
 		 "Black"))
 	 (bg (or (plist-get options (if buffer :background :html-background))
 		 "Transparent")))
-    (if (eq fg 'default) (setq fg (org-dvipng-color :foreground)))
-    (if (eq bg 'default) (setq bg (org-dvipng-color :background)))
+    (if (eq fg 'default) (setq fg (org-dvipng-color :foreground))
+      (unless (string= fg "Transparent") (setq fg (org-dvipng-color-format fg))))
+    (if (eq bg 'default) (setq bg (org-dvipng-color :background))
+      (unless (string= bg "Transparent") (setq bg (org-dvipng-color-format bg))))
     (with-temp-file texfile
       (insert (org-splice-latex-header
 	       org-format-latex-header
@@ -17667,7 +17710,7 @@ inspection."
       (setq fg (org-latex-color-format fg)))
     (if (eq bg 'default) (setq bg (org-latex-color :background))
       (setq bg (org-latex-color-format
-		(if (string= bg "Transparent")(setq bg "white")))))
+		(if (string= bg "Transparent") "white" bg))))
     (with-temp-file texfile
       (insert (org-splice-latex-header
 	       org-format-latex-header
@@ -17818,6 +17861,12 @@ SNIPPETS-P indicates if this is run to create snippet images for HTML."
 					   ((eq attr :background) 'background))))
 		   (color-values (face-attribute 'default attr nil))))))
 
+(defun org-dvipng-color-format (color-name)
+  "Convert COLOR-NAME to a RGB color value for dvipng."
+  (apply 'format "rgb %s %s %s"
+	 (mapcar 'org-normalize-color
+		   (color-values color-name))))
+
 (defun org-latex-color (attr)
   "Return a RGB color for the LaTeX color package."
   (apply 'format "%s,%s,%s"
@@ -17854,7 +17903,8 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 	(org-remove-inline-images)
 	(message "Inline image display turned off"))
     (org-display-inline-images include-linked)
-    (if org-inline-image-overlays
+    (if (and (org-called-interactively-p)
+	     org-inline-image-overlays)
 	(message "%d images displayed inline"
 		 (length org-inline-image-overlays))
       (message "No images to display inline"))))
@@ -18838,6 +18888,7 @@ this function returns t, nil otherwise."
 
 (declare-function org-element-at-point "org-element" (&optional keep-trail))
 (declare-function org-element-type "org-element" (element))
+(declare-function org-element-context "org-element" ())
 (declare-function org-element-contents "org-element" (element))
 (declare-function org-element-property "org-element" (property element))
 (declare-function org-element-paragraph-parser "org-element" (limit))
@@ -22000,15 +22051,16 @@ If there is no such heading, return nil."
 	  nil
         (point)))))
 
-(defun org-end-of-subtree (&optional invisible-OK to-heading)
+(defun org-end-of-subtree (&optional invisible-ok to-heading)
+  "Goto to the end of a subtree."
   ;; This contains an exact copy of the original function, but it uses
   ;; `org-back-to-heading', to make it work also in invisible
-  ;; trees.  And is uses an invisible-OK argument.
+  ;; trees.  And is uses an invisible-ok argument.
   ;; Under Emacs this is not needed, but the old outline.el needs this fix.
   ;; Furthermore, when used inside Org, finding the end of a large subtree
   ;; with many children and grandchildren etc, this can be much faster
   ;; than the outline version.
-  (org-back-to-heading invisible-OK)
+  (org-back-to-heading invisible-ok)
   (let ((first t)
 	(level (funcall outline-level)))
     (if (and (derived-mode-p 'org-mode) (< level 1000))

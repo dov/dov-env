@@ -678,6 +678,9 @@
   (puthash "bsqv" "☑" xmsi-abrvs)
   (puthash "curarr" "↷" xmsi-abrvs)
   (puthash "|->" "↦" xmsi-abrvs)
+  (puthash ">>" "≫" xmsi-abrvs)
+  (puthash "<<" "≪" xmsi-abrvs)
+  (puthash "anchor" "⚓" xmsi-abrvs)
   )
 
 (defun xmsi-hash-to-list (hashtable)
