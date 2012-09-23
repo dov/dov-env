@@ -51,7 +51,7 @@
                   
 (setq load-path (append
                  (list
-                  (concat emacs-git "/org-mode")
+                  (concat emacs-git "/org-mode/lisp")
                   emacs-git
                   )
                  load-path))
@@ -139,7 +139,55 @@
 
 (require 'color-moccur)
 ;; TeX
-(load "tex-mode")
+;(load "tex-mode")
+;(setq tex-command "xelatex")
+;(setq TeX-engine 'xetex)
+;(setq TeX-PDF-mode-t)
+;(defun tex-view ()
+;  (interactive)
+;  (tex-send-command "xpdf" (tex-append tex-print-file ".pdf")))
+
+
+(add-hook 'LaTeX-mode-hook 
+   (lambda()
+     (%)
+     (setq TeX-auto-save t)
+     (setq LaTeX-command-style 
+    (quote (("\\`fontspec\\'" "xelatex ") 
+     ("" "%(PDF)%(latex) %S%(PDFout)"))))
+     (custom-set-variables
+      '(preview-fast-dvips-command "pdftops -origpagesizes %s.pdf %m/preview.ps"))
+     (setq TeX-save-query nil)
+     (setq TeX-parse-self t)
+     (setq-default TeX-master nil)
+     (setq TeX-output-view-style
+    (cons '("^pdf$" "." "evince  %o ") TeX-output-view-style))
+     (set-default 'preview-default-document-pt 12)
+     (set-default 'preview-scale-function 1.2)
+     (setq preview-required-option-list 
+    (quote ("active" "tightpage" "auctex" "pdftex" (preview-preserve-counters "counters"))))
+     (setq preview-default-option-list 
+    (quote ("displaymath" "floats" "graphics" "textmath" "showlabels" "sections" )))
+     (TeX-global-PDF-mode t)))
+
+;(add-hook 'LaTeX-mode-hook #'my-latex-mode-hook)
+;(defun my-latex-mode-hook ()
+;  (add-to-list 'TeX-command-list
+;               '("XeLaTeX" "%`xelatex%(mode)%' %t" TeX-run-TeX nil t)))
+
+;(defun my-latex-mode-hook ()
+;  (add-to-list 'TeX-command-list
+;               '("XeLaTeX" "%`xelatex%(mode)%' %t" TeX-run-TeX nil t))
+;  (setq TeX-command-default
+;        (save-excursion
+;          (save-restriction
+;            (widen)
+;            (goto-char (point-min))
+;            (let ((re (concat "^\\s-*\\\\usepackage\\(?:\\[.*\\]\\)?"
+;                              "{.*\\<\\(?:font\\|math\\)spec\\>.*}")))
+;              (if (re-search-forward re 3000 t)
+;                  "XeLaTeX"
+;                "LaTeX"))))))
 (load "octave-mod")
 
 ;; Tramp
@@ -163,6 +211,7 @@
 (load "dired")  ;; Since I am using a dired function below
 (dmacro-load (concat emacs-git "/dov.dmacro"))
 (def-dmacro-function pwdleaf() (basename (substring (pwd) 0 -1)))
+(def-dmacro-function datestring() (format-time-string "%A %Y-%m-%d %R"))
 (def-dmacro-function pwdleaf-spacefill ()
   (substring
    (concat
@@ -400,6 +449,7 @@
        (list (cons "\\.cxx$" 'c++-mode))
        (list (cons "\\.cu$" 'c++-mode))
        (list (cons "\\.vala$" 'vala-mode))
+       (list (cons "\\.json$" 'javascript-mode))
        (list (cons "\\.pov$"  'pov-mode))
        (list (cons "\\.inc$"  'pov-mode))
        (list (cons "\\.tcl$"  'tcl-mode))
@@ -495,9 +545,11 @@ With numeric ARG, display the images if and only if ARG is positive."
            '(("png" . "eog %s"))
            '(("pdf" . "evince %s"))
            '(("svg" . "inkscape %s"))
+           '(("xcf" . "gimp %s"))
            '(("giv" . "giv %s"))
            '(("doc" . "libreoffice %s"))
            '(("gnumeric" . "gnumeric %s"))
+           '(("html" . "firefox %s"))
            org-file-apps))))
 
 (setq org-src-lang-modes
@@ -971,7 +1023,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (define-key c++-mode-map [(control c) (control e)] 'compile)
 (define-key lisp-mode-map [return] 'newline-and-indent)
 (define-key emacs-lisp-mode-map [return] 'newline-and-indent)
-(define-key tex-mode-map [return] 'newline-and-indent)
+;(define-key tex-mode-map [return] 'newline-and-indent)
 (global-set-key [delete] 'delete-backward-char)
 (global-set-key [(control delete)] 'backward-kill-word)
 (global-set-key [home] 'beginning-of-line)
@@ -1076,26 +1128,47 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;; Here is where xemacs adds on its customization options
 (put 'narrow-to-region 'disabled nil)
 
-;; More customization
+;; json/javascript indent
+(setq javascript-indent-level 2)
+
+(defun update-indent-mode ()
+  (setq c-basic-offset my-indent)
+  (c-set-offset 'substatement my-substatement)
+  (c-set-offset 'substatement-open my-substatement-open)
+  (c-set-offset 'access-label my-access-label)
+  (c-set-offset 'topmost-intro my-topmost-intro))
+  
+;; Default indent mode for home projects
 (setq my-indent 2)
 (setq my-substatement 4)
 (setq my-substatement-open 4)
 (setq my-access-label 0)
-(setq my-topmost-intro 4)
+(setq my-topmost-intro 0)
+(update-indent-mode)
 
 (defun orbo-indent-mode ()
   "Set indent tabs to 4 as is standard at Orbotech."
   (interactive)
-  (setq my-indent 4))
+  (setq my-indent 4)
+  (setq my-topmost-intro 0)
+  (update-indent-mode))
+
+(defun hadassa-indent-mode ()
+  "Set indent tabs to 4 as style I use at WIS."
+  (interactive)
+  (setq my-indent 4)
+  (setq my-topmost-intro 0)
+  (update-indent-mode))
 
 (defun xjet-indent-mode ()
-  "Set indent tabs to 4 as is standard at Orbotech."
+  "Set indent tabs to the xjet indent mode"
   (interactive)
   (setq my-indent 2)
   (setq my-substatement 2)
   (setq my-substatement-open 0)
   (setq my-access-label 0)
-  (setq my-topmost-intro 0))
+  (setq my-topmost-intro 0)
+  (update-indent-mode))
 
 (defun gnu-indent-mode ()
   "Set indent tabs to 2 as is standard by gnome."
@@ -1105,6 +1178,18 @@ With numeric ARG, display the images if and only if ARG is positive."
   (setq my-substatement-open 2)
   (setq my-access-label 0)
   (setq my-topmost-intro 0)
+  (update-indent-mode))
+
+(defun qt-indent-mode ()
+  "Set indent tabs to 2 as is standard by gnome."
+  "qt sources indent mode"
+  (interactive)
+  (setq my-indent 4)
+  (setq my-substatement 4)
+  (setq my-substatement-open 0)
+  (setq my-access-label -4)
+  (setq my-topmost-intro 0)
+  (setq c-recognize-knr-p nil)
   (update-indent-mode))
 
 (defun outline-keys (map) ""
@@ -1121,19 +1206,13 @@ With numeric ARG, display the images if and only if ARG is positive."
   (interactive)
   (find-file (concat emacs-git "/dov.emacs")))
 
-(defun update-indent-mode ()
-  (setq c-basic-offset my-indent)
-  (c-set-offset 'substatement my-substatement)
-  (c-set-offset 'substatement-open my-substatement-open)
-  (c-set-offset 'access-label my-access-label)
-  (c-set-offset 'topmost-intro my-topmost-intro))
-  
 (defun my-cmode-stuff (map) ""
   (update-indent-mode)
 
   (setq indent-tabs-mode nil)
   (define-key map [return] 'newline-and-indent)
   (define-key map [(control c) (control e)] 'compile)
+  (define-key map (kbd "C-?") 'c-comment-selection-or-word)
   (outline-minor-mode)
   ; outline key bindings
   (outline-keys map)
@@ -1207,6 +1286,25 @@ Does not delete the prompt."
         (delete-region pmark (point))))
     ;; Output message and put back prompt
     (comint-output-filter proc replacement)))
+
+(defun c-comment-selection-or-word ()
+  "Put a c comment around the selection or the current word"
+  (interactive)
+  (save-excursion
+    (if mark-active
+        (let ((selection (buffer-substring-no-properties (region-beginning) (region-end))))
+          (delete-region (region-beginning) (region-end))
+          (insert "/*")
+          (insert selection)
+          (insert "*/"))
+      (progn
+        (skip-chars-forward "-_A-Za-z0-9")
+        (insert "*/")
+        (backward-char)
+        (backward-char)
+        (skip-chars-backward "-_A-Za-z0-9")
+        (insert "/*"))
+    )))
 
 (defun toggle-backslash-line ()
   "Toggle all forward slashes to backslashes for the current line."

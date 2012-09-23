@@ -44,6 +44,7 @@
          (filename (cadr parts))
          (repo (gethash repo-name my-git-repos))
          )
+    (if (eq repo nil) (error (concat "No such repo: " repo-name)))
     (git-find-file-in-repo repo filename)))
 ;;; org-learning.el ends here
 
