@@ -536,7 +536,7 @@ perl	expand	perl source section
 #
 
 #######
-python	expand	perl source section
+python	expand	python source section
 #+begin_src python
 ~@
 #+end_src

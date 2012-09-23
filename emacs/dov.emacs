@@ -211,6 +211,7 @@
 (load "dired")  ;; Since I am using a dired function below
 (dmacro-load (concat emacs-git "/dov.dmacro"))
 (def-dmacro-function pwdleaf() (basename (substring (pwd) 0 -1)))
+(def-dmacro-function datestring() (format-time-string "%A %Y-%m-%d %R"))
 (def-dmacro-function pwdleaf-spacefill ()
   (substring
    (concat
@@ -448,6 +449,7 @@
        (list (cons "\\.cxx$" 'c++-mode))
        (list (cons "\\.cu$" 'c++-mode))
        (list (cons "\\.vala$" 'vala-mode))
+       (list (cons "\\.json$" 'javascript-mode))
        (list (cons "\\.pov$"  'pov-mode))
        (list (cons "\\.inc$"  'pov-mode))
        (list (cons "\\.tcl$"  'tcl-mode))
@@ -1126,6 +1128,9 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;; Here is where xemacs adds on its customization options
 (put 'narrow-to-region 'disabled nil)
 
+;; json/javascript indent
+(setq javascript-indent-level 2)
+
 (defun update-indent-mode ()
   (setq c-basic-offset my-indent)
   (c-set-offset 'substatement my-substatement)
@@ -1176,13 +1181,15 @@ With numeric ARG, display the images if and only if ARG is positive."
   (update-indent-mode))
 
 (defun qt-indent-mode ()
+  "Set indent tabs to 2 as is standard by gnome."
   "qt sources indent mode"
   (interactive)
   (setq my-indent 4)
   (setq my-substatement 4)
   (setq my-substatement-open 0)
-  (setq my-access-label 0)
+  (setq my-access-label -4)
   (setq my-topmost-intro 0)
+  (setq c-recognize-knr-p nil)
   (update-indent-mode))
 
 (defun outline-keys (map) ""
@@ -1205,6 +1212,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (setq indent-tabs-mode nil)
   (define-key map [return] 'newline-and-indent)
   (define-key map [(control c) (control e)] 'compile)
+  (define-key map (kbd "C-?") 'c-comment-selection-or-word)
   (outline-minor-mode)
   ; outline key bindings
   (outline-keys map)
@@ -1278,6 +1286,25 @@ Does not delete the prompt."
         (delete-region pmark (point))))
     ;; Output message and put back prompt
     (comint-output-filter proc replacement)))
+
+(defun c-comment-selection-or-word ()
+  "Put a c comment around the selection or the current word"
+  (interactive)
+  (save-excursion
+    (if mark-active
+        (let ((selection (buffer-substring-no-properties (region-beginning) (region-end))))
+          (delete-region (region-beginning) (region-end))
+          (insert "/*")
+          (insert selection)
+          (insert "*/"))
+      (progn
+        (skip-chars-forward "-_A-Za-z0-9")
+        (insert "*/")
+        (backward-char)
+        (backward-char)
+        (skip-chars-backward "-_A-Za-z0-9")
+        (insert "/*"))
+    )))
 
 (defun toggle-backslash-line ()
   "Toggle all forward slashes to backslashes for the current line."

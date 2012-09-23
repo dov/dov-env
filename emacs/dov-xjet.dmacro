@@ -418,3 +418,16 @@ return fn
 #+end_src
 #
 
+#######
+# MODE:	python-mode
+#######
+
+#######
+pythonmasthead	expand	comment block for the top of a python file
+#@Description: ~@
+#@Author: Dov Grobgeld
+#@Date: ~(datestring)
+
+from PrintEngine import *
+#
+
