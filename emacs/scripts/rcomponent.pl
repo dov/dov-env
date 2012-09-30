@@ -103,11 +103,17 @@ sub H2Def {
         my $arg_string = join(",", @args);
         my $NumArgs = scalar(@args);
 
-        if ($return=~ /void/) {
-            $ret .= "  DEFINE_VOID_METHOD_${NumArgs}($ClassName,$fnc,$arg_string);\n";
+        if ($return=~ /void/ and $NumArgs == 0) {
+            $ret .= "    DEFINE_VOID_METHOD($ClassName,$fnc);\n";
+        }
+        elsif ($return=~ /void/) {
+            $ret .= "    DEFINE_VOID_METHOD_${NumArgs}($ClassName,$fnc,$arg_string);\n";
+        }
+        elsif ($NumArgs == 0) {
+            $ret .= "    DEFINE_METHOD($ClassName,$return,$fnc);\n";
         }
         else {
-            $ret .= "  DEFINE_METHOD_${NumArgs}($ClassName,$return,$fnc,$arg_string);\n";
+            $ret .= "    DEFINE_METHOD_${NumArgs}($ClassName,$return,$fnc,$arg_string);\n";
         }
     }
     return $ret;
