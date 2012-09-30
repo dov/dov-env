@@ -29,6 +29,10 @@
         (setq emacs-persistance-dir "/home/dov/.emacs.d"))
     (if (not (boundp 'my-default-font))
         (setq my-default-font "Liberation Mono 8"))
+
+    ;; Add conversion scripts to path
+    (setenv "PATH" (concat emacs-git "scripts:" (getenv "PATH")))
+
     (condition-case err
      (set-default-font my-default-font)
 ;    (set-default-font "Consolas 12") 
@@ -308,6 +312,49 @@
   (call-interactively 'screenshot)
   (iimage-recenter nil))
 
+(defun cpp-get-class-name ()
+  """Parses the buffer to extract the current class name for C and H files"""
+  (interactive)
+  (save-excursion
+    (if (string-match "\\.h$" (buffer-name))
+        (if (re-search-backward "^class")
+            (progn 
+              (forward-word)
+              (forward-word)
+              (backward-word)
+              )
+          (error "No match!"))
+      (if (string-match "\\.\\(cc\\|cpp\\)$" (buffer-name))
+          ;; Search for constructor
+          (if (not (re-search-backward "^\\w+::"))
+            (error "No match!"))
+      (error "Unsupported file type")))
+    (message (thing-at-point 'symbol))
+    ))
+
+;; XJet Rcomponent conversion functions
+(defun rcomp-map (conversion)
+  """A dispatcher for running rcomponent.pl"""
+  (let* ((class-name (cpp-get-class-name))
+         (start-reg (region-beginning))
+         (end-reg (region-end))
+         (selection (buffer-substring-no-properties start-reg end-reg))
+         (cmd (format "rcomponent.pl -ClassName %s -%s" class-name conversion)))
+    (shell-command-on-region start-reg end-reg cmd t t)
+    (message cmd)))
+  
+(defun rcomp-def-to-init ()
+  (interactive)
+  (rcomp-map "def2init"))
+
+(defun rcomp-h-to-def ()
+  (interactive)
+  (rcomp-map "h2def"))
+
+(defun rcomp-def-to-c ()
+  (interactive)
+  (rcomp-map "def2c"))
+
 (require 'iimage)
 (add-to-list 'iimage-mode-image-regex-alist
              (cons (concat "\\[\\[file:\\(~?" iimage-mode-image-filename-regex
@@ -397,7 +444,6 @@
 ;;; Why can't I get this to run automatically in the perl-mode hook
 (defun my-perl-mode-hook ()
   (interactive)
-  (define-key cperl-mode-map [(return)] 'newline-and-indent)
   (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
   (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
   (define-key cperl-mode-map ";" 'self-insert-command)
@@ -415,6 +461,7 @@
   (setq cperl-mode-abbrev-table nil)
   
   (abbrev-mode 0)
+  (define-key cperl-mode-map [(return)] 'newline-and-indent)
   (message "my-perl-mode-hook")
   )
 
