@@ -32,6 +32,24 @@ sub psplit {
     return map { decode_comma($_) }  @v;
 }
 
+# Output a skeleton C function
+sub PrintCFunction {
+    my($comment, $Ret, $ClassName, $fnc, $args) = @_;
+    my $args_string = join(", ", @$args);
+    if (@$args == 0) {
+        $args_string = 'void';
+    }
+    my $t;
+    $t .= "$comment\n" if $comment;
+    $t .= "$Ret ${ClassName}::${fnc}($args_string)\n"
+        ."{\n"
+        ."  R_TRACE;\n"
+        ."\n"
+        ."  // TBD\n"
+        ."}\n\n";
+    return $t;
+}
+
 # Convert def statements to init statements
 sub Def2Init {
     my $text = shift;
@@ -42,7 +60,8 @@ sub Def2Init {
     #  2 - In function
     
     my $state = 0;
-    my $comment;
+    my $comment = '';
+    my $t; #output text
     for (split("\n", $text)) {
         if (m://\s*(.*):) {
             if ($state == 0) {
@@ -78,9 +97,33 @@ sub Def2Init {
             my $varstring = join(",", @vars);
     
     #        print "DEFINE: $fnc_name Vars = ", join(",",@vars), "\n";
-            print "  INIT_METHOD_DOC($class,$fnc_name,\"$fnc_name($varstring): $comment\");\n";
+            $t.= "  INIT_METHOD_DOC($ClassName,$fnc_name,\"$fnc_name($varstring): $comment\");\n";
         }
     }
+    return $t;
+}
+
+# Convert H declarations to C statements.
+sub H2C {
+    my $text = shift;
+    my $ClassName = shift;
+
+    my $ret = '';
+    while($text=~ m/\s*(\w+)\s+(\w+)\s*\((.*?)\)\s*;/sg)
+    {
+        my $return = $1;
+        my $fnc = $2;
+        my $args = $3;
+
+        # Print everything from the last match
+        my $comment = $`;
+        $comment=~ s/^\s*//gm;
+
+        my @args = psplit($args);
+
+        $ret .= PrintCFunction($comment, $return, $ClassName, $fnc, \@args);
+    }
+    return $ret;
 }
 
 # Convert H declarations to Def statements.
@@ -92,28 +135,29 @@ sub H2Def {
     my $ret = '';
     while($text=~ m/(\w+)\s+(\w+)\s*\((.*?)\)\s*;/sg)
     {
-        my $return = $1;
+        my $Return = $1;
         my $fnc = $2;
         my $args = $3;
 
         my @args = psplit($args);
 
         # comment last arg
-        map { s:\s*(\w+)$:/\*$1\*/: } @args;
+        map { s:(\S+\s+)(\w+)$:$1/\*$2\*/: } @args;
         my $arg_string = join(",", @args);
         my $NumArgs = scalar(@args);
+        my $VoidArgs = ($NumArgs == 0 or $args[0] eq 'void');
 
-        if ($return=~ /void/ and $NumArgs == 0) {
+        if ($Return=~ /void/ and $VoidArgs) {
             $ret .= "    DEFINE_VOID_METHOD($ClassName,$fnc);\n";
         }
-        elsif ($return=~ /void/) {
+        elsif ($Return=~ /void/) {
             $ret .= "    DEFINE_VOID_METHOD_${NumArgs}($ClassName,$fnc,$arg_string);\n";
         }
-        elsif ($NumArgs == 0) {
-            $ret .= "    DEFINE_METHOD($ClassName,$return,$fnc);\n";
+        elsif ($VoidArgs) {
+            $ret .= "    DEFINE_METHOD($ClassName,$Return,$fnc);\n";
         }
         else {
-            $ret .= "    DEFINE_METHOD_${NumArgs}($ClassName,$return,$fnc,$arg_string);\n";
+            $ret .= "    DEFINE_METHOD_${NumArgs}($ClassName,$Return,$fnc,$arg_string);\n";
         }
     }
     return $ret;
@@ -123,16 +167,13 @@ sub H2Def {
 sub Def2C {
     my $text = shift;
     my $ClassName = shift;
-    # states
-    #  0 - Before comment
-    #  1 - In comment
-    #  2 - In function
     
-    my $state = 0;
+    my $t = '';   # Returned text
     for (split("\n", $text)) {
-        # print comments
+
+        # Unindent and print comments
         if (s:^\s*//://:) {
-            print "$_\n";
+            $t .= "$_\n";
             next;
         }
         elsif (m/(DEFINE.*?)\((.*)\)/) {
@@ -145,7 +186,7 @@ sub Def2C {
             my $s = '';
 
             my $ret;
-            my $cn = shift(@args);
+            my $cn = shift(@args); # ClassName
             if ($rfnc=~ /VOID/) {
                 $ret = 'void';
             }
@@ -154,21 +195,19 @@ sub Def2C {
             }
             my $fnc = shift(@args);
 
-            # get rid of comments around args
-            map { s:/\*: :;  s:\*/::} @args;
-            my $args_string = join(", ", @args);
-            print "$ret ${cn}::${fnc}($args_string)\n"
-                  ."{\n"
-                  ."  R_TRACE;\n"
-                  ."\n"
-                  ."}\n\n";
+            # Get rid of comments around arguments
+            map { s:\s*/\*\s*: :;  s:\*/::} @args;
+
+            $t .= PrintCFunction('',$ret,$ClassName,$fnc,\@args);
         }
     }
+    return $t;
 };
 
 my $def2init = 0;
 my $h2def=0;
 my $def2c = 0;
+my $h2c = 0;
 my $ClassName;
 
 while(@ARGV && ($_ = $ARGV[0], /^-/)) {
@@ -179,6 +218,7 @@ while(@ARGV && ($_ = $ARGV[0], /^-/)) {
     };
     /^-def2init/ and do { $def2init=1; next; };
     /^-def2c/ and do { $def2c=1; next; };
+    /^-h2c/ and do { $h2c=1; next; };
     /^-h2def/ and do { $h2def=1; next; };
     /^-help/ and do {
         print <<__;
@@ -192,11 +232,15 @@ __
 }
 
 my $text = join("",<>);
+
 if ($def2init) {
     print Def2Init($text, $ClassName);
 }
 elsif ($h2def) {
     print H2Def($text, $ClassName);
+}
+elsif ($h2c) {
+    print H2C($text, $ClassName);
 }
 elsif ($def2c) {
     print Def2C($text, $ClassName);

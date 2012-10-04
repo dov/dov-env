@@ -51,7 +51,17 @@
 ;    (load "vm")
     (if (and (getenv "HOSTNAME") (string-match "orbotech.com" (getenv "HOSTNAME")))
         (setq add-log-mailing-address "dov@orbotech.com")
-      (setq add-log-mailing-address "dov.grobgeld@gmail.com"))))
+      (setq add-log-mailing-address "dov.grobgeld@gmail.com"))
+  
+    (setq send-mail-function 'smtpmail-send-it
+          message-send-mail-function 'smtpmail-send-it
+          smtpmail-starttls-credentials '((smtpmail-smtp-server 587 nil nil))
+          smtpmail-auth-credentials (expand-file-name "~/.authinfo")
+          smtpmail-default-smtp-server smtpmail-smtp-server
+          smtpmail-smtp-service 587
+          smtpmail-debug-info t)
+    (require 'smtpmail))
+  )
                   
 (setq load-path (append
                  (list
@@ -326,8 +336,11 @@
           (error "No match!"))
       (if (string-match "\\.\\(cc\\|cpp\\)$" (buffer-name))
           ;; Search for constructor
-          (if (not (re-search-backward "^\\w+::"))
-            (error "No match!"))
+          (progn
+            (if (not (re-search-backward "^\\(\\(const *\\)?\\w+\\)? *\\w+::"))
+                (error "No match!"))
+            (re-search-forward "::")
+            (backward-word))
       (error "Unsupported file type")))
     (message (thing-at-point 'symbol))
     ))
@@ -354,6 +367,10 @@
 (defun rcomp-def-to-c ()
   (interactive)
   (rcomp-map "def2c"))
+
+(defun rcomp-h-to-c ()
+  (interactive)
+  (rcomp-map "h2c"))
 
 (require 'iimage)
 (add-to-list 'iimage-mode-image-regex-alist
