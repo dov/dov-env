@@ -55,11 +55,13 @@
   
     (setq send-mail-function 'smtpmail-send-it
           message-send-mail-function 'smtpmail-send-it
-          smtpmail-starttls-credentials '((smtpmail-smtp-server 587 nil nil))
+          smtpmail-starttls-credentials '(("pod51014.outlook.com" 587 nil nil))
           smtpmail-auth-credentials (expand-file-name "~/.authinfo")
-          smtpmail-default-smtp-server smtpmail-smtp-server
+          smtpmail-default-smtp-server "pod51014.outlook.com"
+          smtpmail-smtp-server "pod51014.outlook.com"
           smtpmail-smtp-service 587
-          smtpmail-debug-info t)
+          smtpmail-debug-info t
+          user-mail-address "dov.grobgeld@xjetsolar.com")
     (require 'smtpmail))
   )
                   
