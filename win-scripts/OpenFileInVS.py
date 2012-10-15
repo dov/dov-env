@@ -9,6 +9,7 @@ Wednesday 2012-02-22 17:10
 """
 
 import win32com.client
+import win32gui
 import sys
 import os
 
@@ -33,3 +34,13 @@ b.ItemOperations.OpenFile(os.path.abspath(Filename))
 if not LineNum is None:
   s = b.ActiveDocument.Selection
   s.MoveToLineAndOffset(LineNum,ColNum)
+
+  # set breakpoint add current line
+#  b.ExecuteCommand("Debug.ToggleBreakpoint")
+  b.Debugger.BreakPoints.Add("",os.path.abspath(Filename),LineNum)
+
+# Raise Visual Studio to top
+w = b.MainWindow
+h = w.HWnd
+
+win32gui.SetForegroundWindow(h)
