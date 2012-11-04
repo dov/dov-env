@@ -277,6 +277,13 @@
   (xmsi-mode)
   (org-toggle-pretty-entities)
   (setq bidi-paragraph-direction nil)
+  (setq org-export-html-postamble nil)
+  (setq org-export-html-validation-link "")
+  (setq org-entities-user '(
+    ("models" "\\models" t "&8872;" "[models]" "models" "⊨")
+    ("indf" "{\bf 1}" t "&#120128;" "[indf]" "indf" "𝟙")
+    ))
+
   )
 (add-hook 'org-mode-hook 'my-org-hook)
 (require 'org-crypt)
@@ -611,6 +618,7 @@ With numeric ARG, display the images if and only if ARG is positive."
            '(("png" . "eog %s"))
            '(("pdf" . "evince %s"))
            '(("svg" . "inkscape %s"))
+           '(("net" . "/usr/local/samiam/runsamiam %s"))
            '(("xcf" . "gimp %s"))
            '(("giv" . "giv %s"))
            '(("doc" . "libreoffice %s"))
@@ -1407,6 +1415,18 @@ Does not delete the prompt."
     (add-hook 'kill-buffer-hook 'comint-write-input-ring)
   ))
 (add-hook 'shell-mode-hook 'ansi-color-for-comint-mode-on)
+;; The following is based on:
+;; http://oleksandrmanzyuk.wordpress.com/2011/10/23/a-persistent-command-history-in-emacs/
+(defun mapc-buffers (fn)
+  (mapc (lambda (buffer)
+          (with-current-buffer buffer
+            (funcall fn)))
+        (buffer-list)))
+
+(defun comint-write-input-ring-all-buffers ()
+  (mapc-buffers 'comint-write-input-ring))
+
+(add-hook 'kill-emacs-hook 'comint-write-input-ring-all-buffers)
                               
 (add-hook 'gud-mode-hook
   (lambda() 
