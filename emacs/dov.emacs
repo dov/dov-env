@@ -77,7 +77,8 @@
   ; Hebrew support
   (setq-default bidi-display-reordering t)
   (setq x-select-enable-primary t)
-  (setq x-select-enable-clipboard nil))
+  (setq x-select-enable-clipboard nil)
+  (setq custom-theme-directory (concat emacs-git "themes")))
   
 (defconst inhibit-startup-message t)
 
@@ -133,10 +134,10 @@
 (ad-activate 'js2-parse-statement)
 
 (add-to-list 'load-path (concat emacs-git "/pde"))
-(when (>= emacs-major-version 24)
-  (load "pde-load")
-  ; pde turns this on, which I don't like
-  (ido-mode nil))
+;(when (>= emacs-major-version 24)
+;  (load "pde-load")
+;  ; pde turns this on, which I don't like
+;  (ido-mode nil))
 
 (global-set-key "\C-ci" 'magit-status)
 (global-set-key "\C-c\C-b" 'magit-blame-mode)
@@ -280,7 +281,10 @@
 (load "org-git-hyperlink.el")
 (load "org-wp.el")
 
-(require 'org-install)
+(require 'load-theme-buffer-local)
+
+(require 'org)
+(require 'org-crypt)
 (defun my-org-hook ()
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
@@ -300,6 +304,13 @@
   (setq bidi-paragraph-direction nil)
   (setq org-export-html-postamble nil)
   (setq org-export-html-validation-link "")
+  ;; Use journal theme if requested
+  (if (>= emacs-major-version 24)
+      (if (string-match "notes.org" (buffer-name) )
+          (progn
+            (disable-theme 'org-default)
+            (load-theme-buffer-local 'org-journal))
+        (load-theme-buffer-local 'org-default)))
   (setq org-entities-user '(
     ("models" "\\models" t "&8872;" "[models]" "models" "⊨")
     ("indf" "{\bf 1}" t "&#120128;" "[indf]" "indf" "𝟙")
@@ -307,7 +318,7 @@
 
   )
 (add-hook 'org-mode-hook 'my-org-hook)
-(require 'org-crypt)
+
 (org-crypt-use-before-save-magic)
 (setq org-tags-exclude-from-inheritance (quote ("crypt")))
 ;; GPG key to use for encryption
@@ -512,8 +523,8 @@
   (message "my-perl-mode-hook")
   )
 
-(add-hook 'pde-hook 'my-perl-mode-hook)
-(add-hook 'cperl-mode 'my-perl-mode-hook)
+;(add-hook 'pde-hook 'my-perl-mode-hook)
+(add-hook 'cperl-mode-hook 'my-perl-mode-hook)
   
 (autoload 'vala-mode "vala-mode.el" "Valamode" t)
 (autoload 'pov-mode "pov-mode.el" "PoVray scene file mode" t)
@@ -554,6 +565,7 @@
        (list (cons "notes.txt" 'mediawiki-mode)) 
        (list (cons "\\.txt$" 'org-mode)) 
        (list (cons "\\.org" 'org-mode)) 
+       (list (cons "\\.pl" 'cperl-mode)) 
        auto-mode-alist))
 
 ;; mapping between languages and their major mode  (in Emacs)
@@ -1315,7 +1327,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   )
 
 (defun my-perlmode-stuff () ""
-  (define-key perl-mode-map [return] 'newline-and-indent)
+  (define-key cperl-mode-map [return] 'newline-and-indent)
 )
 
 (defun do-return-indent (map) ""
