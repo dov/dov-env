@@ -786,10 +786,15 @@ With numeric ARG, display the images if and only if ARG is positive."
 			     load move shell symlink uncompress
                              revert-subdirs))
 
-(defun date-stamp-here ()
+(defun date-stamp-full-here ()
   "Insert a date and time stamp"
   (interactive)
   (insert (format-time-string "%A %Y-%m-%d %R ")))
+
+(defun date-stamp-here ()
+  "Insert a date and time stamp"
+  (interactive)
+  (insert (format-time-string "%Y-%m-%d %a")))
 
 (defun insert-my-name ()
   "Insert my name"
@@ -1108,6 +1113,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(alt /)] 'dabbrev-expand)
 (global-set-key [(control /)] 'dabbrev-expand)
 (global-set-key [(control \;)] 'date-stamp-here)
+(global-set-key [(control c) (control \;)] 'date-stamp-full-here)
 (global-set-key [(control \:)] 'insert-my-name)
 (global-set-key [(alt m)] 'point-to-register)
 (global-set-key [(alt g)] 'jump-to-register)

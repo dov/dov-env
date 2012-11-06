@@ -109,7 +109,7 @@ sub H2C {
     my $ClassName = shift;
 
     my $ret = '';
-    while($text=~ m/\s*(\w+)\s+(\w+)\s*\((.*?)\)\s*;/sg)
+    while($text=~ m/\s*(\S+)\s+(\w+)\s*\((.*?)\)\s*;/sg)
     {
         my $return = $1;
         my $fnc = $2;
@@ -133,7 +133,7 @@ sub H2Def {
     my $ClassName = shift;
 
     my $ret = '';
-    while($text=~ m/(\w+)\s+(\w+)\s*\((.*?)\)\s*;/sg)
+    while($text=~ m/(\S+)\s+(\w+)\s*\((.*?)\)\s*;/sg)
     {
         my $Return = $1;
         my $fnc = $2;

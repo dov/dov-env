@@ -11,3 +11,4 @@
     (message cmd)
     (shell-command cmd)))
 (global-set-key "\C-c\M-s" 'buffer-to-visual-studio)
+(global-set-key [f9] 'buffer-to-visual-studio)
