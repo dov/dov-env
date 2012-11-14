@@ -378,7 +378,7 @@
       (if (string-match "\\.\\(cc\\|cpp\\)$" (buffer-name))
           ;; Search for constructor
           (progn
-            (if (not (re-search-backward "^\\(\\(const *\\)?\\w+\\)? *\\w+::"))
+            (if (not (re-search-backward "^\\(\\(const *\\)?[a-zA-Z_][a-zA-Z0-9_]*\\)? *[a-zA-Z][a-zA-Z0-9_]*::"))
                 (error "No match!"))
             (re-search-forward "::")
             (backward-word))
@@ -1405,21 +1405,27 @@ Does not delete the prompt."
 (defun c-comment-selection-or-word ()
   "Put a c comment around the selection or the current word"
   (interactive)
-  (save-excursion
     (if mark-active
-        (let ((selection (buffer-substring-no-properties (region-beginning) (region-end))))
-          (delete-region (region-beginning) (region-end))
-          (insert "/*")
-          (insert selection)
-          (insert "*/"))
+        (save-excursion
+          (let ((selection (buffer-substring-no-properties (region-beginning) (region-end))))
+            (delete-region (region-beginning) (region-end))
+            (insert "/*")
+            (insert selection)
+            (insert "*/")
+            ))
       (progn
         (skip-chars-forward "-_A-Za-z0-9")
         (insert "*/")
         (backward-char)
         (backward-char)
         (skip-chars-backward "-_A-Za-z0-9")
-        (insert "/*"))
-    )))
+        (insert "/*")
+        (forward-word)
+        (forward-word)
+        (forward-word)
+        (backward-word)
+        )
+    ))
 
 (defun toggle-backslash-line ()
   "Toggle all forward slashes to backslashes for the current line."
@@ -1445,6 +1451,7 @@ Does not delete the prompt."
     (define-key comint-mode-map [(meta n)] 'comint-next-matching-input-from-input)
     (define-key comint-mode-map [(control c) (control o)] 'comint-kill-output-to-kill-ring)
     (define-key comint-mode-map [(control x) (control ?\\)] 'toggle-backslash-line)
+    (define-key comint-mode-map [(tab)] 'comint-dynamic-complete)
 
     ; Save history when the shell is killed
     (make-local-variable 'comint-input-ring-file-name)
