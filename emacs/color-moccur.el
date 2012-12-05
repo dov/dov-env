@@ -953,10 +953,7 @@ Optional argument LENGTH
             (overlay-put ov 'face 'moccur-face)
             (overlay-put ov 'priority 0)
             (setq moccur-overlays (cons ov moccur-overlays)))
-          (when (> (+ 6 (save-excursion (end-of-line) (current-column)))
-                   (if (and (boundp 'running-xemacs) running-xemacs)
-                       (frame-width)
-                     (screen-width)))
+          (when (> (+ 6 (save-excursion (end-of-line) (current-column))) (frame-width))
             (save-excursion
               (beginning-of-line)
               (re-search-forward "^[ 0-9]+" (line-end-position) t)
@@ -1270,7 +1267,7 @@ If NAME exists, `moccur-search-buffer' works as grep."
     (make-variable-buffer-local 'moccur-buffer-position)
     (setq moccur-buffer-position (point))
 
-    (make-local-hook 'after-change-functions)
+;;    (make-local-hook 'after-change-functions)
     ;;(remove-hook 'after-change-functions 'moccur-remove-overlays)
     (add-hook 'after-change-functions 'moccur-remove-overlays)
 
