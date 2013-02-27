@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+
+use strict;
+use File::Find ();
+
+sub help { print<<__; }
+lsbig - list big files
+    
+SYNTAX
+    lsbig [-size s]
+__
+
+my ($size, $dir, $do_no_recurse);
+
+# get arguments
+while($_ = $ARGV[0], /^-/) {
+    shift;
+    /^-help/ and do { &help; exit;};
+    /^-size/ and $size = shift and next;
+    /^-norecurse/ and do { $do_no_recurse=1; next; };
+    die "Unknown argument $_\n";
+}
+
+# defaults 
+$size ||= 1_000_000;
+
+$size=~ s/(\d+)k/$1*1000/e;
+
+# Traverse desired filesystems
+File::Find::find({wanted => \&wanted}, '.');
+exit;
+
+sub wanted {
+    (-s $_ > $size) &&
+    (print "$File::Find::dir/$_\n");
+
+    # Don't recurse if we don't want to...
+    if ($do_no_recurse && $_ ne "." && -d $_) {
+	$File::Find::prune = 1;
+    }
+}
+
