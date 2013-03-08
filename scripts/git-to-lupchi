@@ -1,0 +1,56 @@
+#!/usr/bin/python
+
+"""
+Copy all git repos to lupchi.
+
+From Notebook 2011-07-05:
+
+*** Problem
+When doing ~git clone~ all branches from the remote origin are cloned. But when doing a subsequent ~fetch~ how do you get all new branches.  I can't find any other solution than cloning!
+*** Links:
+    - http://git.661346.n2.nabble.com/How-to-fetch-all-remote-branches-from-remote-td3380849.html
+*** Solution:
+#+begin_src sh
+  git fetch origin -- `git ls-remote -h origin | while read sha ref; do echo "+$ref:$ref"; done`
+From /mnt/fdrive/git/Project
+#+end_src
+
+"""
+
+import os
+encrypt_dir = "/media/truecrypt1/xjet/git"
+if not os.path.exists(encrypt_dir):
+  print "The encrypted dir has not been mounted!"
+  exit(-1)
+  
+os.chdir("/media/truecrypt1/xjet/git")
+cmd =  "git fetch --prune origin -- `git ls-remote -h origin | while read sha ref; do echo \"+$ref:$ref\"; done`"
+for f in os.listdir("."):
+  print ">>> ",f
+  # print cmd
+  os.chdir(f)
+  os.system(cmd)
+  os.chdir("..")
+  
+# Additional repos
+unencrypt_dir = None
+for d in ('/run/media/dov/Lupchi/git',
+          '/mnt/lupchi/git'):
+  if os.path.exists(d):
+    unencrypt_dir = d
+if not unencrypt_dir:
+  print "Lupchi has not been mounted"
+  exit(-1)
+  
+os.chdir(unencrypt_dir)
+for f in ["dov-env.git",
+          "learning.git",
+          "dov-conrob.git",
+          "EuclideanGeometryViewer.git"
+          ]:
+  os.chdir(f)
+  print ">>> ",f
+  os.system(cmd)
+  os.chdir('..')
+
+print "All repos are backed up!"

@@ -1,0 +1,6 @@
+#!/bin/bash
+# Git all remote branches. The result is equivalent to doing git-clone.
+
+
+git fetch origin -- `git ls-remote -h origin | while read sha ref; do echo "+$ref:$ref"; done`
+
