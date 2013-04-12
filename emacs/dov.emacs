@@ -423,7 +423,8 @@
 (setq ipython-command "ipython")
 (require 'ipython)
 ;(setq py-python-command-args '("-pylab" "-p" "pylab" "-colors" "LightBG"))
-(setq py-python-command-args '("-pylab" "-colors" "LightBG"))
+(setq py-python-command "python")
+(setq py-python-command-args nil)
 
 ; ediff options
 (setq ediff-patch-options "")
@@ -655,6 +656,7 @@ With numeric ARG, display the images if and only if ARG is positive."
            '(("xcf" . "gimp %s"))
            '(("giv" . "giv %s"))
            '(("doc" . "libreoffice -norestore %s"))
+           '(("odt" . "libreoffice -norestore %s"))
            '(("gnumeric" . "gnumeric %s"))
            '(("html" . "firefox %s"))
            org-file-apps))))
@@ -1277,12 +1279,17 @@ With numeric ARG, display the images if and only if ARG is positive."
 (defun xjet-indent-mode ()
   "Set indent tabs to the xjet indent mode"
   (interactive)
+  ;; C++-python
   (setq my-indent 2)
   (setq my-substatement 2)
   (setq my-substatement-open 0)
   (setq my-access-label 0)
   (setq my-topmost-intro 0)
-  (update-indent-mode))
+  (update-indent-mode)
+
+  ;; Python
+  (setq py-indent-offset 2)
+  )
 
 (defun gnu-indent-mode ()
   "Set indent tabs to 2 as is standard by gnome."

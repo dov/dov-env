@@ -1,0 +1,996 @@
+#!/usr/bin/perl
+#####################################################
+#  A lineprinter program in Perl and postscript.
+#
+#  Dov Grobgeld
+#  Orbotech
+#  31 Dec 1998
+#####################################################
+
+=head1 NAME
+
+poe - A line printing program
+
+=head1 SYNOPSIS
+
+    poe [-a4] [-columns c] [-debug] [-font f] [-fontscale fs] [-letter]
+        [-noff] [-noline] [-portrait] [-stdout]
+        [-gutter g] [-lmarg lm] [-rmarg rm] [-tmarg tm] [-bmarg bm]
+        [-headsep hs] [-forceprint] [-oslash] [-ga] [filename]
+
+=head1 DESCRIPTION
+
+poe is a very configurable ascii to postscript converter. poe stands
+for "Poe Outperforms Enscript", for those interested.
+
+=head1 OPTIONS
+
+Note that all distances are given in postscript points. Additional default
+options may be given in the shell environment variable POEOPTIONS .
+
+=over 4
+
+=item B<-a4>             
+
+Set A4 size paper. (default)
+
+=item B<-columns> I<c>
+
+Use c columns on the page. (default c = 2)
+
+=item B<-debug>          
+
+Print debug info.
+
+=item B<-font> I<f>
+
+Choose font I<f>.
+
+=item B<-fontscale> I<fs>   
+
+Choose fontsize
+
+=item B<-fontpath> I<fp>
+
+Comma separated list of directories to look for fonts in.
+
+=item B<-letter>         
+
+Set letter size paper.
+
+=item B<-noline>
+
+Don\'t draw a line between the columns. 
+
+=item B<-noheader>
+
+Don\'t draw a header.
+
+=item B<-nospd>
+
+Don\'t do the setpagedevice command.
+
+=item B<-noff>
+
+Ignore form feed character.
+
+=item B<-landscape>
+
+Choose landscape orientation of the printout.
+
+=item B<-portrait>
+
+Choose portrait orientation of the printout.
+
+=item B<-stdout>
+
+Send the output to stdout instead of to the printer.
+(Default is to send output to printer.)
+
+=item B<-trans> I<tr>
+
+Use translation table tr. (Default is none.)
+
+=item B<-booklet>
+
+Sort the pages in booklet order.
+
+=item B<-forceprint> I<tr>
+
+Force printing of non-ascii files.
+
+=item B<-signature>
+
+Change the size of the signatures for booklets. Default
+is one signature for the whole file.
+
+=back                   
+
+=head2 Layout:
+
+=over 4
+
+=item B<-gutter> I<g>
+
+Set the distance between the columns.
+
+=item B<-lmarg> I<lm>
+
+Set left margin
+
+=item B<-rmarg> I<rm>
+
+Set right margin
+
+=item B<-tmarg> I<tm>
+
+Set top margin
+
+=item B<-bmarg> I<bm> 
+
+Set bottom margin
+
+=item B<-tabwidth> I<tw> 
+
+Set tabwidth. Default is 8.
+
+=item B<-headsep> I<hs>
+
+Set the distance between the header and the text body.
+
+=back
+
+=head2 Character translations for ISO fonts:
+
+=over 4
+
+=item B<-oslash>
+
+Draw zeros with a slash (Danish O slash character - E<Oslash>)
+
+=item B<-ga> 
+
+Change quoteright and quoteleft to acute and grave accents.
+
+=back
+
+=head2 Downloadable fonts 
+
+Downloadable fonts are looked for in directories in the POEFONTPATH
+environment variable or in the directories given by the -fontpath option
+above.
+
+=head1 BUGS/TODO
+
+=over 4 
+
+=item * Should use database file for font and translation table info.
+
+=item * Code should be cleaned up.
+
+=item * No way to change the header.
+
+=item * The header is ugly
+
+=item * There should be a way for a user to add their own postscript decorations
+to the page before showpage.
+
+=item * Font width calculation is wrong due to quantization of width to whole
+pixels in the printer. Program should compensate for this.
+
+=item * No support for Unicode text files.
+
+=item * No support for printing several files with boxes denoting which file.
+
+=item * No syntax highlightning.
+
+=item * Change continuation character to something prettier than backslash
+
+=item * Support X^h_ an X^hX for underlining and overstriking by changing
+the font.
+
+=item * Support poe commands by some escape mechanism.
+
+=item * Use such a command for epsf include files.
+
+=back
+
+=head1 AUTHOR
+
+Dov Grobgeld, 31 December 1998
+
+=cut
+
+######################################################################
+
+BEGIN { unshift(@INC,
+		"/home/dov/lib/perl",
+		split(/:/, "/data/alg/local/lib/perl5/5.005:/data/alg/local/lib/perl5/site_perl/5.005:/data/alg/local/lib/perl5/site_perl/5.005/sun4-solaris:/data/alg/local/lib/perl5/5.005/sun4-solaris"));
+    }
+#use File::lockf;
+use Pod::Text;
+require 'shellwords.pl'; # In standard perl distribution
+
+&load_database;
+
+# Get arguments from environment variable POEOPTIONS
+unshift(@ARGV, &shellwords($ENV{POEOPTIONS}));
+unshift(@ARGV, &shellwords($table{OPTIONS}->{prm}->{options}));
+	
+# Make a small access count and hope no hacker will play with the file!
+#open(ACC,">>/home/dov/tmp/poe-access.txt");
+#File::lockf::lock(ACC);
+#print ACC dateString("stdin") . ": $ENV{USER} : @ARGV\n";
+#close(ACC);
+
+# Get arguments
+while($_=$ARGV[0], /^-/) {
+    shift;
+    /^-h(elp)?$/      && do { &pod2text($0); exit; };
+    /^-a4/        && do { $paper_type = 'a4'; next; };
+    /^-columns/   && do { $num_columns= shift; next; };
+    /^-debug/     && do { $debug++; next; };
+    /^-fontpath/  && do { $fontpath = shift; next; };
+    /^-fonts/ && do { $fontscale = shift; next; };
+    /^-font(name)?/  && do { $fontname = shift; next; };
+    /^-gutter/    && do { $gutter =shift; next; };
+    /^-letter/    && do { $paper_type = 'letter'; next; };
+    /^-noline/    && do { $dosepline = "false"; next; };
+    /^-nohead/    && do { $nohead++; next; };
+    /^-noff/      && do { $noff++; next };
+    /^-nospd/     && do { $nospd++; next };
+    /^-landscape/ && do { undef $portrait; next; };
+    /^-papertype/ && do { $paper_type = shift; next; };
+    /^-portrait/  && do { $portrait++; next; };
+    /^-stdout/    && do { $stdout++; next; };
+    /^-lmarg/     && do { $lmarg = shift; next; };
+    /^-rmarg/     && do { $rmarg = shift; next; };
+    /^-bmarg/     && do { $bmarg = shift; next; };
+    /^-tmarg/     && do { $tmarg = shift; next; };
+    /^-headsep/   && do { $headsep = shift; next; };
+    /^-oslash/    && do { $oslash++; next; };
+    /^-ga/        && do { $graveacute++; next; };
+    /^-trans/     && do { $translation = shift; next; };
+    /^-booklet/   && do { $booklet_order++; next; };
+    /^-forceprint/     && do { $do_force_print_all++; next; };
+    /^-signature/ && do { $signature_size = shift; next; };
+    /^-tabwidth/ && do { $tabwidth = shift; next; };
+    /^-reverse/   && do { $reverse++; next; };
+    /^-layout_reverse/   && do { $layout_reverse++; next; };
+    /^-P(\w+)/    && do { $printer_name = $1; next; };
+    die "Unknown option $_!\n"; 
+}
+
+# Defaults
+$lmarg = 25 unless $lmarg;
+$rmarg = 30 unless $rmarg;
+$tmarg = 15 unless $tmarg;
+$bmarg = 20 unless $bmarg;
+$dosepline = "true" unless defined $dosepline;
+$honor_control_l = !$noff;
+#$fontname =   "Courier" unless $fontname;
+$fontname =   "LetterGothic12PitchBT-Roman" unless $fontname;
+$paper_type = "a4" unless $paper_type;
+$num_columns= 2 unless $num_columns;
+$signature_size = 128 unless $signature_size;  # Basically infinity
+$fontpath = $ENV{POEFONTPATH} unless $fontpath;
+$fontw=600 unless $fontw;
+$printer_name = $ENV{PRINTER} unless $printer_name;
+$tabwidth = 8 unless $tabwidth;
+$max_num_pages = 50;
+
+######################################################################
+#  Unpack database info
+######################################################################
+
+
+########################
+# Paper dimensions
+########################
+($pwidth, $pheight) = @{$table{PAPERDIM}->{$paper_type}}{width,height}
+    or die "Unknown paper size $paper_type!\n";
+
+#########################
+#  Font
+#########################
+($font_width, $encoding, $font_translation, $font_resident) =
+    @{$table{FONTS}->{$fontname}}{width,encoding,translation, resident}
+        or die "Unknown font $fontname!\n";
+$font_width = 600 unless $font_width; # Courier width...
+
+#########################
+#  Translation table
+#########################
+if ($translation || $font_translation) {
+    $translation = $font_translation unless $translation;
+    die "No such translation table $translation!\n"
+	unless $table{TRANSLATIONS}->{$translation};
+    ($tr_from, $tr_to) =
+	@{$table{TRANSLATIONS}->{$translation}}{from,to};
+}
+
+######################################################################
+#  End of database info
+######################################################################
+
+#####################
+# Get info for header
+#####################
+if (@ARGV) {
+    $fn = shift;
+    die "No such file $fn!\n" unless -e $fn;
+    open(IN, $fn);
+}
+else {
+    $fn = "stdin";
+    open(IN, "<&STDIN");
+}
+
+########################################
+#  Sanity check to save trees in Brazil.
+########################################
+$_ = <IN>;
+ungetline($_);
+
+if ($do_force_print_all) {
+}
+elsif ($_ =~ /^%!/) {
+    die "Error! poe can not be used for printing postscript files. Use impose and lpr.\n";
+}
+elsif ($_ =~ /^%PDF/i) {
+    die "Error! poe can not be used for printing PDF files. Use acroread!\n";
+}
+elsif ($_ =~ /^<MakerFile/) {
+    die "Error! poe can not be used for printing Frame maker files. Use imaker!!";
+}
+
+$date=&dateString($fn);
+$fn=$1 if $fn=~ m|/([^/]+)$|;
+
+###############################
+# Open a pipe to the printer
+###############################
+unless($stdout || $debug) {
+    if (-e "/usr/bin/lp") {
+	open(STDOUT, "|lp -d$printer_name");
+    }
+#    elsif (-e "/usr/bin/lp") {
+#	open(STDOUT, "|/usr/bin/lp -d$printer_name");
+#    }
+    elsif (-e "/usr/bin/lpr") {
+	open(STDOUT, "|/usr/bin/lpr -P$printer_name -h -J $fn");
+    }
+    elsif (-e "/usr/local/bin/lpr") {
+	open(STDOUT, "|/usr/local/bin/lpr -P$printer_name -h -J $fn");
+    }
+    else {
+	warn "Couldn't find printer program. Sending output to stdout.\n";
+    }
+}
+
+# page setup dependant parameters
+if ($portrait) {
+    $fontscale = 6.8 unless $fontscale;
+    $turnpage = "false";
+    $tumble = "false" unless $tumble;
+    $duplex = "true" unless $duplex;
+}
+else { # landscape
+    ($pwidth, $pheight) = ($pheight, $pwidth);
+    $fontscale = 8 unless $fontscale;
+    $turnpage = "true";
+    $tumble = "true" unless $tumble;
+    $duplex = "true" unless $duplex;
+}
+
+# Calculate various dimensions
+$gutter = $fontscale*1.5 unless $gutter;
+if ($nohead) {
+    $headerfontscale = $headsep = 0;
+    $headerypos = $tmarg;
+}
+else {
+    $headerfontscale = $fontscale * 1.3;
+    $headerfontscale = 12 if $headerfontscale < 12;
+    $headerypos = $tmarg+$headerfontscale  unless $headerypos;
+    $headsep = $fontscale * 2.5 unless $headsep;
+}
+$bodytop = $headerypos + $headsep;
+$bodyheight = $pheight - $bodytop - $bmarg;
+$bodywidth = int($pwidth - $lmarg - $rmarg);
+$lw = $fontscale * 1.05;
+$maxlinesonpage = int($bodyheight / $lw);
+$columnwidth  = ($bodywidth - $gutter * ($num_columns-1)) / $num_columns;
+$fontwidth= $fontscale / 1.9; # This is a font dependant parameter
+$fontw = $fontscale * $font_width / 1000;
+# todo: round $fontwidth to 300dpi to get character per column more correctly
+$cpc = $columnwidth / $fontw -1; # characters per column
+
+################################
+# Create the postscript prologue
+################################
+&prologue($num_columns, $fn, $date, $fontname, $encoding);
+
+&by_signatures;
+
+print "%%EOF\n";
+
+sub by_signatures {
+    my(@pages);
+
+    my $sgn_idx = 0;
+    my $column_idx = 0;
+    my $page_idx = 0;
+    while(@pages = &read_signature($signature_size * $sgn_idx+1)) {
+	@pages = &page_rearrange(@pages) if $booklet_order;
+	@pages = &page_reverse(@pages) if $reverse || $layout_reverse;
+
+	my $num_pages = count_pages(@pages);
+
+	# This doesn't work when printing with signatures. It should be
+	# cleaned up!
+	if (!$do_force_print_all && $num_pages > $max_num_pages) {
+	    die "You have requested to print $num_pages pages.\n"
+	       ."poe will not print that many pages unless you use the -forceprint option!\n";
+	}
+	foreach $p (@pages) {
+	    ($pagenum, $page) = @$p;
+
+	    if ($column_idx == 0) {
+		$page_idx++;
+		print "%%Page: $page_idx $page_idx\n";
+		print "bop\n";
+	    }
+	    
+	    unless ($nohead) {
+		if ($booklet_order) {
+		    if (!$pagenum) {}
+		    elsif ($column_idx == 0) {
+			print "($pagenum) booklet-left-header\n";
+		    }
+		    else {
+			print "($pagenum) booklet-right-header\n";
+		    }
+		}
+		elsif ($column_idx==0) {
+		    print "(", $page_idx, ") header\n";
+		}
+	    }
+
+	    foreach $line (split(/\n/, $page)) {
+		&printLine($line);
+	    }
+
+	    $column_idx++;
+	    if ($column_idx == $num_columns) {
+		&eject;		
+		$column_idx=0;
+	    }
+	    else { print "nextcolumn\n"; }
+	}
+	$sgn_idx++;
+    }
+    &eject unless $column_idx == 0;
+    print STDERR "Wrote $page_idx pages.\n";
+
+    print "%%Pages: $page_idx\n";
+}
+
+sub count_pages {
+    my(my $fn) = @_;
+    my $count;
+
+    foreach $p (@pages) {
+	my ($pagenum, $page) = @$p;
+	last unless $page;
+	$count++;
+    }
+    return $count;
+}
+
+######################################################################
+#  Here's the loop over all the lines in the file. The @linestack
+#  is a fifo list that make it easy to unread a line.
+######################################################################
+
+sub ungetline {
+    my $line = shift;
+    push(@linestack, $line);
+}
+
+sub read_signature {
+    my($first_page_num) = @_;
+    my($line_on_page) = 0;
+    my($page, @pages);
+    my($page_num);
+    while(1) {
+	$_ = shift @linestack || <IN>;
+	my $eof = eof(IN) && (@linestack==0);
+
+	# Only process line if it is non-empty
+	if ($_) {
+	    chomp;
+	    tr/\r\000//d;    # Get rid of returns as well as embedded zeros 
+	    s/[\t ]+$//;  # Erase trailing spaces
+	    1 while s/\t/" " x ($tabwidth - length($`) % $tabwidth)/e;  # Detab
+
+	    # Check for formfeed
+	    if ($honor_control_l && /\014/) {
+		# Put ff as first char
+		push(@linestack, $`, $&.$'), next if length($`)> 0;
+		push(@linestack, $');
+		$formfeed++;
+	    }
+	    
+	    if (length > $cpc+1) { # +1 prevents line continuation for one char
+		# ($indent)= /^(\s*)/;
+		$overshoot = substr($_,$cpc);
+		push(@linestack,$overshoot . "\n");
+		$_= substr($_,0,$cpc) . "\\\0";
+	    }
+
+	    # Character translations
+	    s/[()\\]/\\$&/g; # Postscript requirement
+	    s/0/\\330/g if $oslash;  # 0 -> Oslash
+	    s/\'/\\222/g, s/\`/\\221/g if $graveacute; # '-> acute `->grave
+	
+	    if ($translation) {
+		eval " tr/$tr_from/$tr_to/ ";
+	    }
+	
+	    $page .= $_ . "\n";
+	    $line_on_page++;
+	}
+
+	$eof &&= @linestack==0;
+	if ($line_on_page == $maxlinesonpage || $formfeed || $eof) {
+	    push(@pages, [$first_page_num + $page_num, $page]) if $page;
+	    $page = "";
+	    $line_on_page = 0;
+	    $formfeed=0;
+	    $page_num++;
+	    last if $page_num == $signature_size || $eof;
+	}
+    }
+    return @pages;
+}
+
+sub page_rearrange {
+    my(@pages) = @_;
+    my(@rpages);
+
+    push(@pages, []) until @pages % 4 == 0;
+    $N = @pages;
+    for $p (0..(@pages/4)-1) {
+	# Front side
+	push(@rpages, $pages[$N - 2*$p-1]);
+	push(@rpages, $pages[2*$p]);
+	# Back side
+	push(@rpages, $pages[2*$p+1]);
+	push(@rpages, $pages[$N - 2*$p-2]);
+    }
+    @rpages;
+}
+
+sub page_reverse {
+    my(@pages) = @_;
+    my(@rpages);
+
+    return unless @pages;
+#    print STDERR "page_reverse ", scalar(@pages), "\n";
+    
+    push(@pages, []) until @pages % $num_columns == 0;
+#    print STDERR "\@pages = ", scalar(@pages), "\n";
+    for $p (0..(@pages/$num_columns)-1) {
+	for ($c=0; $c<$num_columns; $c++) {
+	    $idx = ($p+1) * $num_columns-1 - $c;
+#	    print STDERR "idx = $idx\n";
+	    push(@rpages, $pages[($p+1) * $num_columns-1 - $c]);
+	}
+    }
+    @rpages;
+}
+
+sub printLine {
+    my ($line, $do_line_continuation) = @_;
+    if ($reverse) {
+	tr/\0//d;  # Get rid of line continuation signs
+	$line = reverse $line;
+
+	# Preserver escaped characters...
+	$line=~ s/\(\\/\\\(/g;
+	$line=~ s/\)\\/\\\)/g;
+	print "($line) frshow\n";
+    }
+    else {
+	if ($do_line_continuation || $line=~ s/\\\\\0$//) {
+	    print "($line) fshow RT\n";
+	} else {
+	    print "($line) fshow\n";
+	}
+    }
+}
+
+sub eject {
+    my($eject);
+    $eject .= "eop\n" .
+	   "showpage\n";
+    print $eject;
+}
+
+sub dateString {
+    local($filename)=shift;
+
+    if ($filename=~ /stdin/i) { $time=time; }
+    else { ($x,$x,$x,$x,$x,$x,$x,$x,$x,$time,$x,$x,$x) = stat($filename);}
+ 
+    ($x,$min,$hour,$mday,$mon,$year,$wday,$x,$x)=localtime($time);
+    $year += 1900;  # My first (and only?) Y2K bug!
+    $mon++;
+    if ($min=~ /^\d$/) { $min= "0$min"; }    # pad minute with a 0
+    $wday=(Sun,Mon,Tue,Wed,Thu,Fri,Sat)[$wday];
+    $date= "$wday, $mday/$mon/$year, $hour:$min";
+}
+
+sub prologue {
+    local($num_columns, $fn, $date, $fontname, $encoding)=@_;
+    local(@boolname) = ("false", "true");
+
+    # if the font is not a resident font, search for it in the
+    # search path.
+
+    foreach $fp (split(":", $fontpath)) {
+	if (-f "$fp/$fontname") {
+	    open(FONT, "$fp/$fontname");
+	    while(<FONT>) {
+		$font .= $_;
+	    }
+	    close(FONT);
+	    last;
+	}
+    }
+
+    $font .= "/$fontname ";
+
+    $dospd = $boolname[!$nospd];
+    if ($encoding) {
+	$encoding .= "Encoding";
+	$do_reencode = "true";
+    }
+    else {
+	$do_reencode = "false";
+    }
+    chop($unixDateStamp = `date`);
+    
+    # Print the prologue
+    print<<PROLOGUE;
+%!PS-Adobe-3.0
+%%Title: $fn
+%%Creator: poe version 1.0 by Dov Grobgeld
+%%+        by $ENV{USER} on $unixDateStamp
+%%Pages: (atend)
+%%BeginProlog
+%%DocumentMedia: A4 595 842 0 () ()
+
+/inch {72 mul} bind def
+/mm {1 inch 25.4 div mul} bind def
+
+% override setpagedevice if it is so desired
+$dospd not {    
+    /setpagedevice { pop } def
+} if
+
+% override setpagedevice if it is not defined
+/setpagedevice where {
+    pop % get rid of its dictionary
+    /setpagesize { 
+       2 dict begin
+         /pageheight exch def 
+         /pagewidth exch def
+	 % Exchange pagewidth and pageheight so that pagewidth is bigger
+	 pagewidth pageheight gt {  
+	     pagewidth
+	     /pagewidth pageheight def
+	     /pageheight exch def
+	 } if
+         2 dict dup /PageSize [pagewidth pageheight] put setpagedevice 
+       end
+    } def
+}
+{
+    /setpagesize { pop pop } def
+} ifelse
+
+/duplex {
+    statusdict /setduplexmode known 
+    { statusdict begin setduplexmode end } {pop} ifelse
+} def
+/tumble {
+    statusdict /settumble known
+   { statusdict begin settumble end } {pop} ifelse
+} def
+/pagewidth $pwidth def
+/pageheight $pheight def
+pagewidth pageheight setpagesize
+
+$tumble tumble
+$duplex duplex
+
+/lmarg $lmarg def
+
+/lw $lw def
+/ytop $pheight $bodytop sub def
+
+% Turn the page around
+/turnpage {
+  90 rotate
+  0 pageheight neg translate
+} def
+
+$font findfont
+$do_reencode {
+    dup length dict begin
+      {1 index /FID ne {def} {pop pop} ifelse} forall
+      /Encoding $encoding def
+      currentdict
+    end
+} if
+/myfont exch definefont pop
+/LF {/myfont findfont $fontscale scalefont setfont} def
+/HV {/Helvetica findfont $headerfontscale scalefont setfont} def
+/HVB {/Helvetica-Bold findfont $headerfontscale scalefont setfont} def
+
+% Show convenience shortcuts
+/cshow { dup stringwidth pop -2 div 0 rmoveto show } def
+/rshow { dup stringwidth pop -1 div 0 rmoveto show } def
+/mshow { moveto show } def
+/fshow { xpos ypos moveto show /ypos ypos lw sub def } def
+/frshow { xpos columnwidth add ypos moveto rshow /ypos ypos lw sub def } def
+
+% Procedures to translate position to first and second column
+/setnumcolumns {
+    /numcolumns exch def
+    /columnwidth $columnwidth def
+    /firstcolumn { /xpos lmarg def /ypos ytop def} def
+    /nextcolumn { 
+      $dosepline {
+          xpos columnwidth add $gutter 2 div add % x start
+	      ytop lw add moveto              % y start
+          0 $bodyheight lw add neg rlineto 0 setlinewidth stroke
+      } if
+      /xpos xpos columnwidth add $gutter add def 
+      /ypos ytop def
+    } def
+} def
+
+% Header takes as parameter filename date and page
+/header-ypos pageheight $headerypos sub def
+% (header-ypos = ) print header-ypos ==
+/header {
+    /page exch def
+    /date ($date) def
+    /filename ($fn) def
+    gsave
+	HV
+
+	pagewidth 2 div header-ypos moveto
+	filename cshow
+
+	pagewidth 0.94 mul header-ypos moveto
+	(Page: ) rshow page show
+
+	10 mm header-ypos moveto
+	date show
+    grestore
+} def
+
+/booklet-left-header {
+    /page exch def
+    /date ($date) def
+    /filename ($fn) def
+    gsave
+	HV
+
+	pagewidth 4 div header-ypos moveto
+	filename cshow
+	pagewidth 0.025 mul header-ypos moveto
+	(Page: ) show page show
+	pagewidth 0.35 mul header-ypos moveto
+	date show
+    grestore
+} def
+	
+/booklet-right-header {
+    /page exch def
+    /date ($date) def
+    /filename ($fn) def
+    gsave
+	pagewidth 2 div 0 translate
+	HV
+
+	pagewidth 4 div header-ypos moveto
+	filename cshow
+	pagewidth 0.45 mul header-ypos moveto
+	(Page: ) rshow page show
+	pagewidth 0.03 mul header-ypos moveto
+	date show
+    grestore
+} def
+	
+/bop {  % Beginning of page definitions
+    gsave
+    $turnpage {turnpage} if 
+    firstcolumn
+    LF
+} def
+
+/eop {  % End of page cleanups
+    grestore    
+} def
+
+% A newlines sign that I created with MetaPost
+/RT {
+  gsave
+    currentpoint translate
+    $fontscale 0.2 mul 0 translate
+    0.004 $fontscale mul dup scale
+    0 25 dtransform truncate idtransform setlinewidth pop [] 0 setdash
+    0 setlinecap 1 setlinejoin 10 setmiterlimit
+    newpath 0 175 moveto
+    25.69278 175 53.912 177.59557 71.25053 158.75053 curveto
+    103.52599 123.67075 64.54437 77.19373 34.99985 34.99985 curveto stroke
+    newpath 0 0 moveto
+    75 0 lineto
+    0 75 lineto
+    closepath fill
+  grestore
+} def
+
+% Set the number of columns
+$num_columns setnumcolumns
+
+%%EndPrologue
+
+PROLOGUE
+}
+
+######################################################################
+#  load_database loads all the rc files and creates a global $table
+#  variable.
+######################################################################
+sub load_database {
+    &set_dbase_defaults;
+    &read_poerc("/usr/local/lib/poerc") if -r "/usr/local/lib/poerc";
+    &read_poerc("/usr/local/lib/.poerc") if -r "/usr/local/lib/.poerc";
+    &read_poerc("$ENV{HOME}/.poerc") if -r "$ENV{HOME}/.poerc";
+    &read_poerc("./.poerc") if -r "./.poerc";
+}
+
+sub set_dbase_defaults {
+    %{$table{FONTS}->{Courier}} =
+	(width => 600, encoding=> ISOLatin1, resident => 1);
+    %{$table{PAPERDIM}} =
+	  ( a4 => { width=> 595, height=> 842 } );
+}
+
+sub read_poerc {
+    my($fn) = @_;
+    my($cur_table) = "";  # The current table being parsed
+    my($entry);
+    open(POERC, $fn) || die "Couldn't open $fn\n";
+
+    while(<POERC>) {
+	chop;
+	next if /^#/;
+	if (/^\*/) {
+	    $cur_table = $';
+	    die "Unknown table type $cur_table\n!"
+		unless $cur_table=~ /^(OPTIONS|PAPERDIM|FONTS|TRANSLATIONS)$/;
+	    $entry = "";
+	}
+	elsif ($cur_table) {
+	    $entry .= $_;
+	    
+	    if ($entry=~ /^.*?:.*;\s*$/) {
+		my ($name, $props) = &parse_entry($entry);
+		$table{$cur_table}->{$name} =  $props;
+		$entry="";
+	    }
+	    next;
+	}
+	else {
+	    die "Unexpected line $_ in $ARGV!\n";
+	}
+    }
+    die "Unexpected trailing garbage $entry in file $fn!\n" if length($entry);
+    close(POERC);
+}
+
+######################################################################
+#  parse_entry takes a line of the form
+#     abc: cde=eueu, def=aeue;
+#  and returns a two element array consisting of abc and a hash
+#  table of all the definitions.
+#
+#  It's doing single character parsing in a quite non-perlish
+#  manner. It is probably slow, but should be quite foolproof.
+######################################################################
+sub parse_entry {
+    local($_) = @_;
+    my($name, %props);
+    
+    # Get the field name
+    s/^([-\w_+]*?)://
+	|| die "Couldn't find field name: $_!\n";
+    $name = $1;
+
+    # Get rid of spaces around "="
+    s/\s*=\s*/=/;
+
+    # The following is quite foolproof parsing of either
+    #    key=value
+    # or
+    #    key="string"[.]["string"]...
+    # It is very non-perlish and slow, but it is safer than
+    # using reg expressions...
+
+    # The following reg.exp. cuts out the keyword
+    while(s/^\s*([\w+_-]+)=\s*//) {
+	my $key = $1;
+	my $p=0;
+
+	# Is the value a string?
+	if (substr($_,$p,1) eq '"') {
+
+	    # Loop to glue several strings together like in ANSII C
+	    while (substr($_,$p,1) eq '"') {
+		while($p<length) {
+		    # Step forward to next character, skipping escaped
+		    # characters
+		    
+		    # Save position so we can distinguish between " and \"
+		    my $p_old = $p;
+		    $p++;
+
+		    # Skip escaped characters
+		    if (substr($_,$p_old,1) eq "\\") {
+			$p++; # skip one character
+
+			# Perhaps we should skip more than one char
+			if (substr($_,$p-1,1)=~ /[0-9x]/) {
+			    $p++ while substr($_,$p,1)=~ /[0-9x]/;
+			}
+		    }
+
+		    # Exit loop if we have reached a final (unescaped) "
+		    last if substr($_,$p,1) eq '"';
+		}
+
+		# Eat up spaces and perl dot operators
+		$p++;
+		$p++ while substr($_,$p,1)=~ /\.|\s/;
+	    }
+	}
+	# The value is a numerical or an unquoted string
+	else {
+	    $p = (index($_,",", 0)||index($_,";",0));
+	}
+
+	# Get the value and clean it
+	my $value = substr($_, 0, $p);
+	$value =~ s/\"\s*\.?\s*\"//g;
+	$value =~ s/^"//; $value=~ s/"$//;
+
+	# Eat up trailing spaces and commas
+	$p++ while substr($_,$p,1)=~ /\s|\,/;
+
+	# Erase the declaration
+	substr($_,0,$p) = "";
+
+	$props{$key} = $value;
+#	print STDERR "$name:$key->\n  $value\n";
+    }
+    die "Trailing garbage $_!\n" if $_ ne ";";
+
+    return ($name, \%props);
+}
