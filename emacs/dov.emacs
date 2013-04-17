@@ -314,6 +314,7 @@
   (setq org-entities-user '(
     ("models" "\\models" t "&8872;" "[models]" "models" "⊨")
     ("indf" "{\bf 1}" t "&#120128;" "[indf]" "indf" "𝟙")
+    ("ell" "\\ell" t "&#2113;" "[ell]" "indf" "ℓ")
     ))
 
   )
@@ -503,11 +504,11 @@
 ;;; Why can't I get this to run automatically in the perl-mode hook
 (defun my-perl-mode-hook ()
   (interactive)
-  (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
-  (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
-  (define-key cperl-mode-map ";" 'self-insert-command)
-  (define-key cperl-mode-map " " 'self-insert-command)
-  (define-key cperl-mode-map "{" 'self-insert-command)
+  (define-key perl-mode-map [(control c) (control r)] 'compile-dwim-run)
+  (define-key perl-mode-map [(control c) (control s)] 'compile-dwim-compile)
+  (define-key perl-mode-map ";" 'self-insert-command)
+  (define-key perl-mode-map " " 'self-insert-command)
+  (define-key perl-mode-map "{" 'self-insert-command)
   (setq-default abbrev-mode nil)
   (setq cperl-auto-newline nil)
   (setq-default cperl-auto-newline nil)
@@ -520,7 +521,7 @@
   (setq cperl-mode-abbrev-table nil)
   
   (abbrev-mode 0)
-  (define-key cperl-mode-map [(return)] 'newline-and-indent)
+  (define-key perl-mode-map [(return)] 'newline-and-indent)
   (message "my-perl-mode-hook")
   )
 
@@ -567,7 +568,15 @@
        (list (cons "\\.txt$" 'org-mode)) 
        (list (cons "\\.org" 'org-mode)) 
        (list (cons "\\.pl" 'cperl-mode)) 
+       (list (cons "\\.nxc$" 'c++-mode)) 
        auto-mode-alist))
+
+;; macros for nxc code
+(defun nxt-run ()
+  (interactive)
+  (save-buffer)
+  (let* ((cmd (format "nbc %s -sm- -r -S=usb " (buffer-name))))
+    (shell-command cmd)))
 
 ;; mapping between languages and their major mode  (in Emacs)
 ;(setq org-export-htmlized-org-css-url "/home/dov/tmp/org-mode/ORGWEBPAGE/org.css")
@@ -1340,7 +1349,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   )
 
 (defun my-perlmode-stuff () ""
-  (define-key cperl-mode-map [return] 'newline-and-indent)
+  (define-key perl-mode-map [return] 'newline-and-indent)
 )
 
 (defun do-return-indent (map) ""
