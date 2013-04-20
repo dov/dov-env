@@ -68,6 +68,7 @@
 (setq load-path (append
                  (list
                   (concat emacs-git "/org-mode/lisp")
+                  (concat emacs-git "/org-mode/contrib/lisp")
                   emacs-git
                   )
                  load-path))
@@ -280,6 +281,7 @@
 (load "org-man.el")
 (load "org-git-hyperlink.el")
 (load "org-wp.el")
+(load "org-bullets.el")
 
 (require 'load-theme-buffer-local)
 
@@ -297,6 +299,18 @@
   (set-face-attribute 'org-checkbox nil :family my-default-family)
   (set-face-attribute 'org-block nil :family my-default-family)
   (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
+  (org-bullets-mode)
+  (setq org-bullets-bullet-list
+        '(;;; Large
+          "▸"
+          "•"
+          "•"
+          "•"
+          ;; ♥ ● ◇ ✚ ✜ ☯ ◆ ♠ ♣ ♦ ☢ ❀ ◆ ◖ ▶
+          ;;; Small
+          ;; ► • ★ ▸
+    ))
+
   (setq org-hide-emphasis-markers nil)
   (setq org-confirm-babel-evaluate nil)
   (xmsi-mode)
