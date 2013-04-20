@@ -28,10 +28,10 @@ endif
 	check test install $(INSTSUB) \
 	info html pdf card refcard doc docs \
 	autoloads cleanall clean $(CLEANDIRS:%=clean%) \
-	clean-install cleanelc cleandirs \
+	clean-install cleanelc cleandirs cleanaddcontrib \
 	cleanlisp cleandoc cleandocs cleantest \
 	compile compile-dirty uncompiled \
-	config config-test config-exe config-all config-eol
+	config config-test config-exe config-all config-eol config-version
 
 CONF_BASE = EMACS DESTDIR ORGCM ORG_MAKE_DOC
 CONF_DEST = lispdir infodir datadir testdir
@@ -64,7 +64,9 @@ config-cmd config-all::
 	$(info )
 	$(info ========= Commands used by make)
 	$(foreach var,$(CONF_CALL),$(info $(var)	= $($(var))$(EOL)))
-config config-test config-exe config-all::
+config config-test config-exe config-all config-version::
+	$(info ========= Org version)
+	$(info make:  Org-mode version $(ORGVERSION) ($(GITVERSION) => $(lispdir)))
 	@echo ""
 
 oldorg:	compile info	# what the old makefile did when no target was specified
@@ -100,6 +102,7 @@ ifeq ($(TEST_NO_AUTOCLEAN),) # define this variable to leave $(testdir) around f
 	$(MAKE) cleantest
 endif
 
+up0::	cleanaddcontrib
 up0 up1 up2::
 	git remote update
 	git pull
@@ -121,13 +124,6 @@ $(INSTSUB):
 	$(MAKE) -C $(@:install-%=%) install
 
 autoloads: lisp
-ifneq ($(ORG_ADD_CONTRIB),)
-	$(CP) $(wildcard \
-		$(addsuffix .el, \
-		$(addprefix contrib/lisp/, \
-		$(basename \
-		$(notdir $(ORG_ADD_CONTRIB)))))) lisp/
-endif
 	$(MAKE) -C $< $@
 
 cleandirs:
