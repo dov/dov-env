@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+##############################################################################
+#  Prints a subtree of all files under the current directory
+#  including the sum of the size of all files in each subdirectory.
+#
+#  Dov Grobgeld
+#  Department of Chemical Physics
+#  The Weizmann Institute of Science
+#
+##############################################################################
+
+sub getSubDirs {
+  local(@dirs);
+  $indent++;
+
+  # Write the total size of the current directory
+  opendir(DIR, '.');
+  @files= grep(-f, readdir(DIR));
+  $totdirsize=0 if $indent <= $maxindent;
+  foreach (@files) {
+    ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,
+    $blksize, $blocks) = stat($_);
+    $totdirsize += $size unless (-l $_);
+  }
+  printf "\[%.0f\]\n", $totdirsize/1024 if $indent < $maxindent;
+
+  #######################################################################
+  # Get all the subdirectories and write their names to the output
+  # For each subdirectory transverse its subdirectories unless
+  #    1. The directory is a symbolic link
+  #    2. We do not have sufficient priveleges to read the directory
+  ########################################################################
+
+  opendir(DIR, '.');
+  @dirs= grep(-d, grep(!/^\.\.?$/, readdir(DIR)));
+  closedir(DIR);
+  foreach (@dirs) {
+    print '  ' x $indent, $_  if $indent < $maxindent;
+    if (-l $_) { print " (L)\n" if $indent < $maxindent; }
+    elsif (!(-x $_)) {print " (NA)\n" if $indent < $maxindent; }
+    else {
+      chdir $_;
+      &getSubDirs;
+      chdir '..';
+    }
+  }
+  printf " {%.0f}\n", $totdirsize/1024 if $indent==$maxindent;
+  $indent--;
+}
+
+# set some defaults
+$maxindent=1000;
+
+# Standard get options
+while (($_=$ARGV[0])=~ /^-/) {
+  shift;
+
+  if ($_ eq '-m') {
+    $maxindent=shift;
+  }
+  elsif (/^-h(elp)?|-u(sage)$/) {
+    print "tree - print a directory tree with directory sizes\n";
+    print "\n";
+    print "Options:\n";
+    print "  -m n : Only include n levels of subdirectories. \n";
+    print "         All the lower subdirectories will be summed into \n";
+    print "         a grand total. \n";
+    exit;
+  }
+  else {
+    die "Unknown option $ARGV[0]!\n";
+  }
+}
+
+$_ = shift || $ENV{'PWD'};
+chdir $_;
+print;
+&getSubDirs;
+

@@ -1,6 +1,6 @@
 ;;; org-id.el --- Global identifiers for Org-mode entries
 ;;
-;; Copyright (C) 2008-2012 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2013 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -83,6 +83,47 @@
   :tag "Org ID"
   :group 'org)
 
+(define-obsolete-variable-alias
+  'org-link-to-org-use-id 'org-id-link-to-org-use-id "24.3")
+(defcustom org-id-link-to-org-use-id nil
+  "Non-nil means storing a link to an Org file will use entry IDs.
+
+The variable can have the following values:
+
+t     Create an ID if needed to make a link to the current entry.
+
+create-if-interactive
+      If `org-store-link' is called directly (interactively, as a user
+      command), do create an ID to support the link.  But when doing the
+      job for capture, only use the ID if it already exists.  The
+      purpose of this setting is to avoid proliferation of unwanted
+      IDs, just because you happen to be in an Org file when you
+      call `org-capture' that automatically and preemptively creates a
+      link.  If you do want to get an ID link in a capture template to
+      an entry not having an ID, create it first by explicitly creating
+      a link to it, using `C-c C-l' first.
+
+create-if-interactive-and-no-custom-id
+      Like create-if-interactive, but do not create an ID if there is
+      a CUSTOM_ID property defined in the entry.
+
+use-existing
+      Use existing ID, do not create one.
+
+nil   Never use an ID to make a link, instead link using a text search for
+      the headline text."
+  :group 'org-link-store
+  :group 'org-id
+  :version "24.3"
+  :type '(choice
+	  (const :tag "Create ID to make link" t)
+	  (const :tag "Create if storing link interactively"
+		 create-if-interactive)
+	  (const :tag "Create if storing link interactively and no CUSTOM_ID is present"
+		 create-if-interactive-and-no-custom-id)
+	  (const :tag "Only use existing" use-existing)
+	  (const :tag "Do not use ID to create link" nil)))
+
 (defcustom org-id-uuid-program "uuidgen"
   "The uuidgen program."
   :group 'org-id
@@ -145,7 +186,7 @@ the link."
   :type 'boolean)
 
 (defcustom org-id-locations-file (convert-standard-filename
-				  "~/.emacs.d/.org-id-locations")
+				  (concat user-emacs-directory ".org-id-locations"))
   "The file for remembering in which file an ID was defined.
 This variable is only relevant when `org-id-track-globally' is set."
   :group 'org-id
@@ -192,7 +233,6 @@ With optional argument FORCE, force the creation of a new ID."
     (org-entry-put (point) "ID" nil))
   (org-id-get (point) 'create))
 
-;;;###autoload
 (defun org-id-copy ()
   "Copy the ID of the entry at point to the kill ring.
 Create an ID if necessary."
@@ -218,13 +258,12 @@ In any case, the ID of the entry is returned."
 	(org-id-add-location id (buffer-file-name (buffer-base-buffer)))
 	id)))))
 
-;;;###autoload
 (defun org-id-get-with-outline-path-completion (&optional targets)
-  "Use outline-path-completion to retrieve the ID of an entry.
-TARGETS may be a setting for `org-refile-targets' to define the eligible
-headlines.  When omitted, all headlines in all agenda files are
-eligible.
-It returns the ID of the entry.  If necessary, the ID is created."
+  "Use `outline-path-completion' to retrieve the ID of an entry.
+TARGETS may be a setting for `org-refile-targets' to define
+eligible headlines.  When omitted, all headlines in the current
+file are eligible.  This function returns the ID of the entry.
+If necessary, the ID is created."
   (let* ((org-refile-targets (or targets '((nil . (:maxlevel . 10)))))
 	 (org-refile-use-outline-path
 	  (if (caar org-refile-targets) 'file t))
@@ -235,7 +274,6 @@ It returns the ID of the entry.  If necessary, the ID is created."
     (prog1 (org-id-get pom 'create)
       (move-marker pom nil))))
 
-;;;###autoload
 (defun org-id-get-with-outline-drilling (&optional targets)
   "Use an outline-cycling interface to retrieve the ID of an entry.
 This only finds entries in the current buffer, using `org-get-location'.
@@ -305,7 +343,7 @@ So a typical ID could look like \"Org:4nd91V40HI\"."
       (unless (org-uuidgen-p unique)
 	(setq unique (org-id-uuid))))
      ((eq org-id-method 'org)
-      (let* ((etime (org-id-reverse-string (org-id-time-to-b36)))
+      (let* ((etime (org-reverse-string (org-id-time-to-b36)))
 	     (postfix (if org-id-include-domain
 			  (progn
 			    (require 'message)
@@ -337,9 +375,6 @@ So a typical ID could look like \"Org:4nd91V40HI\"."
 		       (substring rnd 16 18) 16))))
 	    (substring rnd 18 20)
 	    (substring rnd 20 32))))
-
-(defun org-id-reverse-string (s)
-  (mapconcat 'char-to-string (nreverse (string-to-list s)) ""))
 
 (defun org-id-int-to-b36-one-digit (i)
   "Turn an integer between 0 and 61 into a single character 0..9, A..Z, a..z."
@@ -394,7 +429,7 @@ and time is the usual three-integer representation of time."
     (if (= 2 (length parts))
 	(setq prefix (car parts) time (nth 1 parts))
       (setq prefix nil time (nth 0 parts)))
-    (setq time (org-id-reverse-string time))
+    (setq time (org-reverse-string time))
     (setq time (list (org-id-b36-to-int (substring time 0 4))
 		     (org-id-b36-to-int (substring time 4 8))
 		     (org-id-b36-to-int (substring time 8 12))))
@@ -639,5 +674,9 @@ optional argument MARKERP, return the position as a new marker."
 (org-add-link-type "id" 'org-id-open)
 
 (provide 'org-id)
+
+;; Local variables:
+;; generated-autoload-file: "org-loaddefs.el"
+;; End:
 
 ;;; org-id.el ends here

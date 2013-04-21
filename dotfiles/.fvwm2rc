@@ -41,43 +41,28 @@ BorderStyle -- HiddenHandles NoInset
 
 SnapAttraction 20 SameType
 EdgeResistance 250 10
-#DefaultFont		"xft:Sans"
-IconFont		-adobe-helvetica-medium-r-*-*-10-*-*-*-*-*-*-*
-#WindowFont		"xft:Sans:size=12"
-#IconFont		"xft:Monotype:size=10"
+#WindowFont		-*-times-medium-r-*-*-*-100-*-*-*-*-*-*
+IconFont		"xft:DejaVu:size=8:encoding=iso10646-1"
 EdgeScroll 0 0
 
-#ModulePath $FVWM_MODULEDIR
-#PixmapPath /data/alg/local/include/X11/pixmaps/:$HOME/lib/pixmaps:$HOME/lib/fvwm/icons:$HOME/lib/fvwm/pixmaps:/usr/share/icons/mini/:/usr/share/icons
-PixmapPath $HOME/lib/pixmaps:$HOME/lib/fvwm/icons:$HOME/lib/fvwm/pixmaps:/usr/share/icons/mini/:/usr/share/icons
-#IconPath   /data/alg/local/include/X11/bitmaps/:$HOME/lib/pixmaps:$HOME/lib/fvwm/icons:$HOME/lib/fvwm/pixmaps:/usr/share/icons/mini/:/usr/share/icons
-IconPath   $HOME/lib/pixmaps:$HOME/lib/fvwm/icons:$HOME/lib/fvwm/pixmaps:/usr/share/icons/mini/:/usr/share/icons
+#ModulePath /usr/libexec/fvwm/2.4.17
+ImagePath /home/dov/lib/pixmaps
 
 HilightColor black turquoise3
-DeskTopSize 3x2
-#MenuStyle maroon4 grey60 grey40 -adobe-times-bold-r-*-*-14-*-*-*-*-*-*-* fvwm
+DeskTopSize 2x2
+MenuStyle * "fvwm", Foreground "maroon4", Background "grey60", Greyed "grey40", Font "xft:DejaVu:size=8:encoding=iso10646-1"
 ClickTime 150
 OpaqueMoveSize 70
-
-Colorset 0 DGradient 128 2 grey50 5 grey95 5 grey50, fgsh grey75
-#Colorset 0 Transparent, Tint white 70
-Colorset 1 fg seashell2, bg darkblue
-Colorset 2 fg seashell2, bg #808080
-Colorset 3 fg white, bg #E0E0E0
-Colorset 4 fg white, bg #F0F0F0 
-
 
 #######################################################################
 #  New look
 ######################################################################
-#WindowFont	-b&h-lucida-bold-r-*-*-12-*-*-*-*-*-*-*
-#WindowFont	"xft:Bitstream Vera Sans:size=9"
+Style * Font "xft:Arial Narrow:size=8:bold:encoding=iso10646-1"
+
 #Style "*" 	ForeColor black
 #Style "*" 	BackColor grey60
 #HilightColor	White grey60
-#MenuStyle 	black grey60 grey30 -b&h-lucida-bold-r-*-*-10-*-*-*-*-*-*-* fvwm
-#MenuStyle 	black grey60 grey30 "xft:Sans:size=10" fvwm
-MenuStyle * MenuColorset 0, ActiveColorset 1
+MenuStyle * "fvwm", Foreground "black", Background "grey60", Greyed "grey30", Font "xft:Arial Narrow:size=8:encoding=iso10646-1", "AnimationOff"
 
 # General Window Setings
 
@@ -105,22 +90,24 @@ AddButtonStyle 4	ActiveDown Pixmap trq-iconify2.xpm -- flat
 #AddButtonStyle 2	ActiveDown Pixmap shade2.xpm -- flat
 ######################################################################
 
+AddToDecor yellow HilightColor black yellow3
 AddToDecor yellow BorderStyle		Simple -- HiddenHandles NoInset
 AddToDecor yellow TitleStyle		Centered -- Flat
 AddToDecor yellow AddTitleStyle           ActiveUp VGradient 64 2 yellow2 80 yellow3 20 yellow4 4
 AddToDecor yellow AddTitleStyle           ActiveDown VGradient 64 2 yellow4 50 yellow2 50 yellow4 4
 AddToDecor yellow AddTitleStyle           InActive VGradient 64 2 yellow3 80 yellow4 20 yellow4 4
-#AddToDecor yellow WindowFont -b&h-lucida-bold-r-*-*-12-*-*-*-*-*-*-*
+AddToDecor yellow WindowFont -b&h-lucida-bold-r-*-*-10-*-*-*-*-*-*-*
 AddToDecor yellow ButtonStyle 2 4 50x35@1 65x65@0 35x65@0 50x35@1
 AddToDecor yellow ButtonStyle 4 4 50x65@1 35x35@1 65x35@1 50x65@0
 
-AddToDecor linux_term HilightFore orange3
+
+AddToDecor linux_term HilightColor black orange3
 AddToDecor linux_term BorderStyle		Simple -- HiddenHandles NoInset
 AddToDecor linux_term TitleStyle		Centered -- Flat
 AddToDecor linux_term AddTitleStyle           ActiveUp VGradient 64 2 orange2 80 orange3 20 orange4 4
 AddToDecor linux_term AddTitleStyle           ActiveDown VGradient 64 2 orange4 50 orange2 50 orange4 4
 AddToDecor linux_term AddTitleStyle           InActive VGradient 64 2 orange3 80 orange4 20 orange4 4
-#AddToDecor linux_term WindowFont -b&h-lucida-bold-r-*-*-12-*-*-*-*-*-*-*
+AddToDecor linux_term WindowFont -b&h-lucida-bold-r-*-*-10-*-*-*-*-*-*-*
 AddToDecor linux_term ButtonStyle 2 4 50x35@1 65x65@0 35x65@0 50x35@1
 AddToDecor linux_term ButtonStyle 4 4 50x65@1 35x35@1 65x35@1 50x65@0
 
@@ -130,15 +117,7 @@ AddToDecor green TitleStyle		Centered -- Flat
 AddToDecor green AddTitleStyle           ActiveUp VGradient 64 2 green2 80 green3 20 green4 4
 AddToDecor green AddTitleStyle           ActiveDown VGradient 64 2 green4 50 green2 50 green4 4
 AddToDecor green AddTitleStyle           InActive VGradient 64 2 green3 80 green4 20 green4 4
-#AddToDecor green WindowFont -b&h-lucida-bold-r-*-*-12-*-*-*-*-*-*-*
-
-AddToDecor magenta HilightColor black magenta3
-AddToDecor magenta BorderStyle		Simple -- HiddenHandles NoInset
-AddToDecor magenta TitleStyle		Centered -- Flat
-AddToDecor magenta AddTitleStyle           ActiveUp VGradient 64 2 magenta2 80 magenta3 20 magenta4 4
-AddToDecor magenta AddTitleStyle           ActiveDown VGradient 64 2 magenta4 50 magenta2 50 magenta4 4
-AddToDecor magenta AddTitleStyle           InActive VGradient 64 2 magenta3 80 magenta4 20 magenta4 4
-#AddToDecor magenta WindowFont -b&h-lucida-bold-r-*-*-12-*-*-*-*-*-*-*
+AddToDecor green WindowFont -b&h-lucida-bold-r-*-*-10-*-*-*-*-*-*-*
 
 AddToDecor red HilightColor black red3
 AddToDecor red BorderStyle		Simple -- HiddenHandles NoInset
@@ -146,7 +125,8 @@ AddToDecor red TitleStyle		Centered -- Flat
 AddToDecor red AddTitleStyle           ActiveUp VGradient 64 2 red2 80 red3 20 red4 4
 AddToDecor red AddTitleStyle           ActiveDown VGradient 64 2 red4 50 red2 50 red4 4
 AddToDecor red AddTitleStyle           InActive VGradient 64 2 red3 80 red4 20 red4 4
-#AddToDecor red WindowFont -b&h-lucida-bold-r-*-*-12-*-*-*-*-*-*-*
+AddToDecor red WindowFont -b&h-lucida-bold-r-*-*-10-*-*-*-*-*-*-*
+
 
 ColormapFocus FollowsMouse
 
@@ -157,7 +137,7 @@ Style "*"           MWMFunctions,MWMDecor,HintOverride
 Style "*"           DecorateTransient,IconBox -70 36 -1 -140
 
 Style "Fvwm*"       NoTitle, NoHandles, Sticky, WindowListSkip,
-Style "gnome-panel"       NoTitle, NoHandles, Sticky, WindowListSkip,
+Style "mate-panel"       NoTitle, NoHandles, Sticky, WindowListSkip,
 Style "Fvwm*"       BorderWidth 0,CirculateSkipIcon
 Style "FvwmPager"   BorderWidth 5
 Style "FvwmBanner"  StaysOnTop
@@ -167,24 +147,23 @@ Style "FvwmButtons" Icon toolbox.xpm,ClickToFocus
 Style "*lock"       NoTitle, NoHandles, Sticky, WindowListSkip
 Style "*lock"	    RandomPlacement
 Style "rxvt"        Icon  term.xpm
-Style "*xterm*"      Icon xterm-color-blank.xpm, MiniIcon mini.xterm.xpm
+Style "*xterm*"      Icon my-xterm-linux.xpm, MiniIcon mini.xterm.xpm
 #Style "Xterm*"      usedecor linux_term, Icon my-xterm-linux
 Style "Appointment" Icon datebook.xpm, NoButton 2, NoButton 4,ClickToFocus
 Style "xcalc"       Icon xcalc.xpm, NoButton 2,RandomPlacement,ClickToFocus
 Style "xman"	    Icon xman.xpm,RandomPlacement,ClickToFocus
 Style "xvgr"	    Icon graphs.xpm,RandomPlacement,ClickToFocus
 Style "xgraph"      Icon graphs.xpm,RandomPlacement,NoTitle, HandleWidth 5
-Style "gxgraph"      Icon graphs.xpm,RandomPlacement,NoTitle, HandleWidth 5
 Style "xauphone"  NoTitle, NoHandles, Sticky, BorderWidth 3
 Style "xcal"       NoTitle, NoHandles, Sticky, BorderWidth 3
 Style "xv"       NoTitle, HandleWidth 5, MiniIcon mini.xv.xpm
+#Style "google-chrome"       NoTitle, NoHandles, NoBorder
 #Style "0*"       NoTitle, BorderWidth 3
 Style "slashdot"       NoTitle
 Style "gprompt"       NoTitle, NoHandles, Sticky
 Style "GQmpeg*"       NoTitle, NoHandles, Sticky
-Style "*xmms*"       NoTitle, NoHandles, Sticky
+Style "xmms*"       NoTitle, NoHandles, Sticky
 Style "keyboard"   NoTitle, NoHandles, Sticky, BorderWidth 3
-Style "*biff*"   NoTitle, NoHandles, Sticky, BorderWidth 3
 Style "what-project"   NoTitle, NoHandles, Sticky, BorderWidth 3
 Style "xmcd"   NoTitle, NoHandles, Sticky, BorderWidth 3
 Style "watch-file-size"   NoTitle, NoHandles, Sticky
@@ -192,77 +171,63 @@ Style "tk-ping"   NoTitle, NoHandles, Sticky
 Style "lpwatch*"    NoTitle, NoHandles, Sticky, BorderWidth 3
 Style "*@karm*"    usedecor yellow, Color Black/Yellow4
 Style "*@gelerak*"    usedecor green, Color Black/Green4
-Style "*@marsalis*"    usedecor green, Color Black/Green4, HilightBack Green3
-Style "*@dog*"    usedecor magenta, Color Black/Magenta4
 Style "*@marsellus*"    usedecor green, Color Black/Green4
 Style "*@pulsar*"    usedecor green, Color Black/Green4
 Style "*@quentin*"    usedecor green, Color Black/Green4
-Style "*@marsalis*"    usedecor green, Color Black/Green4
 Style "*@meg*"    usedecor green, Color Black/Green4
 Style "*@earth*"    usedecor linux_term, Color Black/Orange4, Icon my-xterm-linux.xpm
-Style "*@frakir*"    usedecor linux_term, Color Black/Orange4, HilightBack Orange3, Icon my-xterm-linux.xpm
+Style "*@frakir*"    usedecor linux_term, Color Black/Orange4, Icon my-xterm-linux.xpm
 Style "*@prodigy*"    usedecor linux_term, Color Black/Orange4, Icon my-xterm-linux.xpm
 Style "*@ridley*"    usedecor linux_term, Color Black/Orange4, Icon my-xterm-linux.xpm
 Style "*rainbow@*"    usedecor red, Color Black/Red4
-Style "*Phoenix*"     Icon phoenix.xpm
+Style "*- Phoenix"     Icon phoenix.xpm
 #Style "*- Mozilla Firebird"     Icon /data/junk/cat/local/MozillaFirebird/icons/mozicon05.xpmphoenix.xpm, MiniIcon mini-phoenix.xpm
-Style "*irebird*"     Icon /data/junk/cat/local/MozillaFirebird/icons/mozicon50.xpm, MiniIcon /data/junk/cat/local/MozillaFirebird/icons/mozicon50.xpm
-Style "*irefox*"     Icon /data/junk/cat/local/firefox/icons/mozicon50.xpm, MiniIcon /data/junk/cat/local/firefox/icons/mozicon50.xpm
+Style "*Firefox*"     Icon mozicon50.xpm, MiniIcon mini.mozicon50.xpm
 Style "*wmCalClock*" geometry +500-0
 Style "*Windows 2000*" MiniIcon mini-win2000.xpm
+Style "*emacs*" MiniIcon mini-xemacs.xpm
 Style "*sdd-tool*" Icon sdd-tool.xpm, MiniIcon mini-sdd-tool.xpm
 Style "*- OpenOffice*" Icon mini-oo-logo.xpm, MiniIcon mini-oo-logo.xpm
 Style "*Gimp*" Icon gimp-icon.xpm, MiniIcon mini.gimp.xpm
 Style "*Dia*" Icon dia.xpm, MiniIcon mini-dia.xpm
 
-Key Left	A	SC	CursorMove -1 0
-Key Right	A	SC	CursorMove +1 +0
-Key Up		A	SC	CursorMove +0   -1
-Key Down	A	SC	CursorMove +0   +1
-Key Left	A	SM	CursorMove -10 +0
-Key Right	A	SM	CursorMove +10 +0
-Key Up		A	SM	CursorMove +0   -10
-Key Down	A	SM	CursorMove +0   +10
+#Key Left	A	SC	CursorMove -1 0
+#Key Right	A	SC	CursorMove +1 +0
+#Key Up		A	SC	CursorMove +0   -1
+#Key Down	A	SC	CursorMove +0   +1
+#Key Left	A	SM	CursorMove -10 +0
+#Key Right	A	SM	CursorMove +10 +0
+#Key Up		A	SM	CursorMove +0   -10
+#Key Down	A	SM	CursorMove +0   +10
 Key F15		FTIWS	A	RaiseLower
 Key F13		A	A	Exec prompt-xterm &
 Key F17		A	A	Iconify
-Key F11		A	4	Recapture
+Key F11		A	S	Recapture
+Key Home	A	M	RaiseLower
+Key End		A	M	Stick
 Key UE032       A       A       Exec prompt-xterm &
 Key UE068       A	A	Iconify
 Key A           A	4	RaiseLower
-Key C           A	4	exec ssh -X marsalis codemgrtool &
-#Key C           A	4	Exec cleanExchange &
+Key B           A	4	exec xrsh karm color_xterm -cr green -sb -sl 1000 -T dov\@karm -e /data/alg/local/bin/zsh &
+Key C           A	4	Close
 Key E           A	4	WindowShade
-Key J           A	4	Recapture
-Key k           A	4	UpdateDecor
-Key L           A	4	exec xscreensaver-command -lock
-#Key M           A	4	exec emacs &
-Key M           A	4S	Maximize 100 100
-Key M           A	4M	Maximize 100 0
+Key F           A       4       VerMaximizeNoClick
+Key K           A	4	UpdateDecor
 Key M           A	4	Maximize 0 100
+Key N           A	4	Maximize 0 100
 Key I           A	4	Iconify
+Key Q           A	4	WindowShade
 Key P           A	4	Exec prompt-xterm &
-Key U           A	4	exec ssh -X marsalis color_xterm -cr green -sb -sl 1000 -T dov\@marsalis -e /product/pcb-aoi/sw/DSV/Alg_Doc/bin/zsh &
-Key W           A	4	exec xrsh marsalis workshop &
-# Key T           A	4	exec xrsh marsalis teamware &
-Key T           A       4       ToggleTitle
-Key X           A	4	exec xterm  -fn heb16x9-8 -e /bin/zsh &
 Key R           A	4	Restart fvwm2
-Key S           A	4	exec xscreensaver-command -activate
+Key X           A	4	exec xterm +lc -fn '-*-lucidatypewriter-bold-*-*-*-12-*-*-*-*-*-*-*' -bg grey10 -fg green -cr green -sb -sl 1000 -e ssh-agent /bin/zsh &
+Key U           A	4	exec xrsh quentin color_xterm -cr green -sb -sl 1000 -T dov\@quentin -e /data/alg/local/bin/zsh &
 Key semicolon   A	4	Stick
 Key Left	A	4	Scroll -100 +0
 Key Right	A	4	Scroll +100 +0
 Key Up		A	4	Scroll +0   -100
 Key Down	A	4	Scroll +0   +100
-Key Tab         A       M       -
-Key Right       A       S4      Move w+1 w+0
-Key Left        A       S4      Move w-1 w+0
-Key Up          A       S4      Move w+0 w-1
-Key Down        A       S4      Move w+0 w+1
-Key Space       A       4       WindowList Root c c CurrentPage, NoGeometry, CurrentAtEnd 
 
-
-# Gray keys 
+; Gray keys 
 Key UE067       A	A	Recapture
 Key UE010	A	A	Scroll -100 +0
 Key UE053	A	A	Scroll +100 +0
@@ -279,12 +244,14 @@ Key UE022	A	A	Scroll +0   +100
 Mouse 1		R   	A       Menu RootMenu Nop
 Mouse 2		R    	A       Menu Window-Ops Nop
 Mouse 3		R    	A      	WindowList
+Mouse 3		R    	M      	Menu Window-Ops Nop
 
 # Now, title bar buttons
 # Left button is close, right is iconify, rightmost is maximize
 #     Button	Context Modifi 	Function
 Mouse 0		1       A       Close
 Mouse 0		2    	A     	Maximize-Func
+Mouse 0		2    	C     	Maximize 100 100
 Mouse 0		4    	A     	Iconify
 Mouse 0		3       A       Stick
 
@@ -293,54 +260,67 @@ Mouse 0		3       A       Stick
 #     Button	Context Modifi 	Function
 Mouse 1 	S      A       Move-Or-Raise
 Mouse 1 	F      A       Resize-or-Raise
-Mouse 1		I       A       Move-or-Iconify
+Mouse 1		I       A       Iconify
+Mouse 1		I       S       Move-or-Iconify
 Mouse 1		TS	A		Function "Raise/Move/Shade"
 Mouse 1		T       M       Move-or-Raise
 
 # Button 2 in an Icon is de-iconify, in Corners/Sides/Titlebar gets Ops Menu
 #     Button	Context Modifi 	Function
 Mouse 2 	I       A       Iconify
+Mouse 1 	I       M       Iconify
+Mouse 1 	I       C       Iconify
 Mouse 2 	FST     A       Menu Window-Ops2 Nop
+Mouse 1 	FST     M       Menu Window-Ops2 Nop
 
 # Button 3 does a raise-lower on anything
 Mouse 3 	TSIF    A       RaiseLower
 
+########################Overrides############################################
+# Never let a program programatically steal the focus
+DestroyFunc UrgencyFunc
+
 ########################Initialization Functions ############################
-AddToFunc InitFunction 	  "I" Module FvwmPager
+
+AddToFunc InitFunction 	  "I" Module FvwmPager *
 +			  "I" Module FvwmBanner
-+			  "I" exec xv -root -quit /home/dov/lib/tiles/Sister-Bluebird-1.png
-+                         "I" exec xrdb /home/dov/.Xdefaults
-+                         "I" exec keyboard -geometry -3+687 &
-+                         "I" exec gnome-panel --sm-disable &
-+                         "I" exec xset s 300 s blank dpms 300
-+                         "I" exec xset r rate 200 30
-+                         "I" exec xset +fp /home/dov/lib/X11fonts
-+                         "I" exec xset b 100 10000 10
++                         "I" exec feh --bg-tile /home/dov/git/dov-env/lib/tiles/Sister-Bluebird-1.png
 
-AddToFunc RestartFunction "I" Module FvwmPager
-+			  "I" exec xv -root -quit /home/dov/lib/tiles/Sister-Bluebird-1.png
++			  "I" exec xkbcomp /home/dov/.xkbmap :0
++			  "I" exec xset b 50 10000 10
++			  "I" exec xset  r rate 200 30
++			  "I" exec xrdb /home/dov/.Xdefaults
++                         "I" exec xset +fp /usr/local/lib/X11/fonts/75dpi
+#+                         "I" exec stalonetray --geometry +1655+872 &
++                         "I" exec mate-panel &
++                         "I" exec xcompmgr -c &
++                         "I" exec cairo-clock &
++                         "I" exec skype &
 
+AddToFunc RestartFunction "I" Module FvwmPager *
++			  "I" exec xv -root -quit /home/dov/lib/pixmaps/Sister-Bluebird-1.png
++                         "I" exec xset b 50 10000 10
++			  "I" exec xset  r rate 200 30
++                         "I" exec xkbcomp /home/dov/.xkbcomp :0
 
 ########################Menus ########################################
 AddToMenu RootMenu	"RootMenu"	Title 	
-+			"Xterm"%mini.xterm.xpm%		exec xterm  -fn heb16x9-8 -bg grey10 -fg green -cr green -sb -sl 1000 -e /bin/zsh &
-+			"gnome-term"%mini.xterm.xpm%		exec gnome-terminal &
-+			"Xmag"%mini.xmag.xpm%		Exec  exec xmag_multivis &
-+			"xv"%mini.xv.xpm%		Exec exec csh -c "(cd /home/dov/light/log-book-images; xv)&" 
++			"Xterm"%mini.xterm.xpm%		exec /usr/bin/env LANG="" xterm -fn '-*-lucidatypewriter-normal-*-*-*-14-*-*-*-*-*-*-*' -bg grey10 -fg green -cr green -sb -sl 1000 +u8 -e ssh-agent /bin/zsh &
++			"TrueCrypt"		Exec truecrypt &
++                       "xojpanel"      Exec xojpanel &
 +			"lyx"		Exec  exec lyx &
-+			"soffice"	Exec  exec soffice &
++			"gscan2pdf"	Exec  exec gscan2pdf &
++			"mc"		Exec  gnome-terminal -e mc --hide-menubar &
 +			"gimp"%mini.gimp.xpm%		Exec  exec gimp &
-+			"netscape"	Exec  exec netscape &
-+			"firefox"	Exec  exec firefox -ProfileManager &
++                       "pidgin"          Exec pidgin &
++                       "skype"          Exec  LD_PRELOAD=/usr/lib/libv4l/v4l1compat.so skype &
++			"xchat"	Exec  exec xchat
++			"firefox"	Exec  exec firefox &
++			"chrome"	Exec  exec google-chrome --disable-accelerated-compositing &
 +                       "gthumb"        Exec gthumb &
-+			"skype"	        Exec  exec skype&
-+			"emacs"	        Exec  exec env -u XMODIFIERS ssh-agent emacs &
-+			"emacs-24"	        Exec  exec env -u XMODIFIERS ssh-agent /usr/local/public-dev/bin/emacs &
-#+			"VirtualBox"%mini-win2000.xpm%	Exec  exec VirtualBox --startvm WinXPE &
-+			"VirtualBox"%mini-win2000.xpm%	Exec  exec VirtualBox &
-+			"pgcalc"	Exec  exec pgcalc2 &
-+			"qalculate"	Exec  exec qalculate-gtk &
-+			"gnome-panel"	Exec  exec gnome-panel &
++			"emacs24"	Exec  exec /usr/local/public-dev/bin/emacs &
++			"virtualbox"%mini-win2000.xpm%	Exec  exec VirtualBox &
++			"mate-panel"	Exec  exec mate-panel &
 +			"Music"%mini.music.xpm%	Popup Music-Popup
 +			""		Nop
 +			"Workshop"	Popup Workshop-Popup
@@ -384,9 +364,8 @@ AddToMenu Workshop-Popup "Workshop" Title
 +        "FileMerge"	Exec /opt/SUNWspro/bin/filemerge &
 
 AddToMenu Music-Popup "Music" Title
-+        "xmms" 	Exec xmms &
 +        "gqmpeg"	Exec gqmpeg &
-+        "rhythmbox"	Exec rhythmbox &
++         "gmplayer"    Exec gmplayer &
 
 AddToMenu Module-Popup	"Modules"	Title	
 +			"Button-Bar"	Module	FvwmButtons
@@ -404,10 +383,11 @@ AddToMenu Module-Popup	"Modules"	Title
 AddToMenu Quit-Verify 	"Really Quit Fvwm?" Title	
 +		      	"Yes, Really Quit"  Quit	
 +		      	"Restart Fvwm2"	    Restart fvwm2	
++                       "Start Compiz"      Restart /usr/bin/compiz
 +		      	"Restart Fvwm95"    Restart fvwm95-2
 +		      	"Restart Wmaker"    Restart wmaker
 +		      	"Start Fvwm"	    Restart fvwm	
-+		      	"Start Enlightment" Restart /opt/enlightenment/bin/enlightenment
++		      	"Start Enlightenment" Restart enlightenment_start
 +		      	"Start mwm"    	    Restart mwm
 +	      	      	"Start olwm"        Restart /usr/openwin/bin/olwm
 +		      	""		    Nop	
@@ -430,6 +410,23 @@ AddToFunc Move-or-Raise2	"M" Raise
 AddToFunc Maximize-Func		"M" Maximize	 0 100
 +				"C" Maximize	 0 100
 +				"D" Maximize	 100 100
+
+AddToFunc VerMaximize
++ C ThisWindow (!Maximized,!URxvt) WindowStyle BorderWidth 0, HandleWidth 0
++ C ThisWindow (Maximized,!URxvt) WindowStyle BorderWidth 2, HandleWidth 2
++ C UpdateStyles
++ C Maximize Toggle 100 100
+
+DestroyFunc VerMaximizeNoClick
+AddToFunc VerMaximizeNoClick
++ I ThisWindow (!Maximized,!URxvt) WindowStyle BorderWidth 0, HandleWidth 0
++ I ThisWindow (Maximized,!URxvt) WindowStyle BorderWidth 2, HandleWidth 2
++ I UpdateStyles
++ I Maximize Toggle 100 100
+
+#AddToFunc VerMaximize		"M" Maximize	 0 100
+#+				"C" Maximize	 0 100
+#+				"D" Maximize	 100 100
 
 AddToFunc Move-or-Iconify	"I" Raise
 +				"M" Move
@@ -455,12 +452,6 @@ AddToFunc "Raise/Move/Shade"
 +                   	"C" Raise
 +                    	"D" WindowShade
 
-DestroyFunc ToggleTitle
-AddToFunc ToggleTitle
-+ I State 1 toggle
-+ I Current (State 1) WindowStyle NoTitle
-+ I TestRc (NoMatch) WindowStyle Title
-
 ################## FvwmButtons button-bar ################################
 # Colors
 *FvwmButtonsFore Black
@@ -478,33 +469,29 @@ AddToFunc ToggleTitle
 # Just choose colors and a fonts
 *FvwmIdentBack MidnightBlue
 *FvwmIdentFore Yellow
-#*FvwmIdentFont -adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*
-*FvwmIdentFont "xft:Sans:size=7"
+*FvwmIdentFont -adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*
 
 ########################### Pager #########################################
 #*FvwmPagerBack #908090
-*FvwmPagerBack #4e7b9b
-*FvwmPagerFore #484058
-#*FvwmPagerFont -adobe-helvetica-bold-r-*-*-10-*-*-*-*-*-*-*
-*FvwmPagerFont "xft:Sans:size=7"
-#*FvwmPagerHilight #b0a0b0
-*FvwmPagerHilight #7d9ed8
-*FvwmPagerDeskTopScale 20
-*FvwmPagerGeometry 220x100-0-0
-*FvwmPagerLabel 0 Pager
-*FvwmPagerSmallFont 5x8
-*FvwmPagerLabel 0 All
-*FvwmPagerLabel 1 Work
-*FvwmPagerLabel 2 No
-*FvwmPagerLabel 3 Play
-*FvwmPagerBalloons Pager
-*FvwmPagerBalloonfore yellow
-*FvwmPagerMiniIcons true
+*FvwmPager: Back #4e7b9b
+*FvwmPager: Fore #484058
+*FvwmPager: Font -adobe-helvetica-bold-r-*-*-10-*-*-*-*-*-*-*
+*FvwmPager: Hilight #7d9ed8
+*FvwmPager: DeskTopScale 17
+*FvwmPager: Geometry -0-0
+*FvwmPager: SmallFont 5x8
+*FvwmPager: Label 0 All
+*FvwmPager: Label 1 Work
+*FvwmPager: Label 2 No
+*FvwmPager: Label 3 Play
+*FvwmPager: Balloons Pager
+*FvwmPager: BalloonFore yellow
+*FvwmPager: MiniIcons true
 
 ##########################FvwmWinList##################################
 *FvwmWinListBack #908090
 *FvwmWinListFore Black
-#*FvwmWinListFont -adobe-helvetica-bold-r-*-*-10-*-*-*-*-*-*-*
+*FvwmWinListFont -adobe-helvetica-bold-r-*-*-10-*-*-*-*-*-*-*
 *FvwmWinListAction Click1 Iconify -1,Focus
 *FvwmWinListAction Click2 Iconify
 *FvwmWinListAction Click3 Module "FvwmIdent" FvwmIdent
@@ -532,8 +519,7 @@ AddToFunc ToggleTitle
 #*FvwmIconBoxFore       blue
 *FvwmIconBoxGeometry    5x1+0+0
 *FvwmIconBoxMaxIconSize 64x38
-#*FvwmIconBoxFont        -adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*
-*FvwmIconBoxFont        "xft:Sans:size=6"
+*FvwmIconBoxFont        -adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*
 *FvwmIconBoxSortIcons   IconName
 *FvwmIconBoxPadding     4
 *FvwmIconBoxLines       10
@@ -564,7 +550,3 @@ AddToFunc ToggleTitle
 # reads icon files specified in Style commands.
 #
 *FvwmIconBox            "Fvwm*"         -
-
-DestroyFunc UrgencyFunc
-AddToFunc UrgencyFunc
-+ I Nop

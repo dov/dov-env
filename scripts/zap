@@ -1,0 +1,83 @@
+#!/usr/bin/perl
+
+# Usage: zap [-signal] pattern
+
+# Configuration parameters.
+while (($_=$ARGV[0])=~ /^-/) {
+   shift;
+
+   if (/-h(elp)?|-u(sage)?/) { print <<EOH;
+Usage: zap [-signal] [-ni] pattern
+EOH
+       exit;
+   }
+   elsif (/-ni?/) { $non_interactive++ }
+   else {
+       /-(.*)/; $sig=$1;
+   }
+}
+
+$sig = 'TERM' unless $sig;
+
+$BSD = -f '/vmunix' || -f '/vmlinuz' || -f '/zImage';
+$BSD++;
+$pscmd = $BSD ? "ps auxww" : "ps -ef";
+
+open(TTYIN, "</dev/tty") || die "can't read /dev/tty: $!";
+open(TTYOUT, ">/dev/tty") || die "can't write /dev/tty: $!";
+select(TTYOUT);
+$| = 1;
+select(STDOUT);
+$SIG{'INT'} = 'cleanup';
+
+if ($BSD) {
+    system "stty cbreak </dev/tty >/dev/tty 2>&1";
+}
+else {
+    system "stty", '-icanon';
+    system "stty", 'eol', '^A';
+}
+
+open(PS, "$pscmd|") || die "can't run $pscmd: $!";
+$title = <PS>;
+print TTYOUT $title;
+
+# Catch any errors with eval.  A bad pattern, for instance.
+
+eval <<'EOF';
+while ($cand = <PS>) {
+    chop($cand);
+    ($user, $pid) = split(' ', $cand);
+    next if $pid == $$;
+    $found = !@ARGV;
+    foreach $pat (@ARGV) {
+        $found = 1 if $cand =~ $pat;
+    }
+    next if (!$found);
+    if ($non_interactive) {
+        print "$cand...";
+        kill $sig, $pid;
+        print "killed\n";
+    }
+    else {
+        print TTYOUT "$cand? ";
+        read(TTYIN, $ans, 1);
+        print TTYOUT "\n" if ($ans ne "\n");
+        if ($ans =~ /^y/i) { kill $sig, $pid; print "kill $sig $pid\n"; }
+        if ($ans =~ /^q/i) { last; }
+    }
+}
+EOF
+&cleanup;
+
+sub cleanup {
+    if ($BSD) {
+	system "stty -cbreak </dev/tty >/dev/tty 2>&1";
+    }
+    else {
+	system "stty", 'icanon';
+	system "stty", 'eol', '^@';
+    }
+    print "\n";
+    exit;
+}

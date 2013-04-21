@@ -1,0 +1,35 @@
+#!/usr/bin/perl
+
+# Gets the latest images from the phone and copies these to the /tmp
+
+use strict;
+my $num_images=10;  # Number of images to get
+
+# options
+while($_ = $ARGV[0], /^-/) {
+    shift;
+
+    /-num_images/ and do {
+        $num_images = shift;
+        next;
+    };
+    /-(\d+)/ and do {
+        $num_images = $1;
+        next;
+    };
+    /-help/ and do { print <<__; exit; };
+groma-get-images - Get images from my phone
+
+Usage:
+    -num_images ni   Get only ni images.
+    -5               Shortcut syntax for getting five images
+__
+    die "Unknown option $_\n";
+}
+
+my @images = `ssh groma 'ls -t /media/mmc1/DCIM | head -$num_images'`;
+map(chomp,@images);
+for my $img (@images) {
+    print "$img\n";
+    system("rsync -a groma:/media/mmc1/DCIM/$img /tmp");
+}

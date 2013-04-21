@@ -68,6 +68,7 @@
 (setq load-path (append
                  (list
                   (concat emacs-git "/org-mode/lisp")
+                  (concat emacs-git "/org-mode/contrib/lisp")
                   emacs-git
                   )
                  load-path))
@@ -280,6 +281,7 @@
 (load "org-man.el")
 (load "org-git-hyperlink.el")
 (load "org-wp.el")
+(load "org-bullets.el")
 
 (require 'load-theme-buffer-local)
 
@@ -297,6 +299,18 @@
   (set-face-attribute 'org-checkbox nil :family my-default-family)
   (set-face-attribute 'org-block nil :family my-default-family)
   (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
+  (org-bullets-mode)
+  (setq org-bullets-bullet-list
+        '(;;; Large
+          "▸"
+          "•"
+          "•"
+          "•"
+          ;; ♥ ● ◇ ✚ ✜ ☯ ◆ ♠ ♣ ♦ ☢ ❀ ◆ ◖ ▶
+          ;;; Small
+          ;; ► • ★ ▸
+    ))
+
   (setq org-hide-emphasis-markers nil)
   (setq org-confirm-babel-evaluate nil)
   (xmsi-mode)
@@ -314,6 +328,7 @@
   (setq org-entities-user '(
     ("models" "\\models" t "&8872;" "[models]" "models" "⊨")
     ("indf" "{\bf 1}" t "&#120128;" "[indf]" "indf" "𝟙")
+    ("ell" "\\ell" t "&#2113;" "[ell]" "indf" "ℓ")
     ))
 
   )
@@ -378,7 +393,7 @@
       (if (string-match "\\.\\(cc\\|cpp\\)$" (buffer-name))
           ;; Search for constructor
           (progn
-            (if (not (re-search-backward "^\\(\\(const *\\)?\\w+\\)? *\\w+::"))
+            (if (not (re-search-backward "^\\(\\(const *\\)?[a-zA-Z_][a-zA-Z0-9_]*\\)? *[a-zA-Z][a-zA-Z0-9_]*::"))
                 (error "No match!"))
             (re-search-forward "::")
             (backward-word))
@@ -423,7 +438,8 @@
 (setq ipython-command "ipython")
 (require 'ipython)
 ;(setq py-python-command-args '("-pylab" "-p" "pylab" "-colors" "LightBG"))
-(setq py-python-command-args '("-pylab" "-colors" "LightBG"))
+(setq py-python-command "python")
+(setq py-python-command-args nil)
 
 ; ediff options
 (setq ediff-patch-options "")
@@ -502,11 +518,11 @@
 ;;; Why can't I get this to run automatically in the perl-mode hook
 (defun my-perl-mode-hook ()
   (interactive)
-  (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
-  (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
-  (define-key cperl-mode-map ";" 'self-insert-command)
-  (define-key cperl-mode-map " " 'self-insert-command)
-  (define-key cperl-mode-map "{" 'self-insert-command)
+  (define-key perl-mode-map [(control c) (control r)] 'compile-dwim-run)
+  (define-key perl-mode-map [(control c) (control s)] 'compile-dwim-compile)
+  (define-key perl-mode-map ";" 'self-insert-command)
+  (define-key perl-mode-map " " 'self-insert-command)
+  (define-key perl-mode-map "{" 'self-insert-command)
   (setq-default abbrev-mode nil)
   (setq cperl-auto-newline nil)
   (setq-default cperl-auto-newline nil)
@@ -519,7 +535,7 @@
   (setq cperl-mode-abbrev-table nil)
   
   (abbrev-mode 0)
-  (define-key cperl-mode-map [(return)] 'newline-and-indent)
+  (define-key perl-mode-map [(return)] 'newline-and-indent)
   (message "my-perl-mode-hook")
   )
 
@@ -566,7 +582,15 @@
        (list (cons "\\.txt$" 'org-mode)) 
        (list (cons "\\.org" 'org-mode)) 
        (list (cons "\\.pl" 'cperl-mode)) 
+       (list (cons "\\.nxc$" 'c++-mode)) 
        auto-mode-alist))
+
+;; macros for nxc code
+(defun nxt-run ()
+  (interactive)
+  (save-buffer)
+  (let* ((cmd (format "nbc %s -sm- -r -S=usb " (buffer-name))))
+    (shell-command cmd)))
 
 ;; mapping between languages and their major mode  (in Emacs)
 ;(setq org-export-htmlized-org-css-url "/home/dov/tmp/org-mode/ORGWEBPAGE/org.css")
@@ -658,6 +682,7 @@ With numeric ARG, display the images if and only if ARG is positive."
            '(("xcf" . "gimp %s"))
            '(("giv" . "giv %s"))
            '(("doc" . "libreoffice -norestore %s"))
+           '(("odt" . "libreoffice -norestore %s"))
            '(("gnumeric" . "gnumeric %s"))
            '(("html" . "firefox %s"))
            org-file-apps))))
@@ -1280,12 +1305,17 @@ With numeric ARG, display the images if and only if ARG is positive."
 (defun xjet-indent-mode ()
   "Set indent tabs to the xjet indent mode"
   (interactive)
+  ;; C++-python
   (setq my-indent 2)
   (setq my-substatement 2)
   (setq my-substatement-open 0)
   (setq my-access-label 0)
   (setq my-topmost-intro 0)
-  (update-indent-mode))
+  (update-indent-mode)
+
+  ;; Python
+  (setq py-indent-offset 2)
+  )
 
 (defun gnu-indent-mode ()
   "Set indent tabs to 2 as is standard by gnome."
@@ -1336,7 +1366,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   )
 
 (defun my-perlmode-stuff () ""
-  (define-key cperl-mode-map [return] 'newline-and-indent)
+  (define-key perl-mode-map [return] 'newline-and-indent)
 )
 
 (defun do-return-indent (map) ""
@@ -1408,21 +1438,27 @@ Does not delete the prompt."
 (defun c-comment-selection-or-word ()
   "Put a c comment around the selection or the current word"
   (interactive)
-  (save-excursion
     (if mark-active
-        (let ((selection (buffer-substring-no-properties (region-beginning) (region-end))))
-          (delete-region (region-beginning) (region-end))
-          (insert "/*")
-          (insert selection)
-          (insert "*/"))
+        (save-excursion
+          (let ((selection (buffer-substring-no-properties (region-beginning) (region-end))))
+            (delete-region (region-beginning) (region-end))
+            (insert "/*")
+            (insert selection)
+            (insert "*/")
+            ))
       (progn
         (skip-chars-forward "-_A-Za-z0-9")
         (insert "*/")
         (backward-char)
         (backward-char)
         (skip-chars-backward "-_A-Za-z0-9")
-        (insert "/*"))
-    )))
+        (insert "/*")
+        (forward-word)
+        (forward-word)
+        (forward-word)
+        (backward-word)
+        )
+    ))
 
 (defun toggle-backslash-line ()
   "Toggle all forward slashes to backslashes for the current line."
@@ -1448,6 +1484,7 @@ Does not delete the prompt."
     (define-key comint-mode-map [(meta n)] 'comint-next-matching-input-from-input)
     (define-key comint-mode-map [(control c) (control o)] 'comint-kill-output-to-kill-ring)
     (define-key comint-mode-map [(control x) (control ?\\)] 'toggle-backslash-line)
+    (define-key comint-mode-map [(tab)] 'comint-dynamic-complete)
 
     ; Save history when the shell is killed
     (make-local-variable 'comint-input-ring-file-name)
