@@ -643,7 +643,10 @@ With numeric ARG, display the images if and only if ARG is positive."
       (setq org-file-apps
             (append
              '(("png" . "c:/progra~2/IrfanView/i_view32.exe %s"))
-             org-file-apps))
+             '(("doc" . "\"c:/Program Files (x86)/OpenOffice.org 3/program/soffice.exe\" %s"))
+
+             org-file-apps
+             ))
       )
   (progn 
     (setq org-file-apps
@@ -984,7 +987,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(alt d)] 'goto-end-of-gud-buffer)
 (global-set-key (kbd "A-C-f") 'current-filename-to-clip-buffer)
 (global-set-key [(control insert)] 'clipboard-kill-ring-save)
-(global-set-key [(shift insert)] 'x-clipboard-yank)
+(global-set-key [(shift insert)] 'clipboard-yank)
 
 ;; Find first and return first buffer matching a given pattern
 (defun find-first-buffer-match (buffers pattern)
