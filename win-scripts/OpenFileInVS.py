@@ -4,6 +4,9 @@ Open a file in visual studio, optionally on the requested linenumber.
 This should be replaced with the more complete solution:
   - http://badbyteblues.blogspot.com/2007/08/automating-developer-studio.html
 
+May access any Visual Studio command that is listed in Tools/Customize, e.g.
+b.ExecuteCommand("IncrediBuild.BuildSolution")
+
 Dov Grobgeld <dov.grobgeld@gmail.com>
 Wednesday 2012-02-22 17:10 
 """
@@ -39,8 +42,10 @@ if not LineNum is None:
 #  b.ExecuteCommand("Debug.ToggleBreakpoint")
   b.Debugger.BreakPoints.Add("",os.path.abspath(Filename),LineNum)
 
+
 # Raise Visual Studio to top
 w = b.MainWindow
 h = w.HWnd
 
 win32gui.SetForegroundWindow(h)
+win32gui.ShowWindow(h,5)

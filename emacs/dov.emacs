@@ -22,6 +22,7 @@
   (progn
 ;    (setq my-default-family "Liberation Mono")
     (setq my-default-family "InconsolataDov")
+    (setq explicit-shell-file-name "/bin/zsh")
     (setq browse-url-generic-program "firefox")
     (if (not (boundp 'emacs-git))
         (setq emacs-git "/home/dov/.config/emacs"))
@@ -282,7 +283,7 @@
 (load "org-git-hyperlink.el")
 (load "org-wp.el")
 (load "org-bullets.el")
-
+(load "ox.el")
 (require 'load-theme-buffer-local)
 
 (require 'org)
@@ -427,6 +428,10 @@
 (defun rcomp-h-to-c ()
   (interactive)
   (rcomp-map "h2c"))
+
+(defun rcomp-set ()
+  (interactive)
+  (rcomp-map "set"))
 
 (require 'iimage)
 (add-to-list 'iimage-mode-image-regex-alist
@@ -1570,6 +1575,8 @@ Does not delete the prompt."
   (define-key map [(alt s)] 'gdb-step)
   (define-key map [(control c) (control s)] 'gdb-step)
   (define-key map [(alt u)] 'gdb-finish)
+;;  (define-key map [µ] 'gdb-finish)
+  (define-key map [(alt f)] 'gdb-finish)
   (define-key map [(alt h)] 'gdb-cont-to)
   (define-key map [(hebrew_finalkaph)] 'gdb-next)
   (define-key map [(hebrew_finalpe)] 'gdb-step)

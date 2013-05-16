@@ -133,8 +133,15 @@ sub H2Def {
     my $ClassName = shift;
 
     my $ret = '';
-    while($text=~ m/(\S+)\s+(\w+)\s*\((.*?)\)\s*;/sg)
+    while($text=~ m/(\S+)\s+(\w+)\s*\((.*?)\)\s*;/sgx)
     {
+        my $comment = $`;
+        if ($comment) {
+            $comment =~ s/\s*$//g;
+            $comment .= "\n";
+        }
+        $ret .= $comment;
+
         my $Return = $1;
         my $fnc = $2;
         my $args = $3;
@@ -204,10 +211,29 @@ sub Def2C {
     return $t;
 };
 
+# Convert Def statements to C template code
+sub CreateSetFunction {
+    my($text, $ClassName) = @_;
+    $text=~ s/^\s*//;
+
+    my @vars = split(/\s+/, $text);
+
+    my $t = ('    void Set' . join('', @vars) . "(double " . join(', double ', @vars) . ")\n"
+             . "    {\n");
+
+    for my $v (@vars) {
+        $t .= "      m_$v=$v;\n";
+    }
+    $t .= "    }\n";
+
+    return $t;
+}
+
 my $def2init = 0;
 my $h2def=0;
 my $def2c = 0;
 my $h2c = 0;
+my $do_set = 0;
 my $ClassName;
 
 while(@ARGV && ($_ = $ARGV[0], /^-/)) {
@@ -219,6 +245,7 @@ while(@ARGV && ($_ = $ARGV[0], /^-/)) {
     /^-def2init/ and do { $def2init=1; next; };
     /^-def2c/ and do { $def2c=1; next; };
     /^-h2c/ and do { $h2c=1; next; };
+    /^-set/ and do { $do_set=1; next; };
     /^-h2def/ and do { $h2def=1; next; };
     /^-help/ and do {
         print <<__;
@@ -244,4 +271,7 @@ elsif ($h2c) {
 }
 elsif ($def2c) {
     print Def2C($text, $ClassName);
+}
+elsif ($do_set) {
+    print CreateSetFunction($text, $ClassName);
 }
