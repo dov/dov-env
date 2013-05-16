@@ -1,6 +1,13 @@
 ; -*- Encoding: utf-8 -*-
 ;;======================================================================
 ;;   emacs (not Xemacs) mode
+;;
+;; To use this file, add lines similar to the following to ~/.emacs.d/init.el:
+;;
+;;  (setq emacs-git "d:/git/dov/dov-env/emacs")
+;;  (setq default-notes-file "w:/users/Dov/git/xjet-git/notes/notes.org")
+;;  (load (concat emacs-git "/dov.emacs"))
+;;  (setenv "PATH" (concat (getenv "PATH") ";D:\\DevTools\\git\\bin"))
 ;;----------------------------------------------------------------------
 
 (if (string-match "mingw-nt" system-configuration)
