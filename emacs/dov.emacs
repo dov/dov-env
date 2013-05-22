@@ -285,6 +285,10 @@
 (setq gdb-command-name "/usr/bin/gdb")
 
 ;; org-mode
+(defun kill-visual-line ()
+  "Redefined to do kill-line as I believe that lines breaks are for display only!"
+  (interactive)
+  (kill-line))
 (load "screenshot.el")
 (load "org-man.el")
 (load "org-git-hyperlink.el")
@@ -309,8 +313,10 @@
   (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
   (org-bullets-mode)
   (setq org-bullets-bullet-list
-        '(;;; Large
-          "▸"
+        '("▸"
+          "•"
+          "•"
+          "•"
           "•"
           "•"
           "•"
