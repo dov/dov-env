@@ -1,6 +1,8 @@
 # Print variables by python
 
 import gdb
+import re
+
 class PyPrintCommand (gdb.Command):
   "A command for printing variables via python"
 
@@ -33,13 +35,16 @@ class PyPrintCommand (gdb.Command):
 
     for v in args[argp:]:
       try:
+        val = gdb.execute("p %s"%v,True,True)
+        val = re.search(r"=\s*(.*)",val).group(1)
         if do_compact:
-          print gdb.selected_frame().read_var(v),
+          print val, 
         else:
-          print "%s=%s"%(v,gdb.selected_frame().read_var(v))
+          print "%s=%s"%(v,val)
       except ValueError:
         print "%s not found!"%v
     if do_compact:
       print ""
 
 PyPrintCommand()
+
