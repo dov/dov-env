@@ -1,0 +1,35 @@
+[alias]
+   st = status
+   ci = commit
+   br = branch
+   co = checkout
+   df = diff
+   lg = log --graph --pretty=tformat:'%Cred%h%Creset -%C(black)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative
+   lgn = log --graph --pretty=tformat:'%Cred%h%Creset - [%C(blue)%an%Creset] %C(black)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit --date=relative
+   lol = log --graph --decorate --pretty=oneline --abbrev-commit
+   lola = log --graph --decorate --pretty=oneline --abbrev-commit --all
+   slona = log -10 --pretty=format:'%h %Cred%an%Creset %s'
+   ls = ls-files
+   mod = status --untracked-files=no -s
+   graphviz = "!f() { echo 'digraph git {' ; git log --pretty='format:  %h -> { %p }' \"$@\" | sed 's/[0-9a-f][0-9a-f]*/\"&\"/g' ; echo '}'; }; f"
+   lg1 = log --graph --all --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(bold white)— %an%C(reset)%C(bold yellow)%d%C(reset)' --abbrev-commit --date=relative
+   lg2 = log --graph --all --format=format:'%C(blue)%h%C(reset) - %C(cyan)%aD%C(reset) %C(green)(%ar)%C(reset)%C(yellow)%d%C(reset)%n''          %C(black)%s%C(reset) %C(black) -- [%C(reset)%an%C(black)]' --abbrev-commit
+    anc-log = !git log $(git merge-base ${@: -2:1} ${@: -1})..${@: -1}
+    anc-diff = !git diff $(git merge-base ${@: -2:1} ${@: -1})..${@: -1}
+
+[user]
+	name = Dov Grobgeld
+	email = dov.grobgeld@gmail.com
+[giggle]
+	main-window-maximized = false
+	main-window-geometry = 1470x953+212+45
+	main-window-view = HistoryView
+	history-view-vpane-position = 411
+	file-view-vpane-position = 552
+	show-graph = true
+[diff]
+	tool = kdiff3
+[merge]
+	tool = kdiff3
+[core]
+	autocrlf = input
