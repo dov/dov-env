@@ -118,6 +118,9 @@
 (setq magit-diff-options '("-w"))
 (load "mo-git-blame")
 (load "xmsi-math-symbols-input.el")
+(require 'pretty-mode)
+(add-hook 'python-mode-hook #'pretty-mode 1)
+
 ;(global-set-key [?\C-c ?g ?c] 'mo-git-blame-current)
 ;(global-set-key [?\C-c ?g ?f] 'mo-git-blame-file)
 
