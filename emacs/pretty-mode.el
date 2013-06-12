@@ -60,6 +60,21 @@
        (join-list (hash-keys pretty-symbols) "\\|")
        "\\)\\b"
        ))
+(defun what-face (pos)
+  (interactive "d")
+  (let ((face (or (get-char-property (point) 'read-face-name)
+                  (get-char-property (point) 'face))))
+    (if face (message "Face: %s" face) (message "No face at %d" pos))))
+
+(defun is-point-in-string ()
+  """whether the current position is in a string"""
+  (interactive)
+  (nth 3 (syntax-ppss)))
+
+(defun is-point-in-comment ()
+  """whether the current position is in a string"""
+  (interactive)
+  (nth 4 (syntax-ppss)))
 
 (defun pretty-fontify (beg end)
   (save-excursion
@@ -68,14 +83,16 @@
     (goto-char beg)
     (while (re-search-forward pretty-regex end t)
       (let ((o (car (overlays-at (match-beginning 1)))))
-        (unless (and o (eq (overlay-get o 'type) 'pretty))
+        (if (and (not (and o (eq (overlay-get o 'type) 'pretty)))
+                 (not (or (is-point-in-comment)
+                          (is-point-in-string)))
+                 )
           (let* ((overlay (make-overlay (match-beginning 1) (match-end 1)))
                  (match-text (buffer-substring-no-properties (match-beginning 1) (match-end 1))))
-            (message match-text)
+            (message (get-char-property (match-beginning 1) 'read-face-name))
             (overlay-put overlay 'type 'pretty)
             (overlay-put overlay 'evaporate t)
             (overlay-put overlay 'display (gethash match-text pretty-symbols))))))))
-
 
 (defun pretty-unfontify (beg end)
   (mapc #'(lambda (o)
