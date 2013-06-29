@@ -1005,6 +1005,9 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key "\C-x\C-m" 'save-buffers-dont-ask)
 (global-set-key [(control h) (control j)] 'gtk-lookup-symbol)
 (global-set-key [(control h) (control q)] 'qtdoc-lookup)
+(global-set-key [(control h) (control g)] 'google-lookup)
+(global-set-key [(control h) (control p)] 'python-lookup)
+(global-set-key [(control h) (control c)] 'cpp-lookup)
 (global-set-key [(f2)] 'perl-pe-region)
 (global-set-key [(control f27)] 'move-to-first-window-line)
 (global-set-key [(super f27)] 'move-to-first-window-line)
@@ -1258,6 +1261,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;; qt docs lookup
 (load "qtdoc")
 (setq qtdoc-html-root "http://doc.qt.nokia.com/4.7")
+(load "google-look")
 
 ;; Other customization
 (line-number-mode t)
