@@ -151,6 +151,14 @@
 ;  ; pde turns this on, which I don't like
 ;  (ido-mode nil))
 
+(add-to-list 'load-path
+              (concat emacs-git "yasnippet"))
+(require 'yasnippet)
+(yas-global-mode 1)
+(setq yas-snippet-dirs (list (concat emacs-git "yasnippet/snippets")
+                             (concat emacs-git "snippets")))
+
+(yas-reload-all)
 (global-set-key "\C-ci" 'magit-status)
 (global-set-key "\C-c\C-b" 'magit-blame-mode)
 
@@ -243,7 +251,7 @@
 ;; Tramp
 (require 'tramp)
 (setq tramp-default-method "ssh")
-
+(setq password-cache-expiry nil)
 (add-hook 'font-lock-mode-hook 'my-doxymacs-font-lock-hook)
 (add-hook 'c-mode-common-hook 'doxymacs-mode)
 
