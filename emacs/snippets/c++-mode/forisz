@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: forisz
+# key: forisz
+# --
+for(int ${1:iter}=0; $1<(int)${2:var}.size(); $1++) {
+  $0 = $2[$1];
+}
