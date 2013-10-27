@@ -118,6 +118,7 @@
 (setq magit-diff-options '("-w"))
 (load "mo-git-blame")
 (load "xmsi-math-symbols-input.el")
+(load "xml-rpc")
 (require 'pretty-mode)
 (add-hook 'python-mode-hook #'pretty-mode 1)
 

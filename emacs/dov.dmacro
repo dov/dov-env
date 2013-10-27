@@ -628,3 +628,19 @@ return fn
 #+end_src
 #
 
+#######
+# MODE:	python-mode
+#######
+
+#####
+sconstruct	expand	comment block for the top of a sconstruct file
+env = Environment(CPPFLAGS=['-Wall','-g'])
+
+env.Program('foo',
+            ['foo.cc'])
+
+#
+
+#
+
+
