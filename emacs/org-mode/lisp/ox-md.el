@@ -21,17 +21,14 @@
 ;;; Commentary:
 
 ;; This library implements a Markdown back-end (vanilla flavour) for
-;; Org exporter, based on `html' back-end.
-;;
-;; It provides two commands for export, depending on the desired
-;; output: `org-md-export-as-markdown' (temporary buffer) and
-;; `org-md-export-to-markdown' ("md" file).
+;; Org exporter, based on `html' back-end.  See Org manual for more
+;; information.
 
 ;;; Code:
 
 (eval-when-compile (require 'cl))
 (require 'ox-html)
-
+(require 'ox-publish)
 
 
 ;;; User-Configurable Variables
@@ -69,7 +66,6 @@ This variable can be set to either `atx' or `setext'."
 		(org-open-file (org-md-export-to-markdown nil s v)))))))
   :translate-alist '((bold . org-md-bold)
 		     (code . org-md-verbatim)
-		     (underline . org-md-verbatim)
 		     (comment . (lambda (&rest args) ""))
 		     (comment-block . (lambda (&rest args) ""))
 		     (example-block . org-md-example-block)
@@ -83,9 +79,11 @@ This variable can be set to either `atx' or `setext'."
 		     (item . org-md-item)
 		     (line-break . org-md-line-break)
 		     (link . org-md-link)
+		     (node-property . org-md-node-property)
 		     (paragraph . org-md-paragraph)
 		     (plain-list . org-md-plain-list)
 		     (plain-text . org-md-plain-text)
+		     (property-drawer . org-md-property-drawer)
 		     (quote-block . org-md-quote-block)
 		     (quote-section . org-md-example-block)
 		     (section . org-md-section)
@@ -335,6 +333,18 @@ a communication channel."
 		 (format "[%s](%s)" contents path)))))))
 
 
+;;;; Node Property
+
+(defun org-md-node-property (node-property contents info)
+  "Transcode a NODE-PROPERTY element into Markdown syntax.
+CONTENTS is nil.  INFO is a plist holding contextual
+information."
+  (format "%s:%s"
+          (org-element-property :key node-property)
+          (let ((value (org-element-property :value node-property)))
+            (if value (concat " " value) ""))))
+
+
 ;;;; Paragraph
 
 (defun org-md-paragraph (paragraph contents info)
@@ -381,6 +391,16 @@ contextual information."
     (setq text (replace-regexp-in-string "[ \t]*\n" "  \n" text)))
   ;; Return value.
   text)
+
+
+;;;; Property Drawer
+
+(defun org-md-property-drawer (property-drawer contents info)
+  "Transcode a PROPERTY-DRAWER element into Markdown format.
+CONTENTS holds the contents of the drawer.  INFO is a plist
+holding contextual information."
+  (and (org-string-nw-p contents)
+       (replace-regexp-in-string "^" "    " contents)))
 
 
 ;;;; Quote Block
@@ -439,21 +459,8 @@ Export is done in a buffer named \"*Org MD Export*\", which will
 be displayed when `org-export-show-temporary-export-buffer' is
 non-nil."
   (interactive)
-  (if async
-      (org-export-async-start
-	  (lambda (output)
-	    (with-current-buffer (get-buffer-create "*Org MD Export*")
-	      (erase-buffer)
-	      (insert output)
-	      (goto-char (point-min))
-	      (text-mode)
-	      (org-export-add-to-stack (current-buffer) 'md)))
-	`(org-export-as 'md ,subtreep ,visible-only))
-    (let ((outbuf (org-export-to-buffer
-		   'md "*Org MD Export*" subtreep visible-only)))
-      (with-current-buffer outbuf (text-mode))
-      (when org-export-show-temporary-export-buffer
-	(switch-to-buffer-other-window outbuf)))))
+  (org-export-to-buffer 'md "*Org MD Export*"
+    async subtreep visible-only nil nil (lambda () (text-mode))))
 
 ;;;###autoload
 (defun org-md-convert-region-to-md ()
@@ -488,13 +495,18 @@ contents of hidden elements.
 Return output file's name."
   (interactive)
   (let ((outfile (org-export-output-file-name ".md" subtreep)))
-    (if async
-	(org-export-async-start
-	    (lambda (f) (org-export-add-to-stack f 'md))
-	  `(expand-file-name
-	    (org-export-to-file 'md ,outfile ,subtreep ,visible-only)))
-      (org-export-to-file 'md outfile subtreep visible-only))))
+    (org-export-to-file 'md outfile async subtreep visible-only)))
 
+;;;###autoload
+(defun org-md-publish-to-md (plist filename pub-dir)
+  "Publish an org file to Markdown.
+
+FILENAME is the filename of the Org file to be published.  PLIST
+is the property list for the given project.  PUB-DIR is the
+publishing directory.
+
+Return output file name."
+  (org-publish-org-to 'md filename ".md" plist pub-dir))
 
 (provide 'ox-md)
 

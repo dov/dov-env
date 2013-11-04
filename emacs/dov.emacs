@@ -163,7 +163,6 @@
 (global-set-key "\C-ci" 'magit-status)
 (global-set-key "\C-c\C-b" 'magit-blame-mode)
 
-(load "epresent.el")
 (load "compile.el")
 (setq compilation-scroll-output 'first-error)
 
@@ -297,6 +296,12 @@
 (setq gdb-command-name "/usr/bin/gdb")
 
 ;; org-mode
+
+; This is a bug work around
+(defun org-element-cache-reset (&optional all) (interactive))
+
+(load "epresent.el")
+
 (defun kill-visual-line ()
   "Redefined to do kill-line as I believe that lines breaks are for display only!"
   (interactive)

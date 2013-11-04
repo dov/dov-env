@@ -70,11 +70,12 @@
     (keyword . org-groff-keyword)
     (line-break . org-groff-line-break)
     (link . org-groff-link)
+    (node-property . org-groff-node-property)
     (paragraph . org-groff-paragraph)
     (plain-list . org-groff-plain-list)
     (plain-text . org-groff-plain-text)
     (planning . org-groff-planning)
-    (property-drawer . (lambda (&rest args) ""))
+    (property-drawer . org-groff-property-drawer)
     (quote-block . org-groff-quote-block)
     (quote-section . org-groff-quote-section)
     (radio-target . org-groff-radio-target)
@@ -1316,6 +1317,17 @@ INFO is a plist holding contextual information.  See
      ;; No path, only description.  Try to do something useful.
      (t (format org-groff-link-with-unknown-path-format desc)))))
 
+;;; Node Property
+
+(defun org-groff-node-property (node-property contents info)
+  "Transcode a NODE-PROPERTY element from Org to Groff.
+CONTENTS is nil.  INFO is a plist holding contextual
+information."
+  (format "%s:%s"
+          (org-element-property :key node-property)
+          (let ((value (org-element-property :value node-property)))
+            (if value (concat " " value) ""))))
+
 ;;; Paragraph
 
 (defun org-groff-paragraph (paragraph contents info)
@@ -1425,6 +1437,15 @@ information."
 			 (org-element-property :raw-value scheduled))))))))
     "")
    ""))
+
+;;;; Property Drawer
+
+(defun org-groff-property-drawer (property-drawer contents info)
+  "Transcode a PROPERTY-DRAWER element from Org to Groff.
+CONTENTS holds the contents of the drawer.  INFO is a plist
+holding contextual information."
+  (and (org-string-nw-p contents)
+       (format "\\fC\n%s\\fP" contents)))
 
 ;;; Quote Block
 
@@ -1855,20 +1876,11 @@ file-local settings.
 
 Return output file's name."
   (interactive)
-  (let ((outfile (org-export-output-file-name ".groff" subtreep)))
-    (if async
-	(org-export-async-start
-	    (lambda (f) (org-export-add-to-stack f 'groff))
-	  (let ((org-groff-registered-references nil)
-		(org-groff-special-content nil))
-	    `(expand-file-name
-	      (org-export-to-file
-	       'groff ,outfile ,subtreep ,visible-only ,body-only
-	       ',ext-plist))))
-      (let ((org-groff-registered-references nil)
-	    (org-groff-special-content nil))
-	(org-export-to-file
-	 'groff outfile subtreep visible-only body-only ext-plist)))))
+  (let ((outfile (org-export-output-file-name ".groff" subtreep))
+	(org-groff-registered-references nil)
+	(org-groff-special-content nil))
+    (org-export-to-file 'groff outfile
+      async subtreep visible-only body-only ext-plist)))
 
 (defun org-groff-export-to-pdf
   (&optional async subtreep visible-only body-only ext-plist)
@@ -1896,18 +1908,10 @@ file-local settings.
 
 Return PDF file's name."
   (interactive)
-  (if async
-      (let ((outfile (org-export-output-file-name ".groff" subtreep)))
-	(org-export-async-start
-	    (lambda (f) (org-export-add-to-stack f 'groff))
-	  `(expand-file-name
-	    (org-groff-compile
-	     (org-export-to-file
-	      'groff ,outfile ,subtreep ,visible-only ,body-only
-	      ',ext-plist)))))
-    (org-groff-compile
-     (org-groff-export-to-groff
-      nil subtreep visible-only body-only ext-plist))))
+  (let ((outfile (org-export-output-file-name ".groff" subtreep)))
+    (org-export-to-file 'groff outfile
+      async subtreep visible-only body-only ext-plist
+      (lambda (file) (org-groff-compile file)))))
 
 (defun org-groff-compile (file)
   "Compile a Groff file.
@@ -1919,9 +1923,10 @@ Return PDF file name or an error if it couldn't be produced."
   (let* ((base-name (file-name-sans-extension (file-name-nondirectory file)))
 	 (full-name (file-truename file))
 	 (out-dir (file-name-directory file))
-	 ;; Make sure `default-directory' is set to FILE directory,
-	 ;; not to whatever value the current buffer may have.
-	 (default-directory (file-name-directory full-name))
+	 ;; Properly set working directory for compilation.
+	 (default-directory (if (file-name-absolute-p file)
+				(file-name-directory full-name)
+			      default-directory))
          errors)
     (message (format "Processing Groff file %s ..." file))
     (save-window-excursion

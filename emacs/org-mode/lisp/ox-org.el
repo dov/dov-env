@@ -119,7 +119,7 @@ setting of `org-html-htmlize-output-type' is 'css."
 (defun org-org-identity (blob contents info)
   "Transcode BLOB element or object back into Org syntax.
 CONTENTS is its contents, as a string or nil.  INFO is ignored."
-  (org-export-expand blob contents))
+  (org-export-expand blob contents t))
 
 (defun org-org-headline (headline contents info)
   "Transcode HEADLINE element back into Org syntax.
@@ -172,22 +172,8 @@ Export is done in a buffer named \"*Org ORG Export*\", which will
 be displayed when `org-export-show-temporary-export-buffer' is
 non-nil."
   (interactive)
-  (if async
-      (org-export-async-start
-	  (lambda (output)
-	    (with-current-buffer (get-buffer-create "*Org ORG Export*")
-	      (erase-buffer)
-	      (insert output)
-	      (goto-char (point-min))
-	      (org-mode)
-	      (org-export-add-to-stack (current-buffer) 'org)))
-	`(org-export-as 'org ,subtreep ,visible-only nil ',ext-plist))
-    (let ((outbuf
-	   (org-export-to-buffer
-	    'org "*Org ORG Export*" subtreep visible-only nil ext-plist)))
-      (with-current-buffer outbuf (org-mode))
-      (when org-export-show-temporary-export-buffer
-	(switch-to-buffer-other-window outbuf)))))
+  (org-export-to-buffer 'org "*Org ORG Export*"
+    async subtreep visible-only nil ext-plist (lambda () (org-mode))))
 
 ;;;###autoload
 (defun org-org-export-to-org (&optional async subtreep visible-only ext-plist)
@@ -216,13 +202,8 @@ file-local settings.
 Return output file name."
   (interactive)
   (let ((outfile (org-export-output-file-name ".org" subtreep)))
-    (if async
-	(org-export-async-start
-	    (lambda (f) (org-export-add-to-stack f 'org))
-	  `(expand-file-name
-	    (org-export-to-file
-	     'org ,outfile ,subtreep ,visible-only nil ',ext-plist)))
-      (org-export-to-file 'org outfile subtreep visible-only nil ext-plist))))
+    (org-export-to-file 'org outfile
+      async subtreep visible-only nil ext-plist)))
 
 ;;;###autoload
 (defun org-org-publish-to-org (plist filename pub-dir)
@@ -245,6 +226,8 @@ Return output file name."
 	   (work-buffer (or visitingp (find-file filename)))
 	   newbuf)
       (font-lock-fontify-buffer)
+      (show-all)
+      (org-show-block-all)
       (setq newbuf (htmlize-buffer))
       (with-current-buffer newbuf
 	(when org-org-htmlized-css-url

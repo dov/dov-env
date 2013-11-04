@@ -159,7 +159,7 @@ state to switch it to."
 This is the string shown in the mode line when a clock is running.
 The function is called with point at the beginning of the headline."
   :group 'org-clock
-  :type 'function)
+  :type '(choice (const nil) (function)))
 
 (defcustom org-clock-string-limit 0
   "Maximum length of clock strings in the mode line.  0 means no limit."
@@ -263,6 +263,7 @@ The function or program will be called with the notification
 string as argument."
   :group 'org-clock
   :type '(choice
+	  (const nil)
 	  (string :tag "Program")
 	  (function :tag "Function")))
 
@@ -361,13 +362,13 @@ play with them."
   "Format string for the total time cells."
   :group 'org-clock
   :version "24.1"
-  :type 'boolean)
+  :type 'string)
 
 (defcustom org-clock-file-time-cell-format "*%s*"
   "Format string for the file time cells."
   :group 'org-clock
   :version "24.1"
-  :type 'boolean)
+  :type 'string)
 
 (defcustom org-clock-clocked-in-display 'mode-line
   "When clocked in for a task, org-mode can display the current
@@ -665,9 +666,12 @@ previous clocking intervals."
   "Add to or set the effort estimate of the item currently being clocked.
 VALUE can be a number of minutes, or a string with format hh:mm or mm.
 When the string starts with a + or a - sign, the current value of the effort
-property will be changed by that amount.
-This will update the \"Effort\" property of currently clocked item, and
-the mode line."
+property will be changed by that amount.  If the effort value is expressed
+as an `org-effort-durations' (e.g. \"3h\"), the modificied value will be
+converted to a hh:mm duration.
+
+This command will update the \"Effort\" property of the currently
+clocked item, and the value displayed in the mode line."
   (interactive)
   (if (org-clock-is-active)
       (let ((current org-clock-effort) sign)
@@ -714,7 +718,7 @@ Notification is shown only once."
 	    (setq org-clock-notification-was-shown t)
 	    (org-notify
 	     (format "Task '%s' should be finished by now. (%s)"
-		     org-clock-heading org-clock-effort) t))
+		     org-clock-heading org-clock-effort) org-clock-sound))
 	(setq org-clock-notification-was-shown nil)))))
 
 (defun org-notify (notification &optional play-sound)
@@ -1199,13 +1203,8 @@ make this the default behavior.)"
 	    (goto-char target-pos)
 	    (org-back-to-heading t)
 	    (or interrupting (move-marker org-clock-interrupted-task nil))
-	    (save-excursion
-	      (forward-char) ;; make sure the marker is not at the
-	      ;; beginning of the heading, since the
-	      ;; user is liking to insert stuff here
-	      ;; manually
-	      (run-hooks 'org-clock-in-prepare-hook)
-	      (org-clock-history-push))
+	    (run-hooks 'org-clock-in-prepare-hook)
+	    (org-clock-history-push)
 	    (setq org-clock-current-task (nth 4 (org-heading-components)))
 	    (cond ((functionp org-clock-in-switch-to-state)
 		   (looking-at org-complex-heading-regexp)
@@ -1369,10 +1368,12 @@ decides which time to use."
       (current-time))
      ((equal cmt "today")
       (setq msg-extra "showing today's task time.")
-      (let* ((dt (decode-time (current-time))))
-	(setq dt (append (list 0 0 0) (nthcdr 3 dt)))
-	(if org-extend-today-until
-	    (setf (nth 2 dt) org-extend-today-until))
+      (let* ((dt (decode-time (current-time)))
+	     (hour (nth 2 dt))
+	     (day (nth 3 dt)))
+	(if (< hour org-extend-today-until) (setf (nth 3 dt) (1- day)))
+	(setf (nth 2 dt) org-extend-today-until)
+	(setq dt (append (list 0 0) (nthcdr 2 dt)))
 	(apply 'encode-time dt)))
      ((or (equal cmt "all")
 	  (and (or (not cmt) (equal cmt "auto"))
@@ -1588,7 +1589,7 @@ to, overriding the existing value of `org-clock-out-switch-to-state'."
 	(while (and (< (point) end)
 		    (search-forward clock-drawer end t))
 	  (goto-char (match-beginning 0))
-	  (org-remove-empty-drawer-at clock-drawer (point))
+	  (org-remove-empty-drawer-at (point))
 	  (forward-line 1))))))
 
 (defun org-clock-timestamps-up (&optional n)
@@ -1652,12 +1653,12 @@ Optional argument N tells to change by that many units."
     (setq frame-title-format org-frame-title-format-backup)
     (force-mode-line-update)
     (error "No active clock"))
-  (save-excursion ; Do not replace this with `with-current-buffer'.
+  (save-excursion    ; Do not replace this with `with-current-buffer'.
     (org-no-warnings (set-buffer (org-clocking-buffer)))
     (goto-char org-clock-marker)
     (if (org-looking-back (concat "^[ \t]*" org-clock-string ".*"))
 	(progn (delete-region (1- (point-at-bol)) (point-at-eol))
-	       (org-remove-empty-drawer-at "LOGBOOK" (point)))
+	       (org-remove-empty-drawer-at (point)))
       (message "Clock gone, cancel the timer anyway")
       (sit-for 2)))
   (move-marker org-clock-marker nil)
@@ -1668,6 +1669,12 @@ Optional argument N tells to change by that many units."
   (force-mode-line-update)
   (message "Clock canceled")
   (run-hooks 'org-clock-cancel-hook))
+
+(defcustom org-clock-goto-before-context 2
+  "Number of lines of context to display before currently clocked-in entry.
+This applies when using `org-clock-goto'."
+  :group 'org-clock
+  :type 'integer)
 
 ;;;###autoload
 (defun org-clock-goto (&optional select)
@@ -1692,7 +1699,7 @@ With prefix arg SELECT, offer recently clocked tasks for selection."
     (org-show-entry)
     (org-back-to-heading t)
     (org-cycle-hide-drawers 'children)
-    (recenter)
+    (recenter org-clock-goto-before-context)
     (org-reveal)
     (if recent
 	(message "No running clock, this is the most recently clocked task"))

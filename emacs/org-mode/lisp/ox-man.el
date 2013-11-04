@@ -76,11 +76,12 @@
     (keyword . org-man-keyword)
     (line-break . org-man-line-break)
     (link . org-man-link)
+    (node-property . org-man-node-property)
     (paragraph . org-man-paragraph)
     (plain-list . org-man-plain-list)
     (plain-text . org-man-plain-text)
     (planning . org-man-planning)
-    (property-drawer . (lambda (&rest args) ""))
+    (property-drawer . org-man-property-drawer)
     (quote-block . org-man-quote-block)
     (quote-section . org-man-quote-section)
     (radio-target . org-man-radio-target)
@@ -663,6 +664,16 @@ INFO is a plist holding contextual information.  See
      ;; No path, only description.  Try to do something useful.
      (t (format "\\fI%s\\fP" desc)))))
 
+;;;; Node Property
+
+(defun org-man-node-property (node-property contents info)
+  "Transcode a NODE-PROPERTY element from Org to Man.
+CONTENTS is nil.  INFO is a plist holding contextual
+information."
+  (format "%s:%s"
+          (org-element-property :key node-property)
+          (let ((value (org-element-property :value node-property)))
+            (if value (concat " " value) ""))))
 
 ;;; Paragraph
 
@@ -722,6 +733,12 @@ contextual information."
 
 ;;; Property Drawer
 
+(defun org-man-property-drawer (property-drawer contents info)
+  "Transcode a PROPERTY-DRAWER element from Org to Man.
+CONTENTS holds the contents of the drawer.  INFO is a plist
+holding contextual information."
+  (and (org-string-nw-p contents)
+       (format ".RS\n.nf\n%s\n.fi\n.RE" contents)))
 
 ;;; Quote Block
 
@@ -1144,14 +1161,8 @@ file-local settings.
 Return output file's name."
   (interactive)
   (let ((outfile (org-export-output-file-name ".man" subtreep)))
-    (if async
-	(org-export-async-start
-	    (lambda (f) (org-export-add-to-stack f 'man))
-	  `(expand-file-name
-	    (org-export-to-file
-	     'man ,outfile ,subtreep ,visible-only ,body-only ',ext-plist)))
-      (org-export-to-file
-       'man outfile subtreep visible-only body-only ext-plist))))
+    (org-export-to-file 'man outfile
+      async subtreep visible-only body-only ext-plist)))
 
 (defun org-man-export-to-pdf
   (&optional async subtreep visible-only body-only ext-plist)
@@ -1182,17 +1193,10 @@ file-local settings.
 
 Return PDF file's name."
   (interactive)
-  (if async
-      (let ((outfile (org-export-output-file-name ".man" subtreep)))
-	(org-export-async-start
-	    (lambda (f) (org-export-add-to-stack f 'man))
-	  `(expand-file-name
-	    (org-man-compile
-	     (org-export-to-file
-	      'man ,outfile ,subtreep ,visible-only ,body-only
-	      ',ext-plist)))))
-    (org-man-compile
-     (org-man-export-to-man nil subtreep visible-only body-only ext-plist))))
+  (let ((outfile (org-export-output-file-name ".man" subtreep)))
+    (org-export-to-file 'man outfile
+      async subtreep visible-only body-only ext-plist
+      (lambda (file) (org-latex-compile file)))))
 
 (defun org-man-compile (file)
   "Compile a Groff file.
@@ -1204,9 +1208,10 @@ Return PDF file name or an error if it couldn't be produced."
   (let* ((base-name (file-name-sans-extension (file-name-nondirectory file)))
 	 (full-name (file-truename file))
 	 (out-dir (file-name-directory file))
-	 ;; Make sure `default-directory' is set to FILE directory,
-	 ;; not to whatever value the current buffer may have.
-	 (default-directory (file-name-directory full-name))
+	 ;; Properly set working directory for compilation.
+	 (default-directory (if (file-name-absolute-p file)
+				(file-name-directory full-name)
+			      default-directory))
          errors)
     (message (format "Processing Groff file %s..." file))
     (save-window-excursion

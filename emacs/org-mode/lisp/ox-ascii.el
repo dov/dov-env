@@ -21,19 +21,7 @@
 ;;; Commentary:
 ;;
 ;; This library implements an ASCII back-end for Org generic exporter.
-;;
-;; It provides two commands for export, depending on the desired
-;; output: `org-ascii-export-as-ascii' (temporary buffer) and
-;; `org-ascii-export-to-ascii' ("txt" file).  Also, three publishing
-;; functions are available: `org-ascii-publish-to-ascii',
-;; `org-ascii-publish-to-latin1' and `org-ascii-publish-to-utf8'.
-;;
-;; Output encoding is specified through `org-ascii-charset' variable,
-;; among `ascii', `latin1' and `utf-8' symbols.
-;;
-;; By default, horizontal rules span over the full text with, but with
-;; a given width attribute (set though #+ATTR_ASCII: :width <num>)
-;; they can be shortened and centered.
+;; See Org manual for more information.
 
 ;;; Code:
 
@@ -68,7 +56,6 @@
     (export-block . org-ascii-export-block)
     (export-snippet . org-ascii-export-snippet)
     (fixed-width . org-ascii-fixed-width)
-    (footnote-definition . org-ascii-footnote-definition)
     (footnote-reference . org-ascii-footnote-reference)
     (headline . org-ascii-headline)
     (horizontal-rule . org-ascii-horizontal-rule)
@@ -82,10 +69,12 @@
     (latex-fragment . org-ascii-latex-fragment)
     (line-break . org-ascii-line-break)
     (link . org-ascii-link)
+    (node-property . org-ascii-node-property)
     (paragraph . org-ascii-paragraph)
     (plain-list . org-ascii-plain-list)
     (plain-text . org-ascii-plain-text)
     (planning . org-ascii-planning)
+    (property-drawer . org-ascii-property-drawer)
     (quote-block . org-ascii-quote-block)
     (quote-section . org-ascii-quote-section)
     (radio-target . org-ascii-radio-target)
@@ -666,11 +655,13 @@ caption keyword."
 	      element info nil 'org-ascii--has-caption-p))
 	    (title-fmt (org-ascii--translate
 			(case (org-element-type element)
-			  (table "Table %d: %s")
-			  (src-block "Listing %d: %s"))
+			  (table "Table %d:")
+			  (src-block "Listing %d:"))
 			info)))
 	(org-ascii--fill-string
-	 (format title-fmt reference (org-export-data caption info))
+	 (concat (format title-fmt reference)
+		 " "
+		 (org-export-data caption info))
 	 (org-ascii--current-text-width element info) info)))))
 
 (defun org-ascii--build-toc (info &optional n keyword)
@@ -1147,7 +1138,7 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 ;;;; Footnote Definition
 
 ;; Footnote Definitions are ignored.  They are compiled at the end of
-;; the document, by `org-ascii-template'.
+;; the document, by `org-ascii-inner-template'.
 
 
 ;;;; Footnote Reference
@@ -1439,6 +1430,18 @@ INFO is a plist holding contextual information."
 	 (unless org-ascii-links-to-notes (format " (%s)" raw-link))))))))
 
 
+;;;; Node Properties
+
+(defun org-ascii-node-property (node-property contents info)
+  "Transcode a NODE-PROPERTY element from Org to ASCII.
+CONTENTS is nil.  INFO is a plist holding contextual
+information."
+  (format "%s:%s"
+          (org-element-property :key node-property)
+          (let ((value (org-element-property :value node-property)))
+            (if value (concat " " value) ""))))
+
+
 ;;;; Paragraph
 
 (defun org-ascii-paragraph (paragraph contents info)
@@ -1506,6 +1509,15 @@ channel."
 			   (org-translate-time
 			    (org-element-property :raw-value scheduled)))))))
    " "))
+
+
+;;;; Property Drawer
+
+(defun org-ascii-property-drawer (property-drawer contents info)
+  "Transcode a PROPERTY-DRAWER element from Org to ASCII.
+CONTENTS holds the contents of the drawer.  INFO is a plist
+holding contextual information."
+  (org-string-nw-p contents))
 
 
 ;;;; Quote Block
@@ -1656,8 +1668,7 @@ contextual information."
 	      (buffer-substring (point-min) (point))))
 	   (t (org-remove-indentation (org-element-property :value table))))
      ;; Possible add a caption string below.
-     (when (and caption (not org-ascii-caption-above))
-       (concat "\n" caption)))))
+     (and (not org-ascii-caption-above) caption))))
 
 
 ;;;; Table Cell
@@ -1673,25 +1684,35 @@ column.
 
 When `org-ascii-table-widen-columns' is non-nil, width cookies
 are ignored."
-  (or (and (not org-ascii-table-widen-columns)
-	   (org-export-table-cell-width table-cell info))
-      (let* ((max-width 0)
-	     (table (org-export-get-parent-table table-cell))
-	     (specialp (org-export-table-has-special-column-p table))
-	     (col (cdr (org-export-table-cell-address table-cell info))))
-	(org-element-map table 'table-row
-	  (lambda (row)
-	    (setq max-width
-		  (max (length
-			(org-export-data
-			 (org-element-contents
-			  (elt (if specialp (cdr (org-element-contents row))
-				 (org-element-contents row))
-			       col))
-			 info))
-		       max-width)))
-	  info)
-	max-width)))
+  (let* ((row (org-export-get-parent table-cell))
+	 (table (org-export-get-parent row))
+	 (col (let ((cells (org-element-contents row)))
+		(- (length cells) (length (memq table-cell cells)))))
+	 (cache
+	  (or (plist-get info :ascii-table-cell-width-cache)
+	      (plist-get (setq info
+			       (plist-put info :ascii-table-cell-width-cache
+					  (make-hash-table :test 'equal)))
+			 :ascii-table-cell-width-cache)))
+	 (key (cons table col)))
+    (or (gethash key cache)
+	(puthash
+	 key
+	 (or (and (not org-ascii-table-widen-columns)
+		  (org-export-table-cell-width table-cell info))
+	     (let* ((max-width 0))
+	       (org-element-map table 'table-row
+		 (lambda (row)
+		   (setq max-width
+			 (max (length
+			       (org-export-data
+				(org-element-contents
+				 (elt (org-element-contents row) col))
+				info))
+			      max-width)))
+		 info)
+	       max-width))
+	 cache))))
 
 (defun org-ascii-table-cell (table-cell contents info)
   "Transcode a TABLE-CELL object from Org to ASCII.
@@ -1891,23 +1912,8 @@ Export is done in a buffer named \"*Org ASCII Export*\", which
 will be displayed when `org-export-show-temporary-export-buffer'
 is non-nil."
   (interactive)
-  (if async
-      (org-export-async-start
-       (lambda (output)
-	 (with-current-buffer (get-buffer-create "*Org ASCII Export*")
-	   (erase-buffer)
-	   (insert output)
-	   (goto-char (point-min))
-	   (text-mode)
-	   (org-export-add-to-stack (current-buffer) 'ascii)))
-       `(org-export-as 'ascii ,subtreep ,visible-only ,body-only
-		       ',ext-plist))
-    (let ((outbuf (org-export-to-buffer
-		   'ascii "*Org ASCII Export*"
-		   subtreep visible-only body-only ext-plist)))
-      (with-current-buffer outbuf (text-mode))
-      (when org-export-show-temporary-export-buffer
-	(switch-to-buffer-other-window outbuf)))))
+  (org-export-to-buffer 'ascii "*Org ASCII Export*"
+    async subtreep visible-only body-only ext-plist (lambda () (text-mode))))
 
 ;;;###autoload
 (defun org-ascii-export-to-ascii
@@ -1939,15 +1945,9 @@ file-local settings.
 
 Return output file's name."
   (interactive)
-  (let ((outfile (org-export-output-file-name ".txt" subtreep)))
-    (if async
-	(org-export-async-start
-	 (lambda (f) (org-export-add-to-stack f 'ascii))
-	 `(expand-file-name
-	   (org-export-to-file
-	    'ascii ,outfile ,subtreep ,visible-only ,body-only ',ext-plist)))
-      (org-export-to-file
-       'ascii outfile subtreep visible-only body-only ext-plist))))
+  (let ((file (org-export-output-file-name ".txt" subtreep)))
+    (org-export-to-file 'ascii file
+      async subtreep visible-only body-only ext-plist)))
 
 ;;;###autoload
 (defun org-ascii-publish-to-ascii (plist filename pub-dir)
