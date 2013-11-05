@@ -33,11 +33,9 @@ class EigMatrixPrint (gdb.Command):
       try:
         # Get eigen pretty print output
         val = "%s=%s"%(v,gdb.parse_and_eval(v))
-
         # Get width and height
         m = re.search(r'Eigen::Matrix<double,(\d+),(\d+),ColMajor>', val)
         if m:
-          print "Eigen::Matrix: Rows,Cols=",m.group(1),m.group(2)
           nrows,ncols = [int(m.group(1)), int(m.group(2))]
           mat = [[' ' for i in range(ncols)] for j in range(nrows)]
           for row in range(nrows):

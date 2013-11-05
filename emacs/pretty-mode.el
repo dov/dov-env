@@ -38,6 +38,21 @@
 (puthash "for"       "∀" pretty-symbols)
 (puthash "in"        "∈" pretty-symbols)
 (puthash "range"     "ℜ" pretty-symbols)
+(puthash "print"     "℘" pretty-symbols)
+(puthash "=="        "≡" pretty-symbols)
+(puthash "def"       "∇" pretty-symbols)   ; Like in apl
+(puthash "True"      "𝟙" pretty-symbols)
+(puthash "False"      "𝟘" pretty-symbols)
+(puthash "None"      "⦻" pretty-symbols)
+(puthash "not"       "¬" pretty-symbols)
+(puthash "and"       "∧" pretty-symbols)
+(puthash "or"        "∨" pretty-symbols)
+
+; Greek letters common as variables
+(puthash "alpha"     "α" pretty-symbols)
+(puthash "beta"      "β" pretty-symbols)
+(puthash "theta"     "θ" pretty-symbols)
+(puthash "phi"       "φ" pretty-symbols)
 
 (defun hash-keys (hashtable)
   "Return all keys in hashtable."

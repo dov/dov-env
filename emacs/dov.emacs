@@ -189,6 +189,9 @@
 (load "csv-mode")
 (load "sourcepair")
 
+(setq sourcepair-source-path    '( "." "./*" ".." "../*"))
+(setq sourcepair-header-path    '( "." "./*" ".." "../*"))
+
 (define-key global-map "\C-xc" 'sourcepair-load)
 
 
@@ -228,6 +231,12 @@
     (quote ("displaymath" "floats" "graphics" "textmath" "showlabels" "sections" )))
      (TeX-global-PDF-mode t)))
 
+(add-hook 'ein:notebook-multilang-mode-hook
+          (lambda()
+            (define-key ein:notebook-mode-map [(control up)] 'scroll-up-line)
+            (define-key ein:notebook-mode-map [(control down)] 'scroll-down-line)
+            (define-key ein:notebook-mode-map [(return)] 'newline-and-indent)
+            ))
 ;(add-hook 'LaTeX-mode-hook #'my-latex-mode-hook)
 ;(defun my-latex-mode-hook ()
 ;  (add-to-list 'TeX-command-list
@@ -441,11 +450,64 @@
          (selection (buffer-substring-no-properties start-reg end-reg))
          (cmd (format "rcomponent.pl -ClassName %s -%s" class-name conversion)))
     (shell-command-on-region start-reg end-reg cmd t t)
+    (exchange-point-and-mark)
+    (kill-ring-save (point) (mark))
     (message cmd)))
   
+(defun testbind ()
+  """testin gof different bindings"""
+  (interactive)
+  (message (format "Is string: %s" (nth 3 (syntax-ppss)))))
+
+(defun is-pos-in-string ()
+  """whether the current position is in a string"""
+  (interactive)
+  (nth 3 (syntax-ppss)))
+
+(defun is-pos-in-comment ()
+  """whether the current position is in a string"""
+  (interactive)
+  (nth 4 (syntax-ppss)))
+
+(defun search-percent ()
+  """Search for next % that is not a string"""
+  (interactive)
+  (point-to-register ?p)
+  (forward-char)
+  (setq break nil)
+  (condition-case nil
+      (while (not break)
+        (if (re-search-forward "%")
+            (progn
+              (backward-char)
+              (if (or
+                   (is-pos-in-string)
+                   (is-pos-in-comment))
+                  ; Search for next match
+                  (forward-char)
+                ; we found a match
+                (setq break 1)))
+          (progn
+            (setq break 1)
+            (register-to-point ?p)
+        (message "else-"))))
+    (error
+     (register-to-point ?p)
+     (message "No match!")
+    )))
+
 (defun rcomp-def-to-init ()
   (interactive)
   (rcomp-map "def2init"))
+
+(defun rcomp-yank-to-init ()
+  (interactive)
+  (set-mark-command nil)  
+  (yank)
+  (exchange-point-and-mark)
+  (setq deactivate-mark nil)
+  (rcomp-map "def2init")
+  )
 
 (defun rcomp-h-to-def ()
   (interactive)
@@ -454,6 +516,15 @@
 (defun rcomp-def-to-c ()
   (interactive)
   (rcomp-map "def2c"))
+
+(defun rcomp-yank-to-c ()
+  (interactive)
+  (set-mark-command nil)  
+  (yank)
+  (exchange-point-and-mark)
+  (setq deactivate-mark nil)
+  (rcomp-map "def2c")
+  )
 
 (defun rcomp-h-to-c ()
   (interactive)
@@ -553,11 +624,11 @@
 ;;; Why can't I get this to run automatically in the perl-mode hook
 (defun my-perl-mode-hook ()
   (interactive)
-  (define-key perl-mode-map [(control c) (control r)] 'compile-dwim-run)
-  (define-key perl-mode-map [(control c) (control s)] 'compile-dwim-compile)
-  (define-key perl-mode-map ";" 'self-insert-command)
-  (define-key perl-mode-map " " 'self-insert-command)
-  (define-key perl-mode-map "{" 'self-insert-command)
+  (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
+  (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
+  (define-key cperl-mode-map ";" 'self-insert-command)
+  (define-key cperl-mode-map " " 'self-insert-command)
+  (define-key cperl-mode-map "{" 'self-insert-command)
   (setq-default abbrev-mode nil)
   (setq cperl-auto-newline nil)
   (setq-default cperl-auto-newline nil)
@@ -570,7 +641,7 @@
   (setq cperl-mode-abbrev-table nil)
   
   (abbrev-mode 0)
-  (define-key perl-mode-map [(return)] 'newline-and-indent)
+  (define-key cperl-mode-map [(return)] 'newline-and-indent)
   (message "my-perl-mode-hook")
   )
 
