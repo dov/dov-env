@@ -86,7 +86,7 @@
   ; Hebrew support
   (setq-default bidi-display-reordering t)
   (setq x-select-enable-primary t)
-  (setq x-select-enable-clipboard nil)
+  (setq x-select-enable-clipboard t)
   (setq custom-theme-directory (concat emacs-git "themes")))
   
 (defconst inhibit-startup-message t)
@@ -120,7 +120,16 @@
 (load "xmsi-math-symbols-input.el")
 (load "xml-rpc")
 (require 'pretty-mode)
-(add-hook 'python-mode-hook #'pretty-mode 1)
+(require 'subword)
+
+; Redefine the subword regexps so that they work with underscores
+(setq subword-forward-regexp
+  "\\W*\\(\\(\\W\\|[[:upper:]]+\\W?\\|_\\)[[:lower:][:digit:]]*\\)")
+
+(setq subword-backward-regexp
+  "\\(\\(\\W\\|[[:lower:][:digit:]]\\)\\([[:upper:]]+\\W*\\)\\|\\W\\w+\\|_\\w+\\)")
+
+;(add-hook 'python-mode-hook #'pretty-mode 1)
 
 ;(global-set-key [?\C-c ?g ?c] 'mo-git-blame-current)
 ;(global-set-key [?\C-c ?g ?f] 'mo-git-blame-file)
@@ -621,11 +630,18 @@
     (call-interactively 'compile-dwim-run)
     (compile-dwim-run "foo")))
 
+(defun my-mode-compile (&optional arg)
+  (interactive "P")
+  (if arg
+    (call-interactively 'mode-compile)
+    (mode-compile "foo")))
+  
 ;;; Why can't I get this to run automatically in the perl-mode hook
 (defun my-perl-mode-hook ()
   (interactive)
   (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
   (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
+  (define-key cperl-mode-map [(control c) (control c)] 'mode-compile)
   (define-key cperl-mode-map ";" 'self-insert-command)
   (define-key cperl-mode-map " " 'self-insert-command)
   (define-key cperl-mode-map "{" 'self-insert-command)
@@ -1122,6 +1138,20 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key (kbd "A-C-f") 'current-filename-to-clip-buffer)
 (global-set-key [(control insert)] 'clipboard-kill-ring-save)
 (global-set-key [(shift insert)] 'clipboard-yank)
+;; Use shift as a subword indicator
+(global-set-key [(meta shift ?f)] 'subword-forward)
+(global-set-key [(meta shift ?b)] 'subword-backward)
+(global-set-key [(control shift right)] 'subword-forward)
+(global-set-key [(control shift left)] 'subword-backward)
+;; Make shift-backspace erase subword
+(global-set-key [(control shift backspace)]
+                '(lambda ()
+                   (interactive)
+                   (progn
+                     (set-mark-command nil)
+                     (subword-backward)
+                     (kill-region (mark) (point)))))
+
 
 ;; Find first and return first buffer matching a given pattern
 (defun find-first-buffer-match (buffers pattern)
@@ -1473,6 +1503,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (outline-minor-mode)
   ; outline key bindings
   (outline-keys map)
+  (modify-syntax-entry ?_ "w")
   )
 
 (defun my-perlmode-stuff () ""
