@@ -122,12 +122,70 @@
 (require 'pretty-mode)
 (require 'subword)
 
-; Redefine the subword regexps so that they work with underscores
-(setq subword-forward-regexp
-  "\\W*\\(\\(\\W\\|[[:upper:]]+\\W?\\|_\\)[[:lower:][:digit:]]*\\)")
+; Redefine the subword functions so that they work with underscores
+(defun subword-forward-fnc ()
+  """Search forward for a subword break. This could probably be replaced with a search-forward expression"""
+  (setq foundFlag-p nil )
+  (setq i (1+ (point)))
+  (let ((case-fold-search nil))
+    (while
+        (and (not foundFlag-p) (< i (buffer-end 1)))
+      (setq s (buffer-substring-no-properties i (+ 2 i)))
+      (if
+       (string-match "\\W\\w\\|_\\w\\|[a-z][A-Z]\\|\\w\\W" s)
+          (setq foundFlag-p t)
+        (setq i (1+ i))))
+    (1+ i)))
 
-(setq subword-backward-regexp
-  "\\(\\(\\W\\|[[:lower:][:digit:]]\\)\\([[:upper:]]+\\W*\\)\\|\\W\\w+\\|_\\w+\\)")
+(defun subword-forward ()
+  (interactive)
+  (goto-char (subword-forward-fnc)))
+
+(defun subword-backward-fnc ()
+  (setq foundFlag-p nil )
+  (setq i (- (point) 2))
+  (let ((case-fold-search nil))
+    (while
+        (and (not foundFlag-p) (> i 0))
+      (setq s (buffer-substring-no-properties i (+ 2 i)))
+      (if
+       (string-match "\\W\\w\\|_\\w\\|[a-z][A-Z]" s)
+          (setq foundFlag-p t)
+        (setq i (- i 1))))
+    (1+ i)))
+
+(defun subword-forward ()
+  (interactive)
+  (goto-char (subword-forward-fnc)))
+
+(defun subword-kill ()
+  "Do the same as `kill-word' but on subwords.
+See the command `subword-mode' for a description of subwords.
+Optional argument ARG is the same as for `kill-word'."
+  (interactive)
+  (kill-region (point) (subword-forward)))
+
+(defun subword-transpose ()
+  "Transpose"
+  (interactive)
+  (subword-forward)
+  (subword-backward)
+  (while (string-match "_" (buffer-substring-no-properties (1- (point)) (point)))
+    (backward-char))
+  (kill-region (point) (subword-forward))
+  (subword-backward)
+  (while (string-match "_" (buffer-substring-no-properties (1- (point)) (point)))
+    (backward-char))
+  (yank))
+
+the_quick_brown 
+
+(defun subword-backward-kill ()
+  "Do the same as `backward-kill-word' but on subwords.
+See the command `subword-mode' for a description of subwords.
+Optional argument ARG is the same as for `backward-kill-word'."
+  (interactive)
+  (kill-region (subword-backward-fnc) (point)))
 
 ;(add-hook 'python-mode-hook #'pretty-mode 1)
 
@@ -1143,6 +1201,10 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(meta shift ?b)] 'subword-backward)
 (global-set-key [(control shift right)] 'subword-forward)
 (global-set-key [(control shift left)] 'subword-backward)
+(global-set-key [(meta shift backspace)] 'subword-backward-kill)
+(global-set-key [(meta shift ?d)] 'subword-kill)
+(global-set-key [(meta shift ?t)] 'subword-transpose)
+
 ;; Make shift-backspace erase subword
 (global-set-key [(control shift backspace)]
                 '(lambda ()
