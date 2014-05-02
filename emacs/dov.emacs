@@ -120,7 +120,7 @@
 (load "xmsi-math-symbols-input.el")
 (load "xml-rpc")
 (require 'pretty-mode)
-(require 'subword)
+;(require 'subword)
 
 ; Redefine the subword functions so that they work with underscores
 (defun subword-forward-fnc ()
@@ -154,9 +154,9 @@
         (setq i (- i 1))))
     (1+ i)))
 
-(defun subword-forward ()
+(defun subword-backward ()
   (interactive)
-  (goto-char (subword-forward-fnc)))
+  (goto-char (subword-backward-fnc)))
 
 (defun subword-kill ()
   "Do the same as `kill-word' but on subwords.
@@ -177,8 +177,6 @@ Optional argument ARG is the same as for `kill-word'."
   (while (string-match "_" (buffer-substring-no-properties (1- (point)) (point)))
     (backward-char))
   (yank))
-
-the_quick_brown 
 
 (defun subword-backward-kill ()
   "Do the same as `backward-kill-word' but on subwords.
@@ -404,6 +402,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (set-face-attribute 'org-checkbox nil :family my-default-family)
   (set-face-attribute 'org-block nil :family my-default-family)
   (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
+  (setq org-export-allow-bind-keywords t)
   (org-bullets-mode)
   (setq org-bullets-bullet-list
         '("▸"
@@ -425,6 +424,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (setq bidi-paragraph-direction nil)
   (setq org-export-html-postamble nil)
   (setq org-export-html-validation-link "")
+    
   ;; Use journal theme if requested
   (if (>= emacs-major-version 24)
       (if (string-match "notes.org" (buffer-name) )
@@ -437,8 +437,20 @@ Optional argument ARG is the same as for `backward-kill-word'."
     ("indf" "{\bf 1}" t "&#120128;" "[indf]" "indf" "𝟙")
     ("ell" "\\ell" t "&#2113;" "[ell]" "indf" "ℓ")
     ))
+  (require 'org-table)
 
   )
+(eval-after-load 'org-export-latex
+  '(progn
+     (add-to-list 'org-latex-classes
+    '("moderncv"
+      "\\documentclass[11pt,a4paper,sans]{moderncv}"
+       ("\\section{%s}" . "\\section*{%s}")
+       ("\\subsection{%s}" . "\\subsection*{%s}")
+       ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+       ("\\paragraph{%s}" . "\\paragraph*{%s}")
+       ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))))
+
 (add-hook 'org-mode-hook 'my-org-hook)
 
 (org-crypt-use-before-save-magic)
@@ -803,8 +815,32 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 ;; Shell colors
 (setq ansi-color-names-vector
-      '("white" "red" "green" "yellow" "blue" "magenta" "cyan" "black"))
+      '("white" "red" "blue4" "yellow4" "blue" "magenta" "cyan" "black"))
 
+;; Solve colorizing of e.g. epylint
+(require 'ansi-color)
+(defun colorize-compilation-buffer ()
+  (toggle-read-only)
+  (ansi-color-apply-on-region (point-min) (point-max))
+  (toggle-read-only))
+(add-hook 'compilation-filter-hook 'colorize-compilation-buffer)
+
+(setq
+ python-shell-interpreter "ipython"
+ python-shell-interpreter-args ""
+ python-shell-prompt-regexp "In \\[[0-9]+\\]: "
+ python-shell-prompt-output-regexp "Out\\[[0-9]+\\]: "
+ python-shell-completion-setup-code
+   "from IPython.core.completerlib import module_completion"
+ python-shell-completion-module-string-code
+   "';'.join(module_completion('''%s'''))\n"
+ python-shell-completion-string-code
+   "';'.join(get_ipython().Completer.all_completions('''%s'''))\n")
+
+(defun my-run-python-mode-hook ()
+  (interactive)
+  (ansi-color-for-comint-mode-on))
+(add-hook 'inferior-python-mode-hook 'my-run-python-mode-hook)
 
 ;; Got the follownig from: http://eschulte.github.com/babel-dev/DONE-In-buffer-graphical-results.html
 (defun my-iimage-mode-buffer (arg &optional refresh)
