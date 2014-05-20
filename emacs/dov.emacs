@@ -121,6 +121,7 @@
 (load "xml-rpc")
 (require 'pretty-mode)
 ;(require 'subword)
+;(add-hook 'python-mode-hook #'pretty-mode 1)
 
 ; Redefine the subword functions so that they work with underscores
 (defun subword-forward-fnc ()
@@ -219,7 +220,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 (add-to-list 'load-path
               (concat emacs-git "yasnippet"))
-(require 'yasnippet)
+(load "yasnippet/yasnippet")
 (yas-global-mode 1)
 (setq yas-snippet-dirs (list (concat emacs-git "yasnippet/snippets")
                              (concat emacs-git "snippets")))
@@ -374,7 +375,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ; This is a bug work around
 (defun org-element-cache-reset (&optional all) (interactive))
 
-(load "epresent.el")
+;(load "epresent.el")
 
 (defun kill-visual-line ()
   "Redefined to do kill-line as I believe that lines breaks are for display only!"
@@ -393,10 +394,11 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (defun my-org-hook ()
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
+  (local-set-key "\M-R" 'refresh-iimages)
   (local-set-key "\C-c\M-c" 'org-screenshot)
   (local-set-key "\C-c\C-pe" 'org-toggle-emphasis-markers)
   (local-set-key "\C-c\C-pp" 'org-toggle-pretty-entities)
-  (local-set-key "\C-c\C-pi" 'org-toggle-iimage-inorg)
+  (local-set-key "\C-c\C-pi" 'org-toggle-iimage-in-org)
   (variable-pitch-mode t)
   (set-face-attribute 'org-table nil :family my-default-family)
   (set-face-attribute 'org-checkbox nil :family my-default-family)
@@ -419,6 +421,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
   (setq org-hide-emphasis-markers nil)
   (setq org-confirm-babel-evaluate nil)
+  (setq org-src-fontify-natively nil)
   (xmsi-mode)
   (org-toggle-pretty-entities)
   (setq bidi-paragraph-direction nil)
@@ -480,10 +483,24 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (defun org-toggle-iimage-in-org ()
   "display images in your org file"
   (interactive)
+  (clear-image-cache nil)
   (if iimage-mode
       (set-face-underline-p 'org-link t)
       (set-face-underline-p 'org-link nil))
-  (iimage-mode))
+  (call-interactively 'iimage-mode))
+
+(defun refresh-iimages ()
+  "Refresh all the iimages"
+  (interactive)
+  (if iimage-mode
+      (progn
+        (clear-image-cache nil)
+        (message "refreshed images"))))
+
+(defun foo () "foo"
+       (interactive)
+       (call-interactively 'iimage-mode)
+       (message (format "mode is %s" iimage-mode)))
 
 (defun org-toggle-emphasis-markers ()
   "Toggle the emphasis of markers"
@@ -617,7 +634,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (add-to-list 'iimage-mode-image-regex-alist
              (cons (concat "\\[\\[file:\\(~?" iimage-mode-image-filename-regex
                            "\\)\\]")  1))
-(load "org-mediawiki.el")
+;(load "org-mediawiki.el")
 
 ;; Python use python-mode
 (setq ipython-command "ipython")
@@ -775,6 +792,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.org" 'org-mode)) 
        (list (cons "\\.pl" 'cperl-mode)) 
        (list (cons "\\.nxc$" 'c++-mode)) 
+       (list (cons "\\.mw" 'mediawiki-mode)) 
        auto-mode-alist))
 
 ;; macros for nxc code
@@ -805,8 +823,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
    )) 
 (setq org-plantuml-jar-path
       (concat emacs-git "/org-mode/scripts/plantuml.jar"))
-(load "org-exp-blocks")
-(load "org-mw")
+;(load "org-exp-blocks")
+;(load "org-mw")
 (defun my-org-confirm-babel-evaluate (lang body)
   (not
    (or (string= lang "ditaa")
@@ -815,7 +833,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 ;; Shell colors
 (setq ansi-color-names-vector
-      '("white" "red" "blue4" "yellow4" "blue" "magenta" "cyan" "black"))
+      '("white" "red" "green" "brown" "blue" "magenta" "cyan" "black"))
+(setq ansi-color-map (ansi-color-make-color-map))
 
 ;; Solve colorizing of e.g. epylint
 (require 'ansi-color)
@@ -1152,7 +1171,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 (defun goto-end-of-gud-buffer ()
   (interactive) 
-  (switch-to-buffer gud-comint-buffer)
+  (switch-to-buffer (find-most-recent-pattern-buffer "\\*gud"))
   ; prepare for user input
   (end-of-buffer))
 
@@ -1312,7 +1331,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(alt meta n)] '(lambda () (interactive) 
   (switch-to-buffer "notes.org")))
 (global-set-key [(alt meta h)] '(lambda () (interactive) 
-  (switch-to-buffer "*shell*")
+  (switch-to-buffer (find-most-recent-pattern-buffer "\\*shell"))
   ; prepare for user input
   (end-of-buffer)))
 (global-set-key [(alt meta o)] '(lambda () (interactive) 
@@ -1374,6 +1393,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key "\C-x\C-r" 'revert-buffer)
 (global-set-key [(control return)] 'call-last-kbd-macro)
 (global-set-key [(alt tab)] 'indent-relative)
+(global-set-key [(hyper tab)] 'indent-relative)
 (global-set-key [(hyper tab)] 'indent-relative)
 (global-set-key [(alt /)] 'dabbrev-expand)
 (global-set-key [(control /)] 'dabbrev-expand)
@@ -1598,10 +1618,14 @@ With numeric ARG, display the images if and only if ARG is positive."
   (define-key map [return] 'newline-and-indent)
   (define-key map [(control c) (control e)] 'compile)
   (define-key map (kbd "C-?") 'c-comment-selection-or-word)
+  (define-key map (kbd "C-x SPC") 'gud-break)
   (outline-minor-mode)
   ; outline key bindings
   (outline-keys map)
   (modify-syntax-entry ?_ "w")
+  (local-set-key [(alt ?b)] 'left-word)
+  (local-set-key [(alt ?f)] 'right-word)
+;  (subword-mode)
   )
 
 (defun my-perlmode-stuff () ""
@@ -1634,7 +1658,10 @@ With numeric ARG, display the images if and only if ARG is positive."
                                (remove-dos-eol)
                                (setq py-indent-offset my-indent)
                                (setq python-indent my-indent)
-                               (remove-dos-eol)))
+                               (remove-dos-eol)
+                               (local-set-key [(alt ?b)] 'left-word)
+                               (local-set-key [(alt ?f)] 'right-word)
+                               ))
 (add-hook 'diff-mode-hook '(lambda() 
                              (remove-dos-eol)))
 (add-hook 'csv-mode-hook '(lambda() 
@@ -1753,6 +1780,7 @@ Does not delete the prompt."
     (define-key gud-mode-map [(alt n)] 'gud-next)
     (define-key gud-mode-map [(alt s)] 'gud-step)
     (define-key gud-mode-map [(alt u)] 'gud-finish)
+    (define-key gud-mode-map [(alt f)] 'gud-finish)
 ;    (define-key gud-mode-map [(alt h)] 'gud-until)
 ;    (define-key gud-mode-map "\C-i" 'shell-dynamic-complete-filename)
     (make-local-variable 'comint-input-ring-file-name)
@@ -1779,6 +1807,9 @@ Does not delete the prompt."
 (defun let-Aring () (interactive) (insert "Å"))
 (defun let-Auml () (interactive) (insert "Ä"))
 (defun let-Ouml () (interactive) (insert "Ö"))
+(defun let-twospaces () (interactive) (insert "  "))
+(global-set-key [(super tab)] 'let-twospaces)
+(defun delete-two-chars () (interactive) (backward-delete-char 2))
 
 (defun swedish-keys (map)
   "Create a swedish map"
