@@ -75,6 +75,7 @@
                   
 (setq load-path (append
                  (list
+                  (concat emacs-git "/wgrep")
                   (concat emacs-git "/org-mode/lisp")
                   (concat emacs-git "/org-mode/contrib/lisp")
                   emacs-git
@@ -101,6 +102,7 @@
 (load "gdb-libtool")
 (load "gtk-look")
 (load "icicles")
+(load "ps-mode")
 ;(icy-mode)
 ;(load "icicles-xmas")
 ;(load "icicles-menu-xmas")
@@ -119,6 +121,7 @@
 (load "mo-git-blame")
 (load "xmsi-math-symbols-input.el")
 (load "xml-rpc")
+(require 'wgrep)
 (require 'pretty-mode)
 ;(require 'subword)
 ;(add-hook 'python-mode-hook #'pretty-mode 1)
@@ -375,7 +378,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ; This is a bug work around
 (defun org-element-cache-reset (&optional all) (interactive))
 
-;(load "epresent.el")
+; The following solves an error with html export
+(add-hook 'nxml-mode-hook (lambda () (rng-validate-mode 0) )t)
 
 (defun kill-visual-line ()
   "Redefined to do kill-line as I believe that lines breaks are for display only!"
@@ -793,6 +797,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.pl" 'cperl-mode)) 
        (list (cons "\\.nxc$" 'c++-mode)) 
        (list (cons "\\.mw" 'mediawiki-mode)) 
+       (list (cons "\\.ps" 'ps-mode)) 
        auto-mode-alist))
 
 ;; macros for nxc code
@@ -1894,3 +1899,4 @@ Does not delete the prompt."
      ("~" org-verbatim "<code>" "</code>" verbatim))))
  '(show-paren-mode t)
  '(tool-bar-mode nil))
+
