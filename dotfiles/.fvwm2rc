@@ -46,7 +46,7 @@ IconFont		"xft:DejaVu:size=8:encoding=iso10646-1"
 EdgeScroll 0 0
 
 #ModulePath /usr/libexec/fvwm/2.4.17
-ImagePath /home/dov/lib/pixmaps
+ImagePath /home/dov/git/dov-env/lib/pixmaps:/home/dov/git/dov-env/lib/fvwm/icons:/home/dov/git/dov-env/lib/fvwm/pixmaps
 
 HilightColor black turquoise3
 DeskTopSize 2x2
@@ -305,7 +305,7 @@ AddToFunc RestartFunction "I" Module FvwmPager *
 
 ########################Menus ########################################
 AddToMenu RootMenu	"RootMenu"	Title 	
-+			"Xterm"%mini.xterm.xpm%		exec /usr/bin/env LANG="" xterm -fn '-*-lucidatypewriter-normal-*-*-*-14-*-*-*-*-*-*-*' -bg grey10 -fg green -cr green -sb -sl 1000 +u8 -e ssh-agent /bin/zsh &
++			"Xterm"%mini.xterm.xpm%		exec /usr/bin/env LANG="" xterm -fn '-*-lucidatypewriter-bold-*-*-*-14-*-*-*-*-*-*-*' -bg grey10 -fg green -cr green -sb -sl 1000 +u8 -e ssh-agent /bin/zsh &
 +			"TrueCrypt"		Exec truecrypt &
 +                       "xojpanel"      Exec xojpanel &
 +			"lyx"		Exec  exec lyx &
@@ -318,7 +318,7 @@ AddToMenu RootMenu	"RootMenu"	Title
 +			"firefox"	Exec  exec firefox &
 +			"chrome"	Exec  exec google-chrome --disable-accelerated-compositing &
 +                       "gthumb"        Exec gthumb &
-+			"emacs24"	Exec  exec /usr/local/public-dev/bin/emacs &
++			"emacs24"	Exec  exec emacs &
 +			"virtualbox"%mini-win2000.xpm%	Exec  exec VirtualBox &
 +			"mate-panel"	Exec  exec mate-panel &
 +			"Music"%mini.music.xpm%	Popup Music-Popup
