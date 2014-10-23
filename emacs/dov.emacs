@@ -69,7 +69,7 @@
           smtpmail-smtp-server "pod51014.outlook.com"
           smtpmail-smtp-service 587
           smtpmail-debug-info t
-          user-mail-address "dov.grobgeld@xjetsolar.com")
+          user-mail-address "dov.grobgeld@xjet3d.com")
     (require 'smtpmail))
   )
                   
@@ -391,6 +391,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (load "org-wp.el")
 (load "org-bullets.el")
 (load "ox.el")
+(load "ox-slidy.el")
 (require 'load-theme-buffer-local)
 
 (require 'org)
@@ -409,6 +410,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (set-face-attribute 'org-block nil :family my-default-family)
   (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
   (setq org-export-allow-bind-keywords t)
+  (setq org-html-doctype "html5")
   (org-bullets-mode)
   (setq org-bullets-bullet-list
         '("▸"
@@ -1180,6 +1182,12 @@ With numeric ARG, display the images if and only if ARG is positive."
   ; prepare for user input
   (end-of-buffer))
 
+(defun goto-end-of-compilation-buffer ()
+  (interactive) 
+  (switch-to-buffer (find-most-recent-pattern-buffer "\\*compilation"))
+  ; prepare for user input
+  (end-of-buffer))
+
 (defun current-filename-to-clip-buffer ()
   "Copy the current buffer file name to the clip buffer"
   (interactive)
@@ -1276,11 +1284,17 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 
 ;; Find first and return first buffer matching a given pattern
-(defun find-first-buffer-match (buffers pattern)
+(defun old-find-first-buffer-match (buffers pattern)
   (let ((f (car buffers)))
+    (message (buffer-name f))
     (cond ((eq f '()) nil)
           ((string-match pattern (buffer-name f)) f)
           (t (find-first-buffer-match (cdr buffers) pattern)))))
+
+(defun find-first-buffer-match (buffers pattern)
+  (dolist (f buffers)
+    (when (string-match pattern (buffer-name f))
+      (return f))))
 
 (defun find-most-recent-pattern-buffer (pattern)
   "find the most recent code buffer in the history and switch to it"
@@ -1324,6 +1338,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 ;; Shortcuts to go to special buffers
 (global-set-key [(alt meta d)] 'goto-end-of-gud-buffer)
+(global-set-key [(alt meta k)] 'goto-end-of-compilation-buffer)
 (global-set-key [(alt meta c) ?c] 'find-most-recent-c-buffer)
 (global-set-key [(alt meta c) ?p] 'find-most-recent-python-buffer)
 (global-set-key [(control c) ?b ?c] 'find-most-recent-c-buffer)
