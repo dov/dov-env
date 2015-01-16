@@ -34,17 +34,19 @@ class EigMatrixPrint (gdb.Command):
         # Get eigen pretty print output
         val = "%s=%s"%(v,gdb.parse_and_eval(v))
         # Get width and height
-        m = re.search(r'Eigen::Matrix<double,(\d+),(\d+),ColMajor>', val)
+        m = re.search(r'Eigen::Matrix<(double|float), (\d+), (\d+), 0, \d+, \d+>.*?\sarray\s*=\s*\{(.*?)\}', val,flags=re.DOTALL)
+        # TBD check for column major!
         if m:
-          nrows,ncols = [int(m.group(1)), int(m.group(2))]
+          nrows,ncols = [int(m.group(2)), int(m.group(3))]
+          array = [float(s) for s in re.split(r',\s*',m.group(4))]
           mat = [[' ' for i in range(ncols)] for j in range(nrows)]
           for row in range(nrows):
             for col in range(ncols):
-              m = re.search(r'\[%d,%d\] = ([\d.e\+-]+)'%(row,col), val)
-              mat[row][col] = '%8.5g'%float(m.group(1))
+              mat[row][col] = '%12.5g'%float(array[col*nrows+row])
           for m in mat:
-            print '    [',','.join(m),']'
+            print '    |'+ ''.join(m)+'|'
         else:
+          print 'No match found!'
           print val
         
       except ValueError:
