@@ -31,10 +31,11 @@ class EigMatrixPrint (gdb.Command):
 
     for v in args[argp:]:
       try:
-        # Get eigen pretty print output
-        val = "%s=%s"%(v,gdb.parse_and_eval(v))
+        # Get eigen pretty print output. This will collide with any other
+        # mangling of the eigen output...
+        val = gdb.execute("print "+v,False,True)
         # Get width and height
-        m = re.search(r'Eigen::Matrix<(double|float), (\d+), (\d+), 0, \d+, \d+>.*?\sarray\s*=\s*\{(.*?)\}', val,flags=re.DOTALL)
+        m = re.search(r'Eigen::Matrix<(double|float), (\d+), (\d+), 0, \d+, \d+>.*?array\s*=\s*\{(.*?)\}', val,flags=re.DOTALL)
         # TBD check for column major!
         if m:
           nrows,ncols = [int(m.group(2)), int(m.group(3))]

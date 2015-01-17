@@ -52,7 +52,7 @@
 
     ; Use Miriam mono font for Hebrew
     (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam Mono CLM:bold")
-
+    (set-face-font 'default "fontset-default")
     (setq load-path (append (list
                              "/usr/local/share/emacs/site-lisp/vm"
                              ) load-path))
@@ -76,6 +76,7 @@
 (setq load-path (append
                  (list
                   (concat emacs-git "/wgrep")
+                  (concat emacs-git "/ein")
                   (concat emacs-git "/org-mode/lisp")
                   (concat emacs-git "/org-mode/contrib/lisp")
                   emacs-git
@@ -121,6 +122,8 @@
 (load "mo-git-blame")
 (load "xmsi-math-symbols-input.el")
 (load "xml-rpc")
+(require 'ein)
+(require 'ein-loaddefs)
 (require 'wgrep)
 (require 'pretty-mode)
 ;(require 'subword)
@@ -203,7 +206,10 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (defadvice js2-parse-statement (around json)
 	(if (and (= tt js2-LC)
 			js2-buffer-file-name
-			(string-equal (substring js2-buffer-file-name -5) ".json")
+                        ;; change this to a list of known json based file types
+			(or
+                         (string-equal (substring js2-buffer-file-name -5) ".json")
+                         (string-equal (substring js2-buffer-file-name -5) ".fern"))
 			(eq (+ (save-excursion
 						(goto-char (point-min))
 						(back-to-indentation)
@@ -404,7 +410,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (local-set-key "\C-c\C-pe" 'org-toggle-emphasis-markers)
   (local-set-key "\C-c\C-pp" 'org-toggle-pretty-entities)
   (local-set-key "\C-c\C-pi" 'org-toggle-iimage-in-org)
-  (variable-pitch-mode t)
+
+  ;; variable pitch mode makes emacs rescale!
+;  (variable-pitch-mode t)
   (set-face-attribute 'org-table nil :family my-default-family)
   (set-face-attribute 'org-checkbox nil :family my-default-family)
   (set-face-attribute 'org-block nil :family my-default-family)
@@ -438,8 +446,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (if (>= emacs-major-version 24)
       (if (string-match "notes.org" (buffer-name) )
           (progn
-            (disable-theme 'org-default)
-            (load-theme-buffer-local 'org-journal))
+            ;(disable-theme 'org-default)
+            (load-theme-buffer-local 'org-journal)
+            )
         (load-theme-buffer-local 'org-default)))
   (setq org-entities-user '(
     ("models" "\\models" t "&8872;" "[models]" "models" "⊨")
@@ -449,6 +458,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (require 'org-table)
 
   )
+
+
 (eval-after-load 'org-export-latex
   '(progn
      (add-to-list 'org-latex-classes
@@ -692,7 +703,14 @@ Optional argument ARG is the same as for `backward-kill-word'."
      '("^\\s-*\\[[^]]*\\]\\s-*\\(.+\\):\\([0-9]+\\):" 1 2))
   compilation-error-regexp-alist))
 
-(add-hook 'java-mode-hook 'font-lock-mode)
+(add-hook 'java-mode-hook
+          (lambda ()
+            (font-lock-mode)
+            (interactive)
+            (setq my-indent 4)
+            (setq my-topmost-intro 0)
+            (update-indent-mode)
+            (define-key java-mode-map [(return)] 'newline-and-indent)))
 (add-hook 'sgml-mode-hook 'font-lock-mode)
 (add-hook 'c-mode-common-hook 'font-lock-mode)
 (add-hook 'octave-mode-hook
@@ -784,6 +802,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.H$" 'c++-mode))
        (list (cons "\\.cxx$" 'c++-mode))
        (list (cons "\\.cu$" 'c++-mode))
+       (list (cons "\\.glsl$" 'c++-mode))
        (list (cons "\\.vala$" 'vala-mode))
        (list (cons "\\.json$" 'js2-mode))
        (list (cons "\\.pov$"  'pov-mode))
@@ -794,7 +813,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.m$" 'octave-mode)) 
        (list (cons "\\.xml$" 'xml-mode)) 
        (list (cons "notes.txt" 'mediawiki-mode)) 
-       (list (cons "\\.txt$" 'org-mode)) 
+       (list (cons "\\.txt$" 'text-mode)) 
        (list (cons "\\.org" 'org-mode)) 
        (list (cons "\\.pl" 'cperl-mode)) 
        (list (cons "\\.nxc$" 'c++-mode)) 
@@ -1886,6 +1905,9 @@ Does not delete the prompt."
   (if xemacs
       (eval-when (WHEN load) '(ad-activate 'compile))
     (eval-after-load "compile" '(ad-activate 'compile))))
+
+;; Change the region color
+(set-face-attribute 'region nil :background "#e0e8ff")
 
 ;; Emacs customization - this might be overwritten in the .emacs file
 

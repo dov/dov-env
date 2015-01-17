@@ -26,7 +26,7 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl))
-(load "./websocket.el")
+(require 'websocket)
 
 (require 'ein-core)
 
@@ -106,6 +106,16 @@
   (setf (ein:$websocket-closed-by-client websocket) t)
   (websocket-close (ein:$websocket-ws websocket)))
 
+
+(defun ein:websocket-send-shell-channel (kernel msg)
+  (cond ((= (ein:$kernel-api-version kernel) 2)
+         (ein:websocket-send
+          (ein:$kernel-shell-channel kernel)
+          (json-encode msg)))
+        ((= (ein:$kernel-api-version kernel) 3)
+         (ein:websocket-send
+          (ein:$kernel-channels kernel)
+          (json-encode (plist-put msg :channel "shell"))))))
 
 (provide 'ein-websocket)
 

@@ -46,7 +46,6 @@
          )
     (if (eq repo nil) (error (concat "No such repo: " repo-name)))
     (git-find-file-in-repo repo filename)))
-;;; org-learning.el ends here
 
 (provide 'org-git-hyperlink)
 ;;; org-git-hyperlink.el ends here
