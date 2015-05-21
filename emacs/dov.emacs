@@ -47,7 +47,11 @@
 ;     (set-default-font "lucidasanstypewriter-bold-14")
 ;     (set-default-font "lucidasanstypewriter-bold-12")
 ;       (set-default-font "Bitstream Vera Sans Mono-11")
-
+;     (set-default-font "InconsolataDov")
+;     (set-default-font "Fira Mono OT")
+;     (set-default-font "Droid sans Mono")
+;     (set-default-font "Source Code Pro")
+;     (set-default-font "Menlo:pixelsize=12")
      (error "No such font, but who cares"))
 
     ; Use Miriam mono font for Hebrew
@@ -76,7 +80,7 @@
 (setq load-path (append
                  (list
                   (concat emacs-git "/wgrep")
-                  (concat emacs-git "/ein")
+                  (concat emacs-git "/ein/lisp")
                   (concat emacs-git "/org-mode/lisp")
                   (concat emacs-git "/org-mode/contrib/lisp")
                   emacs-git
@@ -400,6 +404,28 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (load "ox-slidy.el")
 (require 'load-theme-buffer-local)
 
+(defun org-show-all ()
+  "Make org buffer as literal as possible"
+  (interactive)
+  (progn
+    (org-remove-from-invisibility-spec '(org-link))
+    (org-remove-from-invisibility-spec '(org-cwidth))
+    (org-set-local 'org-pretty-entities nil)
+    (setq org-hide-emphasis-markers nil)
+    (org-restart-font-lock)
+    (setq org-descriptive-links nil)))
+
+(defun org-hide-all ()
+  "Make buffer as marked up as possible"
+  (interactive)
+  (progn
+    (add-to-invisibility-spec '(org-link))
+    (add-to-invisibility-spec '(org-cwidth))
+    (org-set-local 'org-pretty-entities t)
+    (setq org-hide-emphasis-markers t)
+    (org-restart-font-lock)
+    (setq org-descriptive-links t)))
+
 (require 'org)
 (require 'org-crypt)
 (defun my-org-hook ()
@@ -407,9 +433,12 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
   (local-set-key "\M-R" 'refresh-iimages)
   (local-set-key "\C-c\M-c" 'org-screenshot)
+  (local-set-key "\C-c\C-pa" 'org-show-all)
+  (local-set-key "\C-c\C-ph" 'org-hide-all)
   (local-set-key "\C-c\C-pe" 'org-toggle-emphasis-markers)
   (local-set-key "\C-c\C-pp" 'org-toggle-pretty-entities)
   (local-set-key "\C-c\C-pi" 'org-toggle-iimage-in-org)
+  (local-set-key "\C-c\C-pl" 'org-toggle-link-display)
 
   ;; variable pitch mode makes emacs rescale!
 ;  (variable-pitch-mode t)
@@ -456,7 +485,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
     ("ell" "\\ell" t "&#2113;" "[ell]" "indf" "ℓ")
     ))
   (require 'org-table)
-
+  (set-default-font my-default-font)
   )
 
 
@@ -1379,6 +1408,8 @@ With numeric ARG, display the images if and only if ARG is positive."
   (end-of-buffer)))
 (global-set-key [(alt meta s)] '(lambda () (interactive) 
   (switch-to-buffer "*scratch*")))
+(global-set-key [(alt meta p)] '(lambda () (interactive) 
+  (switch-to-buffer "*Python*")))
 
 (global-set-key [(control up)] 'scroll-up-line)
 (global-set-key [(control kp-up)] 'scroll-up-line)
