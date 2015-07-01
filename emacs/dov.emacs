@@ -10,7 +10,8 @@
 ;;  (setenv "PATH" (concat (getenv "PATH") ";D:\\DevTools\\git\\bin"))
 ;;----------------------------------------------------------------------
 
-(if (string-match "mingw-nt" system-configuration)
+(if (or (string-match "mingw-nt" system-configuration)
+        (string-match "i686-pc-mingw32" system-configuration))
     (progn
       (if (not (boundp 'emacs-git))
           (setq emacs-git "c:/users/dov/emacs"))
@@ -830,6 +831,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.hh$" 'c++-mode))
        (list (cons "\\.H$" 'c++-mode))
        (list (cons "\\.cxx$" 'c++-mode))
+       (list (cons "\\.c$" 'c-mode))
        (list (cons "\\.cu$" 'c++-mode))
        (list (cons "\\.glsl$" 'c++-mode))
        (list (cons "\\.vala$" 'vala-mode))
@@ -843,7 +845,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.xml$" 'xml-mode)) 
        (list (cons "notes.txt" 'mediawiki-mode)) 
        (list (cons "\\.txt$" 'text-mode)) 
-       (list (cons "\\.org" 'org-mode)) 
+       (list (cons "\\.org$" 'org-mode)) 
        (list (cons "\\.pl" 'cperl-mode)) 
        (list (cons "\\.nxc$" 'c++-mode)) 
        (list (cons "\\.mw" 'mediawiki-mode)) 
