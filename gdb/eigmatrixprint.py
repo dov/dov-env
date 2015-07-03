@@ -17,16 +17,16 @@ class EigMatrixPrint (gdb.Command):
       S_ = args[argp]
       argp+=1
       if S_=='-help':
-        print "peig - Print eigen matrices"
-        print ""
-        print "Syntax:"
-        print "  peig m1"
-        print ""
+        print("peig - Print eigen matrices\n"
+              "\n"
+              "Syntax:\n"
+              "  peig m1\n"
+              "")
         return
       if S_=='-c':
         do_compact = True
         continue
-      print "Unknown option '%s'!"%S_
+      print("Unknown option '%s'!"%S_)
       return
 
     for v in args[argp:]:
@@ -45,15 +45,15 @@ class EigMatrixPrint (gdb.Command):
             for col in range(ncols):
               mat[row][col] = '%12.5g'%float(array[col*nrows+row])
           for m in mat:
-            print '    |'+ ''.join(m)+'|'
+            print('    |'+ ''.join(m)+'|')
         else:
-          print 'No match found!'
-          print val
+          print('No match found!')
+          print(val)
         
       except ValueError:
-        print "%s not found!"%v
+        print("%s not found!"%v)
         raise
     if do_compact:
-      print ""
+      print("")
 
 EigMatrixPrint()

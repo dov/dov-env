@@ -1,5 +1,6 @@
 # Match callstack for all systemthreads.
 
+from __future__ import print_function
 import gdb
 import re
 
@@ -25,14 +26,14 @@ class PyThreadGrep (gdb.Command):
       S_ = args[argp]
       argp+=1
       if S_=='-help':
-        print "threadgrep - Print gdb variables via python"
-        print ""
-        print "Syntax:"
-        print "  threadgrep [-stack] [-fullstack] pattern"
-        print ""
-        print "Options:"
-        print "  -stack      Output stack lines matching the search pattern"
-        print "  -fullstack  Output full stack if the search pattern is matched for a thread"
+        print("threadgrep - Print gdb variables via python\n"
+              "\n"
+              "Syntax:\n"
+              "  threadgrep [-stack] [-fullstack] pattern\n"
+              "\n"
+              "Options:\n"
+              "  -stack      Output stack lines matching the search pattern\n"
+              "  -fullstack  Output full stack if the search pattern is matched for a thread")
         return
 
       if S_=='-stack':
@@ -43,7 +44,7 @@ class PyThreadGrep (gdb.Command):
         do_print_full_stack = True
         continue
 
-      print "Unknown option '%s'!"%S_
+      print("Unknown option '%s'!"%S_)
       return
 
     pattern = args[argp]
@@ -62,15 +63,15 @@ class PyThreadGrep (gdb.Command):
       gdb.execute("thread %d"%thread_id, False, True)
       where_string = gdb.execute('where',False,True)
       if re.search(pattern, where_string):
-        print colors.HEADER + "Match in thread #%d"%thread_id + colors.ENDC
+        print(colors.HEADER + "Match in thread #%d"%thread_id + colors.ENDC)
         if do_print_stack:
           for where_line in where_string.split("\n"):
             if re.search(pattern,where_line):
               where_line = re.sub('('+pattern+')', colors.BLUE + r"\1" + colors.ENDC,where_line)
-              print where_line
-          print ""
+              print(where_line)
+          print("")
         if do_print_full_stack:
           where_string = re.sub('('+pattern+')', colors.BLUE + r"\1" + colors.ENDC,where_string)
-          print where_string
+          print(where_string)
 
 PyThreadGrep()

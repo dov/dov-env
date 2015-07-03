@@ -1,5 +1,6 @@
 # Print variables by python
 
+from __future__ import print_function
 import gdb
 import re
 
@@ -19,18 +20,18 @@ class PyPrintCommand (gdb.Command):
       S_ = args[argp]
       argp+=1
       if S_=='-help':
-        print "pyp - Print gdb variables via python"
-        print ""
-        print "Syntax:"
-        print "  pyp [-c] v1 v2"
-        print ""
-        print "Options:"
-        print "  -c  Compact output"
+        print ("pyp - Print gdb variables via python\n"
+               "\n"
+               "Syntax:\n"
+               "  pyp [-c] v1 v2\n"
+               "\n"
+               "Options:\n"
+               "  -c  Compact output")
         return
       if S_=='-c':
         do_compact = True
         continue
-      print "Unknown option '%s'!"%S_
+      print("Unknown option '%s'!"%S_)
       return
 
     for v in args[argp:]:
@@ -38,13 +39,13 @@ class PyPrintCommand (gdb.Command):
         val = gdb.execute("p %s"%v,True,True)
         val = re.search(r"=\s*(.*)",val).group(1)
         if do_compact:
-          print val, 
+          print(val,end='')
         else:
-          print "%s=%s"%(v,val)
+          print("%s=%s"%(v,val))
       except ValueError:
-        print "%s not found!"%v
+        print("%s not found!"%v)
     if do_compact:
-      print ""
+      print("")
 
 PyPrintCommand()
 
