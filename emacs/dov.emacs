@@ -190,6 +190,20 @@ Optional argument ARG is the same as for `kill-word'."
     (backward-char))
   (yank))
 
+(defun mb-expand-tilde-and-copy ()
+  "Expand tilde to full path in the minibuffer and copy it to the kill buffer.
+Nice for copying"
+  (interactive)
+;  (goto-char (point-min))
+  (call-interactively 'move-beginning-of-line)
+  (while (search-forward-regexp "~" nil t)
+    (replace-match (getenv "HOME") nil t))
+  (call-interactively 'move-beginning-of-line)
+  (call-interactively 'kill-line)
+  (call-interactively 'minibuffer-keyboard-quit))
+
+(define-key minibuffer-local-map [(control c) (control k)] 'mb-expand-tilde-and-copy)
+
 (defun subword-backward-kill ()
   "Do the same as `backward-kill-word' but on subwords.
 See the command `subword-mode' for a description of subwords.
@@ -242,6 +256,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (yas-reload-all)
 (global-set-key "\C-ci" 'magit-status)
 (global-set-key "\C-c\C-b" 'magit-blame-mode)
+(global-set-key "\C-c\C-o" 'org-open-at-point)
 
 (load "compile.el")
 (setq compilation-scroll-output 'first-error)
