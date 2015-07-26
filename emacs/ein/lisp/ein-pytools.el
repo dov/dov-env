@@ -51,8 +51,10 @@ If OTHER-WINDOW is non-`nil', open the file in the other window."
                  (const :tag "No" nil))
   :group 'ein)
 
-(defun ein:pytools-setup-hooks (kernel)
+(defun ein:pytools-setup-hooks (kernel notebook)
   (push (cons #'ein:pytools-add-sys-path kernel)
+        (ein:$kernel-after-start-hook kernel))
+  (push (cons #'ein:pytools-get-notebook-dir (list kernel notebook))
         (ein:$kernel-after-start-hook kernel)))
 
 (defun ein:pytools-add-sys-path (kernel)
@@ -60,15 +62,46 @@ If OTHER-WINDOW is non-`nil', open the file in the other window."
    kernel
    (format "__import__('sys').path.append('%s')" ein:source-dir)))
 
+(defun ein:set-buffer-file-name (nb msg-type content -not-used-)
+  (let ((buf (ein:notebook-buffer nb)))
+    (ein:case-equal msg-type
+      (("stream" "output")
+       (with-current-buffer buf
+         (setq buffer-file-name
+               (expand-file-name
+                (format "%s" (ein:$notebook-notebook-name nb))
+                (plist-get content :text))))))))
+
+(defun ein:pytools-get-notebook-dir (packed)
+  (multiple-value-bind (kernel notebook) packed
+    (ein:kernel-execute
+     kernel
+     (format "print(__import__('os').getcwd(),end='')")
+     (list
+      :output (cons
+               #'ein:set-buffer-file-name
+               notebook)))))
+
 
 ;;; Tooltip and help
 
 (defun ein:pytools-request-tooltip (kernel func)
   (interactive (list (ein:get-kernel-or-error)
                      (ein:object-at-point-or-error)))
-  (ein:kernel-object-info-request
-   kernel func (list :object_info_reply
-                     (cons #'ein:pytools-finish-tooltip nil))))
+  (if (>= (ein:$kernel-api-version kernel) 3)
+      (ein:kernel-execute
+       kernel
+       (format "__import__('ein').print_object_info_for(%s)" func)
+       (list
+        :output (cons
+                 (lambda (name msg-type content -metadata-not-used-)
+                   (ein:case-equal msg-type
+                     (("stream" "display_data")
+                      (ein:pytools-finish-tooltip name (ein:json-read-from-string (plist-get content :text)) nil))))
+                 func)))
+    (ein:kernel-object-info-request
+     kernel func (list :object_info_reply
+                       (cons #'ein:pytools-finish-tooltip nil)))))
 
 (declare-function pos-tip-show "pos-tip")
 (declare-function popup-tip "popup")
@@ -137,8 +170,8 @@ pager buffer.  You can explicitly specify the object by selecting it."
        (destructuring-bind (kernel object other-window notebook)
            packed
          (ein:case-equal msg-type
-           (("stream")
-            (ein:aif (plist-get content :data)
+           (("stream" "display_data")
+            (ein:aif (or (plist-get content :text) (plist-get content :data))
                 (if (string-match ein:pytools-jump-to-source-not-found-regexp
                                   it)
                     (ein:log 'info
@@ -157,7 +190,7 @@ pager buffer.  You can explicitly specify the object by selecting it."
                     (push (point-marker) ein:pytools-jump-stack)
                     (ein:log 'info
                       "Jumping to the source of %s...Done" object)))))
-           (("pyerr")
+           (("pyerr" "error")
             (ein:log 'info
               "Jumping to the source of %s...Not found" object)))))
      (list kernel object other-window notebook)))))
@@ -252,6 +285,56 @@ to install it if you are using newer Emacs.
     (with-current-buffer buffer
       (ses-mode))
     (pop-to-buffer buffer)))
+
+(defun ein:pytools-export-buffer (buffer format)
+  "Export contents of notebook using nbconvert_ to user-specified format
+\(options will depend on the version of nbconvert available\) to a new buffer.
+
+Currently EIN/IPython supports exporting to the following formats:
+
+ - HTML
+ - JSON (this is basically the same as opening the ipynb file in a buffer).
+ - Latex
+ - Markdown
+ - Python
+ - RST
+ - Slides
+
+.. _nbconvert: http://ipython.org/ipython-doc/stable/notebook/nbconvert.html"
+  (interactive (list (read-buffer "Buffer: " (current-buffer) t)
+                     (completing-read "Export format: "
+                                      (list "html"
+                                            "json"
+                                            "latex"
+                                            "markdown"
+                                            "python"
+                                            "rst"
+                                            "slides"))))
+  (let* ((nb (first (ein:notebook-opened-notebooks
+                     #'(lambda (nb)
+                         (equal (buffer-name (ein:notebook-buffer nb))
+                                buffer)))))
+         (json (json-encode (ein:notebook-to-json nb)))
+         (name (format "*ein %s export: %s*" format (ein:$notebook-notebook-name nb)))
+         (buffer (get-buffer-create name)))
+    (if (equal format "json")
+        (with-current-buffer buffer
+          (erase-buffer)
+          (insert json)
+          (json-pretty-print (point-min) (point-max)))
+      (ein:kernel-request-stream
+       (ein:get-kernel)
+       (format "__import__('ein').export_nb('%s', '%s')"
+               json
+               format)
+       (lambda (export buffer)
+         (with-current-buffer buffer
+           (erase-buffer)
+           (insert export)))
+       (list buffer)))
+    (switch-to-buffer buffer)))
+
+
 
 (provide 'ein-pytools)
 

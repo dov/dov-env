@@ -128,7 +128,7 @@ This key will be installed in the `ein:notebook-mode-map'."
   :group 'ein)
 
 (defcustom ein:notebook-set-buffer-file-name nil
-  "[EXPERIMENTAL] Set `buffer-file-name' of notebook buffer."
+  "[DEPRECATED] Set `buffer-file-name' of notebook buffer. Currently does nothing."
   :type 'boolean
   :group 'ein)
 
@@ -441,9 +441,8 @@ of minor mode."
                                  (ein:$notebook-events notebook)
                                  (ein:$notebook-api-version notebook))))
     (setf (ein:$notebook-kernel notebook) kernel)
-    (ein:pytools-setup-hooks kernel)
-    (ein:kernel-start kernel
-                      (ein:$notebook-notebook-id notebook))))
+    (ein:pytools-setup-hooks kernel notebook)
+    (ein:kernel-start kernel notebook)))
 
 (defun ein:notebook-restart-kernel (notebook)
   (ein:kernel-restart (ein:$notebook-kernel notebook)))
@@ -455,6 +454,12 @@ of minor mode."
       (when (y-or-n-p "Really restart kernel? ")
         (ein:notebook-restart-kernel ein:%notebook%))
     (ein:log 'error "Not in notebook buffer!")))
+
+(defun ein:notebook-reconnect-kernel ()
+  "Reconnect to the websocket connection for the running kernel."
+  (interactive)
+  (if ein:%notebook%
+      (ein:kernel-reconnect (ein:$notebook-kernel ein:%notebook%) ein:%notebook%)))
 
 (define-obsolete-function-alias
   'ein:notebook-request-tool-tip-or-help-command
@@ -524,7 +529,7 @@ This is equivalent to do ``C-c`` in the console program."
     ;; Now that major-mode is set, set buffer local variables:
     (ein:notebook--notification-setup notebook)
     (ein:notebook-setup-kill-buffer-hook)
-    (ein:notebook-set-buffer-file-name-maybe notebook)
+    ;(ein:notebook-set-buffer-file-name-maybe notebook)
     (setq ein:%notebook% notebook)))
 
 (defun ein:notebook--notification-setup (notebook)
@@ -622,10 +627,10 @@ of NOTEBOOK."
            (t (ein:log 'error "EIN does not support saving notebook format %s" (ein:$notebook-nbformat notebook))))))
     (plist-put (cdr (assq 'metadata data))
                :name (ein:$notebook-notebook-name notebook))
-    (push `(nbformat . ,(ein:$notebook-nbformat notebook)) data)
     (ein:aif (ein:$notebook-nbformat-minor notebook)
         ;; Do not set nbformat when it is not given from server.
         (push `(nbformat_minor . ,it) data))
+    (push `(nbformat . ,(ein:$notebook-nbformat notebook)) data)
     data))
 
 (defun ein:write-nbformat3-worksheets (notebook)
@@ -637,42 +642,21 @@ of NOTEBOOK."
 
 (defun ein:write-nbformat4-worksheets (notebook)
   (ein:log 'info "Writing notebook %s as nbformat 4." (ein:$notebook-notebook-name notebook))
-  (let ((all-cells (first (mapcar #'ein:worksheet-to-nb4-json
-                                  (ein:$notebook-worksheets notebook)))))
+  (let ((all-cells (loop for ws in (ein:$notebook-worksheets notebook)
+                         for i from 0
+                         append (ein:worksheet-to-nb4-json ws i))))
     `((metadata . ,(ein:aif (ein:$notebook-metadata notebook)
                        it
                      (make-hash-table)))
       (cells . ,(apply #'vector all-cells)))))
 
-(defun ein:notebook-save-notebook (notebook retry &optional callback cbarg)
+(defun ein:notebook-save-notebook (notebook retry &optional callback cbargs)
   (let ((content (ein:content-from-notebook notebook)))
     (ein:events-trigger (ein:$notebook-events notebook)
                         'notebook_saving.Notebook)
-    (let ((data (ein:content-to-json content)))
-      ;; (push `(path . ,(ein:$notebook-notebook-path notebook)) data)
-      ;; (push `(name . ,(ein:$notebook-notebook-name notebook)) data)
-      ;; (push `(type . "notebook") data)
-      (ein:query-singleton-ajax
-       (list 'notebook-save
-             (ein:$notebook-url-or-port notebook)
-             (ein:$notebook-notebook-path notebook)
-             (ein:$notebook-notebook-name notebook))
-       (ein:notebook-url notebook)
-       :timeout ein:notebook-querty-timeout-save
-       :type "PUT"
-       :headers '(("Content-Type" . "application/json"))
-       :data data
-       :error (apply-partially #'ein:notebook-save-notebook-error notebook)
-       :success (apply-partially #'ein:notebook-save-notebook-workaround
-                                 notebook retry callback cbarg)
-       :status-code
-       `((200 . ,(apply-partially
-                  (lambda (notebook callback cbarg &rest rest)
-                    (apply #'ein:notebook-save-notebook-success
-                           notebook rest)
-                    (when callback
-                      (apply callback cbarg rest)))
-                  notebook callback cbarg)))))))
+    (ein:content-save content
+                      #'ein:notebook-save-notebook-success
+                      (list notebook callback cbargs))))
 
 (defun ein:notebook-save-notebook-command ()
   "Save the notebook."
@@ -730,61 +714,36 @@ of NOTEBOOK."
     (ein:events-trigger (ein:$notebook-events notebook)
                         'notebook_save_failed.Notebook)))
 
-(defun ein:notebook-rename-command (name)
+(defun ein:notebook-rename-command (path)
   "Rename current notebook and save it immediately.
 
 NAME is any non-empty string that does not contain '/' or '\\'."
   (interactive
-   (list (read-string "Rename notebook: "
-                      (let ((name (ein:$notebook-notebook-name ein:%notebook%)))
-                        (unless (string-match "Untitled[0-9]+" name)
-                          name)))))
-  (unless (and (string-match ".ipynb" name) (= (match-end 0) (length name)))
-    (setq name (format "%s.ipynb" name)))
-  (let ((old-name (ein:$notebook-notebook-name ein:%notebook%)))
+   (list (read-string "Rename notebook: " (ein:$notebook-notebook-path ein:%notebook%))))
+  (unless (and (string-match ".ipynb" path) (= (match-end 0) (length path)))
+    (setq path (format "%s.ipynb" path)))
+  (let ((content (ein:content-from-notebook ein:%notebook%))
+        (old-name (ein:$notebook-notebook-name ein:%notebook%)))
     (ein:log 'info "Renaming notebook at URL %s" (ein:notebook-url ein:%notebook%))
-    (ein:log 'info "JSON data looks like %s"
-             (json-encode
-              `((:name . ,name)
-                (:path . ,(ein:$notebook-notebook-path ein:%notebook%)))))
-    ;(ein:notebook-set-notebook-name ein:%notebook% name)
-    (ein:query-singleton-ajax
-     (list 'notebook-rename
-           (ein:$notebook-url-or-port ein:%notebook%)
-           (ein:$notebook-notebook-path ein:%notebook%)
-           (ein:$notebook-notebook-name ein:%notebook%))
-     (ein:notebook-url ein:%notebook%)
-     :timeout ein:notebook-querty-timeout-save
-     :type "PATCH"
-     :headers '(("Content-Type" . "application/json"))
-     :data (json-encode
-            `((name . ,name)
-              (path . ,(ein:$notebook-notebook-path ein:%notebook%))))
-     :error (apply-partially #'ein:notebook-rename-error old-name name ein:%notebook%)
-     :success (apply-partially #'ein:notebook-rename-success
-                               ein:%notebook% name)
-     :status-code
-     `((200 . ,(apply-partially
-                #'ein:notebook-rename-success ein:%notebook% name))
-       (409 . ,(apply-partially
-                #'ein:notebook-rename-success ein:%notebook% name))))))
+    (ein:content-rename content path #'ein:notebook-rename-success (list ein:%notebook% content))))
 
-(defun* ein:notebook-rename-error (old new notebook &key symbol-status response
-                                       error-thrown
-                                       &allow-other-keys)
-  (if (= (request-response-status-code response) 409)
-      (progn
-        (ein:log 'warn "IPython returned a 409 status code, but has still renamed the notebook. This may be an IPython bug.")
-        (ein:notebook-rename-success notebook new response))
-    (ein:log 'error
-      "Error (%s :: %s) while renaming notebook %s to %s."
-      symbol-status error-thrown old new)))
+;; (defun* ein:notebook-rename-error (old new notebook &key symbol-status response
+;;                                        error-thrown
+;;                                        &allow-other-keys)
+;;   (if (= (request-response-status-code response) 409)
+;;       (progn
+;;         (ein:log 'warn "IPython returned a 409 status code, but has still renamed the notebook. This may be an IPython bug.")
+;;         (ein:notebook-rename-success notebook new response))
+;;     (ein:log 'error
+;;       "Error (%s :: %s) while renaming notebook %s to %s."
+;;       symbol-status error-thrown old new)))
 
-(defun* ein:notebook-rename-success (notebook new &rest args &allow-other-keys)
-  (ein:notebook-set-notebook-name notebook new)
+(defun* ein:notebook-rename-success (notebook content)
+  (ein:notebook-set-notebook-name notebook (ein:$content-name content))
+  (setf (ein:$notebook-notebook-path notebook) (ein:$content-path content))
   (mapc #'ein:worksheet-set-buffer-name
         (ein:$notebook-worksheets notebook))
-  (ein:log 'info "Notebook renamed to %s." new))
+  (ein:log 'info "Notebook renamed to %s." (ein:$content-name content)))
 
 (defun ein:notebook-close (notebook)
   "Close NOTEBOOK and kill its buffer."

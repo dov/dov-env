@@ -153,6 +153,8 @@ To suppress popup, you can pass a function `ein:do-nothing' as CALLBACK."
   (interactive (list (ein:notebooklist-ask-url-or-port)))
   (unless url-or-port (setq url-or-port (ein:default-url-or-port)))
   (unless path (setq path ""))
+  (if (and (stringp url-or-port) (not (string-match "^https?://" url-or-port)))
+      (setq url-or-port (format "http://%s" url-or-port)))
   (ein:subpackages-load)
   (let ((success
          (if no-popup
@@ -267,6 +269,10 @@ This function is called via `ein:notebook-after-rename-hook'."
   (if data
       (let ((name (plist-get data :name))
             (path (plist-get data :path)))
+        (if (= (ein:query-ipython-version url-or-port) 2)
+            (if (string= path "")
+                (setq path name)
+              (setq path (format "%s/%s" path name))))
         (ein:notebook-open url-or-port path callback cbargs))
     (ein:log 'info (concat "Oops. EIN failed to open new notebook. "
                            "Please find it in the notebook list."))
@@ -298,7 +304,10 @@ You may find the new one in the notebook list." error)
                       (name (read-from-minibuffer
                              (format "Notebook name (at %s): " url-or-port))))
                  (list name url-or-port)))
-  (let ((path (or path (ein:$notebooklist-path ein:%notebooklist%))))
+  (let ((path (or path (ein:$notebooklist-path
+                        (or ein:%notebooklist%
+                            (ein:get-notebook)
+                            (gethash url-or-port ein:notebooklist-map))))))
     (ein:notebooklist-new-notebook
      url-or-port
      path
@@ -356,7 +365,7 @@ Notebook list data is passed via the buffer local variable
     (erase-buffer))
   (remove-overlays)
   ;; Create notebook list
-  (widget-insert "IPython Notebook list\n\n")
+  (widget-insert (format "IPython %s Notebook list\n\n" (ein:$notebooklist-api-version ein:%notebooklist%)))
   (let ((breadcrumbs (generate-breadcrumbs (ein:$notebooklist-path ein:%notebooklist%))))
     (dolist (p breadcrumbs)
       (lexical-let ((name (car p))
@@ -368,7 +377,7 @@ Notebook list data is passed via the buffer local variable
                                          (ein:$notebooklist-url-or-port ein:%notebooklist%)
                                          path))
          name)))
-    (widget-insert " |\n"))
+    (widget-insert " |\n\n"))
   (widget-create
    'link
    :notify (lambda (&rest ignore) (ein:notebooklist-new-notebook))
@@ -385,8 +394,10 @@ Notebook list data is passed via the buffer local variable
              (browse-url
               (ein:url (ein:$notebooklist-url-or-port ein:%notebooklist%))))
    "Open In Browser")
-  (widget-insert "\n")
-  (let ((api-version (ein:$notebooklist-api-version ein:%notebooklist%)))
+  (widget-insert "\n\n")
+  (let ((api-version (ein:$notebooklist-api-version ein:%notebooklist%))
+        (sessions (make-hash-table :test 'equal)))
+    (ein:content-query-sessions sessions (ein:$notebooklist-url-or-port ein:%notebooklist%) t)
     (loop for note in (ein:$notebooklist-data ein:%notebooklist%)
           for urlport = (ein:$notebooklist-url-or-port ein:%notebooklist%)
           for name = (plist-get note :name)
@@ -397,6 +408,7 @@ Notebook list data is passed via the buffer local variable
           ;;        (ein:get-actual-path (plist-get note :path))))
           for type = (plist-get note :type)
           for opened-notebook-maybe = (ein:notebook-get-opened-notebook urlport path)
+          do (widget-insert " ")
           if (string= type "directory")
           do (progn (widget-create
                      'link
@@ -421,18 +433,17 @@ Notebook list data is passed via the buffer local variable
                                   ein:%notebooklist% path)))
                      "Open")
                     (widget-insert " ")
-                    (when (and opened-notebook-maybe (ein:kernel-live-p (ein:$notebook-kernel opened-notebook-maybe)))
+                    (when (gethash path sessions)
                       (widget-create
                        'link
-                       :notify (lexical-let ((urlport urlport)
-                                             (path path))
+                       :notify (lexical-let ((session (car (gethash path sessions)))
+                                             (nblist ein:%notebooklist%))
                                  (lambda (&rest ignore)
-                                   (let ((buf (ein:notebook-get-opened-buffer urlport path)))
-                                     (when buf
-                                       (run-at-time 1 nil
+                                   (run-at-time 1 nil
                                                     #'ein:notebooklist-reload
                                                     ein:%notebooklist%)
-                                       (kill-buffer buf)))))
+                                   (ein:kernel-kill (make-ein:$kernel :url-or-port (ein:$notebooklist-url-or-port nblist)
+                                                                      :session-id session))))
                        "Stop")
                       (widget-insert " "))
                     (widget-create

@@ -187,7 +187,8 @@ See also: https://github.com/tkf/emacs-ipython-notebook/issues/94"
   "Notebook cell base class")
 
 (defclass ein:codecell (ein:basecell)
-  ((cell-type :initarg :cell-type :initform "code")
+  ((traceback :initform nil :initarg :traceback :type list)
+   (cell-type :initarg :cell-type :initform "code")
    (kernel :initarg :kernel :type ein:$kernel)
    (element-names :initform (:prompt :input :output :footer))
    (input-prompt-number :initarg :input-prompt-number
@@ -567,6 +568,7 @@ Called from ewoc pretty printer via `ein:cell-pp'."
       (ein:case-equal (plist-get out :output_type)
         (("pyout")        (ein:cell-append-pyout        cell out))
         (("pyerr")        (ein:cell-append-pyerr        cell out))
+        (("error")        (ein:cell-append-pyerr        cell out))
         (("display_data") (ein:cell-append-display-data cell out))
         (("execute_result") (ein:cell-append-display-data cell out))
         (("stream")       (ein:cell-append-stream       cell out))))))
@@ -712,6 +714,23 @@ PROP is a name of cell element.  Default is `:input'.
                   (t 0))))
     (forward-char (+ relpos offset))))
 
+(defmethod ein:cell-goto-line ((cell ein:basecell) &optional inputline prop)
+  "Go to the input area of the given CELL.
+INPUTLINE is the line number relative to the input area.  Default is 1.
+PROP is a name of cell element.  Default is `:input'.
+
+\(fn cell inputline prop)"
+  (unless inputline (setq inputline 1))
+  (unless prop (setq prop :input))
+  (ewoc-goto-node (oref cell :ewoc) (ein:cell-element-get cell prop))
+  (let ((offset (case prop
+                  ((:input :before-output) 1)
+                  (:after-input -1)
+                  (t 0))))
+    (forward-char offset)
+    (forward-line (- inputline 1))))
+
+
 (defmethod ein:cell-relative-point ((cell ein:basecell) &optional pos)
   "Return the point relative to the input area of CELL.
 If the position POS is not given, current point is considered."
@@ -747,11 +766,12 @@ If END is non-`nil', return the location of next element."
 ;; Data manipulation
 
 (defmethod ein:cell-clear-output ((cell ein:codecell) stdout stderr other)
-  ;; codecell.js in IPytohn implements it using timeout and callback.
+  ;; codecell.js in IPython implements it using timeout and callback.
   ;; As it is unclear why timeout is needed, just clear output
   ;; instantaneously for now.
   (ein:log 'debug "cell-clear-output stdout=%s stderr=%s other=%s"
            stdout stderr other)
+  (oset cell :traceback nil)
   (let ((ewoc (oref cell :ewoc))
         (output-nodes (ein:cell-element-get cell :output)))
     (if (and stdout stderr other)
@@ -807,6 +827,20 @@ If END is non-`nil', return the location of next element."
            (intern (format "output-%s" (plist-get json :stream)))))))
 
 (defmethod ein:cell-append-output ((cell ein:codecell) json dynamic)
+  ;; When there is a python error, we actually get two identical tracebacks back
+  ;; from the kernel, one from the "shell" channel, and one from the "iopub"
+  ;; channel.  As a workaround, we remember the cell's traceback and ignore
+  ;; traceback outputs that are identical to the one we already have.
+  (let ((new-tb (plist-get json :traceback))
+        (old-tb (oref cell :traceback)))
+    (when (or
+           (null old-tb)
+           (null new-tb)
+           (not (equalp new-tb old-tb)))
+      (ein:cell-actually-append-output cell json dynamic))
+    (oset cell :traceback new-tb)))
+
+(defmethod ein:cell-actually-append-output ((cell ein:codecell) json dynamic)
   (ein:cell-expand cell)
   ;; (ein:flush-clear-timeout)
   (oset cell :outputs
@@ -984,15 +1018,18 @@ prettified text thus be used instead of HTML type."
 (defun ein:output-property-p (maybe-property)
   (assoc maybe-property ein:output-type-map))
 
-(defmethod ein:cell-to-nb4-json ((cell ein:codecell) &optional discard-output)
-  (let ((metadata `((collapsed . ,(if (oref cell :collapsed) t json-false))))
+(defmethod ein:cell-to-nb4-json ((cell ein:codecell) wsidx &optional discard-output)
+  (let ((metadata `((collapsed . ,(if (oref cell :collapsed) t json-false))
+                    (tags . (,(format "worksheet-%s" wsidx)))))
         (outputs (if discard-output []
                    (oref cell :outputs)))
-        (renamed-outputs '()))
+        (renamed-outputs '())
+        (execute-count (ein:aif (ein:oref-safe cell :input-prompt-number)
+                           (and (numberp it) it))))
     (unless discard-output
       (dolist (output outputs)
         (let ((otype (plist-get output :output_type)))
-          (ein:log 'info "Saving output of type %S" otype)
+          (ein:log 'debug "Saving output of type %S" otype)
           (if (and (or (equal otype "display_data")
                        (equal otype "execute_result"))
                    (null (plist-get output :metadata)))
@@ -1002,7 +1039,7 @@ prettified text thus be used instead of HTML type."
                   (loop while ocopy
                         do (let ((prop (pop ocopy))
                                  (value (pop ocopy)))
-                             (ein:log 'info "Checking property %s for output type '%s'"
+                             (ein:log 'debug "Checking property %s for output type '%s'"
                                       prop otype)
                              (cond
                               ((equal prop :stream) (progn (push value new-output)
@@ -1016,18 +1053,21 @@ prettified text thus be used instead of HTML type."
 
                               ((and (equal otype "display_data")
                                     (equal prop :text))
-                               (ein:log 'info "SAVE-NOTEBOOK: Skipping unnecessary :text data."))
+                               (ein:log 'debug "SAVE-NOTEBOOK: Skipping unnecessary :text data."))
 
                               ((and (equal otype "execute_result")
-                                    (equal prop :text))
-                               (ein:log 'info "Fixing execute_result (%s?)." otype)
+                                    (or (equal prop :text)
+                                        (equal prop :html)
+					(equal prop :latex))) 
+                               (ein:log 'debug "Fixing execute_result (%s?)." otype)
                                (let ((new-prop (cdr (ein:output-property-p prop))))
                                  (push (list new-prop (list value)) new-output)
                                  (push :data new-output)))
 
+
                               ((and (equal otype "execute_result")
                                     (equal prop :prompt_number))
-                               (ein:log 'info "SAVE-NOTEBOOK: Fixing prompt_number property.")
+                               (ein:log 'debug "SAVE-NOTEBOOK: Fixing prompt_number property.")
                                (push value new-output)
                                (push :execution_count new-output))
 
@@ -1036,26 +1076,29 @@ prettified text thus be used instead of HTML type."
                 renamed-outputs))))
     `((source . ,(ein:cell-get-text cell))
       (cell_type . "code")
-      ,@(ein:aif (ein:oref-safe cell :input-prompt-number)
-            `((execution_count . ,it))
+      ,@(if execute-count
+            `((execution_count . ,execute-count))
           `((execution_count)))
       (outputs . ,(apply #'vector (or renamed-outputs outputs)))
       (metadata . ,metadata))))
+
 
 (defmethod ein:cell-to-json ((cell ein:textcell) &optional discard-output)
   `((cell_type . ,(oref cell :cell-type))
     (source    . ,(ein:cell-get-text cell))))
 
-(defmethod ein:cell-to-nb4-json ((cell ein:textcell) &optional discard-output)
+(defmethod ein:cell-to-nb4-json ((cell ein:textcell) wsidx &optional discard-output)
   `((cell_type . ,(oref cell :cell-type))
     (source    . ,(ein:cell-get-text cell))
-    (metadata . ((collapsed . t)))))
+    (metadata . ((collapsed . t)
+                 (tags . (,(format "worksheet-%s" wsidx)))))))
 
-(defmethod ein:cell-to-nb4-json ((cell ein:headingcell) &optional discard-output)
+(defmethod ein:cell-to-nb4-json ((cell ein:headingcell) wsidx &optional discard-output)
   (let ((header (make-string (oref cell :level) ?#)))
     `((cell_type . "markdown")
       (source .  ,(format "%s %s" header (ein:cell-get-text cell)))
-      (metadata . ((collapsed . t))))))
+      (metadata . ((collapsed . t)
+                   (tags . (,(format "worksheet-%s" wsidx))))))))
 
 (defmethod ein:cell-to-json ((cell ein:headingcell) &optional discard-output)
   (let ((json (call-next-method)))
@@ -1109,9 +1152,11 @@ prettified text thus be used instead of HTML type."
                                            -metadata-not-used-)
   (ein:cell-set-input-prompt cell (plist-get content :execution_count))
   (ein:cell-running-set cell nil)
-  (let ((events (oref cell :events)))
-    (ein:events-trigger events 'set_dirty.Worksheet (list :value t :cell cell))
-    (ein:events-trigger events 'maybe_reset_undo.Worksheet cell)))
+  (if (equal (plist-get content :status) "error")
+      (ein:cell--handle-output cell "error" content -metadata-not-used-)
+    (let ((events (oref cell :events)))
+      (ein:events-trigger events 'set_dirty.Worksheet (list :value t :cell cell))
+      (ein:events-trigger events 'maybe_reset_undo.Worksheet cell))))
 
 (defmethod ein:cell--handle-set-next-input ((cell ein:codecell) text)
   (let ((events (oref cell :events)))
@@ -1193,7 +1238,9 @@ prettified text thus be used instead of HTML type."
 
 (defmethod ein:cell-get-tb-data ((cell ein:codecell))
   (loop for out in (oref cell :outputs)
-        when (equal (plist-get out :output_type) "pyerr")
+        when (and
+              (not (null (plist-get out :traceback)))
+              (member (plist-get out :output_type) '("pyerr" "error")))
         return (plist-get out :traceback)))
 
 (provide 'ein-cell)

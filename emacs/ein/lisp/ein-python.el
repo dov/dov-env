@@ -50,7 +50,7 @@ yet in this cell."
         t))))
 
 (defadvice python-indent-calculate-levels
-  (around ein:python-indent-calculate-levels activate)
+    (around ein:python-indent-calculate-levels activate)
   "Hack `python-indent-calculate-levels' to reset indent per cell.
 
 Let's say you have a notebook something like this::
