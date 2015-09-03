@@ -84,6 +84,7 @@
                   (concat emacs-git "/ein/lisp")
                   (concat emacs-git "/org-mode/lisp")
                   (concat emacs-git "/org-mode/contrib/lisp")
+                  (concat emacs-git "/magit")
                   emacs-git
                   )
                  load-path))
@@ -121,6 +122,8 @@
 (load "octave-mod")
 (load "vc-ediff")
 (load "magit")
+(setq magit-push-always-verify nil)
+(setq git-commit-summary-max-length 80)
 (load "magit-blame")
 (load "markdown-mode")
 (setq magit-diff-options '("-w"))
@@ -414,6 +417,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (load "screenshot.el")
 (load "org-man.el")
 (load "org-git-hyperlink.el")
+(load "org-pydoc-hyperlink.el")
 (load "org-wp.el")
 (load "org-bullets.el")
 (load "ox.el")
@@ -464,6 +468,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
   (setq org-export-allow-bind-keywords t)
   (setq org-html-doctype "html5")
+  (setq org-format-latex-options (plist-put org-format-latex-options :scale 1.5))
   (org-bullets-mode)
   (setq org-bullets-bullet-list
         '("▸"
@@ -1002,7 +1007,15 @@ With numeric ARG, display the images if and only if ARG is positive."
         ("perl" . cperl)
         ("python" . python)
         ))
-;; )
+
+(setq org-latex-packages-alist
+      '(
+;        (""     "grffile"   t)
+        (""     "svg"   t)
+        ))
+
+
+(setq org-latex-pdf-process '("pdflatex --shell-escape"))
 
 ;; Don't jump when curser reaches end of terminal.
 (setq scroll-conservatively 10000)
@@ -1298,7 +1311,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control h) (control j)] 'gtk-lookup-symbol)
 (global-set-key [(control h) (control q)] 'qtdoc-lookup)
 (global-set-key [(control h) (control g)] 'google-lookup)
-(global-set-key [(control h) (control p)] 'python-lookup)
+(global-set-key [(control h) (control p)] 'pydoc)
 (global-set-key [(control h) (control c)] 'cpp-lookup)
 (global-set-key [(f2)] 'perl-pe-region)
 (global-set-key [(control f27)] 'move-to-first-window-line)
@@ -1399,7 +1412,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;; git grep
 (load "dov-git-grep")
 (global-set-key [(control c) ?s] 'dov-git-grep)
-
+(global-set-key [(control c) (control s)] 'dov-git-grep-here)
 
 ;; Shortcuts to go to special buffers
 (global-set-key [(alt meta d)] 'goto-end-of-gud-buffer)
@@ -1580,7 +1593,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 ;; qt docs lookup
 (load "qtdoc")
-(setq qtdoc-html-root "http://doc.qt.nokia.com/4.7")
+(setq qtdoc-html-root "file:///usr/share/doc/qt5/qtwidgets") 
 (load "google-look")
 
 ;; Other customization
@@ -1706,6 +1719,8 @@ With numeric ARG, display the images if and only if ARG is positive."
   (define-key map [(control c) (control e)] 'compile)
   (define-key map (kbd "C-?") 'c-comment-selection-or-word)
   (define-key map (kbd "C-x SPC") 'gud-break)
+  (define-key map [(control c) (control s)] 'dov-git-grep-here)
+
   (outline-minor-mode)
   ; outline key bindings
   (outline-keys map)
@@ -1735,7 +1750,10 @@ With numeric ARG, display the images if and only if ARG is positive."
 (add-hook 'perl-mode-hook (lambda() (my-perlmode-stuff)))
 (add-hook 'c++-mode-hook (lambda() (my-cmode-stuff c++-mode-map)))
 (add-hook 'tcl-mode-hook (lambda() (do-return-indent tcl-mode-map)))
-(add-hook 'js2-mode-hook (lambda() (do-return-indent js2-mode-map)))
+(add-hook 'js2-mode-hook
+          (lambda()
+            (do-return-indent js2-mode-map)
+            (set-variable 'js2-basic-offset 2)))
 
 ;(add-hook 'py-mode-hook '(lambda() 
 ;                           (define-key py-mode-map [(control m)] 'py-newline-and-indent)
@@ -1974,14 +1992,6 @@ Does not delete the prompt."
 (custom-set-variables
  '(blink-cursor-mode nil)
  '(column-number-mode t)
- '(org-emphasis-alist
-   (quote
-    (
-     ("*" bold "<b>" "</b>")
-     ("/" italic "<i>" "</i>")
-     ("_" underline "<span style=\"text-decoration:underline;\">" "</span>")
-     ("=" org-code "<code>" "</code>" verbatim)
-     ("~" org-verbatim "<code>" "</code>" verbatim))))
  '(show-paren-mode t)
  '(tool-bar-mode nil))
 
