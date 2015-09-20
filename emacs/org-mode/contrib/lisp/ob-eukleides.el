@@ -1,6 +1,6 @@
 ;;; ob-eukleides.el --- Org-babel functions for eukleides evaluation
 
-;; Copyright (C) 2010-2013  Free Software Foundation, Inc.
+;; Copyright (C) 2010-2014  Free Software Foundation, Inc.
 
 ;; Author: Luis Anaya
 ;; Keywords: literate programming, reproducible research
@@ -81,7 +81,7 @@ This function is called by `org-babel-execute-src-block'."
             (shell-command (format org-eukleides-eps-to-raster
                                     (concat (file-name-sans-extension out-file) ".eps")
                                     (concat (file-name-sans-extension out-file) ".png")))
-          (error "Conversion to PNG not supported. use a file with an EPS name")))
+          (error "Conversion to PNG not supported.  Use a file with an EPS name")))
 
     (with-temp-file in-file (insert body))
     (message "%s" cmd) (org-babel-eval cmd "")

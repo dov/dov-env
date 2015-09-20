@@ -1,6 +1,6 @@
 ;;; ob-exp.el --- Exportation of org-babel source blocks
 
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
 ;; Authors: Eric Schulte
 ;;	Dan Davison
@@ -24,10 +24,10 @@
 
 ;;; Code:
 (require 'ob-core)
+(require 'org-src)
 (eval-when-compile
   (require 'cl))
 
-(defvar org-current-export-file)
 (defvar org-babel-lob-one-liner-regexp)
 (defvar org-babel-ref-split-regexp)
 (defvar org-list-forbidden-blocks)
@@ -38,15 +38,17 @@
 		  (start-re end-re &optional lim-up lim-down))
 (declare-function org-get-indentation "org" (&optional line))
 (declare-function org-heading-components "org" ())
+(declare-function org-in-commented-heading-p "org" (&optional no-inheritance))
 (declare-function org-in-block-p "org" (names))
 (declare-function org-in-verbatim-emphasis "org" ())
 (declare-function org-link-search "org" (s &optional type avoid-pos stealth))
 (declare-function org-fill-template "org" (template alist))
 (declare-function org-split-string "org" (string &optional separators))
-(declare-function org-element-at-point "org-element" (&optional keep-trail))
+(declare-function org-element-at-point "org-element" ())
 (declare-function org-element-context "org-element" ())
 (declare-function org-element-property "org-element" (property element))
 (declare-function org-element-type "org-element" (element))
+(declare-function org-id-get "org-id" (&optional pom create prefix))
 (declare-function org-escape-code-in-string "org-src" (s))
 
 (defcustom org-export-babel-evaluate t
@@ -61,33 +63,35 @@ be executed."
 		 (const :tag "Always" t)))
 (put 'org-export-babel-evaluate 'safe-local-variable (lambda (x) (eq x nil)))
 
-(defun org-babel-exp-get-export-buffer ()
-  "Return the current export buffer if possible."
-  (cond
-   ((bufferp org-current-export-file) org-current-export-file)
-   (org-current-export-file (get-file-buffer org-current-export-file))
-   ('otherwise
-    (error "Requested export buffer when `org-current-export-file' is nil"))))
-
+(defvar org-link-search-inhibit-query)
 (defmacro org-babel-exp-in-export-file (lang &rest body)
   (declare (indent 1))
   `(let* ((lang-headers (intern (concat "org-babel-default-header-args:" ,lang)))
-	  (heading (nth 4 (ignore-errors (org-heading-components))))
+	  (heading-query (or (org-id-get)
+			     ;; CUSTOM_IDs don't work, maybe they are
+			     ;; stripped, or maybe they resolve too
+			     ;; late in `org-link-search'.
+			     ;; (org-entry-get nil "CUSTOM_ID")
+			     (nth 4 (ignore-errors (org-heading-components)))))
 	  (export-buffer (current-buffer))
-	  (original-buffer (org-babel-exp-get-export-buffer)) results)
-     (when original-buffer
-       ;; resolve parameters in the original file so that
-       ;; headline and file-wide parameters are included, attempt
-       ;; to go to the same heading in the original file
-       (set-buffer original-buffer)
+	  results)
+     (when org-babel-exp-reference-buffer
+       ;; Resolve parameters in the original file so that headline and
+       ;; file-wide parameters are included, attempt to go to the same
+       ;; heading in the original file
+       (set-buffer org-babel-exp-reference-buffer)
        (save-restriction
-	 (when heading
+	 (when heading-query
 	   (condition-case nil
 	       (let ((org-link-search-inhibit-query t))
-		 (org-link-search heading))
-	     (error (when heading
+		 ;; TODO: When multiple headings have the same title,
+		 ;;       this returns the first, which is not always
+		 ;;       the right heading.  Consider a better way to
+		 ;;       find the proper heading.
+		 (org-link-search heading-query))
+	     (error (when heading-query
 		      (goto-char (point-min))
-		      (re-search-forward (regexp-quote heading) nil t)))))
+		      (re-search-forward (regexp-quote heading-query) nil t)))))
 	 (setq results ,@body))
        (set-buffer export-buffer)
        results)))
@@ -110,12 +114,14 @@ none ---- do not display either code or results upon export
 
 Assume point is at the beginning of block's starting line."
   (interactive)
-  (unless noninteractive (message "org-babel-exp processing..."))
   (save-excursion
     (let* ((info (org-babel-get-src-block-info 'light))
+	   (line (org-current-line))
 	   (lang (nth 0 info))
 	   (raw-params (nth 2 info)) hash)
       ;; bail if we couldn't get any info from the block
+      (unless noninteractive
+	(message "org-babel-exp process %s at line %d..." lang line))
       (when info
 	;; if we're actually going to need the parameters
 	(when (member (cdr (assoc :exports (nth 2 info))) '("both" "results"))
@@ -148,165 +154,152 @@ this template."
   :type 'string)
 
 (defvar org-babel-default-lob-header-args)
-(defun org-babel-exp-non-block-elements (start end)
-  "Process inline source and call lines between START and END for export."
-  (interactive)
-  (save-excursion
-    (goto-char start)
-    (unless (markerp end)
-      (let ((m (make-marker)))
-	(set-marker m end (current-buffer))
-	(setq end m)))
-    (let ((rx (concat "\\(?:"  org-babel-inline-src-block-regexp
-		      "\\|" org-babel-lob-one-liner-regexp "\\)")))
-      (while (re-search-forward rx end t)
-	(save-excursion
-	  (let* ((element (save-excursion
-			    ;; If match is inline, point is at its
-			    ;; end.  Move backward so
-			    ;; `org-element-context' can get the
-			    ;; object, not the following one.
-			    (backward-char)
-			    (save-match-data (org-element-context))))
-		 (type (org-element-type element)))
-	    (when (memq type '(babel-call inline-babel-call inline-src-block))
-	      (let ((beg-el (org-element-property :begin element))
-		    (end-el (org-element-property :end element)))
-		(case type
-		  (inline-src-block
-		   (let* ((info (org-babel-parse-inline-src-block-match))
-			  (params (nth 2 info)))
-		     (setf (nth 1 info)
-			   (if (and (cdr (assoc :noweb params))
-				    (string= "yes" (cdr (assoc :noweb params))))
-			       (org-babel-expand-noweb-references
-				info (org-babel-exp-get-export-buffer))
-			     (nth 1 info)))
-		     (goto-char beg-el)
-		     (let ((replacement (org-babel-exp-do-export info 'inline)))
-		       (if (equal replacement "")
-			   ;; Replacement code is empty: completely
-			   ;; remove inline src block, including extra
-			   ;; white space that might have been created
-			   ;; when inserting results.
-			   (delete-region beg-el
-					  (progn (goto-char end-el)
-						 (skip-chars-forward " \t")
-						 (point)))
-			 ;; Otherwise: remove inline src block but
-			 ;; preserve following white spaces.  Then
-			 ;; insert value.
-			 (delete-region beg-el
-					(progn (goto-char end-el)
-					       (skip-chars-backward " \t")
-					       (point)))
-			 (insert replacement)))))
-		  ((babel-call inline-babel-call)
-		   (let* ((lob-info (org-babel-lob-get-info))
-			  (results
-			   (org-babel-exp-do-export
-			    (list "emacs-lisp" "results"
-				  (apply #'org-babel-merge-params
-					 org-babel-default-header-args
-					 org-babel-default-lob-header-args
-					 (append
-					  (org-babel-params-from-properties)
-					  (list
-					   (org-babel-parse-header-arguments
-					    (org-no-properties
-					     (concat
-					      ":var results="
-					      (mapconcat 'identity
-							 (butlast lob-info 2)
-							 " ")))))))
-				  "" (nth 3 lob-info) (nth 2 lob-info))
-			    'lob))
-			  (rep (org-fill-template
-				org-babel-exp-call-line-template
-				`(("line"  . ,(nth 0 lob-info))))))
-		     ;; If replacement is empty, completely remove the
-		     ;; object/element, including any extra white space
-		     ;; that might have been created when including
-		     ;; results.
-		     (if (equal rep "")
-			 (delete-region
-			  beg-el
-			  (progn (goto-char end-el)
-				 (if (not (eq type 'babel-call))
-				     (progn (skip-chars-forward " \t") (point))
-				   (skip-chars-forward " \r\t\n")
-				   (line-beginning-position))))
-		       ;; Otherwise, preserve following white
-		       ;; spaces/newlines and then, insert replacement
-		       ;; string.
-		       (goto-char beg-el)
-		       (delete-region beg-el
-				      (progn (goto-char end-el)
-					     (skip-chars-backward " \r\t\n")
-					     (point)))
-		       (insert rep)))))))))))))
-
-(defvar org-src-preserve-indentation)	; From org-src.el
-(defun org-babel-exp-process-buffer ()
-  "Execute all blocks in visible part of buffer."
+(defun org-babel-exp-process-buffer (reference-buffer)
+  "Execute all Babel blocks in current buffer.
+REFERENCE-BUFFER is the buffer containing a pristine copy of the
+buffer being processed.  It is used to properly resolve
+references in source blocks, as modifications in current buffer
+may make them unreachable."
   (interactive)
   (save-window-excursion
-    (let ((case-fold-search t)
-	  (pos (point-min)))
-      (goto-char pos)
-      (while (re-search-forward "^[ \t]*#\\+BEGIN_SRC" nil t)
-        (let ((element (save-match-data (org-element-at-point))))
-          (when (eq (org-element-type element) 'src-block)
-            (let* ((match-start (copy-marker (match-beginning 0)))
-                   (begin (copy-marker (org-element-property :begin element)))
-                   ;; Make sure we don't remove any blank lines after
-                   ;; the block when replacing it.
-                   (block-end (save-excursion
-				(goto-char (org-element-property :end element))
-				(skip-chars-backward " \r\t\n")
-				(copy-marker (line-end-position))))
-                   (ind (org-get-indentation))
-                   (headers
-		    (cons
-		     (org-element-property :language element)
-		     (let ((params (org-element-property :parameters element)))
-		       (and params (org-split-string params "[ \t]+"))))))
-              ;; Execute all non-block elements between POS and
-              ;; current block.
-              (org-babel-exp-non-block-elements pos begin)
-	      ;; Take care of matched block: compute replacement
-	      ;; string. In particular, a nil REPLACEMENT means the
-	      ;; block should be left as-is while an empty string
-	      ;; should remove the block.
-              (let ((replacement (progn (goto-char match-start)
-					(org-babel-exp-src-block headers))))
-                (cond ((not replacement) (goto-char block-end))
-		      ((equal replacement "")
-		       (delete-region begin
-				      (progn (goto-char block-end)
-					     (skip-chars-forward " \r\t\n")
-					     (if (eobp) (point)
-					       (line-beginning-position)))))
-		      (t
-		       (goto-char match-start)
-		       (delete-region (point) block-end)
-		       (insert replacement)
-		       (if (org-element-property :preserve-indent element)
-			   ;; Indent only the code block markers.
-			   (save-excursion (skip-chars-backward " \r\t\n")
-					   (indent-line-to ind)
-					   (goto-char match-start)
-					   (indent-line-to ind))
-			 ;; Indent everything.
-			 (indent-rigidly match-start (point) ind)))))
-	      (setq pos (line-beginning-position))
-              ;; Cleanup markers.
-	      (set-marker match-start nil)
+    (save-excursion
+      (let ((case-fold-search t)
+	    (org-babel-exp-reference-buffer reference-buffer)
+	    (regexp (concat org-babel-inline-src-block-regexp "\\|"
+			    org-babel-lob-one-liner-regexp "\\|"
+			    "^[ \t]*#\\+BEGIN_SRC")))
+	(goto-char (point-min))
+	(while (re-search-forward regexp nil t)
+	  (unless (save-match-data (org-in-commented-heading-p))
+	    (let* ((element (save-excursion
+			      ;; If match is inline, point is at its
+			      ;; end.  Move backward so
+			      ;; `org-element-context' can get the
+			      ;; object, not the following one.
+			      (backward-char)
+			      (save-match-data (org-element-context))))
+		   (type (org-element-type element))
+		   (begin (copy-marker (org-element-property :begin element)))
+		   (end (copy-marker
+			 (save-excursion
+			   (goto-char (org-element-property :end element))
+			   (skip-chars-backward " \r\t\n")
+			   (point)))))
+	      (case type
+		(inline-src-block
+		 (let* ((head (match-beginning 0))
+			(info (append (org-babel-parse-inline-src-block-match)
+				      (list nil nil head)))
+			(params (nth 2 info)))
+		   (setf (nth 1 info)
+			 (if (and (cdr (assoc :noweb params))
+				  (string= "yes" (cdr (assoc :noweb params))))
+			     (org-babel-expand-noweb-references
+			      info org-babel-exp-reference-buffer)
+			   (nth 1 info)))
+		   (goto-char begin)
+		   (let ((replacement (org-babel-exp-do-export info 'inline)))
+		     (if (equal replacement "")
+			 ;; Replacement code is empty: remove inline
+			 ;; source block, including extra white space
+			 ;; that might have been created when
+			 ;; inserting results.
+			 (delete-region begin
+					(progn (goto-char end)
+					       (skip-chars-forward " \t")
+					       (point)))
+		       ;; Otherwise: remove inline src block but
+		       ;; preserve following white spaces.  Then
+		       ;; insert value.
+		       (delete-region begin end)
+		       (insert replacement)))))
+		((babel-call inline-babel-call)
+		 (let* ((lob-info (org-babel-lob-get-info))
+			(results
+			 (org-babel-exp-do-export
+			  (list "emacs-lisp" "results"
+				(apply #'org-babel-merge-params
+				       org-babel-default-header-args
+				       org-babel-default-lob-header-args
+				       (append
+					(org-babel-params-from-properties)
+					(list
+					 (org-babel-parse-header-arguments
+					  (org-no-properties
+					   (concat
+					    ":var results="
+					    (mapconcat 'identity
+						       (butlast lob-info 2)
+						       " ")))))))
+				"" (nth 3 lob-info) (nth 2 lob-info))
+			  'lob))
+			(rep (org-fill-template
+			      org-babel-exp-call-line-template
+			      `(("line"  . ,(nth 0 lob-info))))))
+		   ;; If replacement is empty, completely remove the
+		   ;; object/element, including any extra white space
+		   ;; that might have been created when including
+		   ;; results.
+		   (if (equal rep "")
+		       (delete-region
+			begin
+			(progn (goto-char end)
+			       (if (not (eq type 'babel-call))
+				   (progn (skip-chars-forward " \t") (point))
+				 (skip-chars-forward " \r\t\n")
+				 (line-beginning-position))))
+		     ;; Otherwise, preserve following white
+		     ;; spaces/newlines and then, insert replacement
+		     ;; string.
+		     (goto-char begin)
+		     (delete-region begin end)
+		     (insert rep))))
+		(src-block
+		 (let* ((match-start (copy-marker (match-beginning 0)))
+			(ind (org-get-indentation))
+			(lang (or (org-element-property :language element)
+				  (user-error
+				   "No language for src block: %s"
+				   (or (org-element-property :name element)
+				       "(unnamed)"))))
+			(headers
+			 (cons lang
+			       (let ((params
+				      (org-element-property
+				       :parameters element)))
+				 (and params (org-split-string params))))))
+		   ;; Take care of matched block: compute replacement
+		   ;; string.  In particular, a nil REPLACEMENT means
+		   ;; the block should be left as-is while an empty
+		   ;; string should remove the block.
+		   (let ((replacement
+			  (progn (goto-char match-start)
+				 (org-babel-exp-src-block headers))))
+		     (cond ((not replacement) (goto-char end))
+			   ((equal replacement "")
+			    (goto-char end)
+			    (skip-chars-forward " \r\t\n")
+			    (beginning-of-line)
+			    (delete-region begin (point)))
+			   (t
+			    (goto-char match-start)
+			    (delete-region (point)
+					   (save-excursion (goto-char end)
+							   (line-end-position)))
+			    (insert replacement)
+			    (if (or org-src-preserve-indentation
+				    (org-element-property :preserve-indent
+							  element))
+				;; Indent only the code block markers.
+				(save-excursion (skip-chars-backward " \r\t\n")
+						(indent-line-to ind)
+						(goto-char match-start)
+						(indent-line-to ind))
+			      ;; Indent everything.
+			      (indent-rigidly match-start (point) ind)))))
+		   (set-marker match-start nil))))
 	      (set-marker begin nil)
-              (set-marker block-end nil)))))
-      ;; Eventually execute all non-block Babel elements between last
-      ;; src-block and end of buffer.
-      (org-babel-exp-non-block-elements pos (point-max)))))
+	      (set-marker end nil))))))))
 
 (defun org-babel-in-example-or-verbatim ()
   "Return true if point is in example or verbatim code.
@@ -327,16 +320,18 @@ The function respects the value of the :exports header argument."
   (let ((silently (lambda () (let ((session (cdr (assoc :session (nth 2 info)))))
 			       (when (not (and session (equal "none" session)))
 				 (org-babel-exp-results info type 'silent)))))
-	(clean (lambda () (unless (eq type 'inline) (org-babel-remove-result info)))))
+	(clean (lambda () (if (eq type 'inline)
+			      (org-babel-remove-inline-result)
+			    (org-babel-remove-result info)))))
     (case (intern (or (cdr (assoc :exports (nth 2 info))) "code"))
       ('none (funcall silently) (funcall clean) "")
-      ('code (funcall silently) (funcall clean) (org-babel-exp-code info))
+      ('code (funcall silently) (funcall clean) (org-babel-exp-code info type))
       ('results (org-babel-exp-results info type nil hash) "")
       ('both (org-babel-exp-results info type nil hash)
-	     (org-babel-exp-code info)))))
+	     (org-babel-exp-code info type)))))
 
 (defcustom org-babel-exp-code-template
-  "#+BEGIN_SRC %lang%flags\n%body\n#+END_SRC"
+  "#+BEGIN_SRC %lang%switches%flags\n%body\n#+END_SRC"
   "Template used to export the body of code blocks.
 This template may be customized to include additional information
 such as the code block name, or the values of particular header
@@ -346,6 +341,7 @@ and the following %keys may be used.
  lang ------ the language of the code block
  name ------ the name of the code block
  body ------ the body of the code block
+ switches -- the switches associated to the code block
  flags ----- the flags passed to the code block
 
 In addition to the keys mentioned above, every header argument
@@ -354,7 +350,29 @@ replaced with its value."
   :group 'org-babel
   :type 'string)
 
-(defun org-babel-exp-code (info)
+(defcustom org-babel-exp-inline-code-template
+  "src_%lang[%switches%flags]{%body}"
+  "Template used to export the body of inline code blocks.
+This template may be customized to include additional information
+such as the code block name, or the values of particular header
+arguments.  The template is filled out using `org-fill-template',
+and the following %keys may be used.
+
+ lang ------ the language of the code block
+ name ------ the name of the code block
+ body ------ the body of the code block
+ switches -- the switches associated to the code block
+ flags ----- the flags passed to the code block
+
+In addition to the keys mentioned above, every header argument
+defined for the code block may be used as a key and will be
+replaced with its value."
+  :group 'org-babel
+  :type 'string
+  :version "25.1"
+  :package-version '(Org . "8.3"))
+
+(defun org-babel-exp-code (info type)
   "Return the original code block formatted for export."
   (setf (nth 1 info)
 	(if (string= "strip-export" (cdr (assoc :noweb (nth 2 info))))
@@ -362,17 +380,22 @@ replaced with its value."
 	     (org-babel-noweb-wrap) "" (nth 1 info))
 	  (if (org-babel-noweb-p (nth 2 info) :export)
 	      (org-babel-expand-noweb-references
-	       info (org-babel-exp-get-export-buffer))
+	       info org-babel-exp-reference-buffer)
 	    (nth 1 info))))
   (org-fill-template
-   org-babel-exp-code-template
+   (if (eq type 'inline)
+       org-babel-exp-inline-code-template 
+       org-babel-exp-code-template)
    `(("lang"  . ,(nth 0 info))
      ("body"  . ,(org-escape-code-in-string (nth 1 info)))
+     ("switches" . ,(let ((f (nth 3 info)))
+		      (and (org-string-nw-p f) (concat " " f))))
+     ("flags" . ,(let ((f (assq :flags (nth 2 info))))
+		   (and f (concat " " (cdr f)))))
      ,@(mapcar (lambda (pair)
 		 (cons (substring (symbol-name (car pair)) 1)
 		       (format "%S" (cdr pair))))
 	       (nth 2 info))
-     ("flags" . ,((lambda (f) (when f (concat " " f))) (nth 3 info)))
      ("name"  . ,(or (nth 4 info) "")))))
 
 (defun org-babel-exp-results (info type &optional silent hash)
@@ -388,7 +411,7 @@ inhibit insertion of results into the buffer."
     (let ((lang (nth 0 info))
 	  (body (if (org-babel-noweb-p (nth 2 info) :eval)
 		    (org-babel-expand-noweb-references
-		     info (org-babel-exp-get-export-buffer))
+		     info org-babel-exp-reference-buffer)
 		  (nth 1 info)))
 	  (info (copy-sequence info))
 	  (org-babel-current-src-block-location (point-marker)))

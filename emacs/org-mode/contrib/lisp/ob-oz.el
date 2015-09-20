@@ -1,6 +1,6 @@
 ;;; ob-oz.el --- Org-babel functions for Oz evaluation
 
-;; Copyright (C) 2009-2013 Torsten Anders and Eric Schulte
+;; Copyright (C) 2009-2014 Torsten Anders and Eric Schulte
 
 ;; Author: Torsten Anders and Eric Schulte
 ;; Keywords: literate programming, reproducible research
@@ -90,7 +90,7 @@
 
 (require 'ob)
 ;;; major mode for editing Oz programs
-(require 'mozart)
+(require 'mozart nil t)
 
 ;;
 ;; Interface to communicate with Oz.
@@ -226,7 +226,7 @@ called by `org-babel-execute-src-block' via multiple-value-bind."
       ((member "value" result-params)
        (message "Org-babel: executing Oz expression")
        (oz-send-string-expression full-body (or wait-time 1)))
-      (t (error "either 'output' or 'results' must be members of :results.")))
+      (t (error "either 'output' or 'results' must be members of :results")))
      (org-babel-pick-name (cdr (assoc :colname-names params))
 			  (cdr (assoc :colnames params)))
      (org-babel-pick-name (cdr (assoc :roname-names params))

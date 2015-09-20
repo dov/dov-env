@@ -1,6 +1,6 @@
 ;;; org-inlinetask.el --- Tasks independent of outline hierarchy
 
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -103,11 +103,11 @@ the value of this variable."
   "Non-nil means display the first star of an inline task as additional marker.
 When nil, the first star is not shown."
   :tag "Org Inline Tasks"
-  :group 'org-structure)
+  :group 'org-structure
+  :type 'boolean)
 
 (defvar org-odd-levels-only)
 (defvar org-keyword-time-regexp)
-(defvar org-drawer-regexp)
 (defvar org-complex-heading-regexp)
 (defvar org-property-end-re)
 
@@ -314,10 +314,27 @@ If the task has an end part, also demote it."
      ;; Nothing to show/hide.
      ((= end start))
      ;; Inlinetask was folded: expand it.
-     ((get-char-property (1+ start) 'invisible)
+     ((eq (get-char-property (1+ start) 'invisible) 'outline)
       (outline-flag-region start end nil)
       (org-cycle-hide-drawers 'children))
      (t (outline-flag-region start end t)))))
+
+(defun org-inlinetask-hide-tasks (state)
+  "Hide inline tasks in buffer when STATE is `contents' or `children'.
+This function is meant to be used in `org-cycle-hook'."
+  (case state
+    (contents
+     (let ((regexp (org-inlinetask-outline-regexp)))
+       (save-excursion
+	 (goto-char (point-min))
+	 (while (re-search-forward regexp nil t)
+	   (org-inlinetask-toggle-visibility)
+	   (org-inlinetask-goto-end)))))
+    (children
+     (save-excursion
+       (while (and (outline-next-heading) (org-inlinetask-at-task-p))
+	 (org-inlinetask-toggle-visibility)
+	 (org-inlinetask-goto-end))))))
 
 (defun org-inlinetask-remove-END-maybe ()
   "Remove an END line when present."
@@ -325,8 +342,8 @@ If the task has an end part, also demote it."
 			    org-inlinetask-min-level))
     (replace-match "")))
 
-(eval-after-load "org"
-  '(add-hook 'org-font-lock-hook 'org-inlinetask-fontify))
+(add-hook 'org-font-lock-hook 'org-inlinetask-fontify)
+(add-hook 'org-cycle-hook 'org-inlinetask-hide-tasks)
 
 (provide 'org-inlinetask)
 

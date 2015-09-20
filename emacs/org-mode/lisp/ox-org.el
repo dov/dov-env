@@ -1,9 +1,11 @@
 ;;; ox-org.el --- Org Back-End for Org Export Engine
 
-;; Copyright (C) 2013  Free Software Foundation, Inc.
+;; Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou@gmail.com>
 ;; Keywords: org, wp
+
+;; This file is part of GNU Emacs.
 
 ;; GNU Emacs is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -20,15 +22,8 @@
 
 ;;; Commentary:
 
-;; This library implements an Org back-end for Org exporter.
-;;
-;; It introduces two interactive functions, `org-org-export-as-org'
-;; and `org-org-export-to-org', which export, respectively, to
-;; a temporary buffer and to a file.
-;;
-;; A publishing function is also provided: `org-org-publish-to-org'.
-
 ;;; Code:
+
 (require 'ox)
 (declare-function htmlize-buffer "htmlize" (&optional buffer))
 
@@ -62,15 +57,13 @@ setting of `org-html-htmlize-output-type' is 'css."
     (center-block . org-org-identity)
     (clock . org-org-identity)
     (code . org-org-identity)
-    (comment . (lambda (&rest args) ""))
-    (comment-block . (lambda (&rest args) ""))
     (diary-sexp . org-org-identity)
     (drawer . org-org-identity)
     (dynamic-block . org-org-identity)
     (entity . org-org-identity)
     (example-block . org-org-identity)
     (fixed-width . org-org-identity)
-    (footnote-definition . org-org-identity)
+    (footnote-definition . ignore)
     (footnote-reference . org-org-identity)
     (headline . org-org-headline)
     (horizontal-rule . org-org-identity)
@@ -83,16 +76,16 @@ setting of `org-html-htmlize-output-type' is 'css."
     (latex-environment . org-org-identity)
     (latex-fragment . org-org-identity)
     (line-break . org-org-identity)
-    (link . org-org-identity)
+    (link . org-org-link)
     (node-property . org-org-identity)
+    (template . org-org-template)
     (paragraph . org-org-identity)
     (plain-list . org-org-identity)
     (planning . org-org-identity)
     (property-drawer . org-org-identity)
     (quote-block . org-org-identity)
-    (quote-section . org-org-identity)
     (radio-target . org-org-identity)
-    (section . org-org-identity)
+    (section . org-org-section)
     (special-block . org-org-identity)
     (src-block . org-org-identity)
     (statistics-cookie . org-org-identity)
@@ -119,33 +112,104 @@ setting of `org-html-htmlize-output-type' is 'css."
 (defun org-org-identity (blob contents info)
   "Transcode BLOB element or object back into Org syntax.
 CONTENTS is its contents, as a string or nil.  INFO is ignored."
-  (org-export-expand blob contents t))
+  (let ((case-fold-search t))
+    (replace-regexp-in-string
+     "^[ \t]*#\\+ATTR_[-_A-Za-z0-9]+:\\(?: .*\\)?\n" ""
+     (org-export-expand blob contents t))))
 
 (defun org-org-headline (headline contents info)
   "Transcode HEADLINE element back into Org syntax.
 CONTENTS is its contents, as a string or nil.  INFO is ignored."
-  (unless (plist-get info :with-todo-keywords)
-    (org-element-put-property headline :todo-keyword nil))
-  (unless (plist-get info :with-tags)
-    (org-element-put-property headline :tags nil))
-  (unless (plist-get info :with-priority)
-    (org-element-put-property headline :priority nil))
-  (org-element-headline-interpreter headline contents))
+  (unless (org-element-property :footnote-section-p headline)
+    (unless (plist-get info :with-todo-keywords)
+      (org-element-put-property headline :todo-keyword nil))
+    (unless (plist-get info :with-tags)
+      (org-element-put-property headline :tags nil))
+    (unless (plist-get info :with-priority)
+      (org-element-put-property headline :priority nil))
+    (org-element-put-property headline :level
+			      (org-export-get-relative-level headline info))
+    (org-element-headline-interpreter headline contents)))
 
 (defun org-org-keyword (keyword contents info)
   "Transcode KEYWORD element back into Org syntax.
-CONTENTS is nil.  INFO is ignored.  This function ignores
-keywords targeted at other export back-ends."
-  (unless (member (org-element-property :key keyword)
-		  (mapcar
-		   (lambda (block-cons)
-		     (and (eq (cdr block-cons) 'org-element-export-block-parser)
-			  (car block-cons)))
-		   org-element-block-name-alist))
-    (org-element-keyword-interpreter keyword nil)))
+CONTENTS is nil.  INFO is ignored."
+  (let ((key (org-element-property :key keyword)))
+    (unless (member key
+		    '("AUTHOR" "CREATOR" "DATE" "EMAIL" "OPTIONS" "TITLE"))
+      (org-element-keyword-interpreter keyword nil))))
+
+(defun org-org-link (link contents info)
+  "Transcode LINK object back into Org syntax.
+CONTENTS is the description of the link, as a string, or nil.
+INFO is a plist containing current export state."
+  (or (org-export-custom-protocol-maybe link contents 'org)
+      (org-element-link-interpreter link contents)))
+
+(defun org-org-template (contents info)
+  "Return Org document template with document keywords.
+CONTENTS is the transcoded contents string.  INFO is a plist used
+as a communication channel."
+  (concat
+   (and (plist-get info :time-stamp-file)
+	(format-time-string "# Created %Y-%m-%d %a %H:%M\n"))
+   (org-element-normalize-string
+    (mapconcat #'identity
+	       (org-element-map (plist-get info :parse-tree) 'keyword
+		 (lambda (k)
+		   (and (string-equal (org-element-property :key k) "OPTIONS")
+			(concat "#+OPTIONS: "
+				(org-element-property :value k)))))
+	       "\n"))
+   (and (plist-get info :with-title)
+	(format "#+TITLE: %s\n" (org-export-data (plist-get info :title) info)))
+   (and (plist-get info :with-date)
+	(let ((date (org-export-data (org-export-get-date info) info)))
+	  (and (org-string-nw-p date)
+	       (format "#+DATE: %s\n" date))))
+   (and (plist-get info :with-author)
+	(let ((author (org-export-data (plist-get info :author) info)))
+	  (and (org-string-nw-p author)
+	       (format "#+AUTHOR: %s\n" author))))
+   (and (plist-get info :with-email)
+	(let ((email (org-export-data (plist-get info :email) info)))
+	  (and (org-string-nw-p email)
+	       (format "#+EMAIL: %s\n" email))))
+   (and (plist-get info :with-creator)
+	(org-string-nw-p (plist-get info :creator))
+	(format "#+CREATOR: %s\n" (plist-get info :creator)))
+   contents))
+
+(defun org-org-section (section contents info)
+  "Transcode SECTION element back into Org syntax.
+CONTENTS is the contents of the section.  INFO is a plist used as
+a communication channel."
+  (concat
+   (org-element-normalize-string contents)
+   ;; Insert footnote definitions appearing for the first time in this
+   ;; section.  Indeed, some of them may not be available to narrowing
+   ;; so we make sure all of them are included in the result.
+   (let ((footnotes-alist
+	  (org-element-map section 'footnote-reference
+	    (lambda (fn)
+	      (and (eq (org-element-property :type fn) 'standard)
+		   (org-export-footnote-first-reference-p fn info)
+		   (cons (org-element-property :label fn)
+			 (org-export-get-footnote-definition fn info))))
+	    info)))
+     (and footnotes-alist
+	  (concat "\n"
+		  (mapconcat
+		   (lambda (d)
+		     (org-element-normalize-string
+		      (concat (format "[%s] "(car d))
+			      (org-export-data (cdr d) info))))
+		   footnotes-alist "\n"))))
+   (make-string (or (org-element-property :post-blank section) 0) ?\n)))
 
 ;;;###autoload
-(defun org-org-export-as-org (&optional async subtreep visible-only ext-plist)
+(defun org-org-export-as-org
+  (&optional async subtreep visible-only body-only ext-plist)
   "Export current buffer to an Org buffer.
 
 If narrowing is active in the current buffer, only export its
@@ -164,6 +228,9 @@ first.
 When optional argument VISIBLE-ONLY is non-nil, don't export
 contents of hidden elements.
 
+When optional argument BODY-ONLY is non-nil, strip document
+keywords from output.
+
 EXT-PLIST, when provided, is a property list with external
 parameters overriding Org default settings, but still inferior to
 file-local settings.
@@ -173,10 +240,11 @@ be displayed when `org-export-show-temporary-export-buffer' is
 non-nil."
   (interactive)
   (org-export-to-buffer 'org "*Org ORG Export*"
-    async subtreep visible-only nil ext-plist (lambda () (org-mode))))
+    async subtreep visible-only body-only ext-plist (lambda () (org-mode))))
 
 ;;;###autoload
-(defun org-org-export-to-org (&optional async subtreep visible-only ext-plist)
+(defun org-org-export-to-org
+  (&optional async subtreep visible-only body-only ext-plist)
   "Export current buffer to an org file.
 
 If narrowing is active in the current buffer, only export its
@@ -195,6 +263,9 @@ first.
 When optional argument VISIBLE-ONLY is non-nil, don't export
 contents of hidden elements.
 
+When optional argument BODY-ONLY is non-nil, strip document
+keywords from output.
+
 EXT-PLIST, when provided, is a property list with external
 parameters overriding Org default settings, but still inferior to
 file-local settings.
@@ -203,7 +274,7 @@ Return output file name."
   (interactive)
   (let ((outfile (org-export-output-file-name ".org" subtreep)))
     (org-export-to-file 'org outfile
-      async subtreep visible-only nil ext-plist)))
+      async subtreep visible-only body-only ext-plist)))
 
 ;;;###autoload
 (defun org-org-publish-to-org (plist filename pub-dir)
@@ -225,7 +296,7 @@ Return output file name."
 	   (visitingp (find-buffer-visiting filename))
 	   (work-buffer (or visitingp (find-file filename)))
 	   newbuf)
-      (font-lock-fontify-buffer)
+      (font-lock-ensure)
       (show-all)
       (org-show-block-all)
       (setq newbuf (htmlize-buffer))

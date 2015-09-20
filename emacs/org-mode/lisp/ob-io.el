@@ -1,6 +1,6 @@
 ;;; ob-io.el --- org-babel functions for Io evaluation
 
-;; Copyright (C) 2012-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2014 Free Software Foundation, Inc.
 
 ;; Author: Andrzej Lichnerowicz
 ;; Keywords: literate programming, reproducible research
@@ -62,14 +62,6 @@ called by `org-babel-execute-src-block'"
      (org-babel-pick-name
       (cdr (assoc :rowname-names params)) (cdr (assoc :rownames params))))))
 
-
-(defun org-babel-io-table-or-string (results)
-  "Convert RESULTS into an appropriate elisp value.
-If RESULTS look like a table, then convert them into an
-Emacs-lisp table, otherwise return the results as a string."
-  (org-babel-script-escape results))
-
-
 (defvar org-babel-io-wrapper-method
   "(
 %s
@@ -94,12 +86,11 @@ in BODY as elisp."
     (value (let* ((src-file (org-babel-temp-file "io-"))
                   (wrapper (format org-babel-io-wrapper-method body)))
              (with-temp-file src-file (insert wrapper))
-             ((lambda (raw)
-                (org-babel-result-cond result-params
-		  raw
-                  (org-babel-io-table-or-string raw)))
-              (org-babel-eval
-               (concat org-babel-io-command " " src-file) ""))))))
+             (let ((raw (org-babel-eval
+                         (concat org-babel-io-command " " src-file) "")))
+               (org-babel-result-cond result-params
+		 raw
+                 (org-babel-script-escape raw)))))))
 
 
 (defun org-babel-prep-session:io (session params)

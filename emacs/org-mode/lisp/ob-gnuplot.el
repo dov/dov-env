@@ -1,6 +1,6 @@
 ;;; ob-gnuplot.el --- org-babel functions for gnuplot evaluation
 
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
@@ -64,7 +64,7 @@
     (term       . :any))
   "Gnuplot specific header args.")
 
-(defvar org-babel-gnuplot-timestamp-fmt nil)
+(defvar org-babel-gnuplot-timestamp-fmt nil) ; Dynamically scoped.
 
 (defvar *org-babel-gnuplot-missing* nil)
 
@@ -85,10 +85,15 @@ code."
      (lambda (pair)
        (cons
 	(car pair) ;; variable name
-	(if (listp (cdr pair)) ;; variable value
-	    (org-babel-gnuplot-table-to-data
-	     (cdr pair) (org-babel-temp-file "gnuplot-") params)
-	  (cdr pair))))
+	(let* ((val (cdr pair)) ;; variable value
+	       (lp  (listp val)))
+	  (if lp
+	      (org-babel-gnuplot-table-to-data
+	       (let* ((first  (car val))
+		      (tablep (or (listp first) (symbolp first))))
+		 (if tablep val (mapcar 'list val)))
+	       (org-babel-temp-file "gnuplot-") params)
+	  val))))
      (mapcar #'cdr (org-babel-get-header params :var)))))
 
 (defun org-babel-expand-body:gnuplot (body params)
@@ -250,7 +255,7 @@ then create one.  Return the initialized session.  The current
 	(org-babel-gnuplot-quote-timestamp-field s)
       (if (zerop (length s))
 	  (or *org-babel-gnuplot-missing* s)
-	(if (string-match "[ \"]" "?")
+	(if (string-match "[ \"]" s)
 	    (concat "\"" (mapconcat 'identity (split-string s "\"") "\"\"")
 		    "\"")
 	  s)))))
@@ -259,15 +264,13 @@ then create one.  Return the initialized session.  The current
   "Export TABLE to DATA-FILE in a format readable by gnuplot.
 Pass PARAMS through to `orgtbl-to-generic' when exporting TABLE."
   (with-temp-file data-file
-    (make-local-variable 'org-babel-gnuplot-timestamp-fmt)
-    (setq org-babel-gnuplot-timestamp-fmt (or
-                                           (plist-get params :timefmt)
-                                           "%Y-%m-%d-%H:%M:%S"))
-    (insert (orgtbl-to-generic
-	     table
-	     (org-combine-plists
-	      '(:sep "\t" :fmt org-babel-gnuplot-quote-tsv-field)
-	      params))))
+    (insert (let ((org-babel-gnuplot-timestamp-fmt
+		   (or (plist-get params :timefmt) "%Y-%m-%d-%H:%M:%S")))
+	      (orgtbl-to-generic
+	       table
+	       (org-combine-plists
+		'(:sep "\t" :fmt org-babel-gnuplot-quote-tsv-field)
+		params)))))
   data-file)
 
 (provide 'ob-gnuplot)

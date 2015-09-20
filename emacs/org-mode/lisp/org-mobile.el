@@ -1,5 +1,5 @@
 ;;; org-mobile.el --- Code for asymmetric sync with a mobile device
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -439,14 +439,14 @@ agenda view showing the flagged items."
 	(if org-mobile-use-encryption
 	    org-mobile-encryption-tempfile
 	  target-file)
+      (insert "#+READONLY\n")
       (while (setq entry (pop def-todo))
-	(insert "#+READONLY\n")
 	(setq kwds (mapcar (lambda (x) (if (string-match "(" x)
 					   (substring x 0 (match-beginning 0))
 					 x))
 			   (cdr entry)))
 	(insert "#+TODO: " (mapconcat 'identity kwds " ") "\n")
-	(setq dwds (member "|" kwds)
+	(setq dwds (or (member "|" kwds) (last kwds))
 	      twds (org-delete-all dwds kwds)
 	      todo-kwds (org-delete-all twds todo-kwds)
 	      done-kwds (org-delete-all dwds done-kwds)))
@@ -459,6 +459,7 @@ agenda view showing the flagged items."
 			      ((stringp x) x)
 			      ((eq (car x) :startgroup) "{")
 			      ((eq (car x) :endgroup) "}")
+			      ((eq (car x) :grouptags) nil)
 			      ((eq (car x) :newline) nil)
 			      ((listp x) (car x))))
 		      def-tags))
@@ -498,7 +499,8 @@ agenda view showing the flagged items."
 	    (org-mobile-encrypt-and-move file target-path)
 	  (copy-file file target-path 'ok-if-exists))
 	(setq check (shell-command-to-string
-		     (concat org-mobile-checksum-binary " "
+		     (concat (shell-quote-argument org-mobile-checksum-binary)
+			     " "
 			     (shell-quote-argument (expand-file-name file)))))
 	(when (string-match "[a-fA-F0-9]\\{30,40\\}" check)
 	  (push (cons link-name (match-string 0 check))
@@ -1071,7 +1073,7 @@ be returned that indicates what went wrong."
 	    ;; which prevents correct insertion when point is invisible
 	    (org-show-subtree)
 	    (end-of-line 1)
-	    (org-insert-heading-respect-content '(16) t)
+	    (org-insert-heading-respect-content t)
 	    (org-demote))
 	(beginning-of-line)
 	(insert "* "))

@@ -507,6 +507,12 @@ Optional argument ARG is the same as for `backward-kill-word'."
     ))
   (require 'org-table)
   (set-default-font my-default-font)
+
+  ;; Customize colors
+  (require 'cl)   ; for delete*
+  (setq org-emphasis-alist
+        (cons '("+" '(:strike-through t :foreground "gray30"))
+              (delete* "+" org-emphasis-alist :key 'car :test 'equal)))
   )
 
 
@@ -701,7 +707,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (add-to-list 'iimage-mode-image-regex-alist
              (cons (concat "\\[\\[file:\\(~?" iimage-mode-image-filename-regex
                            "\\)\\]")  1))
-;(load "org-mediawiki.el")
+(load "ox-mediawiki.el")
 
 ;; Python use python-mode
 (setq ipython-command "ipython")

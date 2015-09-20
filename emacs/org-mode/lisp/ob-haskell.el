@@ -1,6 +1,6 @@
 ;;; ob-haskell.el --- org-babel functions for haskell evaluation
 
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
@@ -79,12 +79,12 @@
                    (cdr (member org-babel-haskell-eoe
                                 (reverse (mapcar #'org-babel-trim raw)))))))
     (org-babel-reassemble-table
-     ((lambda (result)
-	(org-babel-result-cond (cdr (assoc :result-params params))
-	  result (org-babel-haskell-table-or-string result)))
-      (case result-type
-	('output (mapconcat #'identity (reverse (cdr results)) "\n"))
-	('value (car results))))
+     (let ((result
+            (case result-type
+              (output (mapconcat #'identity (reverse (cdr results)) "\n"))
+              (value (car results)))))
+       (org-babel-result-cond (cdr (assoc :result-params params))
+	 result (org-babel-script-escape result)))
      (org-babel-pick-name (cdr (assoc :colname-names params))
 			  (cdr (assoc :colname-names params)))
      (org-babel-pick-name (cdr (assoc :rowname-names params))
@@ -133,12 +133,6 @@ then create one.  Return the initialized session."
 		    (org-babel-haskell-var-to-haskell (cdr pair))))
 	  (mapcar #'cdr (org-babel-get-header params :var))))
 
-(defun org-babel-haskell-table-or-string (results)
-  "Convert RESULTS to an Emacs-lisp table or string.
-If RESULTS look like a table, then convert them into an
-Emacs-lisp table, otherwise return the results as a string."
-  (org-babel-script-escape results))
-
 (defun org-babel-haskell-var-to-haskell (var)
   "Convert an elisp value VAR into a haskell variable.
 The elisp VAR is converted to a string of haskell source code
@@ -147,7 +141,7 @@ specifying a variable of the same value."
       (concat "[" (mapconcat #'org-babel-haskell-var-to-haskell var ", ") "]")
     (format "%S" var)))
 
-(defvar org-src-preserve-indentation)
+(defvar org-export-copy-to-kill-ring)
 (declare-function org-export-to-file "ox"
 		  (backend file
 			   &optional async subtreep visible-only body-only ext-plist))

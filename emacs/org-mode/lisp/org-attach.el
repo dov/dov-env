@@ -1,6 +1,6 @@
 ;;; org-attach.el --- Manage file attachments to org-mode tasks
 
-;; Copyright (C) 2008-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2014 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@newartisans.com>
 ;; Keywords: org data task
@@ -41,8 +41,7 @@
   (require 'cl))
 (require 'org-id)
 (require 'org)
-
-(declare-function vc-git-root "vc-git" (file))
+(require 'vc-git)
 
 (defgroup org-attach nil
   "Options concerning entry attachments in Org-mode."
@@ -120,6 +119,17 @@ lns   create a symbol link.  Note that this is not supported
 	  (const :tag "Don't store link" nil)
 	  (const :tag "Link to origin location" t)
 	  (const :tag "Link to the attach-dir location" attached)))
+
+(defcustom org-attach-archive-delete nil
+  "Non-nil means attachments are deleted upon archiving a subtree.
+When set to `query', ask the user instead."
+  :group 'org-attach
+  :version "25.1"
+  :package-version '(Org . "8.3")
+  :type '(choice
+	  (const :tag "Never delete attachments" nil)
+	  (const :tag "Always delete attachments" t)
+	  (const :tag "Query the user" query)))
 
 ;;;###autoload
 (defun org-attach ()
@@ -209,7 +219,9 @@ the directory and (if necessary) the corresponding ID will be created."
 	    (save-excursion
 	      (save-restriction
 		(widen)
-		(goto-char org-entry-property-inherited-from)
+		(if (marker-position org-entry-property-inherited-from)
+		    (goto-char org-entry-property-inherited-from)
+		  (org-back-to-heading t))
 		(let (org-attach-allow-inheritance)
 		  (org-attach-dir create-if-not-exists-p)))))
       (org-attach-check-absolute-path attach-dir)
@@ -266,12 +278,13 @@ This checks for the existence of a \".git\" directory in that directory."
   (let* ((dir (expand-file-name org-attach-directory))
 	 (git-dir (vc-git-root dir))
 	 (changes 0))
-    (when git-dir
+    (when (and git-dir (executable-find "git"))
       (with-temp-buffer
 	(cd dir)
 	(let ((have-annex
 	       (and org-attach-git-annex-cutoff
-		    (file-exists-p (expand-file-name "annex" git-dir)))))
+		    (or (file-exists-p (expand-file-name "annex" git-dir))
+			(file-exists-p (expand-file-name ".git/annex" git-dir))))))
 	  (dolist (new-or-modified
 		   (split-string
 		    (shell-command-to-string
@@ -418,15 +431,15 @@ This can be used after files have been added externally."
 	(and files (org-attach-tag))
 	(when org-attach-file-list-property
 	  (dolist (file files)
-	    (unless (string-match "^\\." file)
+	    (unless (string-match "^\\.\\.?\\'" file)
 	      (org-entry-add-to-multivalued-property
 	       (point) org-attach-file-list-property file))))))))
 
 (defun org-attach-file-list (dir)
   "Return a list of files in the attachment directory.
-This ignores files starting with a \".\", and files ending in \"~\"."
+This ignores files ending in \"~\"."
   (delq nil
-	(mapcar (lambda (x) (if (string-match "^\\." x) nil x))
+	(mapcar (lambda (x) (if (string-match "^\\.\\.?\\'" x) nil x))
 		(directory-files dir nil "[^~]\\'"))))
 
 (defun org-attach-reveal (&optional if-exists)
@@ -473,6 +486,17 @@ Basically, this adds the path to the attachment directory."
 Basically, this adds the path to the attachment directory, and a \"file:\"
 prefix."
   (concat "file:" (org-attach-expand file)))
+
+(defun org-attach-archive-delete-maybe ()
+  "Maybe delete subtree attachments when archiving.
+This function is called by `org-archive-hook'.  The option
+`org-attach-archive-delete' controls its behavior."
+  (when (if (eq org-attach-archive-delete 'query)
+	    (yes-or-no-p "Delete all attachments? ")
+	  org-attach-archive-delete)
+    (org-attach-delete-all t)))
+
+(add-hook 'org-archive-hook 'org-attach-archive-delete-maybe)
 
 (provide 'org-attach)
 
