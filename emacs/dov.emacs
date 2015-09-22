@@ -66,15 +66,15 @@
         (setq add-log-mailing-address "dov@orbotech.com")
       (setq add-log-mailing-address "dov.grobgeld@gmail.com"))
   
-    (setq send-mail-function 'smtpmail-send-it
-          message-send-mail-function 'smtpmail-send-it
-          smtpmail-starttls-credentials '(("pod51014.outlook.com" 587 nil nil))
-          smtpmail-auth-credentials (expand-file-name "~/.authinfo")
-          smtpmail-default-smtp-server "pod51014.outlook.com"
-          smtpmail-smtp-server "pod51014.outlook.com"
-          smtpmail-smtp-service 587
-          smtpmail-debug-info t
-          user-mail-address "dov.grobgeld@xjet3d.com")
+;    (setq send-mail-function 'smtpmail-send-it
+;          message-send-mail-function 'smtpmail-send-it
+;          smtpmail-starttls-credentials '(("pod51014.outlook.com" 587 nil nil))
+;          smtpmail-auth-credentials (expand-file-name "~/.authinfo")
+;          smtpmail-default-smtp-server "pod51014.outlook.com"
+;          smtpmail-smtp-server "pod51014.outlook.com"
+;          smtpmail-smtp-service 587
+;          smtpmail-debug-info t
+;          user-mail-address "dov.grobgeld@xjet3d.com")
     (require 'smtpmail))
   )
                   
@@ -361,6 +361,14 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (setq password-cache-expiry nil)
 (add-hook 'font-lock-mode-hook 'my-doxymacs-font-lock-hook)
 (add-hook 'c-mode-common-hook 'doxymacs-mode)
+
+(when (>= emacs-major-version 24)
+  (require 'package)
+  (add-to-list
+   'package-archives
+   '("melpa" . "http://melpa.org/packages/")
+   t)
+  (package-initialize))
 
 ;; Text mode stuff
 (add-hook 'text-mode-hook 'visual-line-mode)

@@ -51,8 +51,8 @@ EdgeScroll 0 0
 ImagePath /home/dov/git/dov-env/lib/pixmaps:/home/dov/git/dov-env/lib/fvwm/icons:/home/dov/git/dov-env/lib/fvwm/pixmaps
 
 HilightColor black turquoise3
-DeskTopSize 3x2
-#MenuStyle maroon4 grey60 grey40 -adobe-times-bold-r-*-*-14-*-*-*-*-*-*-* fvwm
+DeskTopSize 2x2
+MenuStyle * "fvwm", Foreground "maroon4", Background "grey60", Greyed "grey40", Font "xft:DejaVu:size=8:encoding=iso10646-1"
 ClickTime 150
 OpaqueMoveSize 70
 
@@ -67,14 +67,12 @@ Colorset 4 fg white, bg #F0F0F0
 #######################################################################
 #  New look
 ######################################################################
-#WindowFont	-b&h-lucida-bold-r-*-*-12-*-*-*-*-*-*-*
-#WindowFont	"xft:Bitstream Vera Sans:size=9"
+Style * Font "xft:Arial Narrow:size=8:bold:encoding=iso10646-1"
+
 #Style "*" 	ForeColor black
 #Style "*" 	BackColor grey60
 #HilightColor	White grey60
-#MenuStyle 	black grey60 grey30 -b&h-lucida-bold-r-*-*-10-*-*-*-*-*-*-* fvwm
-#MenuStyle 	black grey60 grey30 "xft:Sans:size=10" fvwm
-MenuStyle * MenuColorset 0, ActiveColorset 1
+MenuStyle * "fvwm", Foreground "black", Background "grey60", Greyed "grey30", Font "xft:Arial Narrow:size=8:encoding=iso10646-1", "AnimationOff"
 
 # General Window Setings
 
@@ -215,6 +213,7 @@ Style "*Gimp*" Icon gimp-icon.xpm, MiniIcon mini.gimp.xpm
 Style "*Dia*" Icon dia.xpm, MiniIcon mini-dia.xpm
 Style "gst-launch-0.10"       NoTitle, NoBorder, Sticky, WindowListSkip, StaysOnTop, Layer 5
 Style "XJetSolar" FPClickToFocus,!FPFocusByProgram
+Style * FPGrabFocus
 
 Key Left	A	C4	CursorMove -1 0
 Key Right	A	C4	CursorMove +1 +0
@@ -232,34 +231,28 @@ Key F12         A       A       Layer 6
 Key UE032       A       A       Exec prompt-xterm &
 Key UE068       A	A	Iconify
 Key A           A	4	RaiseLower
-Key C           A	4	exec ssh -X marsalis codemgrtool &
-#Key C           A	4	Exec cleanExchange &
-Key E           A	4	WindowShade
-Key J           A	4	Recapture
-Key k           A	4	UpdateDecor
-Key L           A	4	exec xscreensaver-command -lock
-Key M           A	4S	Maximize 100 100
-Key M           A	4M	Maximize 100 0
+Key C           A	4	Close
+Key D           A	4	WindowShade
+Key F           A       4       VerMaximize
+Key K           A	4	UpdateDecor
 Key M           A	4	Maximize 0 100
+Key M           A	S4	Maximize 100 100
+Key N           A	4	Maximize 0 100
 Key I           A	4	Iconify
+Key I           A	S4	exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1 -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12 -e ipython3 --no-banner
+Key Q           A	4	WindowShade
 Key P           A	4	Exec prompt-xterm &
-Key U           A	4	exec ssh -X marsalis color_xterm -cr green -sb -sl 1000 -T dov\@marsalis -e /product/pcb-aoi/sw/DSV/Alg_Doc/bin/zsh &
-Key T           A       4       ToggleTitle
-Key X           A	4	exec xterm  -fn heb16x9-8 -e /bin/zsh &
 Key R           A	4	Restart fvwm2
-Key S           A	4	exec xscreensaver-command -activate
+Key X           A	4	exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1 -bg grey10 -fg green -cr green -sb -sl 10000 -u8 &
+Key X           A	S4	exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1 -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12&
+Key W           A       4       WindowList Root c c NoDeskSort
+Key V           A       4       Menu RootMenu Nop
+Key apostrophe  A       4       exec emacs &
 Key semicolon   A	4	Stick
 Key Left	A	4	Scroll -100 +0
 Key Right	A	4	Scroll +100 +0
 Key Up		A	4	Scroll +0   -100
 Key Down	A	4	Scroll +0   +100
-Key Tab         A       M       -
-Key Right       A       S4      Move w+1 w+0
-Key Left        A       S4      Move w-1 w+0
-Key Up          A       S4      Move w+0 w-1
-Key Down        A       S4      Move w+0 w+1
-Key Space       A       4       WindowList Root c c CurrentPage, NoGeometry, CurrentAtEnd 
-
 
 # Gray keys 
 Key UE067       A	A	Recapture
@@ -278,6 +271,7 @@ Key UE022	A	A	Scroll +0   +100
 Mouse 1		R   	A       Menu RootMenu Nop
 Mouse 2		R    	A       Menu Window-Ops Nop
 Mouse 3		R    	A      	WindowList
+Mouse 3		R    	M      	Menu Window-Ops Nop
 
 # Now, title bar buttons
 # Left button is close, right is iconify, rightmost is maximize
@@ -327,6 +321,8 @@ AddToFunc InitFunction 	  "I" Module FvwmPager *
 +                         "I" exec xkbcomp /home/dov/.xkbmap $DISPLAY
 +                         "I" exec swteam:/home/dov /home/dov/swteam
 +                         "I" exec feh --bg-tile /home/dov/git/dov-env/lib/tiles/Sister-Bluebird-1.png 
++                         "I" exec cairo-clock &
++                         "I" exec env PULSE_LATENCY_MSEC=30 skype &
 
 AddToFunc RestartFunction "I" Module FvwmPager
 +                         "I" exec feh --bg-tile /home/dov/git/dov-env/lib/tiles/Sister-Bluebird-1.png 
