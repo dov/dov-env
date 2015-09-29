@@ -14,7 +14,7 @@
 ;;	Rémi Vanicat      <vanicat@debian.org>
 ;;	Yann Hodique      <yann.hodique@gmail.com>
 
-;; Package-Requires: ((emacs "24.4") (async "20150812") (dash "2.11.0") (with-editor "20150824") (git-commit "20150824") (magit-popup "20150824"))
+;; Package-Requires: ((emacs "24.4") (async "1.4") (dash "2.11.0") (with-editor "2.2.2") (git-commit "2.2.2") (magit-popup "2.2.2"))
 ;; Keywords: git tools vc
 ;; Homepage: https://github.com/magit/magit
 
@@ -1080,8 +1080,7 @@ is done using `magit-find-index-noselect'."
           (when magit-wip-after-apply-mode
             (magit-wip-commit-after-apply (list file) " after un-/stage")))
       (message "Abort")))
-  (--when-let (magit-mode-get-buffer
-               magit-status-buffer-name-format 'magit-status-mode)
+  (--when-let (magit-mode-get-buffer nil 'magit-status-mode)
     (with-current-buffer it (magit-refresh)))
   t)
 
@@ -2055,7 +2054,7 @@ Run the command in the top-level directory of the current repository.
   (let ((dir (if (or root current-prefix-arg)
                  (or (magit-toplevel)
                      (user-error "Not inside a Git repository"))
-               (expand-file-name default-directory))))
+               default-directory)))
     (list (magit-read-string (format prompt (abbreviate-file-name dir))
                              nil 'magit-git-command-history)
           dir)))
