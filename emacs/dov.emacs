@@ -469,7 +469,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (local-set-key "\C-c\C-pl" 'org-toggle-link-display)
 
   ;; variable pitch mode makes emacs rescale!
-;  (variable-pitch-mode t)
+  (variable-pitch-mode t)
   (set-face-attribute 'org-table nil :family my-default-family)
   (set-face-attribute 'org-checkbox nil :family my-default-family)
   (set-face-attribute 'org-block nil :family my-default-family)
@@ -500,14 +500,14 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (setq org-export-html-postamble nil)
   (setq org-export-html-validation-link "")
     
-  ;; Use journal theme if requested
-  (if (>= emacs-major-version 24)
-      (if (string-match "notes.org" (buffer-name) )
-          (progn
-            ;(disable-theme 'org-default)
-            (load-theme-buffer-local 'org-journal)
-            )
-        (load-theme-buffer-local 'org-default)))
+;  ;; Use journal theme if requested
+;  (if (>= emacs-major-version 24)
+;      (if (string-match "notes.org" (buffer-name) )
+;          (progn
+;            ;(disable-theme 'org-default)
+;            (load-theme-buffer-local 'org-journal)
+;            )
+;        (load-theme-buffer-local 'org-default)))
   (setq org-entities-user '(
     ("models" "\\models" t "&8872;" "[models]" "models" "⊨")
     ("indf" "{\bf 1}" t "&#120128;" "[indf]" "indf" "𝟙")
@@ -880,6 +880,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "notes.txt" 'mediawiki-mode)) 
        (list (cons "\\.txt$" 'text-mode)) 
        (list (cons "\\.org$" 'org-mode)) 
+       (list (cons "\\.rst$" 'rst-mode)) 
        (list (cons "\\.pl" 'cperl-mode)) 
        (list (cons "\\.nxc$" 'c++-mode)) 
        (list (cons "\\.mw" 'mediawiki-mode)) 
@@ -1732,7 +1733,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (define-key map [return] 'newline-and-indent)
   (define-key map [(control c) (control e)] 'compile)
   (define-key map (kbd "C-?") 'c-comment-selection-or-word)
-  (define-key map (kbd "C-x SPC") 'gud-break)
+  (define-key map [(alt ? )] 'gud-break)
   (define-key map [(control c) (control s)] 'dov-git-grep-here)
 
   (outline-minor-mode)
@@ -1778,6 +1779,7 @@ With numeric ARG, display the images if and only if ARG is positive."
                                (setq py-indent-offset my-indent)
                                (setq python-indent my-indent)
                                (remove-dos-eol)
+                               (local-set-key [(alt ? )] 'gud-break)
                                (local-set-key [(alt ?b)] 'left-word)
                                (local-set-key [(alt ?f)] 'right-word)
                                ))
