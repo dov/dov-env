@@ -500,14 +500,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (setq org-export-html-postamble nil)
   (setq org-export-html-validation-link "")
     
-;  ;; Use journal theme if requested
-;  (if (>= emacs-major-version 24)
-;      (if (string-match "notes.org" (buffer-name) )
-;          (progn
-;            ;(disable-theme 'org-default)
-;            (load-theme-buffer-local 'org-journal)
-;            )
-;        (load-theme-buffer-local 'org-default)))
+  ;; Use journal theme if requested
   (setq org-entities-user '(
     ("models" "\\models" t "&8872;" "[models]" "models" "⊨")
     ("indf" "{\bf 1}" t "&#120128;" "[indf]" "indf" "𝟙")
@@ -1942,6 +1935,13 @@ Does not delete the prompt."
   (define-key map [(meta S)] 'let-Ouml)
   (define-key map [(meta _)] 'let-Auml)
 ) 
+
+(defun xjet-python-buffer ()
+  "Send the current (python) buffer to be evaluated in the MetalJet Application"
+  (interactive)
+  (write-region (point-min) (point-max) "/tmp/buffer.py")
+  (shell-command "xjet-python /tmp/buffer.py"))
+(define-key py-mode-map [(control c) (control j)] 'xjet-python-buffer)
 
 ;;(swedish-keys global-map)
 ;(swedish-keys mail-mode-map)
