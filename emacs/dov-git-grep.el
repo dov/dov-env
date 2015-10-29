@@ -32,7 +32,7 @@ This command shares argument histories with \\[rgrep] and \\[grep]."
       (t (let* ((regexp (grep-read-regexp))
 		(files
                  ; Escape wild card on windows
-                 (if (eq system-type 'windows-nt) "*" "\*" )
+                 (if (eq system-type 'windows-nt) "*" "\*" ))
 		(dir (find-git-repo default-directory)))
 	   (list regexp files dir))))))
   (require 'grep)
