@@ -53,4 +53,4 @@
     (browse-url (concat cpp-search name))))
 
 (provide 'google-look)
-;;; qtdoc.el ends here
+;;; google-look.el ends here

@@ -11,7 +11,8 @@
 ;;----------------------------------------------------------------------
 
 (if (or (string-match "mingw-nt" system-configuration)
-        (string-match "i686-pc-mingw32" system-configuration))
+        (string-match "i686-pc-mingw32" system-configuration)
+        (string-match "x86_64-w64-mingw32" system-configuration))
     (progn
       (if (not (boundp 'emacs-git))
           (setq emacs-git "c:/users/dov/emacs"))
@@ -26,7 +27,7 @@
       (setq system-time-locale "C")
 
       ;; Load windows utilities
-      (load (concat emacs-git "win-utils.el")))
+      (load (concat emacs-git "/win-utils.el")))
   (progn
 ;    (setq my-default-family "Liberation Mono")
     (setq my-default-family "InconsolataDov")
@@ -78,6 +79,9 @@
     (require 'smtpmail))
   )
                   
+;; Always use utf-8
+(setq coding-system-for-read 'utf-8)
+
 (setq load-path (append
                  (list
                   (concat emacs-git "/wgrep")
