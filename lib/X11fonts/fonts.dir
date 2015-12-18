@@ -1,5 +1,6 @@
-13
+14
 def.bdf pc16x9
+fontview12-plane2.bdf -fontforge-fontview-medium-r-normal--17-120-100-100-p-123-unicodeplane-2
 heb13x8-8.bdf heb13x8-8
 heb14x8-8.bdf heb14x8-8
 heb14x8.bdf heb14x8

@@ -67,15 +67,6 @@
         (setq add-log-mailing-address "dov@orbotech.com")
       (setq add-log-mailing-address "dov.grobgeld@gmail.com"))
   
-;    (setq send-mail-function 'smtpmail-send-it
-;          message-send-mail-function 'smtpmail-send-it
-;          smtpmail-starttls-credentials '(("pod51014.outlook.com" 587 nil nil))
-;          smtpmail-auth-credentials (expand-file-name "~/.authinfo")
-;          smtpmail-default-smtp-server "pod51014.outlook.com"
-;          smtpmail-smtp-server "pod51014.outlook.com"
-;          smtpmail-smtp-service 587
-;          smtpmail-debug-info t
-;          user-mail-address "dov.grobgeld@xjet3d.com")
     (require 'smtpmail))
   )
                   
@@ -478,6 +469,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (set-face-attribute 'org-checkbox nil :family my-default-family)
   (set-face-attribute 'org-block nil :family my-default-family)
   (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
+  (setq truncate-lines nil)
   (setq org-export-allow-bind-keywords t)
   (setq org-html-doctype "html5")
   (setq org-format-latex-options (plist-put org-format-latex-options :scale 1.5))
