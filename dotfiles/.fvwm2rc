@@ -172,7 +172,7 @@ Style "xvgr"	    Icon graphs.xpm,RandomPlacement,ClickToFocus
 Style "xgraph"      Icon graphs.xpm,RandomPlacement,NoTitle, HandleWidth 5
 Style "gxgraph"      Icon graphs.xpm,RandomPlacement,NoTitle, HandleWidth 5
 Style "xauphone"  NoTitle, NoHandles, Sticky, BorderWidth 3
-Style "google-chrome"  NoTitle, NoHandles, NoBorder
+#Style "google-chrome"  NoTitle, NoHandles, NoBorder
 Style "xcal"       NoTitle, NoHandles, Sticky, BorderWidth 3
 Style "xv"       NoTitle, HandleWidth 5, MiniIcon mini.xv.xpm
 #Style "0*"       NoTitle, BorderWidth 3
@@ -253,6 +253,7 @@ Key Left	A	4	Scroll -100 +0
 Key Right	A	4	Scroll +100 +0
 Key Up		A	4	Scroll +0   -100
 Key Down	A	4	Scroll +0   +100
+Key Escape      A       4       exec systemctl suspend -i
 
 # Gray keys 
 Key UE067       A	A	Recapture
@@ -334,10 +335,10 @@ AddToMenu RootMenu	"RootMenu"	Title
 +			"Xterm"%mini.xterm.xpm%		exec xterm  -fn heb16x9-8 -bg grey10 -fg green -cr green -sb -sl 1000 -e /bin/zsh &
 +			"xv"%mini.xv.xpm%		Exec exec csh -c "(cd /home/dov/light/log-book-images; xv)&" 
 +			"gimp"%mini.gimp.xpm%		Exec  exec gimp &
-+			"firefox"	Exec  exec firefox -ProfileManager &
++			"firefox"	Exec  exec firefox  &
 +			"google-chrome"	Exec  exec google-chrome &
 +                       "gthumb"        Exec gthumb &
-+			"skype"	        Exec  exec skype &
++			"skype"	        Exec  exec /opt/skype-4.3.0.37/skype  --resources=/opt/skype-4.3.0.37 &
 +			"emacs-24"	        Exec  exec env -u XMODIFIERS ssh-agent emacs &
 #+			"VirtualBox"%mini-win2000.xpm%	Exec  exec VirtualBox --startvm WinXPE &
 +			"WebCam"	Exec  exec  gst-launch v4l2src device=/dev/video0 ! 'video/x-raw-yuv,width=320,height=240,framerate=10/1' ! xvimagesink &

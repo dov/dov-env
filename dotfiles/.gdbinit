@@ -1,31 +1,18 @@
-define printqstring
-    printf "(QString)0x%x (length=%i): \"",&$arg0,$arg0.d->size
-    set $i=0
-    while $i < $arg0.d->size
-        set $c=$arg0.d->data[$i]
-        if $c < 32 || $c > 127
-                printf "\\u0x%04x", $c
-        else
-                printf "%c", (char)$c
-        end
-        set $i=$i+1             
+# A pretty printer for qt5
+define printqs
+  set $d=$arg0.d
+  printf "(Qt5 QString)0x%x length=%i: \"",&$arg0,$d->size
+  set $i=0
+  set $ca=(const ushort*)(((const char*)$d)+$d->offset)
+  while $i < $d->size
+    set $c=$ca[$i++]
+    if $c < 32 || $c > 127
+      printf "\\u%04x", $c
+    else
+      printf "%c" , (char)$c
     end
-    printf "\"\n"
-end
-
-define printqdstring
-    printf "(QString) (length=%i): \"",$arg0->size
-    set $i=0
-    while $i < $arg0->size
-        set $c=$arg0->data[$i]
-        if $c < 32 || $c > 127
-                printf "\\u0x%04x", $c
-        else
-                printf "%c", (char)$c
-        end
-        set $i=$i+1             
-    end
-    printf "\"\n"
+  end
+  printf "\"\n"
 end
 
 define pyqt5-env
@@ -41,6 +28,8 @@ end
 source ~/git/dov-env/gdb/pyprint.py
 source ~/git/dov-env/gdb/pythreadgrep.py
 source ~/git/dov-env/gdb/eigmatrixprint.py
+#source ~/git/dov-env/gdb/stl_views.gdb
+source ~/git/dov-env/gdb/load-qt5printers.py
 
 python 
 import sys, os
@@ -51,4 +40,10 @@ from printers import register_eigen_printers
 register_eigen_printers (None)
 end
 
+
+python
+import sys
+sys.path.insert(0, '/usr/share/gcc-5.3.1/python')
+from libstdcxx.v6.printers import register_libstdcxx_printers
+end
 
