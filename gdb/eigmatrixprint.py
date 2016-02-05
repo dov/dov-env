@@ -33,7 +33,9 @@ class EigMatrixPrint (gdb.Command):
       try:
         # Get eigen pretty print output. This will collide with any other
         # mangling of the eigen output...
+        gdb.execute("disable pretty-printer",False,True)
         val = gdb.execute("print "+v,False,True)
+        gdb.execute("enable pretty-printer",False,True)
         # Get width and height
         m = re.search(r'Eigen::Matrix<(double|float), (\d+), (\d+), 0, \d+, \d+>.*?array\s*=\s*\{(.*?)\}', val,flags=re.DOTALL)
         # TBD check for column major!

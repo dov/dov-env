@@ -132,6 +132,9 @@
 ;(require 'subword)
 ;(add-hook 'python-mode-hook #'pretty-mode 1)
 
+;; case fold by default
+(setq isearch-case-fold-search nil)
+
 ; Redefine the subword functions so that they work with underscores
 (defun subword-forward-fnc ()
   """Search forward for a subword break. This could probably be replaced with a search-forward expression"""
@@ -1731,7 +1734,9 @@ With numeric ARG, display the images if and only if ARG is positive."
   (modify-syntax-entry ?_ "w")
   (local-set-key [(alt ?b)] 'left-word)
   (local-set-key [(alt ?f)] 'right-word)
-;  (subword-mode)
+  
+  ;  (subword-mode)
+  (auto-complete-mode 0)   ; I don't believe in autocomplete mode for C/C++
   )
 
 (defun my-perlmode-stuff () ""

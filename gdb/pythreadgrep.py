@@ -1,11 +1,13 @@
 # Match callstack for all systemthreads.
+#
+# TBD: Change from using gdb.execute() to using the inferior variables.
 
 from __future__ import print_function
 import gdb
 import re
 
 class colors:
-  HEADER = '\033[01;30m'
+  HEADER = '\x1b[37;1m'
   BLUE = '\033[01;34m'
   ENDC = '\033[0m'
 
@@ -53,17 +55,18 @@ class PyThreadGrep (gdb.Command):
     threads_string = gdb.execute('info threads',False,True)
     thread_ids = []
     for thread_string in threads_string.split('\n'):
-      m = re.match(r'^\*?\s+(\d+)',thread_string)
+      m = re.match(r'^\*?\s+(\d+).*?\"(.*?)\"',thread_string)
       if m:
-        thread_ids += [int(m.group(1))]
+        thread_ids += [(int(m.group(1)), m.group(2))]
     thread_ids.sort()
 
     # Loop over all threads
-    for thread_id in thread_ids:
+    thread_names = [i.name for i in gdb.inferiors()[0].threads()]
+    for thread_id,thread_name in thread_ids:
       gdb.execute("thread %d"%thread_id, False, True)
       where_string = gdb.execute('where',False,True)
       if re.search(pattern, where_string):
-        print(colors.HEADER + "Match in thread #%d"%thread_id + colors.ENDC)
+        print(colors.HEADER + "Match in thread #%d (%s)"%(thread_id, thread_name) + colors.ENDC)
         if do_print_stack:
           for where_line in where_string.split("\n"):
             if re.search(pattern,where_line):
