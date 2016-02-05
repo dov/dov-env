@@ -31,6 +31,8 @@
 ;; - not much in the way of error feedback
 
 ;;; Code:
+(eval-when-compile
+  (require 'cl))
 (require 'ob)
 (require 'cc-mode)
 
@@ -79,11 +81,6 @@ is currently being evaluated.")
   "Execute BODY according to PARAMS.
 This function calls `org-babel-execute:C++'."
   (org-babel-execute:C++ body params))
-
-(defun org-babel-expand-body:cpp (body params)
-  "Expand a block of C++ code with org-babel according to it's
-header arguments."
-  (org-babel-expand-body:C++ body params))
 
 (defun org-babel-execute:C++ (body params)
   "Execute a block of C++ code with org-babel.
@@ -184,25 +181,13 @@ it's header arguments."
   (let ((vars (mapcar #'cdr (org-babel-get-header params :var)))
 	(colnames (cdar (org-babel-get-header params :colname-names)))
 	(main-p (not (string= (cdr (assoc :main params)) "no")))
-	(includes (org-babel-read
-		   (or (cdr (assoc :includes params))
-		       (org-entry-get nil "includes" t))
-		   nil))
+	(includes (or (cdr (assoc :includes params))
+		      (org-babel-read (org-entry-get nil "includes" t))))
 	(defines (org-babel-read
 		  (or (cdr (assoc :defines params))
-		      (org-entry-get nil "defines" t))
-		  nil)))
-    (when (stringp includes)
-      (setq includes (split-string includes)))
-    (when (stringp defines)
-      (let ((y nil)
-	    (result (list t)))
-	(dolist (x (split-string defines))
-	  (if (null y)
-	      (setq y x)
-	    (nconc result (list (concat y " " x)))
-	    (setq y nil)))
-	(setq defines (cdr result))))
+		      (org-babel-read (org-entry-get nil "defines" t))))))
+    (unless (listp includes) (setq includes (list includes)))
+    (setq includes (append includes '("<string.h>" "<stdio.h>" "<stdlib.h>")))
     (mapconcat 'identity
 	       (list
 		;; includes
@@ -235,8 +220,7 @@ it's header arguments."
 	(main-p (not (string= (cdr (assoc :main params)) "no")))
 	(imports (or (cdr (assoc :imports params))
 		     (org-babel-read (org-entry-get nil "imports" t)))))
-    (when (stringp imports)
-      (setq imports (split-string imports)))
+    (unless (listp imports) (setq imports (list imports)))
     (setq imports (append imports '("std.stdio" "std.conv")))
     (mapconcat 'identity
 	       (list

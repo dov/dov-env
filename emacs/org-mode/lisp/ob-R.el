@@ -1,6 +1,6 @@
 ;;; ob-R.el --- org-babel functions for R code evaluation
 
-;; Copyright (C) 2009-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;;	Dan Davison
@@ -35,8 +35,6 @@
 (declare-function inferior-ess-send-input "ext:ess-inf" ())
 (declare-function ess-make-buffer-current "ext:ess-inf" ())
 (declare-function ess-eval-buffer "ext:ess-inf" (vis))
-(declare-function ess-wait-for-process "ext:ess-inf"
-		  (proc &optional sec-prompt wait force-redisplay))
 (declare-function org-number-sequence "org-compat" (from &optional to inc))
 (declare-function org-remove-if-not "org" (predicate seq))
 (declare-function org-every "org" (pred seq))
@@ -63,8 +61,8 @@
     (useDingbats	 . :any)
     (horizontal		 . :any)
     (results             . ((file list vector table scalar verbatim)
-			    (raw html latex org code pp drawer)
-			    (replace silent none append prepend)
+			    (raw org html latex code pp wrap)
+			    (replace silent append prepend)
 			    (output value graphics))))
   "R-specific header arguments.")
 
@@ -89,55 +87,11 @@ this variable.")
   :version "24.1"
   :type 'string)
 
-(defvar ess-current-process-name) ; dynamically scoped
-(defvar ess-local-process-name)   ; dynamically scoped
+(defvar ess-local-process-name) ; dynamically scoped
 (defun org-babel-edit-prep:R (info)
   (let ((session (cdr (assoc :session (nth 2 info)))))
     (when (and session (string-match "^\\*\\(.+?\\)\\*$" session))
       (save-match-data (org-babel-R-initiate-session session nil)))))
-
-;; The usage of utils::read.table() ensures that the command
-;; read.table() can be found even in circumstances when the utils
-;; package is not in the search path from R.
-(defconst ob-R-transfer-variable-table-with-header
-  "%s <- local({
-     con <- textConnection(
-       %S
-     )
-     res <- utils::read.table(
-       con,
-       header    = %s,
-       row.names = %s,
-       sep       = \"\\t\",
-       as.is     = TRUE
-     )
-     close(con)
-     res
-   })"
-  "R code used to transfer a table defined as a variable from org to R.
-
-This function is used when the table contains a header.")
-
-(defconst ob-R-transfer-variable-table-without-header
-  "%s <- local({
-     con <- textConnection(
-       %S
-     )
-     res <- utils::read.table(
-       con,
-       header    = %s,
-       row.names = %s,
-       sep       = \"\\t\",
-       as.is     = TRUE,
-       fill      = TRUE,
-       col.names = paste(\"V\", seq_len(%d), sep =\"\")
-     )
-     close(con)
-     res
-   })"
-  "R code used to transfer a table defined as a variable from org to R.
-
-This function is used when the table does not contain a header.")
 
 (defun org-babel-expand-body:R (body params &optional graphics-file)
   "Expand BODY according to PARAMS, return the expanded body."
@@ -236,23 +190,33 @@ This function is called by `org-babel-execute-src-block'."
   (if (listp value)
       (let* ((lengths (mapcar 'length (org-remove-if-not 'sequencep value)))
 	     (max (if lengths (apply 'max lengths) 0))
-	     (min (if lengths (apply 'min lengths) 0)))
+	     (min (if lengths (apply 'min lengths) 0))
+	     (transition-file (org-babel-temp-file "R-import-")))
         ;; Ensure VALUE has an orgtbl structure (depth of at least 2).
         (unless (listp (car value)) (setq value (list value)))
-	(let ((file (orgtbl-to-tsv value '(:fmt org-babel-R-quote-tsv-field)))
+        (with-temp-file transition-file
+          (insert
+	   (orgtbl-to-tsv value '(:fmt org-babel-R-quote-tsv-field))
+	   "\n"))
+	(let ((file (org-babel-process-file-name transition-file 'noquote))
 	      (header (if (or (eq (nth 1 value) 'hline) colnames-p)
 			  "TRUE" "FALSE"))
 	      (row-names (if rownames-p "1" "NULL")))
 	  (if (= max min)
-	      (format ob-R-transfer-variable-table-with-header
-		      name file header row-names)
-	    (format ob-R-transfer-variable-table-without-header
+	      (format "%s <- read.table(\"%s\",
+                      header=%s,
+                      row.names=%s,
+                      sep=\"\\t\",
+                      as.is=TRUE)" name file header row-names)
+	    (format "%s <- read.table(\"%s\",
+                   header=%s,
+                   row.names=%s,
+                   sep=\"\\t\",
+                   as.is=TRUE,
+                   fill=TRUE,
+                   col.names = paste(\"V\", seq_len(%d), sep =\"\"))"
 		    name file header row-names max))))
-    (cond ((integerp value) (format "%s <- %s" name (concat (number-to-string value) "L")))
-	  ((floatp   value) (format "%s <- %s" name value))
-	  ((stringp  value) (format "%s <- %S" name (org-no-properties value)))
-	  (t                (format "%s <- %S" name (prin1-to-string value))))))
-
+    (format "%s <- %s" name (org-babel-R-quote-tsv-field value))))
 
 (defvar ess-ask-for-ess-directory) ; dynamically scoped
 (defun org-babel-R-initiate-session (session params)
@@ -260,8 +224,7 @@ This function is called by `org-babel-execute-src-block'."
   (unless (string= session "none")
     (let ((session (or session "*R*"))
 	  (ess-ask-for-ess-directory
-	   (and (boundp 'ess-ask-for-ess-directory)
-		ess-ask-for-ess-directory
+	   (and (and (boundp 'ess-ask-for-ess-directory) ess-ask-for-ess-directory)
 		(not (cdr (assoc :dir params))))))
       (if (org-babel-comint-buffer-livep session)
 	  session
@@ -270,10 +233,6 @@ This function is called by `org-babel-execute-src-block'."
 	    ;; Session buffer exists, but with dead process
 	    (set-buffer session))
 	  (require 'ess) (R)
-	  (let ((R-proc (get-process (or ess-local-process-name
-					 ess-current-process-name))))
-	    (while (process-get R-proc 'callbacks)
-	      (ess-wait-for-process R-proc)))
 	  (rename-buffer
 	   (if (bufferp session)
 	       (buffer-name session)
@@ -335,39 +294,10 @@ Each member of this list is a list with three members:
 	    device filearg out-file args
 	    (if extra-args "," "") (or extra-args ""))))
 
-(defconst org-babel-R-eoe-indicator "'org_babel_R_eoe'")
-(defconst org-babel-R-eoe-output "[1] \"org_babel_R_eoe\"")
+(defvar org-babel-R-eoe-indicator "'org_babel_R_eoe'")
+(defvar org-babel-R-eoe-output "[1] \"org_babel_R_eoe\"")
 
-(defconst org-babel-R-write-object-command "{
-    function(object,transfer.file) {
-        object
-        invisible(
-            if (
-                inherits(
-                    try(
-                        {
-                            tfile<-tempfile()
-                            write.table(object, file=tfile, sep=\"\\t\",
-                                        na=\"nil\",row.names=%s,col.names=%s,
-                                        quote=FALSE)
-                            file.rename(tfile,transfer.file)
-                        },
-                        silent=TRUE),
-                    \"try-error\"))
-                {
-                    if(!file.exists(transfer.file))
-                        file.create(transfer.file)
-                }
-            )
-    }
-}(object=%s,transfer.file=\"%s\")"
-  "A template for an R command to evaluate a block of code and write the result to a file.
-
-Has four %s escapes to be filled in:
-1. Row names, \"TRUE\" or \"FALSE\"
-2. Column names, \"TRUE\" or \"FALSE\"
-3. The code to be run (must be an expression, not a statement)
-4. The name of the file to write to")
+(defvar org-babel-R-write-object-command "{function(object,transfer.file){object;invisible(if(inherits(try({tfile<-tempfile();write.table(object,file=tfile,sep=\"\\t\",na=\"nil\",row.names=%s,col.names=%s,quote=FALSE);file.rename(tfile,transfer.file)},silent=TRUE),\"try-error\")){if(!file.exists(transfer.file))file.create(transfer.file)})}}(object=%s,transfer.file=\"%s\")")
 
 (defun org-babel-R-evaluate
   (session body result-type result-params column-names-p row-names-p)

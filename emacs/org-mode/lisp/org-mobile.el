@@ -439,14 +439,14 @@ agenda view showing the flagged items."
 	(if org-mobile-use-encryption
 	    org-mobile-encryption-tempfile
 	  target-file)
-      (insert "#+READONLY\n")
       (while (setq entry (pop def-todo))
+	(insert "#+READONLY\n")
 	(setq kwds (mapcar (lambda (x) (if (string-match "(" x)
 					   (substring x 0 (match-beginning 0))
 					 x))
 			   (cdr entry)))
 	(insert "#+TODO: " (mapconcat 'identity kwds " ") "\n")
-	(setq dwds (or (member "|" kwds) (last kwds))
+	(setq dwds (member "|" kwds)
 	      twds (org-delete-all dwds kwds)
 	      todo-kwds (org-delete-all twds todo-kwds)
 	      done-kwds (org-delete-all dwds done-kwds)))
@@ -499,8 +499,7 @@ agenda view showing the flagged items."
 	    (org-mobile-encrypt-and-move file target-path)
 	  (copy-file file target-path 'ok-if-exists))
 	(setq check (shell-command-to-string
-		     (concat (shell-quote-argument org-mobile-checksum-binary)
-			     " "
+		     (concat org-mobile-checksum-binary " "
 			     (shell-quote-argument (expand-file-name file)))))
 	(when (string-match "[a-fA-F0-9]\\{30,40\\}" check)
 	  (push (cons link-name (match-string 0 check))

@@ -1,6 +1,6 @@
 ;;; ox-org.el --- Org Back-End for Org Export Engine
 
-;; Copyright (C) 2013-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou@gmail.com>
 ;; Keywords: org, wp
@@ -57,6 +57,8 @@ setting of `org-html-htmlize-output-type' is 'css."
     (center-block . org-org-identity)
     (clock . org-org-identity)
     (code . org-org-identity)
+    (comment . (lambda (&rest args) ""))
+    (comment-block . (lambda (&rest args) ""))
     (diary-sexp . org-org-identity)
     (drawer . org-org-identity)
     (dynamic-block . org-org-identity)
@@ -76,7 +78,7 @@ setting of `org-html-htmlize-output-type' is 'css."
     (latex-environment . org-org-identity)
     (latex-fragment . org-org-identity)
     (line-break . org-org-identity)
-    (link . org-org-link)
+    (link . org-org-identity)
     (node-property . org-org-identity)
     (template . org-org-template)
     (paragraph . org-org-identity)
@@ -100,6 +102,7 @@ setting of `org-html-htmlize-output-type' is 'css."
     (underline . org-org-identity)
     (verbatim . org-org-identity)
     (verse-block . org-org-identity))
+  :options-alist '((:org-htmlized-css-url nil nil org-org-htmlized-css-url))
   :menu-entry
   '(?O "Export to Org"
        ((?O "As Org buffer" org-org-export-as-org)
@@ -133,18 +136,20 @@ CONTENTS is its contents, as a string or nil.  INFO is ignored."
 
 (defun org-org-keyword (keyword contents info)
   "Transcode KEYWORD element back into Org syntax.
-CONTENTS is nil.  INFO is ignored."
+CONTENTS is nil.  INFO is ignored.  This function ignores
+keywords targeted at other export back-ends."
   (let ((key (org-element-property :key keyword)))
-    (unless (member key
-		    '("AUTHOR" "CREATOR" "DATE" "EMAIL" "OPTIONS" "TITLE"))
+    (unless (or (member key
+			(mapcar
+			 (lambda (block-cons)
+			   (and (eq (cdr block-cons)
+				    'org-element-export-block-parser)
+				(car block-cons)))
+			 org-element-block-name-alist))
+		(member key
+			'("AUTHOR" "CREATOR" "DATE" "DESCRIPTION" "EMAIL"
+			  "KEYWORDS" "TITLE")))
       (org-element-keyword-interpreter keyword nil))))
-
-(defun org-org-link (link contents info)
-  "Transcode LINK object back into Org syntax.
-CONTENTS is the description of the link, as a string, or nil.
-INFO is a plist containing current export state."
-  (or (org-export-custom-protocol-maybe link contents 'org)
-      (org-element-link-interpreter link contents)))
 
 (defun org-org-template (contents info)
   "Return Org document template with document keywords.
@@ -153,16 +158,7 @@ as a communication channel."
   (concat
    (and (plist-get info :time-stamp-file)
 	(format-time-string "# Created %Y-%m-%d %a %H:%M\n"))
-   (org-element-normalize-string
-    (mapconcat #'identity
-	       (org-element-map (plist-get info :parse-tree) 'keyword
-		 (lambda (k)
-		   (and (string-equal (org-element-property :key k) "OPTIONS")
-			(concat "#+OPTIONS: "
-				(org-element-property :value k)))))
-	       "\n"))
-   (and (plist-get info :with-title)
-	(format "#+TITLE: %s\n" (org-export-data (plist-get info :title) info)))
+   (format "#+TITLE: %s\n" (org-export-data (plist-get info :title) info))
    (and (plist-get info :with-date)
 	(let ((date (org-export-data (org-export-get-date info) info)))
 	  (and (org-string-nw-p date)
@@ -175,10 +171,17 @@ as a communication channel."
 	(let ((email (org-export-data (plist-get info :email) info)))
 	  (and (org-string-nw-p email)
 	       (format "#+EMAIL: %s\n" email))))
-   (and (plist-get info :with-creator)
+   (and (eq (plist-get info :with-creator) t)
 	(org-string-nw-p (plist-get info :creator))
 	(format "#+CREATOR: %s\n" (plist-get info :creator)))
-   contents))
+   (and (org-string-nw-p (plist-get info :keywords))
+	(format "#+KEYWORDS: %s\n" (plist-get info :keywords)))
+   (and (org-string-nw-p (plist-get info :description))
+	(format "#+DESCRIPTION: %s\n" (plist-get info :description)))
+   contents
+   (and (eq (plist-get info :with-creator) 'comment)
+	(org-string-nw-p (plist-get info :creator))
+	(format "\n# %s\n" (plist-get info :creator)))))
 
 (defun org-org-section (section contents info)
   "Transcode SECTION element back into Org syntax.

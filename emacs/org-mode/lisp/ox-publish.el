@@ -1,5 +1,5 @@
 ;;; ox-publish.el --- Publish Related Org Mode Files as a Website
-;; Copyright (C) 2006-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2014 Free Software Foundation, Inc.
 
 ;; Author: David O'Toole <dto@gnu.org>
 ;; Maintainer: Carsten Dominik <carsten DOT dominik AT gmail DOT com>
@@ -175,7 +175,6 @@ included.  See the back-end documentation for more information.
   :with-footnotes           `org-export-with-footnotes'
   :with-inlinetasks         `org-export-with-inlinetasks'
   :with-latex               `org-export-with-latex'
-  :with-planning            `org-export-with-planning'
   :with-priority            `org-export-with-priority'
   :with-properties          `org-export-with-properties'
   :with-smart-quotes        `org-export-with-smart-quotes'
@@ -187,7 +186,7 @@ included.  See the back-end documentation for more information.
   :with-tags                `org-export-with-tags'
   :with-tasks               `org-export-with-tasks'
   :with-timestamps          `org-export-with-timestamps'
-  :with-title               `org-export-with-title'
+  :with-planning            `org-export-with-planning'
   :with-todo-keywords       `org-export-with-todo-keywords'
 
 The following properties may be used to control publishing of
@@ -583,7 +582,7 @@ Return output file name."
 		   (body-p (plist-get plist :body-only)))
 	       (org-export-to-file backend output-file
 		 nil nil nil body-p
-		 ;; Add `org-publish--collect-references' and
+		 ;; Add `org-publish-collect-numbering' and
 		 ;; `org-publish-collect-index' to final output
 		 ;; filters.  The latter isn't dependent on
 		 ;; `:makeindex', since we want to keep it up-to-date
@@ -591,7 +590,7 @@ Return output file name."
 		 (org-combine-plists
 		  plist
 		  `(:filter-final-output
-		    ,(cons 'org-publish--collect-references
+		    ,(cons 'org-publish-collect-numbering
 			   (cons 'org-publish-collect-index
 				 (plist-get plist :filter-final-output))))))))
       ;; Remove opened buffer in the process.
@@ -811,14 +810,9 @@ Default for SITEMAP-FILENAME is 'sitemap.org'."
 	  (visiting (find-buffer-visiting file))
 	  (buffer (or visiting (find-file-noselect file))))
      (with-current-buffer buffer
+       (org-mode)
        (let ((title
-	      (let ((property
-		     (plist-get
-		      ;; protect local variables in open buffers
-		      (if visiting
-			  (org-export-with-buffer-copy (org-export-get-environment))
-			(org-export-get-environment))
-		      :title)))
+	      (let ((property (plist-get (org-export-get-environment) :title)))
 		(if property
 		    (org-no-properties (org-element-interpret-data property))
 		  (file-name-nondirectory (file-name-sans-extension file))))))
@@ -833,21 +827,21 @@ If FILE is an Org file and provides a DATE keyword use it.  In
 any other case use the file system's modification time.  Return
 time in `current-time' format."
   (if (file-directory-p file) (nth 5 (file-attributes file))
-    (let* ((org-inhibit-startup t)
-	   (visiting (find-buffer-visiting file))
+    (let* ((visiting (find-buffer-visiting file))
 	   (file-buf (or visiting (find-file-noselect file nil)))
 	   (date (plist-get
 		  (with-current-buffer file-buf
-		    (if visiting
-			(org-export-with-buffer-copy
-			 (org-export-get-environment))
-		      (org-export-get-environment)))
+		    (let ((org-inhibit-startup t)) (org-mode))
+		    (org-export-get-environment))
 		  :date)))
       (unless visiting (kill-buffer file-buf))
-      ;; DATE is a secondary string.  If it contains a timestamp,
+      ;; DATE is either a timestamp object or a secondary string.  If it
+      ;; is a timestamp or if the secondary string contains a timestamp,
       ;; convert it to internal format.  Otherwise, use FILE
       ;; modification time.
-      (cond ((let ((ts (and (consp date) (assq 'timestamp date))))
+      (cond ((eq (org-element-type date) 'timestamp)
+	     (org-time-string-to-time (org-element-interpret-data date)))
+	    ((let ((ts (and (consp date) (assq 'timestamp date))))
 	       (and ts
 		    (let ((value (org-element-interpret-data ts)))
 		      (and (org-string-nw-p value)
@@ -874,28 +868,25 @@ When optional argument FORCE is non-nil, force publishing all
 files in PROJECT.  With a non-nil optional argument ASYNC,
 publishing will be done asynchronously, in another process."
   (interactive
-   (list (assoc (org-icompleting-read "Publish project: "
-				      org-publish-project-alist nil t)
-		org-publish-project-alist)
-	 current-prefix-arg))
-  (let ((project (if (not (stringp project)) project
-		   ;; If this function is called in batch mode,
-		   ;; PROJECT is still a string here.
-		   (assoc project org-publish-project-alist))))
-    (cond
-     ((not project))
-     (async
-      (org-export-async-start (lambda (results) nil)
-	`(let ((org-publish-use-timestamps-flag
-		,(and (not force) org-publish-use-timestamps-flag)))
-	   ;; Expand components right now as external process may not
-	   ;; be aware of complete `org-publish-project-alist'.
-	   (org-publish-projects
-	    ',(org-publish-expand-projects (list project))))))
-     (t (save-window-excursion
-	  (let ((org-publish-use-timestamps-flag
-		 (and (not force) org-publish-use-timestamps-flag)))
-	    (org-publish-projects (list project))))))))
+   (list
+    (assoc (org-icompleting-read
+	    "Publish project: "
+	    org-publish-project-alist nil t)
+	   org-publish-project-alist)
+    current-prefix-arg))
+  (let ((project-alist  (if (not (stringp project)) (list project)
+			  ;; If this function is called in batch mode,
+			  ;; project is still a string here.
+			  (list (assoc project org-publish-project-alist)))))
+    (if async
+	(org-export-async-start 'ignore
+	  `(let ((org-publish-use-timestamps-flag
+		  (if ',force nil ,org-publish-use-timestamps-flag)))
+	     (org-publish-projects ',project-alist)))
+      (save-window-excursion
+	(let* ((org-publish-use-timestamps-flag
+		(if force nil org-publish-use-timestamps-flag)))
+	  (org-publish-projects project-alist))))))
 
 ;;;###autoload
 (defun org-publish-all (&optional force async)
@@ -906,7 +897,7 @@ optional argument ASYNC, publishing will be done asynchronously,
 in another process."
   (interactive "P")
   (if async
-      (org-export-async-start (lambda (results) nil)
+      (org-export-async-start 'ignore
 	`(progn
 	   (when ',force (org-publish-remove-all-timestamps))
 	   (let ((org-publish-use-timestamps-flag
@@ -928,7 +919,7 @@ asynchronously, in another process."
   (interactive "P")
   (let ((file (buffer-file-name (buffer-base-buffer))))
     (if async
-	(org-export-async-start (lambda (results) nil)
+	(org-export-async-start 'ignore
 	  `(let ((org-publish-use-timestamps-flag
 		  (if ',force nil ,org-publish-use-timestamps-flag)))
 	     (org-publish-file ,file)))
@@ -1068,103 +1059,31 @@ publishing directory."
 ;; This part implements tools to resolve [[file.org::*Some headline]]
 ;; links, where "file.org" belongs to the current project.
 
-(defun org-publish--collect-references (output backend info)
-  "Store headlines references for current published file.
-
-OUPUT is the produced output, as a string.  BACKEND is the export
-back-end used, as a symbol.  INFO is the final export state, as
-a plist.
-
-References are stored as an alist ((TYPE SEARCH) . VALUE) where
-
-  TYPE is a symbol among `headline', `custom-id', `target' and
-  `other'.
-
-  SEARCH is the string a link is expected to match.  It is
-
-    - headline's title, as a string, with all whitespace
-      characters and statistics cookies removed, if TYPE is
-      `headline'.
-
-    - CUSTOM_ID value if TYPE is `custom-id'.
-
-    - target's or radio-target's name if TYPE is `target'.
-
-    - NAME affiliated keyword is TYPE is `other'.
-
-  VALUE is an internal reference used in the document, as
-  a string.
-
-This function is meant to be used as a final out filter.  See
-`org-publish-org-to'."
+(defun org-publish-collect-numbering (output backend info)
   (org-publish-cache-set-file-property
-   (plist-get info :input-file) :references
-   (let (refs)
-     (when (hash-table-p (plist-get info :internal-references))
-       (maphash
-	(lambda (k v)
-	  (case (org-element-type k)
-	    ((headline inlinetask)
-	     (push (cons
-		    (cons 'headline
-			  (org-split-string
-			   (replace-regexp-in-string
-			    "\\[[0-9]+%\\]\\|\\[[0-9]+/[0-9]+\\]" ""
-			    (org-element-property :raw-value k))))
-		    v)
-		   refs)
-	     (let ((custom-id (org-element-property :CUSTOM_ID k)))
-	       (when custom-id
-		 (push (cons (cons 'custom-id custom-id) v) refs))))
-	    ((radio-target target)
-	     (push
-	      (cons (cons 'target
-			  (org-split-string (org-element-property :value k)))
-		    v)
-	      refs))
-	    ((org-element-property :name k)
-	     (push
-	      (cons
-	       (cons 'other (org-split-string (org-element-property :name k)))
-	       v)
-	      refs)))
-	  refs)
-	(plist-get info :internal-references)))
-     refs))
+   (plist-get info :input-file) :numbering
+   (mapcar (lambda (entry)
+	     (cons (org-split-string
+		    (replace-regexp-in-string
+		     "\\[[0-9]+%\\]\\|\\[[0-9]+/[0-9]+\\]" ""
+		     (org-element-property :raw-value (car entry))))
+		   (cdr entry)))
+	   (plist-get info :headline-numbering)))
   ;; Return output unchanged.
   output)
 
-(defun org-publish-resolve-external-link (search file)
-  "Return reference for elements or objects matching SEARCH in FILE.
+(defun org-publish-resolve-external-fuzzy-link (file fuzzy)
+  "Return numbering for headline matching FUZZY search in FILE.
 
-Return value is an internal reference, as a string.
+Return value is a list of numbers, or nil.  This function allows
+to resolve external fuzzy links like:
 
-This function allows to resolve external links like:
-
-  [[file.org::*fuzzy][description]]
-  [[file.org::#custom-id][description]]
-  [[file.org::fuzzy][description]]"
-  (if (not org-publish-cache)
-      (progn
-	(message "Reference \"%s\" in file \"%s\" cannot be resolved without \
-publishing"
-		 search
-		 file)
-	"MissingReference")
-    (let ((references (org-publish-cache-get-file-property
-		       (expand-file-name file) :references nil t)))
-      (cond
-       ((cdr (case (aref search 0)
-	       (?* (assoc (cons 'headline (org-split-string (substring search 1)))
-			  references))
-	       (?# (assoc (cons 'custom-id (substring search 1)) references))
-	       (t
-		(let ((s (org-split-string search)))
-		  (or (assoc (cons 'target s) references)
-		      (assoc (cons 'other s) references)
-		      (assoc (cons 'headline s) references)))))))
-       (t (message "Unknown cross-reference \"%s\" in file \"%s\"" search file)
-	  "MissingReference")))))
+  [[file.org::*fuzzy][description]]"
+  (when org-publish-cache
+    (cdr (assoc (org-split-string
+		 (if (eq (aref fuzzy 0) ?*) (substring fuzzy 1) fuzzy))
+		(org-publish-cache-get-file-property
+		 (expand-file-name file) :numbering nil t)))))
 
 
 

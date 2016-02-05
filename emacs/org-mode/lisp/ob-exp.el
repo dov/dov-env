@@ -257,17 +257,12 @@ may make them unreachable."
 		(src-block
 		 (let* ((match-start (copy-marker (match-beginning 0)))
 			(ind (org-get-indentation))
-			(lang (or (org-element-property :language element)
-				  (user-error
-				   "No language for src block: %s"
-				   (or (org-element-property :name element)
-				       "(unnamed)"))))
 			(headers
-			 (cons lang
-			       (let ((params
-				      (org-element-property
-				       :parameters element)))
-				 (and params (org-split-string params))))))
+			 (cons
+			  (org-element-property :language element)
+			  (let ((params (org-element-property :parameters
+							      element)))
+			    (and params (org-split-string params "[ \t]+"))))))
 		   ;; Take care of matched block: compute replacement
 		   ;; string.  In particular, a nil REPLACEMENT means
 		   ;; the block should be left as-is while an empty
@@ -320,15 +315,13 @@ The function respects the value of the :exports header argument."
   (let ((silently (lambda () (let ((session (cdr (assoc :session (nth 2 info)))))
 			       (when (not (and session (equal "none" session)))
 				 (org-babel-exp-results info type 'silent)))))
-	(clean (lambda () (if (eq type 'inline)
-			      (org-babel-remove-inline-result)
-			    (org-babel-remove-result info)))))
+	(clean (lambda () (unless (eq type 'inline) (org-babel-remove-result info)))))
     (case (intern (or (cdr (assoc :exports (nth 2 info))) "code"))
       ('none (funcall silently) (funcall clean) "")
-      ('code (funcall silently) (funcall clean) (org-babel-exp-code info type))
+      ('code (funcall silently) (funcall clean) (org-babel-exp-code info))
       ('results (org-babel-exp-results info type nil hash) "")
       ('both (org-babel-exp-results info type nil hash)
-	     (org-babel-exp-code info type)))))
+	     (org-babel-exp-code info)))))
 
 (defcustom org-babel-exp-code-template
   "#+BEGIN_SRC %lang%switches%flags\n%body\n#+END_SRC"
@@ -350,29 +343,7 @@ replaced with its value."
   :group 'org-babel
   :type 'string)
 
-(defcustom org-babel-exp-inline-code-template
-  "src_%lang[%switches%flags]{%body}"
-  "Template used to export the body of inline code blocks.
-This template may be customized to include additional information
-such as the code block name, or the values of particular header
-arguments.  The template is filled out using `org-fill-template',
-and the following %keys may be used.
-
- lang ------ the language of the code block
- name ------ the name of the code block
- body ------ the body of the code block
- switches -- the switches associated to the code block
- flags ----- the flags passed to the code block
-
-In addition to the keys mentioned above, every header argument
-defined for the code block may be used as a key and will be
-replaced with its value."
-  :group 'org-babel
-  :type 'string
-  :version "25.1"
-  :package-version '(Org . "8.3"))
-
-(defun org-babel-exp-code (info type)
+(defun org-babel-exp-code (info)
   "Return the original code block formatted for export."
   (setf (nth 1 info)
 	(if (string= "strip-export" (cdr (assoc :noweb (nth 2 info))))
@@ -383,9 +354,7 @@ replaced with its value."
 	       info org-babel-exp-reference-buffer)
 	    (nth 1 info))))
   (org-fill-template
-   (if (eq type 'inline)
-       org-babel-exp-inline-code-template 
-       org-babel-exp-code-template)
+   org-babel-exp-code-template
    `(("lang"  . ,(nth 0 info))
      ("body"  . ,(org-escape-code-in-string (nth 1 info)))
      ("switches" . ,(let ((f (nth 3 info)))

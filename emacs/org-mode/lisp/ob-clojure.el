@@ -24,27 +24,33 @@
 
 ;;; Commentary:
 
-;; Support for evaluating clojure code
+;; Support for evaluating clojure code, relies either on Slime or
+;; on Nrepl.el for all eval.
 
 ;; Requirements:
 
 ;; - clojure (at least 1.2.0)
 ;; - clojure-mode
-;; - either cider or SLIME
+;; - either cider or nrepl.el or SLIME
 
-;; For Cider, see https://github.com/clojure-emacs/cider
+;; For cider, see https://github.com/clojure-emacs/cider
 
 ;; For SLIME, the best way to install these components is by following
 ;; the directions as set out by Phil Hagelberg (Technomancy) on the
 ;; web page: http://technomancy.us/126
+
+;; For nREPL:
+;; get clojure with https://github.com/technomancy/leiningen
+;; get nrepl from MELPA (clojure-mode is a dependency).
 
 ;;; Code:
 (require 'ob)
 (eval-when-compile
   (require 'cl))
 
-(declare-function nrepl-dict-get "ext:nrepl-client" (dict key))
-(declare-function nrepl-sync-request:eval "ext:nrepl-client" (input &optional ns session))
+(declare-function nrepl-send-string-sync "ext:nrepl-client" (input &optional ns session))
+(declare-function nrepl-current-connection-buffer "ext:nrepl" ())
+(declare-function nrepl-eval "ext:nrepl" (body))
 (declare-function slime-eval "ext:slime" (sexp &optional package))
 
 (defvar org-babel-tangle-lang-exts)
@@ -55,11 +61,13 @@
 
 (defcustom org-babel-clojure-backend
   (cond ((featurep 'cider) 'cider)
+	((featurep 'nrepl) 'nrepl)
 	(t 'slime))
   "Backend used to evaluate Clojure code blocks."
   :group 'org-babel
   :type '(choice
 	  (const :tag "cider" cider)
+	  (const :tag "nrepl" nrepl)
 	  (const :tag "SLIME" slime)))
 
 (defun org-babel-expand-body:clojure (body params)
@@ -90,12 +98,21 @@
        (require 'cider)
        (let ((result-params (cdr (assoc :result-params params))))
 	 (setq result
-	       (nrepl-dict-get
-		(nrepl-sync-request:eval expanded)
+	       (plist-get
+		(nrepl-send-string-sync expanded)
 		(if (or (member "output" result-params)
 			(member "pp" result-params))
-		    "out"
-		  "value")))))
+		    :stdout
+		  :value)))))
+      (nrepl
+       (require 'nrepl)
+       (setq result
+	     (if (nrepl-current-connection-buffer)
+		 (let* ((result (nrepl-eval expanded))
+			(s (plist-get result :stdout))
+			(r (plist-get result :value)))
+		   (if s (concat s "\n" r) r))
+	       (error "nREPL not connected!  Use M-x nrepl-jack-in RET"))))
       (slime
        (require 'slime)
        (with-temp-buffer

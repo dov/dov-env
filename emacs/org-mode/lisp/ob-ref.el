@@ -1,6 +1,6 @@
 ;;; ob-ref.el --- org-babel functions for referencing external data
 
-;; Copyright (C) 2009-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
 ;; Authors: Eric Schulte
 ;;	 Dan Davison
@@ -53,8 +53,6 @@
 (eval-when-compile
   (require 'cl))
 
-(declare-function org-end-of-meta-data "org" (&optional full))
-(declare-function org-find-property "org" (property &optional value))
 (declare-function org-remove-if-not "org" (predicate seq))
 (declare-function org-at-table-p "org" (&optional table-type))
 (declare-function org-count "org" (CL-ITEM CL-SEQ))
@@ -100,24 +98,29 @@ the variable."
 		out))))))
 
 (defun org-babel-ref-goto-headline-id (id)
-  (or (let ((h (org-find-property "CUSTOM_ID" id)))
-	(when h (goto-char h)))
-      (let* ((file (org-id-find-id-file id))
-	     (m (when file (org-id-find-id-in-file id file 'marker))))
-	(when (and file m)
-	  (message "file:%S" file)
-	  (org-pop-to-buffer-same-window (marker-buffer m))
-	  (goto-char m)
-	  (move-marker m nil)
-	  (org-show-context)
-	  t))))
+  (goto-char (point-min))
+  (let ((rx (regexp-quote id)))
+    (or (re-search-forward
+	 (concat "^[ \t]*:CUSTOM_ID:[ \t]+" rx "[ \t]*$") nil t)
+	(let* ((file (org-id-find-id-file id))
+	       (m (when file (org-id-find-id-in-file id file 'marker))))
+	  (when (and file m)
+	    (message "file:%S" file)
+	    (org-pop-to-buffer-same-window (marker-buffer m))
+	    (goto-char m)
+	    (move-marker m nil)
+	    (org-show-context)
+	    t)))))
 
 (defun org-babel-ref-headline-body ()
   (save-restriction
     (org-narrow-to-subtree)
     (buffer-substring
      (save-excursion (goto-char (point-min))
-		     (org-end-of-meta-data)
+		     (forward-line 1)
+		     (when (looking-at "[ \t]*:PROPERTIES:")
+		       (re-search-forward ":END:" nil)
+		       (forward-char))
 		     (point))
      (point-max))))
 

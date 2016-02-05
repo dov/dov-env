@@ -966,15 +966,12 @@ Store them in the capture property list."
 (defun org-capture-expand-file (file)
   "Expand functions and symbols for FILE.
 When FILE is a function, call it.  When it is a form, evaluate
-it.  When it is a variable, retrieve the value.  When it is
-a string, return it.  However, if it is the empty string, return
-`org-default-notes-file' instead."
+it.  When it is a variable, retrieve the value.  Return whatever we get."
   (cond
-   ((equal file "") org-default-notes-file)
    ((org-string-nw-p file) file)
    ((functionp file) (funcall file))
    ((and (symbolp file) (boundp file)) (symbol-value file))
-   ((consp file) (eval file))
+   ((and file (consp file)) (eval file))
    (t file)))
 
 (defun org-capture-target-buffer (file)
@@ -1078,18 +1075,21 @@ may have been stored before."
        (t
 	(setq beg (1+ (point-at-eol))
 	      end (save-excursion (outline-next-heading) (point)))))
-      (setq ind nil)
       (if (org-capture-get :prepend)
 	  (progn
 	    (goto-char beg)
-	    (when (org-list-search-forward (org-item-beginning-re) end t)
-	      (goto-char (match-beginning 0))
-	      (setq ind (org-get-indentation))))
+	    (if (org-list-search-forward (org-item-beginning-re) end t)
+		(progn
+		  (goto-char (match-beginning 0))
+		  (setq ind (org-get-indentation)))
+	      (goto-char end)
+	      (setq ind 0)))
 	(goto-char end)
-	(when (org-list-search-backward (org-item-beginning-re) beg t)
-	  (setq ind (org-get-indentation))
-	  (org-end-of-item)))
-      (unless ind (goto-char end)))
+	(if (org-list-search-backward (org-item-beginning-re) beg t)
+	    (progn
+	      (setq ind (org-get-indentation))
+	      (org-end-of-item))
+	  (setq ind 0))))
     ;; Remove common indentation
     (setq txt (org-remove-indentation txt))
     ;; Make sure this is indeed an item
@@ -1097,22 +1097,17 @@ may have been stored before."
       (setq txt (concat "- "
 			(mapconcat 'identity (split-string txt "\n")
 				   "\n  "))))
-    ;; Prepare surrounding empty lines.
-    (org-capture-empty-lines-before)
-    (setq beg (point))
-    (unless (eolp) (save-excursion (insert "\n")))
-    (unless ind
-      (org-indent-line)
-      (setq ind (org-get-indentation))
-      (delete-region beg (point)))
     ;; Set the correct indentation, depending on context
     (setq ind (make-string ind ?\ ))
     (setq txt (concat ind
 		      (mapconcat 'identity (split-string txt "\n")
 				 (concat "\n" ind))
 		      "\n"))
-    ;; Insert item.
+    ;; Insert, with surrounding empty lines
+    (org-capture-empty-lines-before)
+    (setq beg (point))
     (insert txt)
+    (or (bolp) (insert "\n"))
     (org-capture-empty-lines-after 1)
     (org-capture-position-for-last-stored beg)
     (forward-char 1)
@@ -1224,7 +1219,7 @@ Of course, if exact position has been required, just put it there."
       ;; we should place the text into this entry
       (if (org-capture-get :prepend)
 	  ;; Skip meta data and drawers
-	  (org-end-of-meta-data t)
+	  (org-end-of-meta-data-and-drawers)
 	;; go to ent of the entry text, before the next headline
 	(outline-next-heading)))
      (t
@@ -1538,8 +1533,8 @@ The template may still contain \"%?\" for cursor positioning."
 	 (v-x (or (org-get-x-clipboard 'PRIMARY)
 		  (org-get-x-clipboard 'CLIPBOARD)
 		  (org-get-x-clipboard 'SECONDARY)))
-	 (v-t (format-time-string (car org-time-stamp-formats) ct1))
-	 (v-T (format-time-string (cdr org-time-stamp-formats) ct1))
+	 (v-t (format-time-string (car org-time-stamp-formats) ct))
+	 (v-T (format-time-string (cdr org-time-stamp-formats) ct))
 	 (v-u (concat "[" (substring v-t 1 -1) "]"))
 	 (v-U (concat "[" (substring v-T 1 -1) "]"))
 	 ;; `initial' and `annotation' might habe been passed.
@@ -1590,7 +1585,8 @@ The template may still contain \"%?\" for cursor positioning."
     (unless template (setq template "") (message "No template") (ding)
 	    (sit-for 1))
     (save-window-excursion
-      (org-switch-to-buffer-other-window (get-buffer-create "*Capture*"))
+      (delete-other-windows)
+      (org-pop-to-buffer-same-window (get-buffer-create "*Capture*"))
       (erase-buffer)
       (insert template)
       (goto-char (point-min))
@@ -1610,6 +1606,8 @@ The template may still contain \"%?\" for cursor positioning."
 		(insert-file-contents filename)
 	      (error (insert (format "%%![Couldn't insert %s: %s]"
 				     filename error)))))))
+      ;; %() embedded elisp
+      (org-capture-expand-embedded-elisp)
 
       ;; The current time
       (goto-char (point-min))
@@ -1638,10 +1636,6 @@ The template may still contain \"%?\" for cursor positioning."
 	    (and (setq x (or (plist-get org-store-link-plist
 					(intern (match-string 1))) ""))
 		 (replace-match x t t)))))
-
-      ;; %() embedded elisp
-      (goto-char (point-min))
-      (org-capture-expand-embedded-elisp)
 
       ;; Turn on org-mode in temp buffer, set local variables
       ;; This is to support completion in interactive prompts
