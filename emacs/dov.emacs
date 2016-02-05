@@ -38,13 +38,13 @@
     (if (not (boundp 'emacs-persistance-dir))
         (setq emacs-persistance-dir "/home/dov/.emacs.d"))
     (if (not (boundp 'my-default-font))
-        (setq my-default-font "Liberation Mono 8"))
+        (setq my-default-font "Inconsolata 11"))
 
     ;; Add conversion scripts to path
     (setenv "PATH" (concat emacs-git "scripts:" (getenv "PATH")))
 
     (condition-case err
-     (set-default-font my-default-font)
+     (set-frame-font my-default-font)
 ;    (set-default-font "Consolas 12") 
 ;     (set-default-font "lucidasanstypewriter-bold-14")
 ;     (set-default-font "lucidasanstypewriter-bold-12")
@@ -69,7 +69,12 @@
   
     (require 'smtpmail))
   )
-                  
+
+;; Font for all frames
+(add-to-list 'default-frame-alist
+             (cons 'font my-default-font))
+
+
 ;; Always use utf-8
 (setq coding-system-for-read 'utf-8)
 
@@ -506,7 +511,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
     ("ell" "\\ell" t "&#2113;" "[ell]" "indf" "ℓ")
     ))
   (require 'org-table)
-  (set-default-font my-default-font)
 
   ;; Customize colors
   (require 'cl)   ; for delete*
