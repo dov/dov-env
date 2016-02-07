@@ -153,7 +153,7 @@ Style "*"           MWMFunctions,MWMDecor,HintOverride
 Style "*"           DecorateTransient,IconBox -70 36 -1 -140
 
 Style "Fvwm*"       NoTitle, NoHandles, Sticky, WindowListSkip,
-Style "mate-panel"       NoTitle, NoHandles, Sticky, WindowListSkip,
+Style "Mate-panel"  NoTitle, NoHandles, Sticky, WindowListSkip, NoBorder, BorderWidth 0
 Style "Fvwm*"       BorderWidth 0,CirculateSkipIcon
 Style "FvwmPager"   BorderWidth 5
 Style "FvwmBanner"  StaysOnTop
@@ -176,44 +176,13 @@ Style "xauphone"  NoTitle, NoHandles, Sticky, BorderWidth 3
 Style "xcal"       NoTitle, NoHandles, Sticky, BorderWidth 3
 Style "xv"       NoTitle, HandleWidth 5, MiniIcon mini.xv.xpm
 #Style "0*"       NoTitle, BorderWidth 3
-Style "slashdot"       NoTitle
-Style "gprompt"       NoTitle, NoHandles, Sticky
-Style "GQmpeg*"       NoTitle, NoHandles, Sticky
-Style "*xmms*"       NoTitle, NoHandles, Sticky
-Style "keyboard"   NoTitle, NoHandles, Sticky, BorderWidth 3
-Style "*biff*"   NoTitle, NoHandles, Sticky, BorderWidth 3
-Style "what-project"   NoTitle, NoHandles, Sticky, BorderWidth 3
-Style "xmcd"   NoTitle, NoHandles, Sticky, BorderWidth 3
-Style "watch-file-size"   NoTitle, NoHandles, Sticky
-Style "tk-ping"   NoTitle, NoHandles, Sticky
-Style "lpwatch*"    NoTitle, NoHandles, Sticky, BorderWidth 3
-Style "*@karm*"    usedecor yellow, Color Black/Yellow4
-Style "*@gelerak*"    usedecor green, Color Black/Green4
-Style "*@marsalis*"    usedecor green, Color Black/Green4, HilightBack Green3
-Style "*@dog*"    usedecor magenta, Color Black/Magenta4
-Style "*@marsellus*"    usedecor green, Color Black/Green4
-Style "*@pulsar*"    usedecor green, Color Black/Green4
-Style "*@quentin*"    usedecor green, Color Black/Green4
-Style "*@marsalis*"    usedecor green, Color Black/Green4
-Style "*@meg*"    usedecor green, Color Black/Green4
-Style "*@earth*"    usedecor linux_term, Color Black/Orange4, Icon my-xterm-linux.xpm
-Style "*@frakir*"    usedecor linux_term, Color Black/Orange4, HilightBack Orange3, Icon my-xterm-linux.xpm
-Style "*@prodigy*"    usedecor linux_term, Color Black/Orange4, Icon my-xterm-linux.xpm
-Style "*@ridley*"    usedecor linux_term, Color Black/Orange4, Icon my-xterm-linux.xpm
-Style "*rainbow@*"    usedecor red, Color Black/Red4
-Style "*Phoenix*"     Icon phoenix.xpm
-#Style "*- Mozilla Firebird"     Icon /data/junk/cat/local/MozillaFirebird/icons/mozicon05.xpmphoenix.xpm, MiniIcon mini-phoenix.xpm
 Style "*Firefox*"     Icon mozicon50.xpm, MiniIcon mini.mozicon50.xpm
 Style "*wmCalClock*" geometry +500-0
 Style "*Windows 2000*" MiniIcon mini-win2000.xpm
 Style "*emacs*" MiniIcon mini-xemacs.xpm
-Style "*sdd-tool*" Icon sdd-tool.xpm, MiniIcon mini-sdd-tool.xpm
-Style "*- OpenOffice*" Icon mini-oo-logo.xpm, MiniIcon mini-oo-logo.xpm
-Style "*Gimp*" Icon gimp-icon.xpm, MiniIcon mini.gimp.xpm
-Style "*Dia*" Icon dia.xpm, MiniIcon mini-dia.xpm
-Style "gst-launch-0.10"       NoTitle, NoBorder, Sticky, WindowListSkip, StaysOnTop, Layer 5
-Style "XJetSolar" FPClickToFocus,!FPFocusByProgram
-Style * FPGrabFocus
+Style "evince" !MwmFunctions
+Style "nautilus" !MwmFunctions
+Style "gthumb" !MwmFunctions
 
 Key Left	A	C4	CursorMove -1 0
 Key Right	A	C4	CursorMove +1 +0
@@ -227,32 +196,42 @@ Key F15		FTIWS	A	RaiseLower
 Key F13		A	A	Exec prompt-xterm &
 Key F17		A	A	Iconify
 Key F11		A	4	Recapture
-Key F12         A       A       Layer 6
 Key UE032       A       A       Exec prompt-xterm &
 Key UE068       A	A	Iconify
 Key A           A	4	RaiseLower
 Key C           A	4	Close
 Key D           A	4	WindowShade
+Key E           A	4	WindowShade
+Key E           A	S4	Exec emacs &
 Key F           A       4       VerMaximize
+Key J           A	4	Recapture
 Key K           A	4	UpdateDecor
+Key L           A	4	exec xscreensaver-command -lock
 Key M           A	4	Maximize 0 100
 Key M           A	S4	Maximize 100 100
 Key N           A	4	Maximize 0 100
 Key I           A	4	Iconify
-Key I           A	S4	exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1 -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12 -e ipython3 --no-banner
-Key Q           A	4	WindowShade
-Key P           A	4	Exec prompt-xterm &
+Key P           A	4	exec xterm  -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12 -e ipython --no-banner&
+Key T           A       4       ToggleTitle
+Key X           A	4	exec xterm  -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 &
+Key X           A	S4	exec xterm  -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12 &
 Key R           A	4	Restart fvwm2
-Key X           A	4	exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1 -bg grey10 -fg green -cr green -sb -sl 10000 -u8 &
-Key X           A	S4	exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1 -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12&
-Key W           A       4       WindowList Root c c NoDeskSort
-Key V           A       4       Menu RootMenu Nop
-Key apostrophe  A       4       exec emacs &
+Key S           A	4	exec xscreensaver-command -activate
+Key V           A	4	Menu RootMenu Nop
+Key W           A	4	WindowList
 Key semicolon   A	4	Stick
 Key Left	A	4	Scroll -100 +0
 Key Right	A	4	Scroll +100 +0
 Key Up		A	4	Scroll +0   -100
 Key Down	A	4	Scroll +0   +100
+Key Left	A	M4	Scroll -50 +0  
+Key Right	A	M4	Scroll +50 +0  
+Key Tab         A       M       -
+Key Right       A       S4      Move w+1 w+0
+Key Left        A       S4      Move w-1 w+0
+Key Up          A       S4      Move w+0 w-1
+Key Down        A       S4      Move w+0 w+1
+Key Space       A       4       WindowList Root c c CurrentPage, NoGeometry
 Key Escape      A       4       exec systemctl suspend -i
 
 # Gray keys 
@@ -272,7 +251,6 @@ Key UE022	A	A	Scroll +0   +100
 Mouse 1		R   	A       Menu RootMenu Nop
 Mouse 2		R    	A       Menu Window-Ops Nop
 Mouse 3		R    	A      	WindowList
-Mouse 3		R    	M      	Menu Window-Ops Nop
 
 # Now, title bar buttons
 # Left button is close, right is iconify, rightmost is maximize
@@ -317,7 +295,7 @@ AddToFunc InitFunction 	  "I" Module FvwmPager *
 +                         "I" exec mate-panel --sm-disable &
 +                         "I" exec xset s 300 s blank dpms 300
 +                         "I" exec xset r rate 200 30
-+                         "I" exec xset +fp /home/dov/git/dov-env/lib/X11fonts
++                         "I" exec xset fp+ /home/dov/git/dov-env/lib/X11fonts
 +                         "I" exec xset b 100 10000 10
 +                         "I" exec xkbcomp /home/dov/.xkbmap $DISPLAY
 +                         "I" exec swteam:/home/dov /home/dov/swteam
@@ -332,7 +310,7 @@ AddToFunc RestartFunction "I" Module FvwmPager
 
 ########################Menus ########################################
 AddToMenu RootMenu	"RootMenu"	Title 	
-+			"Xterm"%mini.xterm.xpm%		exec xterm  -fn heb16x9-8 -bg grey10 -fg green -cr green -sb -sl 1000 -e /bin/zsh &
++			"Xterm"%mini.xterm.xpm%		exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8&
 +			"xv"%mini.xv.xpm%		Exec exec csh -c "(cd /home/dov/light/log-book-images; xv)&" 
 +			"gimp"%mini.gimp.xpm%		Exec  exec gimp &
 +			"firefox"	Exec  exec firefox  &
