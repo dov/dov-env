@@ -77,7 +77,7 @@ holding export options."
       (format "</%s>" (plist-get info :html-container))
       ;; table of contents.
       (let ((depth (plist-get info :with-toc)))
-	(when depth (org-slidy-toc depth info)))
+	(when depth (org-s5-toc depth info)))
       contents
       (format "</%s>" (nth 1 (assq 'content org-html-divs)))
       "</body>"

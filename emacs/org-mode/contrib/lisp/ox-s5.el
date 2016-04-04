@@ -180,7 +180,6 @@ or an empty string."
 
 (defcustom org-s5-title-slide-template
   "<h1>%t</h1>
-<h2>%s</h2>
 <h2>%a</h2>
 <h3>%e</h3>
 <h4>%d</h4>"

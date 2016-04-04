@@ -25,13 +25,6 @@
 ;;
 ;; Updated license and headers for release.
 
-(require 'info-look)
-
-(info-lookup-add-help
- :mode 'python-mode
- :regexp "[[:alnum:]_.]+"
- :doc-spec
- '(("(python)Index" nil "")))
 
 ;;; Code:
 ;; we use org-mode for python fontification
@@ -488,25 +481,27 @@ This is not perfect, as the data entries are not always in the file defined, e.g
 
 
 ;;;###autoload
-(defun pydoc-symbol (symbol)
-  (interactive)
+(defun pydoc (name)
+  "Display pydoc information for NAME in a buffer named *pydoc*."
+  (interactive "sName of function or module: ")
+
   (switch-to-buffer-other-window "*pydoc*")
   (setq buffer-read-only nil)
   (erase-buffer)
-  (insert (shell-command-to-string (format "python -m pydoc %s" symbol)))
+  (insert (shell-command-to-string (format "python -m pydoc %s" name)))
   (goto-char (point-min))
 
   ;; store name at end of history if it is not in the history
   ;; already. This isn't exactly a real history this way, since it
   ;; won't add multiple instances, and revisiting a NAME will move you
   ;; around in the history.
-  (add-to-list '*pydoc-history* symbol t)
+  (add-to-list '*pydoc-history* name t)
 
 
   ;; save
   (when *pydoc-current*
       (setq *pydoc-last* *pydoc-current*))
-  (setq *pydoc-current* symbol)
+  (setq *pydoc-current* name)
 
   (make-local-variable 'pydoc-file)
   (make-local-variable 'pydoc-name)
@@ -541,14 +536,6 @@ This is not perfect, as the data entries are not always in the file defined, e.g
   (local-set-key "o" #'(lambda () (interactive) (call-interactively 'occur)))
   (local-set-key "s" #'isearch-forward)
   (font-lock-mode))
-  
-(defun pydoc ()
-  "Display pydoc information for NAME in a buffer named *pydoc*."
-  (interactive)
-  (let* ((info-lookup-mode 'python-mode)
-         (default (info-lookup-guess-default 'symbol info-lookup-mode))
-         (name (read-string "Name of function or module: " default 'python-lookup-history 0 nil)))
-    (pydoc-function name)))
 
 (provide 'pydoc)
 

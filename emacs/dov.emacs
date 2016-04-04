@@ -71,9 +71,10 @@
   )
 
 ;; Font for all frames
+(set-frame-font my-default-font)
+(set-default-font my-default-font)
 (add-to-list 'default-frame-alist
              (cons 'font my-default-font))
-
 
 ;; Always use utf-8
 (setq coding-system-for-read 'utf-8)
@@ -122,6 +123,18 @@
 (load "octave-mod")
 (load "vc-ediff")
 (load "magit")
+
+; magit-diff-file was written by me, but requsted to be merged into magit.
+; See: https://github.com/magit/magit/issues/2553
+(defun magit-diff-file (rev-or-range &optional file args)
+  "Show changes between a file from another branch"
+  (interactive (list (magit-diff-read-range-or-commit "File diff for range" nil current-prefix-arg)
+                     (if current-prefix-arg
+                       (read-file-name "File: ")
+                       buffer-file-name))) 
+  (magit-diff-setup rev-or-range nil args
+                    (list (replace-regexp-in-string (magit-toplevel) "" (expand-file-name file)))))
+
 (setq magit-push-always-verify nil)
 (setq git-commit-summary-max-length 80)
 (load "magit-blame")
@@ -283,6 +296,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 	    (doxymacs-font-lock)))
 ))
 (load "python-mode")
+(load "pydoc")
 (load "mediawiki")
 (load "dired+")
 (load "dired-details")
@@ -1639,8 +1653,10 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;; Here is where xemacs adds on its customization options
 (put 'narrow-to-region 'disabled nil)
 
-;; json/javascript indent
+;; json/javascript 
 (setq javascript-indent-level 2)
+(require 'js-doc)
+
 
 (defun update-indent-mode ()
   (setq c-basic-offset my-indent)
@@ -1730,6 +1746,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (define-key map [(control c) (control e)] 'compile)
   (define-key map (kbd "C-?") 'c-comment-selection-or-word)
   (define-key map [(alt ? )] 'gud-break)
+  (define-key map [(control x) (control ? )] 'gud-break)
   (define-key map [(control c) (control s)] 'dov-git-grep-here)
 
   (outline-minor-mode)
@@ -1766,7 +1783,8 @@ With numeric ARG, display the images if and only if ARG is positive."
 (add-hook 'js2-mode-hook
           (lambda()
             (do-return-indent js2-mode-map)
-            (set-variable 'js2-basic-offset 2)))
+            (define-key js2-mode-map "\C-c\C-d" 'js-doc-insert-function-doc)
+            (define-key js2-mode-map "@" 'js-doc-insert-tag)))
 
 ;(add-hook 'py-mode-hook '(lambda() 
 ;                           (define-key py-mode-map [(control m)] 'py-newline-and-indent)
