@@ -238,9 +238,11 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;; The following hack from http://code.google.com/p/js2-mode/issues/detail?id=50#c7
 ;; causes js2-mode not to display errors for json files.
 (defadvice js2-reparse (before json)
-	(setq js2-buffer-file-name buffer-file-name))
+	(defvar js2-buffer-file-name buffer-file-name))
 (ad-activate 'js2-reparse)
 
+(defvar tt nil)
+(defvar js2-buffer-file-name nil)
 (defadvice js2-parse-statement (around json)
 	(if (and (= tt js2-LC)
 			js2-buffer-file-name
@@ -252,7 +254,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 						(goto-char (point-min))
 						(back-to-indentation)
 						(while (eolp)
-							(next-line)
+							(forward-line 1)
 							(back-to-indentation))
 						(point)) 1) js2-ts-cursor))
 		(setq ad-return-value (js2-parse-assign-expr))
