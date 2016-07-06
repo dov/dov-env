@@ -147,6 +147,10 @@
 (require 'ein-loaddefs)
 (require 'wgrep)
 (require 'pretty-mode)
+
+(require 'browse-kill-ring)
+(global-set-key "\M-y" 'browse-kill-ring)
+
 ;(require 'subword)
 ;(add-hook 'python-mode-hook #'pretty-mode 1)
 
@@ -1021,6 +1025,7 @@ With numeric ARG, display the images if and only if ARG is positive."
            '(("xcf" . "gimp %s"))
            '(("giv" . "giv %s"))
            '(("doc" . "libreoffice -norestore %s"))
+           '(("docx" . "libreoffice -norestore %s"))
            '(("odt" . "libreoffice -norestore %s"))
            '(("gnumeric" . "gnumeric %s"))
            '(("html" . "firefox %s"))
