@@ -99,13 +99,13 @@ global setting.  For global setting and more information, see
 (defun ein:content-url (content)
   (let ((url-or-port (ein:$content-url-or-port content))
         (path (ein:$content-path content)))
-    (ein:url url-or-port "api/contents" (url-hexify-string path))))
+    (url-encode-url (ein:url url-or-port "api/contents" path))))
 
 (defun ein:content-url-legacy (content)
   "Generate content url's for IPython Notebook version 2.x"
   (let ((url-or-port (ein:$content-url-or-port content))
-        (path  (ein:$content-path content)))
-    (ein:url url-or-port "api/notebooks" (url-hexify-string path))))
+        (path (ein:$content-path content)))
+    (url-encode-url (ein:url url-or-port "api/notebooks" path))))
 
 (defun ein:content-query-contents (path &optional url-or-port force-sync callback)
   "Return the contents of the object at the specified path from the Jupyter server."
@@ -220,11 +220,15 @@ global setting.  For global setting and more information, see
 
 (defvar *ein:content-hierarchy* (make-hash-table))
 
+(defun ein:get-content-hierarchy (url-or-port)
+  (or (gethash url-or-port *ein:content-hierarchy*)
+      (ein:refresh-content-hierarchy url-or-port)))
+
 (defun ein:make-content-hierarchy (path url-or-port)
   (let* ((node (ein:content-query-contents path url-or-port t))
          (active-sessions (make-hash-table :test 'equal))
          (items (ein:$content-raw-content node)))
-    (ein:content-query-sessions url-or-port active-sessions t)
+    (ein:content-query-sessions active-sessions url-or-port t)
     (ein:flatten (loop for item in items
                        for c = (make-ein:$content :url-or-port url-or-port)
                    do (ein:new-content c nil :data item)
@@ -232,9 +236,10 @@ global setting.  For global setting and more information, see
                    (cond ((string= (ein:$content-type c) "directory")
                           (cons c
                                 (ein:make-content-hierarchy (ein:$content-path c) url-or-port)))
-                         (t (progv c
-                                (setf (ein:$content-session-p c)
-                                      (gethash active-sessions (ein:$content-path c))))))))))
+                         (t (progn 
+			      (setf (ein:$content-session-p c)
+				    (gethash (ein:$content-path c) active-sessions))
+			      c)))))))
 
 (defun ein:refresh-content-hierarchy (&optional url-or-port)
   (let ((url-or-port (or url-or-port (ein:default-url-or-port))))
@@ -242,7 +247,7 @@ global setting.  For global setting and more information, see
           (ein:make-content-hierarchy "" url-or-port))))
 
 ;;; Save Content
-(defun ein:content-save-legacy (content &optional callback cbargs)
+(defun ein:content-save-legacy (content &optional callback cbargs errcb errcbargs)
   (ein:query-singleton-ajax
        (list 'content-save (ein:$content-url-or-port content) (ein:$content-path content))
        (ein:content-url-legacy content)
@@ -251,9 +256,9 @@ global setting.  For global setting and more information, see
        :timeout ein:content-query-timeout
        :data (ein:content-to-json content)
        :success (apply-partially #'ein:content-save-success callback cbargs)
-       :error (apply-partially #'ein:content-save-error (ein:content-url-legacy content))))
+       :error (apply-partially #'ein:content-save-error (ein:content-url-legacy content) errcb errcbargs)))
 
-(defun ein:content-save (content &optional callback cbargs)
+(defun ein:content-save (content &optional callback cbargs errcb errcbargs)
   (if (>= (ein:$content-ipython-version content) 3)
       (ein:query-singleton-ajax
        (list 'content-save (ein:$content-url-or-port content) (ein:$content-path content))
@@ -263,7 +268,7 @@ global setting.  For global setting and more information, see
        :timeout ein:content-query-timeout
        :data (ein:content-to-json content)
        :success (apply-partially #'ein:content-save-success callback cbargs)
-       :error (apply-partially #'ein:content-save-error (ein:content-url content)))
+       :error (apply-partially #'ein:content-save-error (ein:content-url content) errcb errcbargs))
     (ein:content-save-legacy content callback cbargs)))
 
 (defun* ein:content-save-success (callback cbargs &key status response &allow-other-keys)
@@ -271,11 +276,13 @@ global setting.  For global setting and more information, see
   (when callback
     (apply callback cbargs)))
 
-(defun* ein:content-save-error (url &key symbol-status response &allow-other-keys)
+(defun* ein:content-save-error (url errcb errcbargs &key response status-code &allow-other-keys)
   (ein:log 'verbose
     "Error thrown: %S" (request-response-error-thrown response))
   (ein:log 'error
-    "Content list call %s failed with status %s." url symbol-status))
+    "Content list call %s failed with status %s." url status-code)
+  (when errcb
+    (apply errcb errcbargs)))
 
 
 ;;; Rename Content
@@ -331,7 +338,7 @@ global setting.  For global setting and more information, see
 
 (defun ein:content-query-sessions (session-hash url-or-port &optional force-sync)
   (ein:query-singleton-ajax
-     (list 'content-queyr-sessions)
+     (list 'content-query-sessions)
      (ein:url url-or-port "api/sessions")
      :type "GET"
      :parser #'ein:json-read

@@ -88,18 +88,18 @@ Maximum number of cache to store."
 (defun ein:ac-direct-get-matches ()
   (ein:ac-chunk-candidates-from-list ein:ac-direct-matches))
 
-(ac-define-source ein-direct
-  '((candidates . ein:ac-direct-get-matches)
-    (requires . 0)
-    (prefix . ein:ac-chunk-beginning)
-    (symbol . "s")))
+(eval '(ac-define-source ein-direct
+                         '((candidates . ein:ac-direct-get-matches)
+                           (requires . 0)
+                           (prefix . ein:ac-chunk-beginning)
+                           (symbol . "s"))))
 
-(ac-define-source ein-async
-  '((candidates . ein:ac-direct-get-matches)
-    (requires . 0)
-    (prefix . ein:ac-chunk-beginning)
-    (init . ein:ac-request-in-background)
-    (symbol . "c")))
+(eval '(ac-define-source ein-async
+                         '((candidates . ein:ac-direct-get-matches)
+                           (requires . 0)
+                           (prefix . ein:ac-chunk-beginning)
+                           (init . ein:ac-request-in-background)
+                           (symbol . "c"))))
 
 (define-obsolete-function-alias 'ac-complete-ein-cached 'ac-complete-ein-async
   "0.2.1")
@@ -156,7 +156,10 @@ replied within `ac-quick-help-delay' seconds, auto-complete will
 popup help string."
   (let* ((candidate (ac-selected-candidate))
          (kernel (ein:get-kernel))
-         (callbacks (list :object_info_reply
+	 (api-version (ein:$kernel-api-version kernel))
+         (callbacks (list (if (< api-version 3)
+			      :object_info_reply
+			    :inspect_request)
                           (cons #'ein:ac-set-document candidate))))
     (when (and candidate
                (ein:kernel-live-p kernel)
