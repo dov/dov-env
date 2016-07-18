@@ -1,6 +1,6 @@
-;;; org-eshell.el - Support for links to working directories in eshell
+;;; org-eshell.el - Support for Links to Working Directories in Eshell -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2016 Free Software Foundation, Inc.
 
 ;; Author: Konrad Hinsen <konrad.hinsen AT fastmail.net>
 
@@ -43,7 +43,7 @@
          (eshell-buffer-name (car buffer-and-command))
          (command (cadr buffer-and-command)))
     (if (get-buffer eshell-buffer-name)
-	(org-pop-to-buffer-same-window eshell-buffer-name)
+	(pop-to-buffer-same-window eshell-buffer-name)
       (eshell))
     (goto-char (point-max))
     (eshell-kill-input)

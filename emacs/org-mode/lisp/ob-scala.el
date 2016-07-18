@@ -1,6 +1,6 @@
-;;; ob-scala.el --- org-babel functions for Scala evaluation
+;;; ob-scala.el --- Babel Functions for Scala        -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2016 Free Software Foundation, Inc.
 
 ;; Author: Andrzej Lichnerowicz
 ;; Keywords: literate programming, reproducible research
@@ -45,7 +45,6 @@ called by `org-babel-execute-src-block'"
   (message "executing Scala source code block")
   (let* ((processed-params (org-babel-process-params params))
          (session (org-babel-scala-initiate-session (nth 0 processed-params)))
-         (vars (nth 1 processed-params))
          (result-params (nth 2 processed-params))
          (result-type (cdr (assoc :result-type params)))
          (full-body (org-babel-expand-body:generic
@@ -59,14 +58,6 @@ called by `org-babel-execute-src-block'"
       (cdr (assoc :colname-names params)) (cdr (assoc :colnames params)))
      (org-babel-pick-name
       (cdr (assoc :rowname-names params)) (cdr (assoc :rownames params))))))
-
-
-(defun org-babel-scala-table-or-string (results)
-  "Convert RESULTS into an appropriate elisp value.
-If RESULTS look like a table, then convert them into an
-Emacs-lisp table, otherwise return the results as a string."
-  (org-babel-script-escape results))
-
 
 (defvar org-babel-scala-wrapper-method
 
@@ -86,8 +77,8 @@ print(str_result)
 (defun org-babel-scala-evaluate
   (session body &optional result-type result-params)
   "Evaluate BODY in external Scala process.
-If RESULT-TYPE equals 'output then return standard output as a string.
-If RESULT-TYPE equals 'value then return the value of the last statement
+If RESULT-TYPE equals `output' then return standard output as a string.
+If RESULT-TYPE equals `value' then return the value of the last statement
 in BODY as elisp."
   (when session (error "Sessions are not (yet) supported for Scala"))
   (case result-type
@@ -104,14 +95,14 @@ in BODY as elisp."
                    (concat org-babel-scala-command " " src-file) "")))
          (org-babel-result-cond result-params
 	   raw
-           (org-babel-scala-table-or-string raw)))))))
+           (org-babel-script-escape raw)))))))
 
 
-(defun org-babel-prep-session:scala (session params)
+(defun org-babel-prep-session:scala (_session _params)
   "Prepare SESSION according to the header arguments specified in PARAMS."
   (error "Sessions are not (yet) supported for Scala"))
 
-(defun org-babel-scala-initiate-session (&optional session)
+(defun org-babel-scala-initiate-session (&optional _session)
   "If there is not a current inferior-process-buffer in SESSION
 then create.  Return the initialized session.  Sessions are not
 supported in Scala."

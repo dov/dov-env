@@ -1,6 +1,6 @@
-;;; ob-js.el --- org-babel functions for Javascript
+;;; ob-js.el --- Babel Functions for Javascript      -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2010-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2016 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research, js
@@ -97,14 +97,15 @@ This function is called by `org-babel-execute-src-block'"
 If RESULTS look like a table, then convert them into an
 Emacs-lisp table, otherwise return the results as a string."
   (org-babel-read
-   (if (and (stringp results) (string-match "^\\[.+\\]$" results))
+   (if (and (stringp results) (string-match "^\\[[^\000]+\\]$" results))
        (org-babel-read
         (concat "'"
                 (replace-regexp-in-string
                  "\\[" "(" (replace-regexp-in-string
                             "\\]" ")" (replace-regexp-in-string
-                                       ", " " " (replace-regexp-in-string
-						 "'" "\"" results))))))
+                                       ",[[:space:]]" " "
+				       (replace-regexp-in-string
+					"'" "\"" results))))))
      results)))
 
 (defun org-babel-js-var-to-js (var)
@@ -113,7 +114,7 @@ Convert an elisp value into a string of js source code
 specifying a variable of the same value."
   (if (listp var)
       (concat "[" (mapconcat #'org-babel-js-var-to-js var ", ") "]")
-    (format "%S" var)))
+    (replace-regexp-in-string "\n" "\\\\n" (format "%S" var))))
 
 (defun org-babel-prep-session:js (session params)
   "Prepare SESSION according to the header arguments specified in PARAMS."
@@ -133,7 +134,7 @@ specifying a variable of the same value."
   (mapcar
    (lambda (pair) (format "var %s=%s;"
 			  (car pair) (org-babel-js-var-to-js (cdr pair))))
-   (mapcar #'cdr (org-babel-get-header params :var))))
+   (org-babel--get-vars params)))
 
 (defun org-babel-js-initiate-session (&optional session)
   "If there is not a current inferior-process-buffer in SESSION

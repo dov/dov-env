@@ -1,6 +1,6 @@
-;;; ob-eval.el --- org-babel functions for external code evaluation
+;;; ob-eval.el --- Babel Functions for External Code Evaluation -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research, comint
@@ -57,6 +57,13 @@ STDERR with `org-babel-eval-error-notify'."
 	  (progn
 	    (with-current-buffer err-buff
 	      (org-babel-eval-error-notify exit-code (buffer-string)))
+	    (save-excursion
+	      (when (get-buffer org-babel-error-buffer-name)
+		(with-current-buffer org-babel-error-buffer-name
+		  (unless (derived-mode-p 'compilation-mode)
+		    (compilation-mode))
+		  ;; Compilation-mode enforces read-only, but Babel expects the buffer modifiable.
+		  (setq buffer-read-only nil))))
 	    nil)
 	(buffer-string)))))
 

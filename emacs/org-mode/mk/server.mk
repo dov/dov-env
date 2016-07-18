@@ -35,9 +35,9 @@ ORGFULL   = README COPYING lisp/ \
 		Makefile request-assign-future.txt \
 		mk/default.mk mk/targets.mk mk/version.mk \
 		mk/org-fixup.el \
-		etc/ contrib/ doc/
+		etc/ contrib/ doc/ testing/
 ORGFULL  := $(ORGFULL:%/=%/*)
-ORGELPA   = README_ELPA COPYING lisp/ \
+ORGELPA   = README_ELPA COPYING etc/ORG-NEWS lisp/ \
 		doc/dir doc/org doc/orgcard.pdf \
 		etc/styles/ org-pkg.el
 ORGELPA  := $(ORGELPA:%/=%/*)
@@ -80,7 +80,7 @@ archive-contents:
 	echo "   (org-plus-contrib . [($(PKG_TAG)) ($(PKG_REQ)) \"$(PKG_DOC)\" tar]))" >> $@
 
 elpaplus:		cleanall info card elpaplus-dirty
-elpaplus-dirty elpaplus-up:	ORG_ADD_CONTRIB=org-* ob-* ox-*
+elpaplus-dirty elpaplus-up:	ORG_ADD_CONTRIB=org*.el ob-*.el ox-*.el
 elpaplus-dirty elpaplus-up:	ORGDIR=org-plus-contrib-$(PKG_TAG)
 elpaplus-dirty:
 	@$(MAKE) GITVERSION=$(GITVERSION:release_%=%)-elpaplus version autoloads

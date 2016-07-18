@@ -1,6 +1,6 @@
-;;; org-bibtex.el --- Org links to BibTeX entries
+;;; org-bibtex.el --- Org links to BibTeX entries    -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
 ;;
 ;; Authors: Bastien Guerry <bzg@gnu.org>
 ;;       Carsten Dominik <carsten dot dominik at gmail dot com>
@@ -109,10 +109,11 @@
 
 (require 'org)
 (require 'bibtex)
-(eval-when-compile
-  (require 'cl))
+(require 'cl-lib)
 (require 'org-compat)
 
+(defvar org-agenda-overriding-header)
+(defvar org-agenda-search-view-always-boolean)
 (defvar org-bibtex-description nil) ; dynamically scoped from org.el
 (defvar org-id-locations)
 
@@ -120,7 +121,6 @@
 (declare-function bibtex-generate-autokey "bibtex" ())
 (declare-function bibtex-parse-entry "bibtex" (&optional content))
 (declare-function bibtex-url "bibtex" (&optional pos no-browse))
-(declare-function org-babel-trim "ob" (string &optional regexp))
 
 
 ;;; Bibtex data
@@ -195,7 +195,7 @@
     (:howpublished . "How something strange has been published.  The first word should be capitalized.")
     (:institution  . "The sponsoring institution of a technical report.")
     (:journal      . "A journal name.")
-    (:key          . "Used for alphabetizing, cross-referencing, and creating a label when the author information is missing.  This field should not be confused with the key that appears in the \cite command and at the beginning of the database entry.")
+    (:key          . "Used for alphabetizing, cross-referencing, and creating a label when the author information is missing.  This field should not be confused with the key that appears in the \\cite command and at the beginning of the database entry.")
     (:month        . "The month in which the work was published or, for an unpublished work, in which it was written.  You should use the standard three-letter abbreviation,")
     (:note         . "Any additional information that can help the reader.  The first word should be capitalized.")
     (:number       . "Any additional information that can help the reader.  The first word should be capitalized.")
@@ -221,7 +221,7 @@
 
 (defcustom org-bibtex-prefix nil
   "Optional prefix for all bibtex property names.
-For example setting to 'BIB_' would allow interoperability with fireforg."
+For example setting to `BIB_' would allow interoperability with fireforg."
   :group 'org-bibtex
   :version "24.1"
   :type  '(choice
@@ -312,7 +312,7 @@ and `org-exclude-tags-from-inheritence'."
                (org-entry-get (point) (upcase property))
                (org-entry-get (point) (concat org-bibtex-prefix
                                               (upcase property)))))))
-    (when it (org-babel-trim it))))
+    (when it (org-trim it))))
 
 (defun org-bibtex-put (property value)
   (let ((prop (upcase (if (keywordp property)
@@ -325,29 +325,27 @@ and `org-exclude-tags-from-inheritence'."
 
 (defun org-bibtex-headline ()
   "Return a bibtex entry of the given headline as a string."
-  (let* ((val (lambda (key lst) (cdr (assoc key lst))))
-	 (to (lambda (string) (intern (concat ":" string))))
-	 (from (lambda (key) (substring (symbol-name key) 1)))
-	 flatten ; silent compiler warning
-	 (flatten (lambda (&rest lsts)
-		    (apply #'append (mapcar
-				     (lambda (e)
-				       (if (listp e) (apply flatten e) (list e)))
-				     lsts))))
-	 (notes (buffer-string))
-	 (id (org-bibtex-get org-bibtex-key-property))
-	 (type (org-bibtex-get org-bibtex-type-property-name))
-	 (tags (when org-bibtex-tags-are-keywords
-		 (delq nil
-		       (mapcar
-			(lambda (tag)
-			  (unless (member tag
-					  (append org-bibtex-tags
-						  org-bibtex-no-export-tags))
-			    tag))
-			(if org-bibtex-inherit-tags
-			    (org-get-tags-at)
-			  (org-get-local-tags-at)))))))
+  (letrec ((val (lambda (key lst) (cdr (assoc key lst))))
+	   (to (lambda (string) (intern (concat ":" string))))
+	   (from (lambda (key) (substring (symbol-name key) 1)))
+	   (flatten (lambda (&rest lsts)
+		      (apply #'append (mapcar
+				       (lambda (e)
+					 (if (listp e) (apply flatten e) (list e)))
+				       lsts))))
+	   (id (org-bibtex-get org-bibtex-key-property))
+	   (type (org-bibtex-get org-bibtex-type-property-name))
+	   (tags (when org-bibtex-tags-are-keywords
+		   (delq nil
+			 (mapcar
+			  (lambda (tag)
+			    (unless (member tag
+					    (append org-bibtex-tags
+						    org-bibtex-no-export-tags))
+			      tag))
+			  (if org-bibtex-inherit-tags
+			      (org-get-tags-at)
+			    (org-get-local-tags-at)))))))
     (when type
       (let ((entry (format
 		    "@%s{%s,\n%s\n}\n" type id
@@ -442,7 +440,7 @@ With optional argument OPTIONAL, also prompt for optional fields."
 				(lambda (f) (when (org-bibtex-get (funcall name f)) f))
 				field)))))
           (setf field (or present (funcall keyword
-					   (org-icompleting-read
+					   (completing-read
 					    "Field: " (mapcar name field)))))))
       (let ((name (funcall name field)))
         (unless (org-bibtex-get name)
@@ -549,20 +547,22 @@ With optional argument OPTIONAL, also prompt for optional fields."
 
 
 ;;; Bibtex <-> Org-mode headline translation functions
-(defun org-bibtex (&optional filename)
+(defun org-bibtex (filename)
   "Export each headline in the current file to a bibtex entry.
 Headlines are exported using `org-bibtex-headline'."
   (interactive
    (list (read-file-name
 	  "Bibtex file: " nil nil nil
-	  (file-name-nondirectory
-	   (concat (file-name-sans-extension (buffer-file-name)) ".bib")))))
+	  (let ((file (buffer-file-name (buffer-base-buffer))))
+	    (and file
+		 (file-name-nondirectory
+		  (concat (file-name-sans-extension file) ".bib")))))))
   (let ((error-point
          (catch 'bib
            (let ((bibtex-entries
                   (remove nil (org-map-entries
                                (lambda ()
-                                 (condition-case foo
+                                 (condition-case nil
                                      (org-bibtex-headline)
                                    (error (throw 'bib (point)))))))))
              (with-temp-file filename
@@ -593,7 +593,7 @@ With prefix argument OPTIONAL also prompt for optional fields."
 With a prefix arg, query for optional fields as well.
 If nonew is t, add data to the headline of the entry at point."
   (interactive "P")
-  (let* ((type (org-icompleting-read
+  (let* ((type (completing-read
 		"Type: " (mapcar (lambda (type)
 				   (substring (symbol-name (car type)) 1))
 				 org-bibtex-types)
@@ -612,7 +612,7 @@ If nonew is t, add data to the headline of the entry at point."
     (org-bibtex-put org-bibtex-type-property-name
 		    (substring (symbol-name type) 1))
     (org-bibtex-fleshout type arg)
-    (mapc (lambda (tag) (org-toggle-tag tag 'on)) org-bibtex-tags)))
+    (dolist (tag org-bibtex-tags) (org-toggle-tag tag 'on))))
 
 (defun org-bibtex-create-in-current-entry (&optional arg)
   "Add bibliographical data to the current entry.
@@ -629,7 +629,7 @@ This uses `bibtex-parse-entry'."
 				    "[[:space:]\n\r]+" " " str)))
 	(strip-delim
 	 (lambda (str)	     ; strip enclosing "..." and {...}
-	   (dolist (pair '((34 . 34) (123 . 125) (123 . 125)))
+	   (dolist (pair '((34 . 34) (123 . 125)))
 	     (when (and (> (length str) 1)
 			(= (aref str 0) (car pair))
 			(= (aref str (1- (length str))) (cdr pair)))
@@ -686,14 +686,12 @@ Return the number of saved entries."
 	(:type     nil)
 	(:key      (org-bibtex-put org-bibtex-key-property (cdr pair)))
 	(:keywords (if org-bibtex-tags-are-keywords
-		       (mapc
-			(lambda (kw)
-			  (funcall
-			   togtag
-			   (replace-regexp-in-string
-			    "[^[:alnum:]_@#%]" ""
-			    (replace-regexp-in-string "[ \t]+" "_" kw))))
-			(split-string (cdr pair) ", *"))
+		       (dolist (kw (split-string (cdr pair) ", *"))
+			 (funcall
+			  togtag
+			  (replace-regexp-in-string
+			   "[^[:alnum:]_@#%]" ""
+			   (replace-regexp-in-string "[ \t]+" "_" kw))))
 		     (org-bibtex-put (car pair) (cdr pair))))
 	(otherwise (org-bibtex-put (car pair)  (cdr pair)))))
     (mapc togtag org-bibtex-tags)))

@@ -1,6 +1,6 @@
-;;; org-id.el --- Global identifiers for Org-mode entries
+;;; org-id.el --- Global identifiers for Org entries -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2008-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2016 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -73,8 +73,6 @@
 (require 'org)
 
 (declare-function message-make-fqdn "message" ())
-(declare-function org-pop-to-buffer-same-window
-		  "org-compat" (&optional buffer-or-name norecord label))
 
 ;;; Customization
 
@@ -83,10 +81,9 @@
   :tag "Org ID"
   :group 'org)
 
-(define-obsolete-variable-alias
-  'org-link-to-org-use-id 'org-id-link-to-org-use-id "24.3")
 (defcustom org-id-link-to-org-use-id nil
   "Non-nil means storing a link to an Org file will use entry IDs.
+\\<org-mode-map>\
 
 The variable can have the following values:
 
@@ -101,7 +98,7 @@ create-if-interactive
       call `org-capture' that automatically and preemptively creates a
       link.  If you do want to get an ID link in a capture template to
       an entry not having an ID, create it first by explicitly creating
-      a link to it, using `C-c C-l' first.
+      a link to it, using `\\[org-insert-link]' first.
 
 create-if-interactive-and-no-custom-id
       Like create-if-interactive, but do not create an ID if there is
@@ -277,7 +274,7 @@ If necessary, the ID is created."
       (move-marker pom nil))))
 
 ;;;###autoload
-(defun org-id-get-with-outline-drilling (&optional targets)
+(defun org-id-get-with-outline-drilling ()
   "Use an outline-cycling interface to retrieve the ID of an entry.
 This only finds entries in the current buffer, using `org-get-location'.
 It returns the ID of the entry.  If necessary, the ID is created."
@@ -294,7 +291,7 @@ Move the cursor to that entry in that buffer."
   (let ((m (org-id-find id 'marker)))
     (unless m
       (error "Cannot find entry with ID \"%s\"" id))
-    (org-pop-to-buffer-same-window (marker-buffer m))
+    (pop-to-buffer-same-window (marker-buffer m))
     (goto-char m)
     (move-marker m nil)
     (org-show-context)))
@@ -494,7 +491,7 @@ When CHECK is given, prepare detailed information about duplicate IDs."
 		(goto-char (point-min))
 		(while (re-search-forward "^[ \t]*:ID:[ \t]+\\(\\S-+\\)[ \t]*$"
 					  nil t)
-		  (setq id (org-match-string-no-properties 1))
+		  (setq id (match-string-no-properties 1))
 		  (if (member id found)
 		      (progn
 			(message "Duplicate ID \"%s\", also in file %s"

@@ -1,6 +1,6 @@
-;;; org-eww.el --- Store url and kill from Eww mode for Org
+;;; org-eww.el --- Store url and kill from Eww mode for Org  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2014 Free Software Foundation, Inc.
+;; Copyright (C) 2014-2016 Free Software Foundation, Inc.
 
 ;; Author: Marco Wahl <marcowahlsoft>a<gmailcom>
 ;; Keywords: link, eww
@@ -72,11 +72,10 @@ move.  Return point."
    (or (next-single-property-change (point) 'shr-url)
        (point))))
 
-(defun org-eww-no-next-link-p ()
-  "Whether there is no next link after the cursor.
-Return t if there is no next link; otherwise, return nil."
+(defun org-eww-has-further-url-property-change-p ()
+  "Return t if there is a next url property change else nil."
   (save-excursion
-    (and (eq (point) (org-eww-goto-next-url-property-change)) t)))
+    (not (eq (point) (org-eww-goto-next-url-property-change)))))
 
 (defun org-eww-url-below-point ()
   "Return the url below point if there is an url; otherwise, return nil."
@@ -87,7 +86,10 @@ Return t if there is no next link; otherwise, return nil."
   "Copy current buffer content or active region with `org-mode' style links.
 This will encode `link-title' and `link-location' with
 `org-make-link-string', and insert the transformed test into the kill ring,
-so that it can be yanked into an Org-mode buffer with links working correctly."
+so that it can be yanked into an Org-mode buffer with links working correctly.
+
+Further lines starting with a star get quoted with a comma to keep
+the structure of the org file."
   (interactive)
   (let* ((regionp (org-region-active-p))
          (transform-start (point-min))
@@ -104,7 +106,7 @@ so that it can be yanked into an Org-mode buffer with links working correctly."
     (save-excursion
       (goto-char transform-start)
       (while (and (not out-bound)                 ; still inside region to copy
-                  (not (org-eww-no-next-link-p))) ; there is a next link
+                  (org-eww-has-further-url-property-change-p)) ; there is a next link
         ;; store current point before jump next anchor
         (setq temp-position (point))
         ;; move to next anchor when current point is not at anchor
@@ -115,7 +117,7 @@ so that it can be yanked into an Org-mode buffer with links working correctly."
 	(if (<= (point) transform-end)  ; if point is inside transform bound
 	    (progn
 	      ;; get content between two links.
-	      (if (> (point) temp-position)
+	      (if (< temp-position (point))
 		  (setq return-content (concat return-content
 					       (buffer-substring
 						temp-position (point)))))
@@ -138,7 +140,14 @@ so that it can be yanked into an Org-mode buffer with links working correctly."
           (setq return-content
                 (concat return-content
                         (buffer-substring (point) transform-end))))
-      (org-kill-new return-content)
+      ;; quote lines starting with *
+      (org-kill-new
+       (with-temp-buffer
+	 (insert return-content)
+	 (goto-char 0)
+	 (while (re-search-forward "^\*" nil t)
+	   (replace-match ",*"))
+	 (buffer-string)))
       (message "Transforming links...done, use C-y to insert text into Org-mode file"))))
 
 

@@ -1,6 +1,6 @@
-;;; org-mhe.el --- Support for links to MH-E messages from within Org-mode
+;;; org-mhe.el --- Support for Links to MH-E Messages -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
 
 ;; Author: Thomas Baumann <thomas dot baumann at ch dot tum dot de>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -88,17 +88,9 @@ supported by MH-E."
 	     (message-id (org-mhe-get-header "Message-Id:"))
 	     (subject (org-mhe-get-header "Subject:"))
 	     (date (org-mhe-get-header "Date:"))
-	     (date-ts (and date (format-time-string
-				 (org-time-stamp-format t) (date-to-time date))))
-	     (date-ts-ia (and date (format-time-string
-				    (org-time-stamp-format t t)
-				    (date-to-time date))))
 	     link desc)
-	(org-store-link-props :type "mh" :from from :to to
+	(org-store-link-props :type "mh" :from from :to to :date date
 			      :subject subject :message-id message-id)
-	(when date
-	  (org-add-link-props :date date :date-timestamp date-ts
-			      :date-timestamp-inactive date-ts-ia))
 	(setq desc (org-email-link-description))
 	(setq link (concat "mhe:" (org-mhe-get-message-real-folder) "#"
 			   (org-remove-angle-brackets message-id)))

@@ -1,6 +1,6 @@
-;;; org-docview.el --- support for links to doc-view-mode buffers
+;;; org-docview.el --- Support for links to doc-view-mode buffers -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
 ;; Author: Jan Böcker <jan.boecker at jboecker dot de>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -54,14 +54,14 @@
 
 (defun org-docview-export (link description format)
   "Export a docview link from Org files."
-  (let* ((path (when (string-match "\\(.+\\)::.+" link)
-		 (match-string 1 link)))
+  (let* ((path (if (string-match "\\(.+\\)::.+" link) (match-string 1 link)
+		 link))
          (desc (or description link)))
     (when (stringp path)
       (setq path (org-link-escape (expand-file-name path)))
       (cond
        ((eq format 'html) (format "<a href=\"%s\">%s</a>" path desc))
-       ((eq format 'latex) (format "\href{%s}{%s}" path desc))
+       ((eq format 'latex) (format "\\href{%s}{%s}" path desc))
        ((eq format 'ascii) (format "%s (%s)" desc path))
        (t path)))))
 
@@ -81,8 +81,7 @@
     ;; This buffer is in doc-view-mode
     (let* ((path buffer-file-name)
 	   (page (image-mode-window-get 'page))
-	   (link (concat "docview:" path "::" (number-to-string page)))
-	   (description ""))
+	   (link (concat "docview:" path "::" (number-to-string page))))
       (org-store-link-props
        :type "docview"
        :link link

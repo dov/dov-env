@@ -1,6 +1,6 @@
-;;; ob-octave.el --- org-babel functions for octave and matlab evaluation
+;;; ob-octave.el --- Babel Functions for Octave and Matlab -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2010-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2016 Free Software Foundation, Inc.
 
 ;; Author: Dan Davison
 ;; Keywords: literate programming, reproducible research
@@ -34,6 +34,7 @@
 
 (declare-function matlab-shell "ext:matlab-mode")
 (declare-function matlab-shell-run-region "ext:matlab-mode")
+(declare-function org-trim "org" (s &optional keep-lead))
 
 (defvar org-babel-default-header-args:matlab '())
 (defvar org-babel-default-header-args:octave '())
@@ -61,7 +62,7 @@ if ischar(ans), fid = fopen('%s', 'w'); fprintf(fid, '%%s\\n', ans); fclose(fid)
 else, dlmwrite('%s', ans, '\\t')
 end")
 
-(defvar org-babel-octave-eoe-indicator "\'org_babel_eoe\'")
+(defvar org-babel-octave-eoe-indicator "'org_babel_eoe'")
 
 (defvar org-babel-octave-eoe-output "ans = org_babel_eoe")
 
@@ -75,10 +76,7 @@ end")
 	  (funcall (intern (format "org-babel-%s-initiate-session"
 				   (if matlabp "matlab" "octave")))
 		   (cdr (assoc :session params)) params))
-         (vars (mapcar #'cdr (org-babel-get-header params :var)))
-         (result-params (cdr (assoc :result-params params)))
          (result-type (cdr (assoc :result-type params)))
-	 (out-file (cdr (assoc :file params)))
 	 (full-body
 	  (org-babel-expand-body:generic
 	   body params (org-babel-variable-assignments:octave params)))
@@ -114,7 +112,7 @@ end")
      (format "%s=%s;"
 	     (car pair)
 	     (org-babel-octave-var-to-octave (cdr pair))))
-   (mapcar #'cdr (org-babel-get-header params :var))))
+   (org-babel--get-vars params)))
 
 (defalias 'org-babel-variable-assignments:matlab
   'org-babel-variable-assignments:octave)
@@ -128,7 +126,7 @@ specifying a variable of the same value."
 			     (if (listp (car var)) "; " ",")) "]")
     (cond
      ((stringp var)
-      (format "\'%s\'" var))
+      (format "'%s'" var))
      (t
       (format "%s" var)))))
 
@@ -148,7 +146,7 @@ If there is not a current inferior-process-buffer in SESSION then
 create.  Return the initialized session."
   (org-babel-octave-initiate-session session params 'matlab))
 
-(defun org-babel-octave-initiate-session (&optional session params matlabp)
+(defun org-babel-octave-initiate-session (&optional session _params matlabp)
   "Create an octave inferior process buffer.
 If there is not a current inferior-process-buffer in SESSION then
 create.  Return the initialized session."
@@ -168,8 +166,8 @@ create.  Return the initialized session."
 (defun org-babel-octave-evaluate
   (session body result-type &optional matlabp)
   "Pass BODY to the octave process in SESSION.
-If RESULT-TYPE equals 'output then return the outputs of the
-statements in BODY, if RESULT-TYPE equals 'value then return the
+If RESULT-TYPE equals `output' then return the outputs of the
+statements in BODY, if RESULT-TYPE equals `value' then return the
 value of the last statement in BODY, as elisp."
   (if session
       (org-babel-octave-evaluate-session session body result-type matlabp)
@@ -243,11 +241,11 @@ value of the last statement in BODY, as elisp."
 	       (if matlabp
 		   (cdr (reverse (delq "" (mapcar
 					   #'org-babel-octave-read-string
-					   (mapcar #'org-babel-trim raw)))))
+					   (mapcar #'org-trim raw)))))
 		 (cdr (member org-babel-octave-eoe-output
 			      (reverse (mapcar
 					#'org-babel-octave-read-string
-					(mapcar #'org-babel-trim raw)))))))
+					(mapcar #'org-trim raw)))))))
 	 (mapconcat #'identity (reverse results) "\n"))))))
 
 (defun org-babel-octave-import-elisp-from-file (file-name)

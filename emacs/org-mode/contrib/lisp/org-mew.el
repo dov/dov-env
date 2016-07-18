@@ -1,6 +1,6 @@
 ;;; org-mew.el --- Support for links to Mew messages from within Org-mode
 
-;; Copyright (C) 2008-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2016 Free Software Foundation, Inc.
 
 ;; Author: Tokuya Kameshima <kames at fa2 dot so-net dot ne dot jp>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -167,19 +167,10 @@ with \"t\" key."
 	       (from (mew-header-get-value "From:"))
 	       (to (mew-header-get-value "To:"))
 	       (date (mew-header-get-value "Date:"))
-	       (date-ts (and date (format-time-string
-				   (org-time-stamp-format t)
-				   (date-to-time date))))
-	       (date-ts-ia (and date (format-time-string
-				      (org-time-stamp-format t t)
-				      (date-to-time date))))
 	       (subject (mew-header-get-value "Subject:"))
 	       desc link)
-	  (org-store-link-props :type "mew" :from from :to to
+	  (org-store-link-props :type "mew" :from from :to to :date date
 				:subject subject :message-id message-id)
-	  (when date
-	    (org-add-link-props :date date :date-timestamp date-ts
-				:date-timestamp-inactive date-ts-ia))
 	  (setq message-id (org-remove-angle-brackets message-id))
 	  (setq desc (org-email-link-description))
 	  (setq link (concat "mew:" folder-name "#" message-id))

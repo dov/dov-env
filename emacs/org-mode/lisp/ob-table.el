@@ -1,6 +1,6 @@
-;;; ob-table.el --- support for calling org-babel functions from tables
+;;; ob-table.el --- Support for Calling Babel Functions from Tables -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
@@ -47,10 +47,15 @@
 ;; |        7 |        |
 ;; |        8 |        |
 ;; |        9 |        |
-;; #+TBLFM: $2='(org-sbe 'fibbd (n $1))
+;; #+TBLFM: $2='(org-sbe "fibbd" (n $1))
+
+;; NOTE: The quotation marks around the function name, 'fibbd' here,
+;; are optional.
 
 ;;; Code:
 (require 'ob-core)
+
+(declare-function org-trim "org" (s &optional keep-lead))
 
 (defun org-babel-table-truncate-at-newline (string)
   "Replace newline character with ellipses.
@@ -69,13 +74,16 @@ string of its value.
 
 So this `org-sbe' construct
 
- (org-sbe 'source-block (n $2) (m 3))
+ (org-sbe \"source-block\" (n $2) (m 3))
 
 is the equivalent of the following source code block:
 
  #+begin_src emacs-lisp :var results=source-block(n=val_at_col_2, m=3) :results silent
  results
  #+end_src
+
+NOTE: The quotation marks around the function name,
+'source-block', are optional.
 
 NOTE: By default, string variable names are interpreted as
 references to source-code blocks, to force interpretation of a
@@ -88,7 +96,7 @@ the header argument which can then be passed before all variables
 as shown in the example below.
 
 | 1 | 2 | :file nothing.png | nothing.png |
-#+TBLFM: @1$4='(org-sbe test-sbe $3 (x $1) (y $2))"
+#+TBLFM: @1$4=\\='(org-sbe test-sbe $3 (x $1) (y $2))"
   (declare (debug (form form)))
   (let* ((header-args (if (stringp (car variables)) (car variables) ""))
 	 (variables (if (stringp (car variables)) (cdr variables) variables)))
@@ -136,7 +144,7 @@ as shown in the example below.
                     nil (list "emacs-lisp" "results" params)
                     '((:results . "silent"))))
                "")))
-        (org-babel-trim (if (stringp result) result (format "%S" result)))))))
+        (org-trim (if (stringp result) result (format "%S" result)))))))
 
 (provide 'ob-table)
 

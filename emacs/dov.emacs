@@ -731,14 +731,13 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (add-to-list 'iimage-mode-image-regex-alist
              (cons (concat "\\[\\[file:\\(~?" iimage-mode-image-filename-regex
                            "\\)\\]")  1))
-(load "ox-mediawiki.el")
 
 ;; Python use python-mode
 (setq ipython-command "ipython")
 (require 'ipython)
 ;(setq py-python-command-args '("-pylab" "-p" "pylab" "-colors" "LightBG"))
-(setq py-python-command "python")
-(setq py-python-command-args nil)
+;(setq py-python-command "python")
+;(setq py-python-command-args nil)
 
 ; ediff options
 (setq ediff-patch-options "")
@@ -951,23 +950,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (ansi-color-apply-on-region (point-min) (point-max))
   (toggle-read-only))
 (add-hook 'compilation-filter-hook 'colorize-compilation-buffer)
-
-(setq
- python-shell-interpreter "ipython"
- python-shell-interpreter-args ""
- python-shell-prompt-regexp "In \\[[0-9]+\\]: "
- python-shell-prompt-output-regexp "Out\\[[0-9]+\\]: "
- python-shell-completion-setup-code
-   "from IPython.core.completerlib import module_completion"
- python-shell-completion-module-string-code
-   "';'.join(module_completion('''%s'''))\n"
- python-shell-completion-string-code
-   "';'.join(get_ipython().Completer.all_completions('''%s'''))\n")
-
-(defun my-run-python-mode-hook ()
-  (interactive)
-  (ansi-color-for-comint-mode-on))
-(add-hook 'inferior-python-mode-hook 'my-run-python-mode-hook)
 
 ;; Got the follownig from: http://eschulte.github.com/babel-dev/DONE-In-buffer-graphical-results.html
 (defun my-iimage-mode-buffer (arg &optional refresh)

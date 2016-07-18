@@ -1,6 +1,6 @@
-;;; org-ctags.el - Integrate Emacs "tags" facility with org mode.
+;;; org-ctags.el - Integrate Emacs "tags" Facility with Org -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
 
 ;; Author: Paul Sexton <eeeickythump@gmail.com>
 
@@ -63,19 +63,19 @@
 ;; with the same name as the link; then, if unsuccessful, ask the user if
 ;; he/she wants to rebuild the 'TAGS' database and try again; then ask if
 ;; the user wishes to append 'tag' as a new toplevel heading at the end of
-;; the buffer; and finally, defer to org's default behaviour which is to
+;; the buffer; and finally, defer to org's default behavior which is to
 ;; search the entire text of the current buffer for 'tag'.
 ;;
-;; This behaviour can be modified by changing the value of
+;; This behavior can be modified by changing the value of
 ;; ORG-CTAGS-OPEN-LINK-FUNCTIONS. For example I have the following in my
-;; .emacs, which describes the same behaviour as the above paragraph with
+;; .emacs, which describes the same behavior as the above paragraph with
 ;; one difference:
 ;;
 ;; (setq org-ctags-open-link-functions
 ;;       '(org-ctags-find-tag
 ;;         org-ctags-ask-rebuild-tags-file-then-find-tag
 ;;         org-ctags-ask-append-topic
-;;         org-ctags-fail-silently))  ; <-- prevents org default behaviour
+;;         org-ctags-fail-silently))  ; <-- prevents org default behavior
 ;;
 ;;
 ;; Usage
@@ -135,11 +135,7 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
-
 (require 'org)
-
-(declare-function org-pop-to-buffer-same-window "org-compat" (&optional buffer-or-name norecord label))
 
 (defgroup org-ctags nil
   "Options concerning use of ctags within org mode."
@@ -210,8 +206,8 @@ The following patterns are replaced in the string:
 
 (defadvice visit-tags-table (after org-ctags-load-tag-list activate compile)
   (when (and org-ctags-enabled-p tags-file-name)
-    (set (make-local-variable 'org-ctags-tag-list)
-         (org-ctags-all-tags-in-current-tags-table))))
+    (setq-local org-ctags-tag-list
+		(org-ctags-all-tags-in-current-tags-table))))
 
 
 (defun org-ctags-enable ()
@@ -273,11 +269,6 @@ Return the list."
   (replace-regexp-in-string (regexp-quote search) replace string t t))
 
 
-(defun y-or-n-minibuffer (prompt)
-  (let ((use-dialog-box nil))
-    (y-or-n-p prompt)))
-
-
 ;;; Internal functions =======================================================
 
 
@@ -285,29 +276,28 @@ Return the list."
   "Visit or create a file called `NAME.org', and insert a new topic.
 The new topic will be titled NAME (or TITLE if supplied)."
   (interactive "sFile name: ")
-  (let ((filename (substitute-in-file-name (expand-file-name name))))
-    (condition-case v
-        (progn
-          (org-open-file name t)
-          (message "Opened file OK")
-          (goto-char (point-max))
-          (insert (org-ctags-string-search-and-replace
-                   "%t" (capitalize (or title name))
-                   org-ctags-new-topic-template))
-          (message "Inserted new file text OK")
-          (org-mode-restart))
-      (error (error "Error %S in org-ctags-open-file" v)))))
+  (condition-case v
+      (progn
+	(org-open-file name t)
+	(message "Opened file OK")
+	(goto-char (point-max))
+	(insert (org-ctags-string-search-and-replace
+		 "%t" (capitalize (or title name))
+		 org-ctags-new-topic-template))
+	(message "Inserted new file text OK")
+	(org-mode-restart))
+    (error (error "Error %S in org-ctags-open-file" v))))
 
 
 ;;;; Misc interoperability with etags system =================================
 
 
-(defadvice find-tag (before org-ctags-set-org-mark-before-finding-tag
-			    activate compile)
+(defadvice xref-find-definitions
+    (before org-ctags-set-org-mark-before-finding-tag activate compile)
   "Before trying to find a tag, save our current position on org mark ring."
   (save-excursion
-    (if (and (derived-mode-p 'org-mode) org-ctags-enabled-p)
-        (org-mark-ring-push))))
+    (when (and (derived-mode-p 'org-mode) org-ctags-enabled-p)
+      (org-mark-ring-push))))
 
 
 
@@ -359,7 +349,7 @@ visit the file and location where the tag is found."
         (old-pnt (point-marker))
         (old-mark (copy-marker (mark-marker))))
     (condition-case nil
-        (progn (find-tag name)
+        (progn (xref-find-definitions name)
                t)
       (error
        ;; only restore old location if find-tag raises error
@@ -386,7 +376,7 @@ the new file."
     (cond
      ((get-buffer (concat name ".org"))
       ;; Buffer is already open
-      (org-pop-to-buffer-same-window (get-buffer (concat name ".org"))))
+      (pop-to-buffer-same-window (get-buffer (concat name ".org"))))
      ((file-exists-p filename)
       ;; File exists but is not open --> open it
       (message "Opening existing org file `%S'..."
@@ -394,7 +384,8 @@ the new file."
       (org-open-file filename t))
      ((or (eql create t)
           (and (eql create 'ask)
-               (y-or-n-p (format "File `%s.org' not found; create?" name))))
+               (y-or-n-p (format-message
+			  "File `%s.org' not found; create?" name))))
       (org-ctags-open-file filename name))
      (t ;; File does not exist, and we don't want to create it.
       nil))))
@@ -433,8 +424,8 @@ the heading a destination for the tag `NAME'."
   "This function is intended to be used in ORG-OPEN-LINK-FUNCTIONS.
 Wrapper for org-ctags-append-topic, which first asks the user if they want
 to append a new topic."
-  (if (y-or-n-p (format "Topic `%s' not found; append to end of buffer?"
-                        name))
+  (if (y-or-n-p (format-message
+		 "Topic `%s' not found; append to end of buffer?" name))
       (org-ctags-append-topic name narrowp)
     nil))
 
@@ -455,7 +446,7 @@ to rebuild (update) the TAGS file."
 Wrapper for org-ctags-rebuild-tags-file-then-find-tag."
   (if (and (buffer-file-name)
 	   (y-or-n-p
-	    (format
+	    (format-message
 	     "Tag `%s' not found.  Rebuild table `%s/TAGS' and look again?"
 	     name
 	     (file-name-directory (buffer-file-name)))))
@@ -463,10 +454,10 @@ Wrapper for org-ctags-rebuild-tags-file-then-find-tag."
     nil))
 
 
-(defun org-ctags-fail-silently (name)
+(defun org-ctags-fail-silently (_name)
   "This function is intended to be used in ORG-OPEN-LINK-FUNCTIONS.
-Put as the last function in the list if you want to prevent org's default
-behavior of free text search."
+Put as the last function in the list if you want to prevent Org's
+default behavior of free text search."
   t)
 
 
@@ -498,8 +489,8 @@ its subdirectories contain large numbers of taggable files."
                      (expand-file-name (concat dir-name "/*")))))
       (cond
        ((eql 0 exitcode)
-        (set (make-local-variable 'org-ctags-tag-list)
-             (org-ctags-all-tags-in-current-tags-table)))
+        (setq-local org-ctags-tag-list
+		    (org-ctags-all-tags-in-current-tags-table)))
        (t
         ;; This seems to behave differently on Linux, so just ignore
         ;; error codes for now
@@ -527,7 +518,7 @@ a new topic."
        ((member tag org-ctags-tag-list)
         ;; Existing tag
         (push tag org-ctags-find-tag-history)
-        (find-tag tag))
+        (xref-find-definitions tag))
        (t
         ;; New tag
         (run-hook-with-args-until-success
