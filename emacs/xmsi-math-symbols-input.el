@@ -371,6 +371,8 @@
   (puthash "A~" "Ã" xmsi-abrvs)
   (puthash "N~" "Ñ" xmsi-abrvs)
   (puthash "O~" "Õ" xmsi-abrvs)
+  (puthash ":-)" "☺" xmsi-abrvs)
+  (puthash ":-(" "☹" xmsi-abrvs)
 
 ;; 2010-12-10
 
