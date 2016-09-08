@@ -566,12 +566,12 @@ Called from ewoc pretty printer via `ein:cell-pp'."
             (ein:cell-append-stream-text-fontified "\n" last-out))))
       ;; Finally insert real data
       (ein:case-equal (plist-get out :output_type)
-        (("pyout")          (ein:cell-append-pyout        cell out))
-        (("pyerr")          (ein:cell-append-pyerr        cell out))
-        (("error")          (ein:cell-append-pyerr        cell out))
-        (("display_data")   (ein:cell-append-display-data cell out))
+        (("pyout")        (ein:cell-append-pyout        cell out))
+        (("pyerr")        (ein:cell-append-pyerr        cell out))
+        (("error")        (ein:cell-append-pyerr        cell out))
+        (("display_data") (ein:cell-append-display-data cell out))
         (("execute_result") (ein:cell-append-display-data cell out))
-        (("stream")         (ein:cell-append-stream       cell out))))))
+        (("stream")       (ein:cell-append-stream       cell out))))))
 
 (defmethod ein:cell-insert-footer ((cell ein:basecell))
   "Insert footer (just a new line) of the CELL in the buffer.
@@ -920,7 +920,7 @@ Called from ewoc pretty printer via `ein:cell-insert-output'."
   (if (and (fboundp 'shr-insert-document)
            (fboundp 'libxml-parse-xml-region))
       #'ein:output-type-prefer-pretty-text-over-html
-    '(emacs-lisp svg image/svg png image/png jpeg image/jpeg html text/html latex text/latex javascript text/javascript text text/plain))
+    '(emacs-lisp svg image/svg png image/png jpeg image/jpeg text text/plain html text/html latex text/latex javascript text/javascript))
   "Output types to be used in notebook.
 First output-type found in this list will be used.
 This variable can be a list or a function returning a list given
@@ -945,7 +945,7 @@ If the text type output contains a newline, it is assumed be a
 prettified text thus be used instead of HTML type."
   (if (ein:aand (plist-get data :text) (string-match-p "\n" it))
       '(emacs-lisp svg image/svg png image/png jpeg image/jpeg text text/plain html text/html latex text/latex javascript text/javascript)
-    '(emacs-lisp svg image/svg png image/png jpeg image/jpeg html text/html latex text/latex javascript text/javascript text text/plain)))
+    '(emacs-lisp svg image/svg png image/png jpeg image/jpeg html text/html text text/plain latex text/latex javascript text/javascript)))
 
 (defun ein:fix-mime-type (type)
   (ein:aif (assoc type ein:mime-type-map)
@@ -1020,8 +1020,7 @@ prettified text thus be used instead of HTML type."
 
 (defmethod ein:cell-to-nb4-json ((cell ein:codecell) wsidx &optional discard-output)
   (let ((metadata `((collapsed . ,(if (oref cell :collapsed) t json-false))
-		    (autoscroll . json-false)
-                    (ein.tags . (,(format "worksheet-%s" wsidx)))))
+                    (tags . (,(format "worksheet-%s" wsidx)))))
         (outputs (if discard-output []
                    (oref cell :outputs)))
         (renamed-outputs '())
@@ -1091,13 +1090,15 @@ prettified text thus be used instead of HTML type."
 (defmethod ein:cell-to-nb4-json ((cell ein:textcell) wsidx &optional discard-output)
   `((cell_type . ,(oref cell :cell-type))
     (source    . ,(ein:cell-get-text cell))
-    (metadata . ((ein.tags . (,(format "worksheet-%s" wsidx)))))))
+    (metadata . ((collapsed . t)
+                 (tags . (,(format "worksheet-%s" wsidx)))))))
 
 (defmethod ein:cell-to-nb4-json ((cell ein:headingcell) wsidx &optional discard-output)
   (let ((header (make-string (oref cell :level) ?#)))
     `((cell_type . "markdown")
       (source .  ,(format "%s %s" header (ein:cell-get-text cell)))
-      (metadata . ((ein.tags . (,(format "worksheet-%s" wsidx))))))))
+      (metadata . ((collapsed . t)
+                   (tags . (,(format "worksheet-%s" wsidx))))))))
 
 (defmethod ein:cell-to-json ((cell ein:headingcell) &optional discard-output)
   (let ((json (call-next-method)))

@@ -1,11 +1,12 @@
 ;;; ein.el --- IPython notebook client in Emacs
 
-;; Copyright (C) 2012-2015 Takafumi Arakaki, John Miller
+;; Copyright (C) 2012- Takafumi Arakaki
 
-;; Author:  John Miller <millejoh at millejoh.com>, Takafumi Arakaki <aka.tkf at gmail.com>
+;; Authors: Takafumi Arakaki <aka.tkf at gmail.com>
+;;          John Miller <millejoh at millejoh.com>
 ;; URL: http://millejoh.github.io/emacs-ipython-notebook/
 ;; Keywords: applications, tools
-;; Version: 0.8.2
+;; Version: 0.7.0
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -30,17 +31,10 @@
 
 ;;   --- or **E**\ IN **I**\ s not only for **N**\ otebooks.
 
-;; EIN works with IPython 2.x_, 3.x_, and Juptyer_! Note that remote and
-;; password protected logins are working with IPython 3.x, but have not been
-;; tested with Jupyter.
 
 ;; .. note:: The code has been stable enough for my day to day work, but there are
 ;;           no guarantees for the safety for your notebook data.  Please make sure
 ;;           that you backup and backup often!
-
-;; .. _2.x: http://ipython.org/ipython-doc/2/index.html
-;; .. _3.x: http://ipython.org/ipython-doc/3/index.html
-;; .. _Jupyter: http://jupyter.org
 
 ;; Features
 ;; ========
@@ -84,7 +78,7 @@
 
 (provide 'ein)
 
-;;; Old commentary:
+;; Old commentary:
 
 ;; Development
 ;; ===========
