@@ -1,4 +1,4 @@
-;;; ob-eval.el --- Babel Functions for External Code Evaluation -*- lexical-binding: t; -*-
+;;; ob-eval.el --- org-babel functions for external code evaluation
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 

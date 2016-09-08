@@ -1,4 +1,4 @@
-;;; ob-keys.el --- Key Bindings for Babel            -*- lexical-binding: t; -*-
+;;; ob-keys.el --- key bindings for org-babel
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 

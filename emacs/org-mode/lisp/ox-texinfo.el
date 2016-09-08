@@ -1,4 +1,4 @@
-;;; ox-texinfo.el --- Texinfo Back-End for Org Export Engine -*- lexical-binding: t; -*-
+;;; ox-texinfo.el --- Texinfo Back-End for Org Export Engine
 
 ;; Copyright (C) 2012-2016 Free Software Foundation, Inc.
 ;; Author: Jonathan Leech-Pepin <jonathan.leechpepin at gmail dot com>
@@ -68,7 +68,6 @@
     (special-block . org-texinfo-special-block)
     (src-block . org-texinfo-src-block)
     (statistics-cookie . org-texinfo-statistics-cookie)
-    (strike-through . org-texinfo-strike-through)
     (subscript . org-texinfo-subscript)
     (superscript . org-texinfo-superscript)
     (table . org-texinfo-table)
@@ -77,9 +76,9 @@
     (target . org-texinfo-target)
     (template . org-texinfo-template)
     (timestamp . org-texinfo-timestamp)
-    (underline . org-texinfo-underline)
     (verbatim . org-texinfo-verbatim)
     (verse-block . org-texinfo-verse-block))
+  :export-block "TEXINFO"
   :filters-alist
   '((:filter-headline . org-texinfo--filter-section-blank-lines)
     (:filter-parse-tree . org-texinfo--normalize-headlines)
@@ -288,28 +287,29 @@ When nil, no transformation is made."
 (defcustom org-texinfo-text-markup-alist '((bold . "@strong{%s}")
 					   (code . code)
 					   (italic . "@emph{%s}")
-					   (verbatim . verb))
+					   (verbatim . verb)
+					   (comment . "@c %s"))
   "Alist of Texinfo expressions to convert text markup.
 
-The key must be a symbol among `bold', `code', `italic',
-`strike-through', `underscore' and `verbatim'.  The value is
-a formatting string to wrap fontified text with.
+The key must be a symbol among `bold', `italic' and `comment'.
+The value is a formatting string to wrap fontified text with.
 
 Value can also be set to the following symbols: `verb' and
-`code'.  For the former, Org will use \"@verb\" to create
-a format string and select a delimiter character that isn't in
-the string.  For the latter, Org will use \"@code\" to typeset
-and try to protect special characters.
+`code'.  For the former, Org will use \"@verb\" to
+create a format string and select a delimiter character that
+isn't in the string.  For the latter, Org will use \"@code\"
+to typeset and try to protect special characters.
 
 If no association can be found for a given markup, text will be
 returned as-is."
   :group 'org-export-texinfo
   :type 'alist
-  :options '(bold code italic strike-through underscore verbatim))
+  :options '(bold code italic verbatim comment))
 
 ;;;; Drawers
 
-(defcustom org-texinfo-format-drawer-function (lambda (_name contents) contents)
+(defcustom org-texinfo-format-drawer-function
+  (lambda (name contents) contents)
   "Function called to format a drawer in Texinfo code.
 
 The function must accept two parameters:
@@ -393,11 +393,12 @@ If two strings share the same prefix (e.g. \"ISO-8859-1\" and
 
 ;;; Internal Functions
 
-(defun org-texinfo--filter-section-blank-lines (headline _backend _info)
+(defun org-texinfo--filter-section-blank-lines (headline back-end info)
   "Filter controlling number of blank lines after a section."
-  (replace-regexp-in-string "\n\\(?:\n[ \t]*\\)*\\'" "\n\n" headline))
+  (let ((blanks (make-string 2 ?\n)))
+    (replace-regexp-in-string "\n\\(?:\n[ \t]*\\)*\\'" blanks headline)))
 
-(defun org-texinfo--normalize-headlines (tree _backend info)
+(defun org-texinfo--normalize-headlines (tree back-end info)
   "Normalize headlines in TREE.
 
 BACK-END is the symbol specifying back-end used for export. INFO
@@ -430,20 +431,33 @@ This is used to choose a separator for constructs like \\verb."
 	  when (not (string-match (regexp-quote (char-to-string c)) s))
 	  return (char-to-string c))))
 
-(defun org-texinfo--text-markup (text markup _info)
+(defun org-texinfo--text-markup (text markup info)
   "Format TEXT depending on MARKUP text markup.
 INFO is a plist used as a communication channel.  See
 `org-texinfo-text-markup-alist' for details."
-  (pcase (cdr (assq markup org-texinfo-text-markup-alist))
-    ;; No format string: Return raw text.
-    (`nil text)
-    (`verb
-     (let ((separator (org-texinfo--find-verb-separator text)))
-       (concat "@verb{" separator text separator "}")))
-    (`code
-     (format "@code{%s}" (replace-regexp-in-string "[@{}]" "@\\&" text)))
-    ;; Else use format string.
-    (fmt (format fmt text))))
+  (let ((fmt (cdr (assq markup org-texinfo-text-markup-alist))))
+    (cond
+     ;; No format string: Return raw text.
+     ((not fmt) text)
+     ((eq 'verb fmt)
+      (let ((separator (org-texinfo--find-verb-separator text)))
+	(concat "@verb{" separator text separator "}")))
+     ((eq 'code fmt)
+      (let ((start 0)
+	    (rtn "")
+	    char)
+	(while (string-match "[@{}]" text)
+	  (setq char (match-string 0 text))
+	  (if (> (match-beginning 0) 0)
+	      (setq rtn (concat rtn (substring text 0 (match-beginning 0)))))
+	  (setq text (substring text (1+ (match-beginning 0))))
+	  (setq char (concat "@" char)
+		rtn (concat rtn char)))
+	(setq text (concat rtn text)
+	      fmt "@code{%s}")
+	(format fmt text)))
+     ;; Else use format string.
+     (t (format fmt text)))))
 
 (defun org-texinfo--get-node (blob info)
   "Return node or anchor associated to BLOB.
@@ -644,7 +658,7 @@ holding export options."
 
 ;;;; Bold
 
-(defun org-texinfo-bold (_bold contents info)
+(defun org-texinfo-bold (bold contents info)
   "Transcode BOLD from Org to Texinfo.
 CONTENTS is the text with bold markup.  INFO is a plist holding
 contextual information."
@@ -652,7 +666,7 @@ contextual information."
 
 ;;;; Center Block
 
-(defun org-texinfo-center-block (_center-block contents _info)
+(defun org-texinfo-center-block (center-block contents info)
   "Transcode a CENTER-BLOCK element from Org to Texinfo.
 CONTENTS holds the contents of the block.  INFO is a plist used
 as a communication channel."
@@ -660,7 +674,7 @@ as a communication channel."
 
 ;;;; Clock
 
-(defun org-texinfo-clock (clock _contents info)
+(defun org-texinfo-clock (clock contents info)
   "Transcode a CLOCK element from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
@@ -675,7 +689,7 @@ information."
 
 ;;;; Code
 
-(defun org-texinfo-code (code _contents info)
+(defun org-texinfo-code (code contents info)
   "Transcode a CODE object from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist used as a communication
 channel."
@@ -694,7 +708,7 @@ holding contextual information."
 
 ;;;; Dynamic Block
 
-(defun org-texinfo-dynamic-block (_dynamic-block contents _info)
+(defun org-texinfo-dynamic-block (dynamic-block contents info)
   "Transcode a DYNAMIC-BLOCK element from Org to Texinfo.
 CONTENTS holds the contents of the block.  INFO is a plist
 holding contextual information."
@@ -702,7 +716,7 @@ holding contextual information."
 
 ;;;; Entity
 
-(defun org-texinfo-entity (entity _contents _info)
+(defun org-texinfo-entity (entity contents info)
   "Transcode an ENTITY object from Org to Texinfo.
 CONTENTS are the definition itself.  INFO is a plist holding
 contextual information."
@@ -711,7 +725,7 @@ contextual information."
 
 ;;;; Example Block
 
-(defun org-texinfo-example-block (example-block _contents info)
+(defun org-texinfo-example-block (example-block contents info)
   "Transcode an EXAMPLE-BLOCK element from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
@@ -720,7 +734,7 @@ information."
 
 ;;; Export Block
 
-(defun org-texinfo-export-block (export-block _contents _info)
+(defun org-texinfo-export-block (export-block contents info)
   "Transcode a EXPORT-BLOCK element from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual information."
   (when (string= (org-element-property :type export-block) "TEXINFO")
@@ -728,7 +742,7 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
 ;;; Export Snippet
 
-(defun org-texinfo-export-snippet (export-snippet _contents _info)
+(defun org-texinfo-export-snippet (export-snippet contents info)
   "Transcode a EXPORT-SNIPPET object from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual information."
   (when (eq (org-export-snippet-backend export-snippet) 'texinfo)
@@ -736,7 +750,7 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
 ;;;; Fixed Width
 
-(defun org-texinfo-fixed-width (fixed-width _contents _info)
+(defun org-texinfo-fixed-width (fixed-width contents info)
   "Transcode a FIXED-WIDTH element from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual information."
   (format "@example\n%s\n@end example"
@@ -746,7 +760,7 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
 ;;;; Footnote Reference
 
-(defun org-texinfo-footnote-reference (footnote _contents info)
+(defun org-texinfo-footnote-reference (footnote contents info)
   "Create a footnote reference for FOOTNOTE.
 
 FOOTNOTE is the footnote to define.  CONTENTS is nil.  INFO is a
@@ -834,7 +848,7 @@ holding contextual information."
      (t (concat node (format section-fmt full-text contents))))))
 
 (defun org-texinfo-format-headline-default-function
-  (todo _todo-type priority text tags)
+  (todo todo-type priority text tags)
   "Default format function for a headline.
 See `org-texinfo-format-headline-function' for details."
   (concat (when todo (format "@strong{%s} " todo))
@@ -844,7 +858,7 @@ See `org-texinfo-format-headline-function' for details."
 
 ;;;; Inline Src Block
 
-(defun org-texinfo-inline-src-block (inline-src-block _contents _info)
+(defun org-texinfo-inline-src-block (inline-src-block contents info)
   "Transcode an INLINE-SRC-BLOCK element from Org to Texinfo.
 CONTENTS holds the contents of the item.  INFO is a plist holding
 contextual information."
@@ -871,7 +885,7 @@ holding contextual information."
 	     todo todo-type priority title tags contents)))
 
 (defun org-texinfo-format-inlinetask-default-function
-  (todo _todo-type priority title tags contents)
+  (todo todo-type priority title tags contents)
   "Default format function for a inlinetasks.
 See `org-texinfo-format-inlinetask-function' for details."
   (let ((full-title
@@ -883,7 +897,7 @@ See `org-texinfo-format-inlinetask-function' for details."
 
 ;;;; Italic
 
-(defun org-texinfo-italic (_italic contents info)
+(defun org-texinfo-italic (italic contents info)
   "Transcode ITALIC from Org to Texinfo.
 CONTENTS is the text with italic markup.  INFO is a plist holding
 contextual information."
@@ -902,7 +916,7 @@ contextual information."
 
 ;;;; Keyword
 
-(defun org-texinfo-keyword (keyword _contents info)
+(defun org-texinfo-keyword (keyword contents info)
   "Transcode a KEYWORD element from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual information."
   (let ((key (org-element-property :key keyword))
@@ -925,7 +939,7 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
 ;;;; Line Break
 
-(defun org-texinfo-line-break (_line-break _contents _info)
+(defun org-texinfo-line-break (line-break contents info)
   "Transcode a LINE-BREAK object from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual information."
   "@*\n")
@@ -1142,7 +1156,7 @@ holding contextual information."
 
 ;;;; Node Property
 
-(defun org-texinfo-node-property (node-property _contents _info)
+(defun org-texinfo-node-property (node-property contents info)
   "Transcode a NODE-PROPERTY element from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
@@ -1153,7 +1167,7 @@ information."
 
 ;;;; Paragraph
 
-(defun org-texinfo-paragraph (_paragraph contents _info)
+(defun org-texinfo-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to Texinfo.
 CONTENTS is the contents of the paragraph, as a string.  INFO is
 the plist used as a communication channel."
@@ -1213,7 +1227,7 @@ contextual information."
 
 ;;;; Planning
 
-(defun org-texinfo-planning (planning _contents info)
+(defun org-texinfo-planning (planning contents info)
   "Transcode a PLANNING element from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
@@ -1246,7 +1260,7 @@ information."
 
 ;;;; Property Drawer
 
-(defun org-texinfo-property-drawer (_property-drawer contents _info)
+(defun org-texinfo-property-drawer (property-drawer contents info)
   "Transcode a PROPERTY-DRAWER element from Org to Texinfo.
 CONTENTS holds the contents of the drawer.  INFO is a plist
 holding contextual information."
@@ -1255,7 +1269,7 @@ holding contextual information."
 
 ;;;; Quote Block
 
-(defun org-texinfo-quote-block (quote-block contents _info)
+(defun org-texinfo-quote-block (quote-block contents info)
   "Transcode a QUOTE-BLOCK element from Org to Texinfo.
 CONTENTS holds the contents of the block.  INFO is a plist
 holding contextual information."
@@ -1289,21 +1303,16 @@ holding contextual information."
 
 ;;;; Special Block
 
-(defun org-texinfo-special-block (special-block contents _info)
+(defun org-texinfo-special-block (special-block contents info)
   "Transcode a SPECIAL-BLOCK element from Org to Texinfo.
 CONTENTS holds the contents of the block.  INFO is a plist used
 as a communication channel."
-  (let ((opt (org-export-read-attribute :attr_texinfo special-block :options))
-	(type (org-element-property :type special-block)))
-    (format "@%s%s\n%s@end %s"
-	    type
-	    (if opt (concat " " opt) opt)
-	    (or contents "")
-	    type)))
+  (let ((type (org-element-property :type special-block)))
+    (format "@%s\n%s@end %s" type contents type)))
 
 ;;;; Src Block
 
-(defun org-texinfo-src-block (src-block _contents info)
+(defun org-texinfo-src-block (src-block contents info)
   "Transcode a SRC-BLOCK element from Org to Texinfo.
 CONTENTS holds the contents of the item.  INFO is a plist holding
 contextual information."
@@ -1326,23 +1335,14 @@ contextual information."
 
 ;;;; Statistics Cookie
 
-(defun org-texinfo-statistics-cookie (statistics-cookie _contents _info)
+(defun org-texinfo-statistics-cookie (statistics-cookie contents info)
   "Transcode a STATISTICS-COOKIE object from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual information."
   (org-element-property :value statistics-cookie))
 
-
-;;;; Strike-through
-
-(defun org-texinfo-strike-through (_strike-through contents info)
-  "Transcode STRIKE-THROUGH from Org to Texinfo.
-CONTENTS is the text with strike-through markup.  INFO is a plist
-holding contextual information."
-  (org-texinfo--text-markup contents 'strike-through info))
-
 ;;;; Subscript
 
-(defun org-texinfo-subscript (_subscript contents _info)
+(defun org-texinfo-subscript (subscript contents info)
   "Transcode a SUBSCRIPT object from Org to Texinfo.
 CONTENTS is the contents of the object.  INFO is a plist holding
 contextual information."
@@ -1350,7 +1350,7 @@ contextual information."
 
 ;;;; Superscript
 
-(defun org-texinfo-superscript (_superscript contents _info)
+(defun org-texinfo-superscript (superscript contents info)
   "Transcode a SUPERSCRIPT object from Org to Texinfo.
 CONTENTS is the contents of the object.  INFO is a plist holding
 contextual information."
@@ -1443,7 +1443,7 @@ a communication channel."
 
 ;;;; Target
 
-(defun org-texinfo-target (target _contents info)
+(defun org-texinfo-target (target contents info)
   "Transcode a TARGET object from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
@@ -1451,7 +1451,7 @@ information."
 
 ;;;; Timestamp
 
-(defun org-texinfo-timestamp (timestamp _contents info)
+(defun org-texinfo-timestamp (timestamp contents info)
   "Transcode a TIMESTAMP object from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
@@ -1464,17 +1464,9 @@ information."
        (format (plist-get info :texinfo-inactive-timestamp-format) value))
       (t (format (plist-get info :texinfo-diary-timestamp-format) value)))))
 
-;;;; Underline
-
-(defun org-texinfo-underline (_underline contents info)
-  "Transcode UNDERLINE from Org to Texinfo.
-CONTENTS is the text with underline markup.  INFO is a plist
-holding contextual information."
-  (org-texinfo--text-markup contents 'underline info))
-
 ;;;; Verbatim
 
-(defun org-texinfo-verbatim (verbatim _contents info)
+(defun org-texinfo-verbatim (verbatim contents info)
   "Transcode a VERBATIM object from Org to Texinfo.
 CONTENTS is nil.  INFO is a plist used as a communication
 channel."
@@ -1483,7 +1475,7 @@ channel."
 
 ;;;; Verse Block
 
-(defun org-texinfo-verse-block (_verse-block contents _info)
+(defun org-texinfo-verse-block (verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to Texinfo.
 CONTENTS is verse block contents. INFO is a plist holding
 contextual information."
@@ -1587,26 +1579,90 @@ this command to convert it."
 (defun org-texinfo-compile (file)
   "Compile a texinfo file.
 
-FILE is the name of the file being compiled.  Processing is done
-through the command specified in `org-texinfo-info-process',
-which see.  Output is redirected to \"*Org INFO Texinfo Output*\"
-buffer.
+FILE is the name of the file being compiled.  Processing is
+done through the command specified in `org-texinfo-info-process'.
 
 Return INFO file name or an error if it couldn't be produced."
-  (message "Processing Texinfo file %s..." file)
-  (let* ((log-name "*Org INFO Texinfo Output*")
-	 (log (get-buffer-create log-name))
-	 (output
-	  (org-compile-file file org-texinfo-info-process "info"
-			    (format "See %S for details" log-name)
-			    log)))
-    (when org-texinfo-remove-logfiles
-      (let ((base (file-name-sans-extension output)))
-	(dolist (ext org-texinfo-logfiles-extensions)
-	  (let ((file (concat base "." ext)))
-	    (when (file-exists-p file) (delete-file file))))))
-    (message "Process completed.")
-    output))
+  (let* ((base-name (file-name-sans-extension (file-name-nondirectory file)))
+	 (full-name (file-truename file))
+	 (out-dir (file-name-directory file))
+	 ;; Properly set working directory for compilation.
+	 (default-directory (if (file-name-absolute-p file)
+				(file-name-directory full-name)
+			      default-directory))
+	 errors)
+    (message "Processing Texinfo file %s..." file)
+    (save-window-excursion
+      ;; Replace %b, %f and %o with appropriate values in each command
+      ;; before applying it.  Output is redirected to "*Org INFO
+      ;; Texinfo Output*" buffer.
+      (let ((outbuf (get-buffer-create "*Org INFO Texinfo Output*")))
+	(with-current-buffer outbuf (compilation-mode))
+	(dolist (command org-texinfo-info-process)
+	  (shell-command
+	   (replace-regexp-in-string
+	    "%b" (shell-quote-argument base-name)
+	    (replace-regexp-in-string
+	     "%f" (shell-quote-argument full-name)
+	     (replace-regexp-in-string
+	      "%o" (shell-quote-argument out-dir) command t t) t t) t t)
+	   outbuf))
+	;; Collect standard errors from output buffer.
+	(setq errors (org-texinfo-collect-errors outbuf)))
+      (let ((infofile (concat out-dir base-name ".info")))
+	;; Check for process failure.  Provide collected errors if
+	;; possible.
+	(if (not (file-exists-p infofile))
+	    (error "INFO file %s wasn't produced%s" infofile
+		   (if errors (concat ": " errors) ""))
+	  ;; Else remove log files, when specified, and signal end of
+	  ;; process to user, along with any error encountered.
+	  (when org-texinfo-remove-logfiles
+	    (dolist (ext org-texinfo-logfiles-extensions)
+	      (let ((file (concat out-dir base-name "." ext)))
+		(when (file-exists-p file) (delete-file file)))))
+	  (message (concat "Process completed"
+			   (if (not errors) "."
+			     (concat " with errors: " errors)))))
+	;; Return output file name.
+	infofile))))
+
+(defun org-texinfo-collect-errors (buffer)
+  "Collect some kind of errors from \"makeinfo\" command output.
+
+BUFFER is the buffer containing output.
+
+Return collected error types as a string, or nil if there was
+none."
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-min))
+      ;; Find final "makeinfo" run.
+      (when t
+	(let ((case-fold-search t)
+	      (errors ""))
+	  (when (save-excursion
+		  (re-search-forward "perhaps incorrect sectioning?" nil t))
+	    (setq errors (concat errors " [incorrect sectioning]")))
+	  (when (save-excursion
+		  (re-search-forward "missing close brace" nil t))
+	    (setq errors (concat errors " [syntax error]")))
+	  (when (save-excursion
+		  (re-search-forward "Unknown command" nil t))
+	    (setq errors (concat errors " [undefined @command]")))
+	  (when (save-excursion
+		  (re-search-forward "No matching @end" nil t))
+	    (setq errors (concat errors " [block incomplete]")))
+	  (when (save-excursion
+		  (re-search-forward "requires a sectioning" nil t))
+	    (setq errors (concat errors " [invalid section command]")))
+	  (when (save-excursion
+		  (re-search-forward "\\[unexpected\ ]" nil t))
+	    (setq errors (concat errors " [unexpected error]")))
+	  (when (save-excursion
+		  (re-search-forward "misplaced " nil t))
+	    (setq errors (concat errors " [syntax error]")))
+	  (and (org-string-nw-p errors) (org-trim errors)))))))
 
 
 (provide 'ox-texinfo)

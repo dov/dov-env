@@ -37,9 +37,9 @@
 ;; for export.  These blocks should be tagged with #+header: :header
 ;; yes.  For example:
 ;; #+header: :header yes
-;; #+begin_export latex
+;; #+begin_latex
 ;;   ...
-;; #+end_export
+;; #+end_latex
 
 ;; - `ignore-headlines' -- allow a headline (but not its children) to
 ;; be ignored.  Any headline tagged with the 'ignore' tag will be

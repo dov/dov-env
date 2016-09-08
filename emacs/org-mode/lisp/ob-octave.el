@@ -1,4 +1,4 @@
-;;; ob-octave.el --- Babel Functions for Octave and Matlab -*- lexical-binding: t; -*-
+;;; ob-octave.el --- org-babel functions for octave and matlab evaluation
 
 ;; Copyright (C) 2010-2016 Free Software Foundation, Inc.
 
@@ -34,7 +34,6 @@
 
 (declare-function matlab-shell "ext:matlab-mode")
 (declare-function matlab-shell-run-region "ext:matlab-mode")
-(declare-function org-trim "org" (s &optional keep-lead))
 
 (defvar org-babel-default-header-args:matlab '())
 (defvar org-babel-default-header-args:octave '())
@@ -76,7 +75,10 @@ end")
 	  (funcall (intern (format "org-babel-%s-initiate-session"
 				   (if matlabp "matlab" "octave")))
 		   (cdr (assoc :session params)) params))
+         (vars (mapcar #'cdr (org-babel-get-header params :var)))
+         (result-params (cdr (assoc :result-params params)))
          (result-type (cdr (assoc :result-type params)))
+	 (out-file (cdr (assoc :file params)))
 	 (full-body
 	  (org-babel-expand-body:generic
 	   body params (org-babel-variable-assignments:octave params)))
@@ -112,7 +114,7 @@ end")
      (format "%s=%s;"
 	     (car pair)
 	     (org-babel-octave-var-to-octave (cdr pair))))
-   (org-babel--get-vars params)))
+   (mapcar #'cdr (org-babel-get-header params :var))))
 
 (defalias 'org-babel-variable-assignments:matlab
   'org-babel-variable-assignments:octave)
@@ -146,7 +148,7 @@ If there is not a current inferior-process-buffer in SESSION then
 create.  Return the initialized session."
   (org-babel-octave-initiate-session session params 'matlab))
 
-(defun org-babel-octave-initiate-session (&optional session _params matlabp)
+(defun org-babel-octave-initiate-session (&optional session params matlabp)
   "Create an octave inferior process buffer.
 If there is not a current inferior-process-buffer in SESSION then
 create.  Return the initialized session."
@@ -241,11 +243,11 @@ value of the last statement in BODY, as elisp."
 	       (if matlabp
 		   (cdr (reverse (delq "" (mapcar
 					   #'org-babel-octave-read-string
-					   (mapcar #'org-trim raw)))))
+					   (mapcar #'org-babel-trim raw)))))
 		 (cdr (member org-babel-octave-eoe-output
 			      (reverse (mapcar
 					#'org-babel-octave-read-string
-					(mapcar #'org-trim raw)))))))
+					(mapcar #'org-babel-trim raw)))))))
 	 (mapconcat #'identity (reverse results) "\n"))))))
 
 (defun org-babel-octave-import-elisp-from-file (file-name)

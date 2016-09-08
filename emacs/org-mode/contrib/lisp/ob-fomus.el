@@ -48,7 +48,7 @@
 
 (defun org-babel-expand-body:fomus (body params)
   "Expand BODY according to PARAMS, return the expanded body."
-  (let ((vars (org-babel--get-vars params)))
+  (let ((vars (mapcar #'cdr (org-babel-get-header params :var))))
     (mapc
      (lambda (pair)
        (let ((name (symbol-name (car pair)))

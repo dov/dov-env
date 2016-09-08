@@ -1,4 +1,4 @@
-;;; org-irc.el --- Store Links to IRC Sessions -*- lexical-binding: t; -*-
+;;; org-irc.el --- Store links to IRC sessions
 ;;
 ;; Copyright (C) 2008-2016 Free Software Foundation, Inc.
 ;;
@@ -59,6 +59,8 @@
 (declare-function erc-server-buffer "erc" ())
 (declare-function erc-get-server-nickname-list "erc" ())
 (declare-function erc-cmd-JOIN "erc" (channel &optional key))
+(declare-function org-pop-to-buffer-same-window
+		  "org-compat" (&optional buffer-or-name norecord label))
 
 (defvar org-irc-client 'erc
   "The IRC client to act on.")
@@ -112,9 +114,11 @@ chars that the value AFTER with `...'"
 			    (cons "[ \t]*$" "")
 			    (cons (concat "^\\(.\\{" after
 					  "\\}\\).*") "\\1..."))))
-    (dolist (x replace-map string)
-      (when (string-match (car x) string)
-	(setq string (replace-match (cdr x) nil nil string))))))
+    (mapc (lambda (x)
+	    (when (string-match (car x) string)
+	      (setq string (replace-match (cdr x) nil nil string))))
+	  replace-map)
+    string))
 
 ;; ERC specific functions
 
@@ -229,7 +233,7 @@ default."
 				      (throw 'found x))))))
 		(if chan-buf
 		    (progn
-		      (pop-to-buffer-same-window chan-buf)
+		      (org-pop-to-buffer-same-window chan-buf)
 		      ;; if we got a nick, and they're in the chan,
 		      ;; then start a chat with them
 		      (let ((nick (pop link)))
@@ -240,9 +244,9 @@ default."
 				(insert (concat nick ": ")))
 			    (error "%s not found in %s" nick chan-name)))))
 		  (progn
-		    (pop-to-buffer-same-window server-buffer)
+		    (org-pop-to-buffer-same-window server-buffer)
 		    (erc-cmd-JOIN chan-name))))
-	    (pop-to-buffer-same-window server-buffer)))
+	    (org-pop-to-buffer-same-window server-buffer)))
       ;; no server match, make new connection
       (erc-select :server server :port port))))
 

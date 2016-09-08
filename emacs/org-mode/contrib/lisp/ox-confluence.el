@@ -58,11 +58,6 @@
 		     (template . org-confluence-template)
 		     (underline . org-confluence-underline)))
 
-(defcustom org-confluence-lang-alist
-  '(("sh" . "bash"))
-  "Map from org-babel language name to confluence wiki language name"
-  :type '(alist :key-type string :value-type string))
-
 ;; All the functions we use
 (defun org-confluence-bold (bold contents info)
   (format "*%s*" contents))
@@ -123,7 +118,8 @@ a communication channel."
 (defun org-confluence-src-block (src-block contents info)
   ;; FIXME: provide a user-controlled variable for theme
   (let* ((lang (org-element-property :language src-block))
-         (language (or (cdr (assoc lang org-confluence-lang-alist)) lang))
+         (language (if (string= lang "sh") "bash" ;; FIXME: provide a mapping of some sort
+                     lang))
          (content (org-export-format-code-default src-block info)))
     (org-confluence--block language "Emacs" content)))
 

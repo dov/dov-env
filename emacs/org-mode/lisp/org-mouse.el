@@ -1,4 +1,4 @@
-;;; org-mouse.el --- Better mouse support for Org -*- lexical-binding: t; -*-
+;;; org-mouse.el --- Better mouse support for org-mode
 
 ;; Copyright (C) 2006-2016 Free Software Foundation, Inc.
 
@@ -26,8 +26,8 @@
 ;;
 ;; http://orgmode.org
 ;;
-;; Org mouse implements the following features:
-;; * following links with the left mouse button
+;; Org-mouse implements the following features:
+;; * following links with the left mouse button (in Emacs 22)
 ;; * subtree expansion/collapse (org-cycle) with the left mouse button
 ;; * several context menus on the right mouse button:
 ;;    + general text
@@ -149,8 +149,6 @@
 (declare-function org-agenda-earlier "org-agenda" (arg))
 (declare-function org-agenda-later "org-agenda" (arg))
 
-(defvar org-mouse-main-buffer nil
-  "Active buffer for mouse operations.")
 (defvar org-mouse-plain-list-regexp "\\([ \t]*\\)\\([-+*]\\|[0-9]+[.)]\\) "
   "Regular expression that matches a plain list.")
 (defvar org-mouse-direct t
@@ -193,14 +191,15 @@ Changing this variable requires a restart of Emacs to get activated."
   (interactive)
   (end-of-line)
   (skip-chars-backward "\t ")
-  (when (looking-back ":[A-Za-z]+:" (line-beginning-position))
+  (when (org-looking-back ":[A-Za-z]+:" (line-beginning-position))
     (skip-chars-backward ":A-Za-z")
     (skip-chars-backward "\t ")))
 
-(defvar-local org-mouse-context-menu-function nil
+(defvar org-mouse-context-menu-function nil
   "Function to create the context menu.
 The value of this variable is the function invoked by
 `org-mouse-context-menu' as the context menu.")
+(make-variable-buffer-local 'org-mouse-context-menu-function)
 
 (defun org-mouse-show-context-menu (event prefix)
   "Invoke the context menu.
@@ -221,7 +220,7 @@ this function is called.  Otherwise, the current major mode menu is used."
 	    (funcall org-mouse-context-menu-function event)
 	  (if (fboundp 'mouse-menu-major-mode-map)
 	      (popup-menu (mouse-menu-major-mode-map) event prefix)
-	    (with-no-warnings ; don't warn about fallback, obsolete since 23.1
+	    (org-no-warnings ; don't warn about fallback, obsolete since 23.1
 	     (mouse-major-mode-menu event prefix)))))
     (setq this-command 'mouse-save-then-kill)
     (mouse-save-then-kill event)))
@@ -314,10 +313,10 @@ nor a function, elements of KEYWORDS are used directly."
   (just-one-space))
 
 (defvar org-mouse-rest)
-(defun org-mouse-replace-match-and-surround
-    (_newtext &optional _fixedcase _literal _string subexp)
+(defun org-mouse-replace-match-and-surround (newtext &optional fixedcase
+						     literal string subexp)
   "The same as `replace-match', but surrounds the replacement with spaces."
-  (apply #'replace-match org-mouse-rest)
+  (apply 'replace-match org-mouse-rest)
   (save-excursion
     (goto-char (match-beginning (or subexp 0)))
     (just-one-space)
@@ -560,8 +559,8 @@ SCHEDULED: or DEADLINE: or ANYTHINGLIKETHIS:"
 	(re-search-forward ".*" (third contextdata))))))
 
 (defun org-mouse-for-each-item (funct)
-  ;; Functions called by `org-apply-on-list' need an argument.
-  (let ((wrap-fun (lambda (_) (funcall funct))))
+  ;; Functions called by `org-apply-on-list' need an argument
+  (let ((wrap-fun (lambda (c) (funcall funct))))
     (when (ignore-errors (goto-char (org-in-item-p)))
       (save-excursion (org-apply-on-list wrap-fun nil)))))
 
@@ -577,7 +576,7 @@ This means, between the beginning of line and the point."
      (beginning-of-line)
      (looking-at "[ \t]*")
      (open-line 1)
-     (indent-to-column (- (match-end 0) (match-beginning 0)))
+     (org-indent-to-column (- (match-end 0) (match-beginning 0)))
      (insert "+ "))
     (:middle			; insert after
      (end-of-line)
@@ -587,7 +586,7 @@ This means, between the beginning of line and the point."
     (:end				; insert text here
      (skip-chars-backward " \t")
      (kill-region (point) (point-at-eol))
-     (unless (looking-back org-mouse-punctuation (line-beginning-position))
+     (unless (org-looking-back org-mouse-punctuation (line-beginning-position))
        (insert (concat org-mouse-punctuation " ")))))
   (insert text)
   (beginning-of-line))
@@ -645,7 +644,7 @@ This means, between the beginning of line and the point."
 					'org-mode-restart))))
      ((or (eolp)
 	  (and (looking-at "\\(  \\|\t\\)\\(+:[0-9a-zA-Z_:]+\\)?\\(  \\|\t\\)+$")
-	       (looking-back "  \\|\t" (- (point) 2)
+	       (org-looking-back "  \\|\t" (- (point) 2)
 				 (line-beginning-position))))
       (org-mouse-popup-global-menu))
      ((funcall get-context :checkbox)
@@ -915,7 +914,7 @@ This means, between the beginning of line and the point."
 		   ((org-footnote-at-reference-p) nil)
 		   (t ad-do-it))))))
 
-(defun org-mouse-move-tree-start (_event)
+(defun org-mouse-move-tree-start (event)
   (interactive "e")
   (message "Same line: promote/demote, (***):move before, (text): make a child"))
 
@@ -994,7 +993,7 @@ This means, between the beginning of line and the point."
 (defvar org-mouse-cmd) ;dynamically scoped from `org-with-remote-undo'.
 
 (defun org-mouse-do-remotely (command)
-  ;;  (org-agenda-check-no-diary)
+					;  (org-agenda-check-no-diary)
   (when (get-text-property (point) 'org-marker)
     (let* ((anticol (- (point-at-eol) (point)))
 	   (marker (get-text-property (point) 'org-marker))
@@ -1032,7 +1031,7 @@ This means, between the beginning of line and the point."
 	      (org-agenda-change-all-lines newhead hdmarker 'fixface))))
 	t))))
 
-(defun org-mouse-agenda-context-menu (&optional _event)
+(defun org-mouse-agenda-context-menu (&optional event)
   (or (org-mouse-do-remotely 'org-mouse-context-menu)
       (popup-menu
        '("Agenda"

@@ -1,4 +1,4 @@
-;;; ob-sed.el --- Babel Functions for Sed Scripts    -*- lexical-binding: t; -*-
+;;; ob-sed.el --- org-babel functions for sed scripts
 
 ;; Copyright (C) 2015-2016 Free Software Foundation, Inc.
 

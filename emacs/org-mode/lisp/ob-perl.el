@@ -1,4 +1,4 @@
-;;; ob-perl.el --- Babel Functions for Perl          -*- lexical-binding: t; -*-
+;;; ob-perl.el --- org-babel functions for perl evaluation
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
@@ -54,7 +54,7 @@ This function is called by `org-babel-execute-src-block'."
      (org-babel-pick-name
       (cdr (assoc :rowname-names params)) (cdr (assoc :rownames params))))))
 
-(defun org-babel-prep-session:perl (_session _params)
+(defun org-babel-prep-session:perl (session params)
   "Prepare SESSION according to the header arguments in PARAMS."
   (error "Sessions are not supported for Perl"))
 
@@ -63,7 +63,7 @@ This function is called by `org-babel-execute-src-block'."
   (mapcar
    (lambda (pair)
      (org-babel-perl--var-to-perl (cdr pair) (car pair)))
-   (org-babel--get-vars params)))
+   (mapcar #'cdr (org-babel-get-header params :var))))
 
 ;; helper functions
 
@@ -76,7 +76,7 @@ This function is called by `org-babel-execute-src-block'."
 The elisp value, VAR, is converted to a string of perl source code
 specifying a var of the same value."
   (if varn
-      (let ((org-babel-perl--lvl 0) (lvar (listp var)))
+      (let ((org-babel-perl--lvl 0) (lvar (listp var)) prefix)
 	(concat "my $" (symbol-name varn) "=" (when lvar "\n")
 		(org-babel-perl--var-to-perl var)
 		";\n"))
@@ -92,7 +92,7 @@ specifying a var of the same value."
 
 (defvar org-babel-perl-buffers '(:default . nil))
 
-(defun org-babel-perl-initiate-session (&optional _session _params)
+(defun org-babel-perl-initiate-session (&optional session params)
   "Return nil because sessions are not supported by perl."
   nil)
 

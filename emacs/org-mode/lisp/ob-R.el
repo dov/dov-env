@@ -1,4 +1,4 @@
-;;; ob-R.el --- Babel Functions for R                -*- lexical-binding: t; -*-
+;;; ob-R.el --- org-babel functions for R code evaluation
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
@@ -28,7 +28,7 @@
 
 ;;; Code:
 (require 'ob)
-(require 'cl-lib)
+(eval-when-compile (require 'cl))
 
 (declare-function orgtbl-to-tsv "org-table" (table params))
 (declare-function R "ext:essd-r" (&optional start-args))
@@ -37,6 +37,9 @@
 (declare-function ess-eval-buffer "ext:ess-inf" (vis))
 (declare-function ess-wait-for-process "ext:ess-inf"
 		  (&optional proc sec-prompt wait force-redisplay))
+(declare-function org-number-sequence "org-compat" (from &optional to inc))
+(declare-function org-remove-if-not "org" (predicate seq))
+(declare-function org-every "org" (pred seq))
 
 (defconst org-babel-header-args:R
   '((width		 . :any)
@@ -136,7 +139,7 @@ This function is used when the table contains a header.")
 
 This function is used when the table does not contain a header.")
 
-(defun org-babel-expand-body:R (body params &optional _graphics-file)
+(defun org-babel-expand-body:R (body params &optional graphics-file)
   "Expand BODY according to PARAMS, return the expanded body."
   (mapconcat 'identity
 	     (append
@@ -206,7 +209,7 @@ This function is called by `org-babel-execute-src-block'."
 
 (defun org-babel-variable-assignments:R (params)
   "Return list of R statements assigning the block's variables."
-  (let ((vars (org-babel--get-vars params)))
+  (let ((vars (mapcar 'cdr (org-babel-get-header params :var))))
     (mapcar
      (lambda (pair)
        (org-babel-R-assign-elisp
@@ -220,7 +223,7 @@ This function is called by `org-babel-execute-src-block'."
 	       (cdr (nth i vars))
 	       (cdr (nth i (cdr (assoc :colname-names params))))
 	       (cdr (nth i (cdr (assoc :rowname-names params)))))))
-      (number-sequence 0 (1- (length vars)))))))
+      (org-number-sequence 0 (1- (length vars)))))))
 
 (defun org-babel-R-quote-tsv-field (s)
   "Quote field S for export to R."
@@ -231,7 +234,7 @@ This function is called by `org-babel-execute-src-block'."
 (defun org-babel-R-assign-elisp (name value colnames-p rownames-p)
   "Construct R code assigning the elisp VALUE to a variable named NAME."
   (if (listp value)
-      (let* ((lengths (mapcar 'length (cl-remove-if-not 'sequencep value)))
+      (let* ((lengths (mapcar 'length (org-remove-if-not 'sequencep value)))
 	     (max (if lengths (apply 'max lengths) 0))
 	     (min (if lengths (apply 'min lengths) 0)))
         ;; Ensure VALUE has an orgtbl structure (depth of at least 2).
@@ -396,7 +399,7 @@ last statement in BODY, as elisp."
 	(org-babel-result-cond result-params
 	  (with-temp-buffer
 	    (insert-file-contents tmp-file)
-	    (org-babel-chomp (buffer-string) "\n"))
+	    (buffer-string))
 	  (org-babel-import-elisp-from-file tmp-file '(16)))
 	column-names-p)))
     (output (org-babel-eval org-babel-R-command body))))
@@ -430,7 +433,7 @@ last statement in BODY, as elisp."
 	(org-babel-result-cond result-params
 	  (with-temp-buffer
 	    (insert-file-contents tmp-file)
-	    (org-babel-chomp (buffer-string) "\n"))
+	    (buffer-string))
 	  (org-babel-import-elisp-from-file tmp-file '(16)))
 	column-names-p)))
     (output
@@ -443,8 +446,7 @@ last statement in BODY, as elisp."
 	      (mapcar
 	       (lambda (line) ;; cleanup extra prompts left in output
 		 (if (string-match
-		      "^\\([>+.]\\([ ][>.+]\\)*[ ]\\)"
-		      (car (split-string line "\n")))
+		      "^\\([ ]*[>+\\.][ ]?\\)+\\([[0-9]+\\|[ ]\\)" line)
 		     (substring line (match-end 1))
 		   line))
 	       (org-babel-comint-with-output (session org-babel-R-eoe-output)

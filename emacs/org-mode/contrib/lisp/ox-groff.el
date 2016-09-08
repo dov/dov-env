@@ -92,6 +92,7 @@
     (underline . org-groff-underline)
     (verbatim . org-groff-verbatim)
     (verse-block . org-groff-verse-block))
+  :export-block "GROFF"
   :menu-entry
   '(?g "Export to GROFF"
        ((?g "As GROFF file" org-groff-export-to-groff)
@@ -1065,7 +1066,9 @@ contextual information."
   (let* ((code (org-element-property :value inline-src-block)))
     (cond
      (org-groff-source-highlight
-      (let* ((tmpdir temporary-file-directory)
+      (let* ((tmpdir (if (featurep 'xemacs)
+                         temp-directory
+                       temporary-file-directory))
              (in-file  (make-temp-name
                         (expand-file-name "srchilite" tmpdir)))
              (out-file (make-temp-name
@@ -1486,7 +1489,9 @@ contextual information."
          (custom-env (and lang
                           (cadr (assq (intern lang)
                                       org-groff-custom-lang-environments))))
-         (num-start (org-export-get-loc src-block info))
+         (num-start (case (org-element-property :number-lines src-block)
+                      (continued (org-export-get-loc src-block info))
+                      (new 0)))
          (retain-labels (org-element-property :retain-labels src-block))
          (caption (and (not (org-export-read-attribute
 			     :attr_groff src-block :disable-caption))
@@ -1502,7 +1507,9 @@ contextual information."
 
      ;; Case 2.  Source fontification.
      (org-groff-source-highlight
-      (let* ((tmpdir temporary-file-directory)
+      (let* ((tmpdir (if (featurep 'xemacs)
+			 temp-directory
+		       temporary-file-directory))
 	     (in-file  (make-temp-name
 			(expand-file-name "srchilite" tmpdir)))
 	     (out-file (make-temp-name
@@ -1896,7 +1903,6 @@ Return PDF file name or an error if it couldn't be produced."
   (let* ((base-name (file-name-sans-extension (file-name-nondirectory file)))
 	 (full-name (file-truename file))
 	 (out-dir (file-name-directory file))
-	 (time (current-time))
 	 ;; Properly set working directory for compilation.
 	 (default-directory (if (file-name-absolute-p file)
 				(file-name-directory full-name)
@@ -1931,12 +1937,7 @@ Return PDF file name or an error if it couldn't be produced."
       (let ((pdffile (concat out-dir base-name ".pdf")))
 	;; Check for process failure.  Provide collected errors if
 	;; possible.
-	(if (or (not (file-exists-p pdffile))
-		;; Only compare times up to whole seconds as some
-		;; filesystems (e.g. HFS+) do not retain any finer
-		;; granularity.
-		(time-less-p (cl-subseq (nth 5 (file-attributes pdffile)) 0 2)
-			     (cl-subseq time 0 2)))
+	(if (not (file-exists-p pdffile))
 	    (error (concat (format "PDF file %s wasn't produced" pdffile)
 			   (when errors (concat ": " errors))))
 	  ;; Else remove log files, when specified, and signal end of

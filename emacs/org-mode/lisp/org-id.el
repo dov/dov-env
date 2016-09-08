@@ -1,4 +1,4 @@
-;;; org-id.el --- Global identifiers for Org entries -*- lexical-binding: t; -*-
+;;; org-id.el --- Global identifiers for Org-mode entries
 ;;
 ;; Copyright (C) 2008-2016 Free Software Foundation, Inc.
 ;;
@@ -73,6 +73,8 @@
 (require 'org)
 
 (declare-function message-make-fqdn "message" ())
+(declare-function org-pop-to-buffer-same-window
+		  "org-compat" (&optional buffer-or-name norecord label))
 
 ;;; Customization
 
@@ -81,6 +83,8 @@
   :tag "Org ID"
   :group 'org)
 
+(define-obsolete-variable-alias
+  'org-link-to-org-use-id 'org-id-link-to-org-use-id "24.3")
 (defcustom org-id-link-to-org-use-id nil
   "Non-nil means storing a link to an Org file will use entry IDs.
 \\<org-mode-map>\
@@ -274,7 +278,7 @@ If necessary, the ID is created."
       (move-marker pom nil))))
 
 ;;;###autoload
-(defun org-id-get-with-outline-drilling ()
+(defun org-id-get-with-outline-drilling (&optional targets)
   "Use an outline-cycling interface to retrieve the ID of an entry.
 This only finds entries in the current buffer, using `org-get-location'.
 It returns the ID of the entry.  If necessary, the ID is created."
@@ -291,7 +295,7 @@ Move the cursor to that entry in that buffer."
   (let ((m (org-id-find id 'marker)))
     (unless m
       (error "Cannot find entry with ID \"%s\"" id))
-    (pop-to-buffer-same-window (marker-buffer m))
+    (org-pop-to-buffer-same-window (marker-buffer m))
     (goto-char m)
     (move-marker m nil)
     (org-show-context)))
@@ -491,7 +495,7 @@ When CHECK is given, prepare detailed information about duplicate IDs."
 		(goto-char (point-min))
 		(while (re-search-forward "^[ \t]*:ID:[ \t]+\\(\\S-+\\)[ \t]*$"
 					  nil t)
-		  (setq id (match-string-no-properties 1))
+		  (setq id (org-match-string-no-properties 1))
 		  (if (member id found)
 		      (progn
 			(message "Duplicate ID \"%s\", also in file %s"

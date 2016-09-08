@@ -1,4 +1,4 @@
-;;; ob-table.el --- Support for Calling Babel Functions from Tables -*- lexical-binding: t; -*-
+;;; ob-table.el --- support for calling org-babel functions from tables
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
@@ -54,8 +54,6 @@
 
 ;;; Code:
 (require 'ob-core)
-
-(declare-function org-trim "org" (s &optional keep-lead))
 
 (defun org-babel-table-truncate-at-newline (string)
   "Replace newline character with ellipses.
@@ -144,7 +142,7 @@ as shown in the example below.
                     nil (list "emacs-lisp" "results" params)
                     '((:results . "silent"))))
                "")))
-        (org-trim (if (stringp result) result (format "%S" result)))))))
+        (org-babel-trim (if (stringp result) result (format "%S" result)))))))
 
 (provide 'ob-table)
 

@@ -71,16 +71,15 @@ Should accept a notmuch search string as the sole argument."
 (defun org-notmuch-store-link ()
   "Store a link to a notmuch search or message."
   (when (eq major-mode 'notmuch-show-mode)
-    (let* ((message-id (notmuch-show-get-message-id t))
+    (let* ((message-id (notmuch-show-get-prop :id))
 	   (subject (notmuch-show-get-subject))
 	   (to (notmuch-show-get-to))
 	   (from (notmuch-show-get-from))
-	   (date (org-trim (notmuch-show-get-date)))
 	   desc link)
-      (org-store-link-props :type "notmuch" :from from :to to :date date
+      (org-store-link-props :type "notmuch" :from from :to to
        			    :subject subject :message-id message-id)
       (setq desc (org-email-link-description))
-      (setq link (concat "notmuch:id:" message-id))
+      (setq link (concat "notmuch:"  "id:" message-id))
       (org-add-link-props :link link :description desc)
       link)))
 

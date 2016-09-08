@@ -198,6 +198,12 @@ ENTITY is a message entity."
 		 (xref (org-wl-message-field 'xref wl-message-entity))
 		 (subject (org-wl-message-field 'subject wl-message-entity))
 		 (date (org-wl-message-field 'date wl-message-entity))
+		 (date-ts (and date (format-time-string
+				     (org-time-stamp-format t)
+				     (date-to-time date))))
+		 (date-ts-ia (and date (format-time-string
+					(org-time-stamp-format t t)
+					(date-to-time date))))
 		 desc link)
 
 	    ;; remove text properties of subject string to avoid possible bug
@@ -237,7 +243,9 @@ ENTITY is a message entity."
 	      (setq desc (org-email-link-description))
 	      (setq link (concat "wl:" folder-name "#" message-id-no-brackets))
 	      (org-add-link-props :link link :description desc)))
-	    (org-add-link-props :date date)
+	    (when date
+	      (org-add-link-props :date date :date-timestamp date-ts
+				  :date-timestamp-inactive date-ts-ia))
 	    (or link xref)))))))
 
 (defun org-wl-open-nntp (path)
@@ -279,8 +287,8 @@ for namazu index."
 				      org-wl-namazu-default-index)
 				 org-wl-namazu-default-index
 			       (read-directory-name "Namazu index: ")))))
-      (if (not (elmo-folder-exists-p (with-no-warnings
-				       (wl-folder-get-elmo-folder folder))))
+      (if (not (elmo-folder-exists-p (org-no-warnings
+				      (wl-folder-get-elmo-folder folder))))
 	  (error "No such folder: %s" folder))
       (let ((old-buf (current-buffer))
 	    (old-point (point-marker)))

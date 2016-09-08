@@ -1,4 +1,4 @@
-;;; ob-calc.el --- Babel Functions for Calc          -*- lexical-binding: t; -*-
+;;; ob-calc.el --- org-babel functions for calc code evaluation
 
 ;; Copyright (C) 2010-2016 Free Software Foundation, Inc.
 
@@ -28,18 +28,18 @@
 ;;; Code:
 (require 'ob)
 (require 'calc)
-(require 'calc-trail)
-(require 'calc-store)
+(unless (featurep 'xemacs)
+  (require 'calc-trail)
+  (require 'calc-store))
 
 (declare-function calc-store-into    "calc-store" (&optional var))
 (declare-function calc-recall        "calc-store" (&optional var))
 (declare-function math-evaluate-expr "calc-ext"   (x))
-(declare-function org-trim "org" (s &optional keep-lead))
 
 (defvar org-babel-default-header-args:calc nil
   "Default arguments for evaluating an calc source block.")
 
-(defun org-babel-expand-body:calc (body _params)
+(defun org-babel-expand-body:calc (body params)
   "Expand BODY according to PARAMS, return the expanded body." body)
 
 (defvar org--var-syms) ; Dynamically scoped from org-babel-execute:calc
@@ -48,7 +48,7 @@
   "Execute a block of calc code with Babel."
   (unless (get-buffer "*Calculator*")
     (save-window-excursion (calc) (calc-quit)))
-  (let* ((vars (org-babel--get-vars params))
+  (let* ((vars (mapcar #'cdr (org-babel-get-header params :var)))
 	 (org--var-syms (mapcar #'car vars))
 	 (var-names (mapcar #'symbol-name org--var-syms)))
     (mapc
@@ -85,13 +85,11 @@
                                    ;; parse line into calc objects
                                    (car (math-read-exprs line)))))))))
                   ))))))
-     (mapcar #'org-trim
+     (mapcar #'org-babel-trim
 	     (split-string (org-babel-expand-body:calc body params) "[\n\r]"))))
   (save-excursion
     (with-current-buffer (get-buffer "*Calculator*")
-      (prog1
-        (calc-eval (calc-top 1))
-        (calc-pop 1)))))
+      (calc-eval (calc-top 1)))))
 
 (defun org-babel-calc-maybe-resolve-var (el)
   (if (consp el)

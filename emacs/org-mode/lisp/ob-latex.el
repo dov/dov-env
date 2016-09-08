@@ -1,4 +1,4 @@
-;;; ob-latex.el --- Babel Functions for LaTeX        -*- lexical-binding: t; -*-
+;;; ob-latex.el --- org-babel functions for latex "evaluation"
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
@@ -32,11 +32,12 @@
 ;;; Code:
 (require 'ob)
 
-(declare-function org-create-formula-image "org" (string tofile options buffer &optional type))
-(declare-function org-latex-compile "ox-latex" (texfile &optional snippet))
+(declare-function org-create-formula-image "org"
+                  (string tofile options buffer &optional type))
+(declare-function org-splice-latex-header "org"
+		  (tpl def-pkg pkg snippets-p &optional extra))
 (declare-function org-latex-guess-inputenc "ox-latex" (header))
-(declare-function org-splice-latex-header "org" (tpl def-pkg pkg snippets-p &optional extra))
-(declare-function org-trim "org" (s &optional keep-lead))
+(declare-function org-latex-compile "ox-latex" (texfile &optional snippet))
 
 (defvar org-babel-tangle-lang-exts)
 (add-to-list 'org-babel-tangle-lang-exts '("latex" . "tex"))
@@ -53,16 +54,12 @@
 (defconst org-babel-header-args:latex
   '((border	  . :any)
     (fit          . :any)
-    (imagemagick  . ((nil t)))
     (iminoptions  . :any)
     (imoutoptions . :any)
     (packages     . :any)
     (pdfheight    . :any)
     (pdfpng       . :any)
-    (pdfwidth     . :any)
-    (headers      . :any)
-    (packages     . :any)
-    (buffer       . ((yes no))))
+    (pdfwidth     . :any))
   "LaTeX-specific header arguments.")
 
 (defcustom org-babel-latex-htlatex "htlatex"
@@ -84,8 +81,8 @@
                  (regexp-quote (format "%S" (car pair)))
                  (if (stringp (cdr pair))
                      (cdr pair) (format "%S" (cdr pair)))
-                 body))) (org-babel--get-vars params))
-  (org-trim body))
+                 body))) (mapcar #'cdr (org-babel-get-header params :var)))
+  (org-babel-trim body))
 
 (defun org-babel-execute:latex (body params)
   "Execute a block of Latex code with Babel.
@@ -98,6 +95,7 @@ This function is called by `org-babel-execute-src-block'."
 	     (imagemagick (cdr (assoc :imagemagick params)))
 	     (im-in-options (cdr (assoc :iminoptions params)))
 	     (im-out-options (cdr (assoc :imoutoptions params)))
+	     (pdfpng (cdr (assoc :pdfpng params)))
 	     (fit (or (cdr (assoc :fit params)) border))
 	     (height (and fit (cdr (assoc :pdfheight params))))
 	     (width (and fit (cdr (assoc :pdfwidth params))))
@@ -216,7 +214,7 @@ This function is called by `org-babel-execute-src-block'."
   (require 'ox-latex)
   (org-latex-compile file))
 
-(defun org-babel-prep-session:latex (_session _params)
+(defun org-babel-prep-session:latex (session params)
   "Return an error because LaTeX doesn't support sessions."
   (error "LaTeX does not support sessions"))
 

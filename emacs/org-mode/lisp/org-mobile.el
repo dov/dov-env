@@ -1,4 +1,4 @@
-;;; org-mobile.el --- Code for Asymmetric Sync With a Mobile Device -*- lexical-binding: t; -*-
+;;; org-mobile.el --- Code for asymmetric sync with a mobile device
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
@@ -33,8 +33,6 @@
 
 (require 'org)
 (require 'org-agenda)
-(defvar org-agenda-keep-restricted-file-list)
-
 ;;; Code:
 
 (eval-when-compile (require 'cl))
@@ -424,10 +422,10 @@ agenda view showing the flagged items."
   (let ((files-alist (sort (copy-sequence org-mobile-files-alist)
 			   (lambda (a b) (string< (cdr a) (cdr b)))))
 	(def-todo (default-value 'org-todo-keywords))
-	(def-tags org-tag-alist)
+	(def-tags (default-value 'org-tag-alist))
 	(target-file (expand-file-name org-mobile-index-file
 				       org-mobile-directory))
-	todo-kwds done-kwds tags)
+	file link-name todo-kwds done-kwds tags entry kwds dwds twds)
     (when (stringp (car def-todo))
       (setq def-todo (list (cons 'sequence def-todo))))
     (org-agenda-prepare-buffers (mapcar 'car files-alist))
@@ -437,24 +435,35 @@ agenda view showing the flagged items."
 		     (org-uniquify org-todo-keywords-for-agenda)))
     (setq tags (mapcar 'car (org-global-tags-completion-table
 			     (mapcar 'car files-alist))))
-    (with-temp-file (if org-mobile-use-encryption org-mobile-encryption-tempfile
-		      target-file)
+    (with-temp-file
+	(if org-mobile-use-encryption
+	    org-mobile-encryption-tempfile
+	  target-file)
       (insert "#+READONLY\n")
-      (dolist (entry def-todo)
-	(let ((kwds (mapcar (lambda (x)
-			      (if (string-match "(" x)
-				  (substring x 0 (match-beginning 0))
-				x))
-			    (cdr entry))))
-	  (insert "#+TODO: " (mapconcat #'identity kwds " ") "\n")
-	  (let* ((dwds (or (member "|" kwds) (last kwds)))
-		 (twds (org-delete-all dwds kwds)))
-	    (setq todo-kwds (org-delete-all twds todo-kwds))
-	    (setq done-kwds (org-delete-all dwds done-kwds)))))
+      (while (setq entry (pop def-todo))
+	(setq kwds (mapcar (lambda (x) (if (string-match "(" x)
+					   (substring x 0 (match-beginning 0))
+					 x))
+			   (cdr entry)))
+	(insert "#+TODO: " (mapconcat 'identity kwds " ") "\n")
+	(setq dwds (or (member "|" kwds) (last kwds))
+	      twds (org-delete-all dwds kwds)
+	      todo-kwds (org-delete-all twds todo-kwds)
+	      done-kwds (org-delete-all dwds done-kwds)))
       (when (or todo-kwds done-kwds)
 	(insert "#+TODO: " (mapconcat 'identity todo-kwds " ") " | "
 		(mapconcat 'identity done-kwds " ") "\n"))
-      (setq def-tags (split-string (org-tag-alist-to-string def-tags t)))
+      (setq def-tags (mapcar
+		      (lambda (x)
+			(cond ((null x) nil)
+			      ((stringp x) x)
+			      ((eq (car x) :startgroup) "{")
+			      ((eq (car x) :endgroup) "}")
+			      ((eq (car x) :grouptags) nil)
+			      ((eq (car x) :newline) nil)
+			      ((listp x) (car x))))
+		      def-tags))
+      (setq def-tags (delq nil def-tags))
       (setq tags (org-delete-all def-tags tags))
       (setq tags (sort tags (lambda (a b) (string< (downcase a) (downcase b)))))
       (setq tags (append def-tags tags nil))
@@ -463,8 +472,11 @@ agenda view showing the flagged items."
       (when (file-exists-p (expand-file-name
 			    org-mobile-directory "agendas.org"))
 	(insert "* [[file:agendas.org][Agenda Views]]\n"))
-      (pcase-dolist (`(,file . ,link-name) files-alist)
-	(insert (format "* [[file:%s][%s]]\n" file link-name)))
+      (while (setq entry (pop files-alist))
+	(setq file (car entry)
+	      link-name (cdr entry))
+	(insert (format "* [[file:%s][%s]]\n"
+			link-name link-name)))
       (push (cons org-mobile-index-file (md5 (buffer-string)))
 	    org-mobile-checksum-files))
     (when org-mobile-use-encryption
@@ -650,7 +662,7 @@ The table of checksums is written to the file mobile-checksums."
 		     m 10 "   " 'planning)
 		    "\n")
 	    (when (setq id
-			(if (bound-and-true-p
+			(if (org-bound-and-true-p
 			     org-mobile-force-id-on-agenda-items)
 			    (org-id-get m 'create)
 			  (or (org-entry-get m "ID")
@@ -810,7 +822,7 @@ If BEG and END are given, only do this in that region."
 	(cnt-flag 0)
 	(cnt-error 0)
 	buf-list
-	org-mobile-error)
+	id-pos org-mobile-error)
 
     ;; Count the new captures
     (goto-char beg)
@@ -893,10 +905,10 @@ If BEG and END are given, only do this in that region."
 		    (unless (member data (list "delete" "archive" "archive-sibling" "addheading"))
 		      (if (member "FLAGGED" (org-get-tags))
 			  (add-to-list 'org-mobile-last-flagged-files
-				       (buffer-file-name))))))
+				       (buffer-file-name (current-buffer)))))))
 	      (error (setq org-mobile-error msg))))
 	  (when org-mobile-error
-	    (pop-to-buffer-same-window (marker-buffer marker))
+	    (org-pop-to-buffer-same-window (marker-buffer marker))
 	    (goto-char marker)
 	    (incf cnt-error)
 	    (insert (if (stringp (nth 1 org-mobile-error))

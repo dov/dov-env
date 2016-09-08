@@ -1,4 +1,4 @@
-;;; org-gnus.el --- Support for Links to Gnus Groups and Messages -*- lexical-binding: t; -*-
+;;; org-gnus.el --- Support for links to Gnus groups and messages from within Org-mode
 
 ;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
 
@@ -44,7 +44,7 @@
 
 ;; Customization variables
 
-(defvaralias 'org-usenet-links-prefer-google 'org-gnus-prefer-web-links)
+(org-defvaralias 'org-usenet-links-prefer-google 'org-gnus-prefer-web-links)
 
 (defcustom org-gnus-prefer-web-links nil
   "If non-nil, `org-store-link' creates web links to Google groups or Gmane.
@@ -162,15 +162,23 @@ If `org-store-link' was called with a prefix arg the meaning of
 	   (from (mail-header-from header))
 	   (message-id (org-remove-angle-brackets (mail-header-id header)))
 	   (date (org-trim (mail-header-date header)))
+	   (date-ts (and date
+			 (ignore-errors
+			   (format-time-string
+			    (org-time-stamp-format t)
+			    (date-to-time date)))))
+	   (date-ts-ia (and date
+			    (ignore-errors
+			      (format-time-string
+			       (org-time-stamp-format t t)
+			       (date-to-time date)))))
 	   (subject (copy-sequence (mail-header-subject header)))
 	   (to (cdr (assq 'To (mail-header-extra header))))
 	   newsgroups x-no-archive desc link)
-      (cl-case  (car (gnus-find-method-for-group gnus-newsgroup-name))
-	(nnvirtual
-	 (setq group (car (nnvirtual-map-article
-			   (gnus-summary-article-number)))))
-	(nnir
-	 (setq group (nnir-article-group (gnus-summary-article-number)))))
+      (when (eq (car (gnus-find-method-for-group gnus-newsgroup-name))
+		  'nnvirtual)
+	(setq group (car (nnvirtual-map-article
+			  (gnus-summary-article-number)))))
       ;; Remove text properties of subject string to avoid Emacs bug
       ;; #3506
       (set-text-properties 0 (length subject) nil subject)
@@ -183,8 +191,11 @@ If `org-store-link' was called with a prefix arg the meaning of
 	(setq to (or to (gnus-fetch-original-field "To"))
 	      newsgroups (gnus-fetch-original-field "Newsgroups")
 	      x-no-archive (gnus-fetch-original-field "x-no-archive")))
-      (org-store-link-props :type "gnus" :from from :date date :subject subject
+      (org-store-link-props :type "gnus" :from from :subject subject
 			    :message-id message-id :group group :to to)
+      (when date
+	(org-add-link-props :date date :date-timestamp date-ts
+			    :date-timestamp-inactive date-ts-ia))
       (setq desc (org-email-link-description)
 	    link (org-gnus-article-link
 		  group	newsgroups message-id x-no-archive))

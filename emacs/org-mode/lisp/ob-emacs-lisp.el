@@ -1,4 +1,4 @@
-;;; ob-emacs-lisp.el --- Babel Functions for Emacs-lisp Code -*- lexical-binding: t; -*-
+;;; ob-emacs-lisp.el --- org-babel functions for emacs-lisp code evaluation
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
@@ -28,20 +28,12 @@
 ;;; Code:
 (require 'ob)
 
-(defconst org-babel-header-args:emacs-lisp '((lexical . :any))
-  "Emacs-lisp specific header arguments.")
-
-(defvar org-babel-default-header-args:emacs-lisp '((:lexical . "no"))
-  "Default arguments for evaluating an emacs-lisp source block.
-
-A value of \"yes\" or t causes src blocks to be eval'd using
-lexical scoping.  It can also be an alist mapping symbols to
-their value.  It is used as the optional LEXICAL argument to
-`eval', which see.")
+(defvar org-babel-default-header-args:emacs-lisp nil
+  "Default arguments for evaluating an emacs-lisp source block.")
 
 (defun org-babel-expand-body:emacs-lisp (body params)
   "Expand BODY according to PARAMS, return the expanded body."
-  (let* ((vars (org-babel--get-vars params))
+  (let* ((vars (mapcar #'cdr (org-babel-get-header params :var)))
          (result-params (cdr (assoc :result-params params)))
          (print-level nil) (print-length nil)
          (body (if (> (length vars) 0)
@@ -59,18 +51,13 @@ their value.  It is used as the optional LEXICAL argument to
 (defun org-babel-execute:emacs-lisp (body params)
   "Execute a block of emacs-lisp code with Babel."
   (save-window-excursion
-    (let* ((lexical (cdr (assq :lexical params)))
-	   (result
-	    (eval (read (format (if (member "output"
-					    (cdr (assq :result-params params)))
-				    "(with-output-to-string %s)"
-				  "(progn %s)")
-				(org-babel-expand-body:emacs-lisp
-				 body params)))
-
-		  (if (listp lexical)
-		      lexical
-		    (member lexical '("yes" "t"))))))
+    (let ((result
+           (eval (read (format (if (member "output"
+                                           (cdr (assoc :result-params params)))
+                                   "(with-output-to-string %s)"
+                                 "(progn %s)")
+                               (org-babel-expand-body:emacs-lisp
+                                body params))))))
       (org-babel-result-cond (cdr (assoc :result-params params))
 	(let ((print-level nil)
               (print-length nil))
@@ -84,8 +71,6 @@ their value.  It is used as the optional LEXICAL argument to
                               (cdr (assoc :colnames params)))
          (org-babel-pick-name (cdr (assoc :rowname-names params))
                               (cdr (assoc :rownames params))))))))
-
-(org-babel-make-language-alias "elisp" "emacs-lisp")
 
 (provide 'ob-emacs-lisp)
 

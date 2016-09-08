@@ -1,4 +1,4 @@
-;;; ox-beamer.el --- Beamer Back-End for Org Export Engine -*- lexical-binding: t; -*-
+;;; ox-beamer.el --- Beamer Back-End for Org Export Engine
 
 ;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
 
@@ -29,7 +29,7 @@
 
 ;;; Code:
 
-(require 'cl-lib)
+(eval-when-compile (require 'cl))
 (require 'ox-latex)
 
 ;; Install a default set-up for Beamer export.
@@ -202,7 +202,7 @@ TYPE is a symbol among the following:
 `defaction' Return ARGUMENT within both square and angular brackets.
 `option'    Return ARGUMENT within square brackets."
   (if (not (string-match "\\S-" argument)) ""
-    (cl-case type
+    (case type
       (action (if (string-match "\\`<.*>\\'" argument) argument
 		(format "<%s>" argument)))
       (defaction (cond
@@ -231,6 +231,7 @@ Return overlay specification, as a string, or nil."
 ;;; Define Back-End
 
 (org-export-define-derived-backend 'beamer 'latex
+  :export-block "BEAMER"
   :menu-entry
   '(?l 1
        ((?B "As LaTeX buffer (Beamer)" org-beamer-export-as-latex)
@@ -273,7 +274,7 @@ Return overlay specification, as a string, or nil."
 
 ;;;; Bold
 
-(defun org-beamer-bold (bold contents _info)
+(defun org-beamer-bold (bold contents info)
   "Transcode BLOCK object into Beamer code.
 CONTENTS is the text being bold.  INFO is a plist used as
 a communication channel."
@@ -284,7 +285,7 @@ a communication channel."
 
 ;;;; Export Block
 
-(defun org-beamer-export-block (export-block _contents _info)
+(defun org-beamer-export-block (export-block contents info)
   "Transcode an EXPORT-BLOCK element into Beamer code.
 CONTENTS is nil.  INFO is a plist used as a communication
 channel."
@@ -294,7 +295,7 @@ channel."
 
 ;;;; Export Snippet
 
-(defun org-beamer-export-snippet (export-snippet _contents info)
+(defun org-beamer-export-snippet (export-snippet contents info)
   "Transcode an EXPORT-SNIPPET object into Beamer code.
 CONTENTS is nil.  INFO is a plist used as a communication
 channel."
@@ -330,21 +331,17 @@ channel."
 INFO is a plist used as a communication channel.
 
 The value is either the label specified in \"BEAMER_opt\"
-property, the custom ID, if there is one and
-`:latex-prefer-user-labels' property has a non nil value, or
-a unique internal label.  This function assumes HEADLINE will be
-treated as a frame."
-  (cond
-   ((let ((opt (org-element-property :BEAMER_OPT headline)))
-      (and (stringp opt)
-	   (string-match "\\(?:^\\|,\\)label=\\(.*?\\)\\(?:$\\|,\\)" opt)
-	   (let ((label (match-string 1 opt)))
-	     (if (string-match-p "\\`{.*}\\'" label)
-		 (substring label 1 -1)
-	       label)))))
-   ((and (plist-get info :latex-prefer-user-labels)
-	 (org-element-property :CUSTOM_ID headline)))
-   (t (format "sec:%s" (org-export-get-reference headline info)))))
+property, or a unique internal label.  This function assumes
+HEADLINE will be treated as a frame."
+  (let ((opt (org-element-property :BEAMER_OPT headline)))
+    (if (and (stringp opt)
+	     (string-match "\\(?:^\\|,\\)label=\\(.*?\\)\\(?:$\\|,\\)" opt))
+	(let ((label (match-string 1 opt)))
+	  ;; Strip protective braces, if any.
+	  (if (org-string-match-p "\\`{.*}\\'" label)
+	      (substring label 1 -1)
+	    label))
+      (format "sec:%s" (org-export-get-reference headline info)))))
 
 (defun org-beamer--frame-level (headline info)
   "Return frame level in subtree containing HEADLINE.
@@ -679,7 +676,7 @@ contextual information."
     (list
      (cons
       'item
-      (lambda (item _c _i)
+      (lambda (item c i)
 	(let ((action
 	       (let ((first (car (org-element-contents item))))
 		 (and (eq (org-element-type first) 'paragraph)
@@ -723,7 +720,8 @@ channel."
   "Transcode a LINK object into Beamer code.
 CONTENTS is the description part of the link.  INFO is a plist
 used as a communication channel."
-  (let ((type (org-element-property :type link)))
+  (let ((type (org-element-property :type link))
+	(path (org-element-property :path link)))
     (cond
      ;; Link type is handled by a special function.
      ((org-export-custom-protocol-maybe link contents 'beamer))
@@ -739,7 +737,7 @@ used as a communication channel."
 	   (let ((destination (if (string= type "fuzzy")
 				  (org-export-resolve-fuzzy-link link info)
 				(org-export-resolve-id-link link info))))
-	     (cl-case (org-element-type destination)
+	     (case (org-element-type destination)
 	       (headline
 		(let ((label
 		       (format "sec-%s"
@@ -815,7 +813,7 @@ contextual information."
 
 ;;;; Target
 
-(defun org-beamer-target (target _contents info)
+(defun org-beamer-target (target contents info)
   "Transcode a TARGET object into Beamer code.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
@@ -834,14 +832,34 @@ holding export options."
   (let ((title (org-export-data (plist-get info :title) info))
 	(subtitle (org-export-data (plist-get info :subtitle) info)))
     (concat
-     ;; Time-stamp.
+     ;; 1. Time-stamp.
      (and (plist-get info :time-stamp-file)
 	  (format-time-string "%% Created %Y-%m-%d %a %H:%M\n"))
-     ;; LaTeX compiler
-     (org-latex--insert-compiler info)
-     ;; Document class and packages.
-     (org-latex--make-preamble info)
-     ;; Insert themes.
+     ;; 2. Document class and packages.
+     (let* ((class (plist-get info :latex-class))
+	    (class-options (plist-get info :latex-class-options))
+	    (header (nth 1 (assoc class org-latex-classes)))
+	    (document-class-string
+	     (and (stringp header)
+		  (if (not class-options) header
+		    (replace-regexp-in-string
+		     "^[ \t]*\\\\documentclass\\(\\(\\[[^]]*\\]\\)?\\)"
+		     class-options header t nil 1)))))
+       (if (not document-class-string)
+	   (user-error "Unknown LaTeX class `%s'" class)
+	 (org-latex-guess-babel-language
+	  (org-latex-guess-inputenc
+	   (org-element-normalize-string
+	    (org-splice-latex-header
+	     document-class-string
+	     org-latex-default-packages-alist
+	     org-latex-packages-alist nil
+	     (concat (org-element-normalize-string
+		      (plist-get info :latex-header))
+		     (org-element-normalize-string
+		      (plist-get info :latex-header-extra))))))
+	  info)))
+     ;; 3. Insert themes.
      (let ((format-theme
 	    (function
 	     (lambda (prop command)
@@ -861,11 +879,11 @@ holding export options."
 		    (:beamer-inner-theme "\\useinnertheme")
 		    (:beamer-outer-theme "\\useoutertheme"))
 		  ""))
-     ;; Possibly limit depth for headline numbering.
+     ;; 4. Possibly limit depth for headline numbering.
      (let ((sec-num (plist-get info :section-numbers)))
        (when (integerp sec-num)
 	 (format "\\setcounter{secnumdepth}{%d}\n" sec-num)))
-     ;; Author.
+     ;; 5. Author.
      (let ((author (and (plist-get info :with-author)
 			(let ((auth (plist-get info :author)))
 			  (and auth (org-export-data auth info)))))
@@ -874,14 +892,14 @@ holding export options."
        (cond ((and author email (not (string= "" email)))
 	      (format "\\author{%s\\thanks{%s}}\n" author email))
 	     ((or author email) (format "\\author{%s}\n" (or author email)))))
-     ;; Date.
+     ;; 6. Date.
      (let ((date (and (plist-get info :with-date) (org-export-get-date info))))
        (format "\\date{%s}\n" (org-export-data date info)))
-     ;; Title
+     ;; 7. Title
      (format "\\title{%s}\n" title)
      (when (org-string-nw-p subtitle)
        (concat (format (plist-get info :beamer-subtitle-format) subtitle) "\n"))
-     ;; Beamer-header
+     ;; 8. Beamer-header
      (let ((beamer-header (plist-get info :beamer-header)))
        (when beamer-header
 	 (format "%s\n" (plist-get info :beamer-header))))
@@ -889,9 +907,9 @@ holding export options."
      (let ((template (plist-get info :latex-hyperref-template)))
        (and (stringp template)
 	    (format-spec template (org-latex--format-spec info))))
-     ;; Document start.
+     ;; 10. Document start.
      "\\begin{document}\n\n"
-     ;; Title command.
+     ;; 11. Title command.
      (org-element-normalize-string
       (cond ((not (plist-get info :with-title)) nil)
 	    ((string= "" title) nil)
@@ -900,7 +918,7 @@ holding export options."
 			   org-latex-title-command)
 	     (format org-latex-title-command title))
 	    (t org-latex-title-command)))
-     ;; Table of contents.
+     ;; 12. Table of contents.
      (let ((depth (plist-get info :with-toc)))
        (when depth
 	 (concat
@@ -912,13 +930,13 @@ holding export options."
 	    (format "\\setcounter{tocdepth}{%d}\n" depth))
 	  "\\tableofcontents\n"
 	  "\\end{frame}\n\n")))
-     ;; Document's body.
+     ;; 13. Document's body.
      contents
-     ;; Creator.
+     ;; 14. Creator.
      (if (plist-get info :with-creator)
 	 (concat (plist-get info :creator) "\n")
        "")
-     ;; Document end.
+     ;; 15. Document end.
      "\\end{document}")))
 
 
@@ -954,7 +972,7 @@ value."
     (save-excursion
       (org-back-to-heading t)
       ;; Filter out Beamer-related tags and install environment tag.
-      (let ((tags (cl-remove-if (lambda (x) (string-match "^B_" x))
+      (let ((tags (org-remove-if (lambda (x) (string-match "^B_" x))
 				 (org-get-tags)))
 	    (env-tag (and (org-string-nw-p value) (concat "B_" value))))
 	(org-set-tags-to (if env-tag (cons env-tag tags) tags))
@@ -1106,7 +1124,7 @@ aid, but the tag does not have any semantic meaning."
   (let* ((envs (append org-beamer-environments-special
 		       org-beamer-environments-extra
 		       org-beamer-environments-default))
-	 (org-current-tag-alist
+	 (org-tag-alist
 	  (append '((:startgroup))
 		  (mapcar (lambda (e) (cons (concat "B_" (car e))
 				       (string-to-char (nth 1 e))))

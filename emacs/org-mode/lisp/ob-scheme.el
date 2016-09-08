@@ -1,4 +1,4 @@
-;;; ob-scheme.el --- Babel Functions for Scheme      -*- lexical-binding: t; -*-
+;;; ob-scheme.el --- org-babel functions for Scheme
 
 ;; Copyright (C) 2010-2016 Free Software Foundation, Inc.
 
@@ -56,7 +56,7 @@
 
 (defun org-babel-expand-body:scheme (body params)
   "Expand BODY according to PARAMS, return the expanded body."
-  (let ((vars (org-babel--get-vars params)))
+  (let ((vars (mapcar #'cdr (org-babel-get-header params :var))))
     (if (> (length vars) 0)
         (concat "(let ("
                 (mapconcat

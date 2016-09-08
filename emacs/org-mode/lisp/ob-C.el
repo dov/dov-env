@@ -1,4 +1,4 @@
-;;; ob-C.el --- Babel Functions for C and Similar Languages -*- lexical-binding: t; -*-
+;;; ob-C.el --- org-babel functions for C and similar languages
 
 ;; Copyright (C) 2010-2016 Free Software Foundation, Inc.
 
@@ -34,9 +34,9 @@
 (require 'ob)
 (require 'cc-mode)
 
-(declare-function org-entry-get "org" (pom property &optional inherit literal-nil))
+(declare-function org-entry-get "org"
+		  (pom property &optional inherit literal-nil))
 (declare-function org-remove-indentation "org" (code &optional n))
-(declare-function org-trim "org" (s &optional keep-lead))
 
 (defvar org-babel-tangle-lang-exts)
 (add-to-list 'org-babel-tangle-lang-exts '("C++" . "cpp"))
@@ -130,13 +130,6 @@ or `org-babel-execute:C++' or `org-babel-execute:D'."
 	 (flags (cdr (assoc :flags params)))
 	 (flags (mapconcat 'identity
 			   (if (listp flags) flags (list flags)) " "))
-	 (libs (org-babel-read
-		(or (cdr (assq :libs params))
-		    (org-entry-get nil "libs" t))
-		nil))
-	 (libs (mapconcat #'identity
-			  (if (listp libs) libs (list libs))
-			  " "))
 	 (full-body
 	  (case org-babel-c-variant
 	    (c   (org-babel-C-expand-C   body params))
@@ -146,15 +139,13 @@ or `org-babel-execute:C++' or `org-babel-execute:D'."
     (case org-babel-c-variant
       ((c cpp)
        (org-babel-eval
-	(format "%s -o %s %s %s %s"
+	(format "%s -o %s %s %s"
 		(case org-babel-c-variant
 		 (c   org-babel-C-compiler)
 		 (cpp org-babel-C++-compiler))
 		(org-babel-process-file-name tmp-bin-file)
 		flags
-		(org-babel-process-file-name tmp-src-file)
-		libs)
-	""))
+		(org-babel-process-file-name tmp-src-file)) ""))
       (d nil)) ;; no separate compilation for D
     (let ((results
 	   (org-babel-eval
@@ -169,7 +160,7 @@ or `org-babel-execute:C++' or `org-babel-execute:D'."
 		       cmdline)))
 	    "")))
       (when results
-	(setq results (org-trim (org-remove-indentation results)))
+	(setq results (org-babel-trim (org-remove-indentation results)))
 	(org-babel-reassemble-table
 	 (org-babel-result-cond (cdr (assoc :result-params params))
 	   (org-babel-read results t)
@@ -190,8 +181,8 @@ its header arguments."
 (defun org-babel-C-expand-C (body params)
   "Expand a block of C or C++ code with org-babel according to
 its header arguments."
-  (let ((vars (org-babel--get-vars params))
-	(colnames (cdr (assq :colname-names params)))
+  (let ((vars (mapcar #'cdr (org-babel-get-header params :var)))
+	(colnames (cdar (org-babel-get-header params :colname-names)))
 	(main-p (not (string= (cdr (assoc :main params)) "no")))
 	(includes (org-babel-read
 		   (or (cdr (assoc :includes params))
@@ -239,8 +230,8 @@ its header arguments."
 (defun org-babel-C-expand-D (body params)
   "Expand a block of D code with org-babel according to
 its header arguments."
-  (let ((vars (org-babel--get-vars params))
-	(colnames (cdr (assq :colname-names params)))
+  (let ((vars (mapcar #'cdr (org-babel-get-header params :var)))
+	(colnames (cdar (org-babel-get-header params :colname-names)))
 	(main-p (not (string= (cdr (assoc :main params)) "no")))
 	(imports (or (cdr (assoc :imports params))
 		     (org-babel-read (org-entry-get nil "imports" t)))))
@@ -274,12 +265,12 @@ its header arguments."
       body
     (format "int main() {\n%s\nreturn 0;\n}\n" body)))
 
-(defun org-babel-prep-session:C (_session _params)
+(defun org-babel-prep-session:C (session params)
   "This function does nothing as C is a compiled language with no
 support for sessions"
   (error "C is a compiled languages -- no support for sessions"))
 
-(defun org-babel-load-session:C (_session _body _params)
+(defun org-babel-load-session:C (session body params)
   "This function does nothing as C is a compiled language with no
 support for sessions"
   (error "C is a compiled languages -- no support for sessions"))

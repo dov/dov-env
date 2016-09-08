@@ -1,4 +1,4 @@
-;;; ob-tangle.el --- Extract Source Code From Org Files -*- lexical-binding: t; -*-
+;;; ob-tangle.el --- extract source code from org-mode files
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
@@ -41,10 +41,8 @@
 (declare-function org-in-commented-heading-p "org" (&optional no-inheritance))
 (declare-function org-link-escape "org" (text &optional table merge))
 (declare-function org-open-link-from-string "org" (s &optional arg reference-buffer))
-(declare-function org-remove-indentation "org" (code &optional n))
 (declare-function org-store-link "org" (arg))
 (declare-function org-string-nw-p "org-macs" (s))
-(declare-function org-trim "org" (s &optional keep-lead))
 (declare-function outline-previous-heading "outline" ())
 
 (defvar org-link-types-re)
@@ -135,7 +133,7 @@ of tangled comments."
   :group 'org-babel
   :type 'boolean)
 
-(defcustom org-babel-process-comment-text 'org-remove-indentation
+(defcustom org-babel-process-comment-text #'org-remove-indentation
   "Function called to process raw Org-mode text collected to be
 inserted as comments in tangled source-code files.  The function
 should take a single string argument and return a string
@@ -292,8 +290,10 @@ used to limit the exported source code blocks by language."
 			(unless tangle-mode (setq tangle-mode #o755)))
 		      ;; update counter
 		      (setq block-counter (+ 1 block-counter))
-		      (unless (assoc file-name path-collector)
-			(push (cons file-name tangle-mode) path-collector))))))
+		      (add-to-list 'path-collector
+				   (cons file-name tangle-mode)
+				   nil
+				   (lambda (a b) (equal (car a) (car b))))))))
 	      specs)))
 	 (if (equal arg '(4))
 	     (org-babel-tangle-single-block 1 t)
@@ -362,10 +362,11 @@ that the appropriate major-mode is set.  SPEC has the form:
 	 (comments (cdr (assq :comments info)))
 	 (link-p (or (string= comments "both") (string= comments "link")
 		     (string= comments "yes") (string= comments "noweb")))
-	 (link-data `(("start-line" . ,(number-to-string start-line))
-		      ("file" . ,file)
-		      ("link" . ,link)
-		      ("source-name" . ,source-name)))
+	 (link-data (mapcar (lambda (el)
+			      (cons (symbol-name el)
+				    (let ((le (eval el)))
+                                      (if (stringp le) le (format "%S" le)))))
+			    '(start-line file link source-name)))
 	 (insert-comment (lambda (text)
 			   (when (and comments
 				      (not (string= comments "no"))
@@ -389,10 +390,10 @@ that the appropriate major-mode is set.  SPEC has the form:
        insert-comment
        (org-fill-template org-babel-tangle-comment-format-beg link-data)))
     (insert
-     (org-unescape-code-in-string
-      (if org-src-preserve-indentation (org-trim body t)
-	(org-trim (org-remove-indentation body))))
-     "\n")
+     (format
+      "%s\n"
+      (org-unescape-code-in-string
+       (org-babel-trim body (if org-src-preserve-indentation "[\f\n\r\v]")))))
     (when link-p
       (funcall
        insert-comment
@@ -452,11 +453,11 @@ list to be used by `org-babel-tangle' directly."
                  (and (string-match org-bracket-link-regexp link)
                       (match-string 1 link))))
 	 (source-name
-	  (or (nth 4 info)
-	      (format "%s:%d"
-		      (or (ignore-errors (nth 4 (org-heading-components)))
-			  "No heading")
-		      block-counter)))
+	  (intern (or (nth 4 info)
+		      (format "%s:%d"
+			      (or (ignore-errors (nth 4 (org-heading-components)))
+				  "No heading")
+			      block-counter))))
 	 (expand-cmd
 	  (intern (concat "org-babel-expand-body:" src-lang)))
 	 (assignments-cmd
@@ -509,18 +510,19 @@ list to be used by `org-babel-tangle' directly."
 	(list (cons src-lang (list result)))
       result)))
 
-(defun org-babel-tangle-comment-links (&optional info)
+(defun org-babel-tangle-comment-links ( &optional info)
   "Return a list of begin and end link comments for the code block at point."
-  (let ((link-data
-	 `(("start-line" . ,(number-to-string
-			     (org-babel-where-is-src-block-head)))
-	   ("file" . ,(buffer-file-name))
-	   ("link" . ,(org-link-escape
-		       (progn
-			 (call-interactively #'org-store-link)
-			 (org-no-properties (car (pop org-stored-links))))))
-	   ("source-name" .
-	    ,(nth 4 (or info (org-babel-get-src-block-info 'light)))))))
+  (let* ((start-line (org-babel-where-is-src-block-head))
+	 (file (buffer-file-name))
+	 (link (org-link-escape (progn (call-interactively 'org-store-link)
+				       (org-no-properties
+					(car (pop org-stored-links))))))
+	 (source-name (nth 4 (or info (org-babel-get-src-block-info 'light))))
+	 (link-data (mapcar (lambda (el)
+			      (cons (symbol-name el)
+				    (let ((le (eval el)))
+                                      (if (stringp le) le (format "%S" le)))))
+			    '(start-line file link source-name))))
     (list (org-fill-template org-babel-tangle-comment-format-beg link-data)
 	  (org-fill-template org-babel-tangle-comment-format-end link-data))))
 
@@ -551,7 +553,7 @@ which enable the original code blocks to be found."
   "Jump from a tangled code file to the related Org mode file."
   (interactive)
   (let ((mid (point))
-	start body-start end
+	start body-start end done
         target-buffer target-char link path block-name body)
     (save-window-excursion
       (save-excursion
@@ -596,8 +598,7 @@ which enable the original code blocks to be found."
       (forward-char (- mid body-start))
       (setq target-char (point)))
     (org-src-switch-to-buffer target-buffer t)
-    (goto-char target-char)
-    body))
+    (prog1 body (goto-char target-char))))
 
 (provide 'ob-tangle)
 

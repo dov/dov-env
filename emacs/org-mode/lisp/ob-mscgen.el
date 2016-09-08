@@ -1,4 +1,4 @@
-;;; ob-msc.el --- Babel Functions for Mscgen         -*- lexical-binding: t; -*-
+;;; ob-msc.el --- org-babel functions for mscgen evaluation
 
 ;; Copyright (C) 2010-2016 Free Software Foundation, Inc.
 
@@ -73,7 +73,7 @@ ERROR: no output file specified.  Add \":file name.png\" to the src header"))
     (org-babel-eval (concat "mscgen -T " filetype " -o " out-file) body)
     nil)) ;; signal that output has already been written to file
 
-(defun org-babel-prep-session:mscgen (_session _params)
+(defun org-babel-prep-session:mscgen (session params)
   "Raise an error because Mscgen doesn't support sessions."
   (error "Mscgen does not support sessions"))
 

@@ -1,4 +1,4 @@
-;;; org-docview.el --- Support for links to doc-view-mode buffers -*- lexical-binding: t; -*-
+;;; org-docview.el --- support for links to doc-view-mode buffers
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
@@ -81,7 +81,8 @@
     ;; This buffer is in doc-view-mode
     (let* ((path buffer-file-name)
 	   (page (image-mode-window-get 'page))
-	   (link (concat "docview:" path "::" (number-to-string page))))
+	   (link (concat "docview:" path "::" (number-to-string page)))
+	   (description ""))
       (org-store-link-props
        :type "docview"
        :link link

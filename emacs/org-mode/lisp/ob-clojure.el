@@ -1,4 +1,4 @@
-;;; ob-clojure.el --- Babel Functions for Clojure    -*- lexical-binding: t; -*-
+;;; ob-clojure.el --- org-babel functions for clojure evaluation
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
@@ -48,7 +48,6 @@
 (declare-function nrepl-dict-get "ext:nrepl-client" (dict key))
 (declare-function nrepl-sync-request:eval "ext:nrepl-client"
 		  (input connection session &optional ns))
-(declare-function org-trim "org" (s &optional keep-lead))
 (declare-function slime-eval "ext:slime" (sexp &optional package))
 
 (defvar org-babel-tangle-lang-exts)
@@ -68,17 +67,18 @@
 
 (defun org-babel-expand-body:clojure (body params)
   "Expand BODY according to PARAMS, return the expanded body."
-  (let* ((vars (org-babel--get-vars params))
+  (let* ((vars (mapcar #'cdr (org-babel-get-header params :var)))
 	 (result-params (cdr (assoc :result-params params)))
 	 (print-level nil) (print-length nil)
-	 (body (org-trim
-		(if (null vars) (org-trim body)
-		  (concat "(let ["
-			  (mapconcat
-			   (lambda (var)
-			     (format "%S (quote %S)" (car var) (cdr var)))
-			   vars "\n      ")
-			  "]\n" body ")")))))
+	 (body (org-babel-trim
+		(if (> (length vars) 0)
+		    (concat "(let ["
+			    (mapconcat
+			     (lambda (var)
+			       (format "%S (quote %S)" (car var) (cdr var)))
+			     vars "\n      ")
+			    "]\n" body ")")
+		  body))))
     (if (or (member "code" result-params)
 	    (member "pp" result-params))
 	(format "(clojure.pprint/pprint (do %s))" body)

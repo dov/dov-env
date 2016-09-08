@@ -1,4 +1,4 @@
-;;; org-rmail.el --- Support for Links to Rmail Messages -*- lexical-binding: t; -*-
+;;; org-rmail.el --- Support for links to Rmail messages from within Org-mode
 
 ;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
 
@@ -24,9 +24,9 @@
 ;;
 ;;; Commentary:
 
-;; This file implements links to Rmail messages from within Org mode.
-;; Org mode loads this module by default - if this is not what you
-;; want, configure the variable `org-modules'.
+;; This file implements links to Rmail messages from within Org-mode.
+;; Org-mode loads this module by default - if this is not what you want,
+;; configure the variable `org-modules'.
 
 ;;; Code:
 
@@ -65,10 +65,19 @@
 	       (to (mail-fetch-field "to"))
 	       (subject (mail-fetch-field "subject"))
 	       (date (mail-fetch-field "date"))
+	       (date-ts (and date (format-time-string
+				   (org-time-stamp-format t)
+				   (date-to-time date))))
+	       (date-ts-ia (and date (format-time-string
+				      (org-time-stamp-format t t)
+				      (date-to-time date))))
 	       desc link)
 	  (org-store-link-props
-	   :type "rmail" :from from :to to :date date
+	   :type "rmail" :from from :to to
 	   :subject subject :message-id message-id)
+	  (when date
+	    (org-add-link-props :date date :date-timestamp date-ts
+				:date-timestamp-inactive date-ts-ia))
 	  (setq message-id (org-remove-angle-brackets message-id))
 	  (setq desc (org-email-link-description))
 	  (setq link (concat "rmail:" folder "#" message-id))

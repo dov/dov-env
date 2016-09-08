@@ -1,4 +1,4 @@
-;;; org-pcomplete.el --- In-buffer Completion Code -*- lexical-binding: t; -*-
+;;; org-pcomplete.el --- In-buffer completion code
 
 ;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
 ;;
@@ -27,17 +27,21 @@
 
 ;;;; Require other packages
 
+(eval-when-compile
+  (require 'cl))
+
 (require 'org-macs)
 (require 'org-compat)
 (require 'pcomplete)
 
-(declare-function org-make-org-heading-search-string "org" (&optional string))
+(declare-function org-split-string "org" (string &optional separators))
+(declare-function org-make-org-heading-search-string "org"
+		  (&optional string))
 (declare-function org-get-buffer-tags "org" ())
 (declare-function org-get-tags "org" ())
 (declare-function org-buffer-property-keys "org"
-		  (&optional specials defaults columns ignore-malformed))
+		  (&optional include-specials include-defaults include-columns))
 (declare-function org-entry-properties "org" (&optional pom which))
-(declare-function org-tag-alist-to-string "org" (alist &optional skip-key))
 
 ;;;; Customization variables
 
@@ -48,13 +52,12 @@
 
 (defvar org-drawer-regexp)
 (defvar org-property-re)
-(defvar org-current-tag-alist)
 
 (defun org-thing-at-point ()
   "Examine the thing at point and let the caller know what it is.
 The return value is a string naming the thing at point."
   (let ((beg1 (save-excursion
-		(skip-chars-backward "[:alnum:]-_@")
+		(skip-chars-backward (org-re "[:alnum:]-_@"))
 		(point)))
 	(beg (save-excursion
 	       (skip-chars-backward "a-zA-Z0-9-_:$")
@@ -90,10 +93,10 @@ The return value is a string naming the thing at point."
 	     (skip-chars-backward "[ \t\n]")
 	     ;; org-drawer-regexp matches a whole line but while
 	     ;; looking-back, we just ignore trailing whitespaces
-	     (or (looking-back (substring org-drawer-regexp 0 -1)
-			       (line-beginning-position))
-		 (looking-back org-property-re
-			       (line-beginning-position)))))
+	     (or (org-looking-back (substring org-drawer-regexp 0 -1)
+				   (line-beginning-position))
+		 (org-looking-back org-property-re
+				   (line-beginning-position)))))
       (cons "prop" nil))
      ((and (equal (char-before beg1) ?:)
 	   (not (equal (char-after (point-at-bol)) ?*)))
@@ -139,6 +142,7 @@ When completing for #+STARTUP, for example, this function returns
 		pcomplete-default-completion-function))))
 
 (defvar org-options-keywords)		 ; From org.el
+(defvar org-element-block-name-alist)	 ; From org-element.el
 (defvar org-element-affiliated-keywords) ; From org-element.el
 (declare-function org-get-export-keywords "org" ())
 (defun pcomplete/org-mode/file-option ()
@@ -151,19 +155,16 @@ When completing for #+STARTUP, for example, this function returns
 	    (mapcar (lambda (keyword) (concat keyword ": "))
 		    org-element-affiliated-keywords)
 	    (let (block-names)
-	      (dolist (name
-		       '("CENTER" "COMMENT" "EXAMPLE" "EXPORT" "QUOTE" "SRC"
-			 "VERSE")
-		       block-names)
-		(push (format "END_%s" name) block-names)
-		(push (concat "BEGIN_"
-			      name
-			      ;; Since language is compulsory in
-			      ;; export blocks source blocks, add
-			      ;; a space.
-			      (and (member name '("EXPORT" "SRC")) " "))
-		      block-names)
-		(push (format "ATTR_%s: " name) block-names)))
+	      (dolist (block-info org-element-block-name-alist block-names)
+		(let ((name (car block-info)))
+		  (push (format "END_%s" name) block-names)
+		  (push (concat "BEGIN_"
+				name
+				;; Since language is compulsory in
+				;; source blocks, add a space.
+				(and (equal name "SRC") " "))
+			block-names)
+		  (push (format "ATTR_%s: " name) block-names))))
 	    (mapcar (lambda (keyword) (concat keyword ": "))
 		    (org-get-export-keywords))))
    (substring pcomplete-stub 2)))
@@ -234,10 +235,20 @@ When completing for #+STARTUP, for example, this function returns
 		(setq opts (delete "showstars" opts)))))
 	    opts))))
 
+(defvar org-tag-alist)
 (defun pcomplete/org-mode/file-option/tags ()
   "Complete arguments for the #+TAGS file option."
   (pcomplete-here
-   (list (org-tag-alist-to-string org-current-tag-alist))))
+   (list
+    (mapconcat (lambda (x)
+		 (cond
+		  ((eq :startgroup (car x)) "{")
+		  ((eq :endgroup (car x)) "}")
+		  ((eq :grouptags (car x)) ":")
+		  ((eq :newline (car x)) "\\n")
+		  ((cdr x) (format "%s(%c)" (car x) (cdr x)))
+		  (t (car x))))
+	       org-tag-alist " "))))
 
 (defun pcomplete/org-mode/file-option/title ()
   "Complete arguments for the #+TITLE file option."
@@ -262,7 +273,7 @@ When completing for #+STARTUP, for example, this function returns
 	      "|:" "tags:" "tasks:" "<:" "todo:")
 	    ;; OPTION items from registered back-ends.
 	    (let (items)
-	      (dolist (backend (bound-and-true-p
+	      (dolist (backend (org-bound-and-true-p
 				org-export-registered-backends))
 		(dolist (option (org-export-backend-options backend))
 		  (let ((item (nth 2 option)))
@@ -274,7 +285,7 @@ When completing for #+STARTUP, for example, this function returns
   (while (pcomplete-here
 	  (pcomplete-uniqify-list
 	   (mapcar (lambda (item) (format "%s:" (car item)))
-		   (bound-and-true-p org-html-infojs-opts-table))))))
+		   (org-bound-and-true-p org-html-infojs-opts-table))))))
 
 (defun pcomplete/org-mode/file-option/bind ()
   "Complete arguments for the #+BIND file option, which are variable names."
@@ -322,16 +333,19 @@ This needs more work, to handle headings with lots of spaces in them."
 	   (pcomplete-uniqify-list tbl)))
        (substring pcomplete-stub 1))))
 
+(defvar org-tag-alist)
 (defun pcomplete/org-mode/tag ()
   "Complete a tag name.  Omit tags already set."
   (while (pcomplete-here
-	  (mapcar (lambda (x) (concat x ":"))
+	  (mapcar (lambda (x)
+		    (concat x ":"))
 		  (let ((lst (pcomplete-uniqify-list
-			      (or (remq
+			      (or (remove
 				   nil
-				   (mapcar (lambda (x) (org-string-nw-p (car x)))
-					   org-current-tag-alist))
-				  (mapcar #'car (org-get-buffer-tags))))))
+				   (mapcar (lambda (x)
+					     (and (stringp (car x)) (car x)))
+					   org-tag-alist))
+				  (mapcar 'car (org-get-buffer-tags))))))
 		    (dolist (tag (org-get-tags))
 		      (setq lst (delete tag lst)))
 		    lst))
@@ -345,7 +359,7 @@ This needs more work, to handle headings with lots of spaces in them."
 	     (concat x ": "))
 	   (let ((lst (pcomplete-uniqify-list
 		       (copy-sequence
-			(org-buffer-property-keys nil t t t)))))
+			(org-buffer-property-keys nil t t)))))
 	     (dolist (prop (org-entry-properties))
 	       (setq lst (delete (car prop) lst)))
 	     lst))

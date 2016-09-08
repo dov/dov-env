@@ -43,6 +43,7 @@
 ;;; Define Back-End
 
 (org-export-define-derived-backend 'freemind 'html
+  :export-block "FREEMIND"
   :menu-entry
   '(?f "Export to Freemind Mindmap"
        ((?f "As Freemind Mindmap file" org-freemind-export-to-freemind)

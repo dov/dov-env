@@ -1,4 +1,4 @@
-;;; org-attach.el --- Manage file attachments to Org tasks -*- lexical-binding: t; -*-
+;;; org-attach.el --- Manage file attachments to org-mode tasks
 
 ;; Copyright (C) 2008-2016 Free Software Foundation, Inc.
 
@@ -54,14 +54,6 @@ If this is a relative path, it will be interpreted relative to the directory
 where the Org file lives."
   :group 'org-attach
   :type 'directory)
-
-(defcustom org-attach-commit t
-  "If non-nil commit attachments with git.
-This is only done if the Org file is in a git repository."
-  :group 'org-attach
-  :type 'boolean
-  :version "25.1"
-  :package-version '(Org . "9.0"))
 
 (defcustom org-attach-git-annex-cutoff (* 32 1024)
   "If non-nil, files larger than this will be annexed instead of stored."
@@ -138,17 +130,6 @@ When set to `query', ask the user instead."
 	  (const :tag "Never delete attachments" nil)
 	  (const :tag "Always delete attachments" t)
 	  (const :tag "Query the user" query)))
-
-(defcustom org-attach-annex-auto-get 'ask
-  "Confirmation preference for automatically getting annex files.
-If \\='ask, prompt using `y-or-n-p'.  If t, always get.  If nil, never get."
-  :group 'org-attach
-  :package-version '(Org . "9")
-  :version "25.1"
-  :type '(choice
-	  (const :tag "confirm with `y-or-n-p'" ask)
-	  (const :tag "always get from annex if necessary" t)
-	  (const :tag "never get from annex" nil)))
 
 ;;;###autoload
 (defun org-attach ()
@@ -227,23 +208,25 @@ using the entry ID will be invoked to access the unique directory for the
 current entry.
 If the directory does not exist and CREATE-IF-NOT-EXISTS-P is non-nil,
 the directory and (if necessary) the corresponding ID will be created."
-  (let (attach-dir uuid)
+  (let (attach-dir uuid inherit)
     (setq org-attach-inherited (org-entry-get nil "ATTACH_DIR_INHERIT"))
     (cond
      ((setq attach-dir (org-entry-get nil "ATTACH_DIR"))
       (org-attach-check-absolute-path attach-dir))
      ((and org-attach-allow-inheritance
-	   (org-entry-get nil "ATTACH_DIR_INHERIT" t))
+	   (setq inherit (org-entry-get nil "ATTACH_DIR_INHERIT" t)))
       (setq attach-dir
-	    (org-with-wide-buffer
-	     (if (marker-position org-entry-property-inherited-from)
-		 (goto-char org-entry-property-inherited-from)
-	       (org-back-to-heading t))
-	     (let (org-attach-allow-inheritance)
-	       (org-attach-dir create-if-not-exists-p))))
+	    (save-excursion
+	      (save-restriction
+		(widen)
+		(if (marker-position org-entry-property-inherited-from)
+		    (goto-char org-entry-property-inherited-from)
+		  (org-back-to-heading t))
+		(let (org-attach-allow-inheritance)
+		  (org-attach-dir create-if-not-exists-p)))))
       (org-attach-check-absolute-path attach-dir)
       (setq org-attach-inherited t))
-     (t					; use the ID
+     (t ; use the ID
       (org-attach-check-absolute-path nil)
       (setq uuid (org-id-get (point) create-if-not-exists-p))
       (when (or uuid create-if-not-exists-p)
@@ -289,54 +272,29 @@ the ATTACH_DIR property) their own attachment directory."
   (org-entry-put nil "ATTACH_DIR_INHERIT" "t")
   (message "Children will inherit attachment directory"))
 
-(defun org-attach-use-annex ()
-  "Return non-nil if git annex can be used."
-  (let ((git-dir (vc-git-root (expand-file-name org-attach-directory))))
-    (and org-attach-git-annex-cutoff
-         (or (file-exists-p (expand-file-name "annex" git-dir))
-             (file-exists-p (expand-file-name ".git/annex" git-dir))))))
-
-(defun org-attach-annex-get-maybe (path)
-  "Call git annex get PATH (via shell) if using git annex.
-Signals an error if the file content is not available and it was not retrieved."
-  (let ((path-relative (file-relative-name path)))
-    (when (and (org-attach-use-annex)
-	       (not
-		(string-equal
-		 "found"
-		 (shell-command-to-string
-		  (format "git annex find --format=found --in=here %s"
-			  (shell-quote-argument path-relative))))))
-      (let ((should-get
-	     (if (eq org-attach-annex-auto-get 'ask)
-		 (y-or-n-p (format "Run git annex get %s? " path-relative))
-	       org-attach-annex-auto-get)))
-	(if should-get
-	    (progn (message "Running git annex get \"%s\"." path-relative)
-		   (call-process "git" nil nil nil "annex" "get" path-relative))
-	  (error "File %s stored in git annex but it is not available, and was not retrieved"
-		 path))))))
-
 (defun org-attach-commit ()
   "Commit changes to git if `org-attach-directory' is properly initialized.
 This checks for the existence of a \".git\" directory in that directory."
   (let* ((dir (expand-file-name org-attach-directory))
 	 (git-dir (vc-git-root dir))
-	 (use-annex (org-attach-use-annex))
 	 (changes 0))
     (when (and git-dir (executable-find "git"))
       (with-temp-buffer
 	(cd dir)
-        (dolist (new-or-modified
-                 (split-string
-                  (shell-command-to-string
-                   "git ls-files -zmo --exclude-standard") "\0" t))
-          (if (and use-annex
-                   (>= (nth 7 (file-attributes new-or-modified))
-                       org-attach-git-annex-cutoff))
-              (call-process "git" nil nil nil "annex" "add" new-or-modified)
-            (call-process "git" nil nil nil "add" new-or-modified))
-	    (incf changes))
+	(let ((have-annex
+	       (and org-attach-git-annex-cutoff
+		    (or (file-exists-p (expand-file-name "annex" git-dir))
+			(file-exists-p (expand-file-name ".git/annex" git-dir))))))
+	  (dolist (new-or-modified
+		   (split-string
+		    (shell-command-to-string
+		     "git ls-files -zmo --exclude-standard") "\0" t))
+	    (if (and have-annex
+		     (>= (nth 7 (file-attributes new-or-modified))
+			 org-attach-git-annex-cutoff))
+		(call-process "git" nil nil nil "annex" "add" new-or-modified)
+	      (call-process "git" nil nil nil "add" new-or-modified))
+	    (incf changes)))
 	(dolist (deleted
 		 (split-string
 		  (shell-command-to-string "git ls-files -z --deleted") "\0" t))
@@ -382,8 +340,7 @@ METHOD may be `cp', `mv', `ln', or `lns' default taken from
        ((eq method 'cp)	(copy-file file fname))
        ((eq method 'ln) (add-name-to-file file fname))
        ((eq method 'lns) (make-symbolic-link file fname)))
-      (when org-attach-commit
-	(org-attach-commit))
+      (org-attach-commit)
       (org-attach-tag)
       (cond ((eq org-attach-store-link-p 'attached)
 	     (org-attach-store-link fname))
@@ -433,7 +390,7 @@ The attachment is created as an Emacs buffer."
   (let* ((attach-dir (org-attach-dir t))
 	 (files (org-attach-file-list attach-dir))
 	 (file (or file
-		   (completing-read
+		   (org-icompleting-read
 		    "Delete attachment: "
 		    (mapcar (lambda (f)
 			      (list (file-name-nondirectory f)))
@@ -509,11 +466,9 @@ If IN-EMACS is non-nil, force opening in Emacs."
 	 (files (org-attach-file-list attach-dir))
 	 (file (if (= (length files) 1)
 		   (car files)
-		 (completing-read "Open attachment: "
-				  (mapcar #'list files) nil t)))
-         (path (expand-file-name file attach-dir)))
-    (org-attach-annex-get-maybe path)
-    (org-open-file path in-emacs)))
+		 (org-icompleting-read "Open attachment: "
+				       (mapcar 'list files) nil t))))
+    (org-open-file (expand-file-name file attach-dir) in-emacs)))
 
 (defun org-attach-open-in-emacs ()
   "Open attachment, force opening in Emacs.

@@ -1,4 +1,4 @@
-;;; org-eww.el --- Store url and kill from Eww mode for Org  -*- lexical-binding: t -*-
+;;; org-eww.el --- Store url and kill from Eww mode for Org
 
 ;; Copyright (C) 2014-2016 Free Software Foundation, Inc.
 
@@ -72,10 +72,11 @@ move.  Return point."
    (or (next-single-property-change (point) 'shr-url)
        (point))))
 
-(defun org-eww-has-further-url-property-change-p ()
-  "Return t if there is a next url property change else nil."
+(defun org-eww-no-next-link-p ()
+  "Whether there is no next link after the cursor.
+Return t if there is no next link; otherwise, return nil."
   (save-excursion
-    (not (eq (point) (org-eww-goto-next-url-property-change)))))
+    (and (eq (point) (org-eww-goto-next-url-property-change)) t)))
 
 (defun org-eww-url-below-point ()
   "Return the url below point if there is an url; otherwise, return nil."
@@ -106,7 +107,7 @@ the structure of the org file."
     (save-excursion
       (goto-char transform-start)
       (while (and (not out-bound)                 ; still inside region to copy
-                  (org-eww-has-further-url-property-change-p)) ; there is a next link
+                  (not (org-eww-no-next-link-p))) ; there is a next link
         ;; store current point before jump next anchor
         (setq temp-position (point))
         ;; move to next anchor when current point is not at anchor
@@ -117,7 +118,7 @@ the structure of the org file."
 	(if (<= (point) transform-end)  ; if point is inside transform bound
 	    (progn
 	      ;; get content between two links.
-	      (if (< temp-position (point))
+	      (if (> (point) temp-position)
 		  (setq return-content (concat return-content
 					       (buffer-substring
 						temp-position (point)))))
@@ -145,8 +146,7 @@ the structure of the org file."
        (with-temp-buffer
 	 (insert return-content)
 	 (goto-char 0)
-	 (while (re-search-forward "^\*" nil t)
-	   (replace-match ",*"))
+	 (replace-regexp "^\*" ",*")
 	 (buffer-string)))
       (message "Transforming links...done, use C-y to insert text into Org-mode file"))))
 

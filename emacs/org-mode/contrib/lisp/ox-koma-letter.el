@@ -41,14 +41,13 @@
 ;;   - PHONE_NUMBER: see `org-koma-letter-phone-number',
 ;;   - SIGNATURE: see `org-koma-letter-signature',
 ;;   - PLACE: see `org-koma-letter-place',
-;;   - LOCATION: see `org-koma-letter-location',
 ;;   - TO_ADDRESS:  If unspecified this is set to "\mbox{}".
 ;;
-;; TO_ADDRESS, FROM_ADDRESS, LOCATION, CLOSING, and SIGNATURE can also
-;; be specified using "special headings" with the special tags
-;; specified in `org-koma-letter-special-tags-in-letter'.  LaTeX line
-;; breaks are not necessary for TO_ADDRESS, FROM_ADDRESS and LOCATION.
-;; If both a headline and a keyword specify a to or from address the
+;; TO_ADDRESS and FROM_ADDRESS can also be specified using heading
+;; with the special tags specified in
+;; `org-koma-letter-special-tags-in-letter', namely "to" and "from".
+;; LaTeX line breaks are not necessary if using these headings.  If
+;; both a headline and a keyword specify a to or from address the
 ;; value is determined in accordance with
 ;; `org-koma-letter-prefer-special-headings'.
 ;;
@@ -59,7 +58,6 @@
 ;;   - phone (see `org-koma-letter-use-phone')
 ;;   - email (see `org-koma-letter-use-email')
 ;;   - place (see `org-koma-letter-use-place')
-;;   - location (see `org-koma-letter-use-location')
 ;;   - subject, a list of format options
 ;;     (see `org-koma-letter-subject-format')
 ;;   - after-closing-order, a list of the ordering of headings with
@@ -82,9 +80,9 @@
 ;; `org-koma-letter-special-tags-after-closing' used as macros and the
 ;; content of the headline is the argument.
 ;;
-;; Headlines with to and from may also be used rather than the keyword
-;; approach described above.  If both a keyword and a headline with
-;; information is present precedence is determined by
+;; Headlines with two and from may also be used rather than the
+;; keyword approach described above.  If both a keyword and a headline
+;; with information is present precedence is determined by
 ;; `org-koma-letter-prefer-special-headings'.
 ;;
 ;; You need an appropriate association in `org-latex-classes' in order
@@ -190,35 +188,17 @@ This option can also be set with the PLACE keyword."
   :group 'org-export-koma-letter
   :type 'string)
 
-(defcustom org-koma-letter-location ""
-  "Sender's extension field, as a string.
-
-This option can also be set with the LOCATION keyword.
-Moreover, when:
-  (1) Either `org-koma-letter-prefer-special-headings' is non-nil
-      or there is no LOCATION keyword or the LOCATION keyword is
-      empty;
-  (2) the letter contains a headline with the special
-      tag \"location\";
-then the location will be set as the content of the location
-special heading.
-
-The location field is typically printed right of the address
-field (See Figure 4.9. in the English manual of 2015-10-03)."
-  :group 'org-export-koma-letter
-  :type 'string)
-
 (defcustom org-koma-letter-opening ""
   "Letter's opening, as a string.
 
 This option can also be set with the OPENING keyword.  Moreover,
 when:
-  (1) Either `org-koma-letter-prefer-special-headings' is non-nil
-      or the CLOSING keyword is empty
-  (2) `org-koma-letter-headline-is-opening-maybe' is non-nil;
-  (3) the letter contains a headline without a special
+  (1) this value is the empty string;
+  (2) there's no OPENING keyword or it is empty;
+  (3) `org-koma-letter-headline-is-opening-maybe' is non-nil;
+  (4) the letter contains a headline without a special
       tag (e.g. \"to\" or \"ps\");
-then the opening will be implicitly set as the untagged headline title."
+then the opening will be implicitly set as the headline title."
   :group 'org-export-koma-letter
   :type 'string)
 
@@ -226,13 +206,12 @@ then the opening will be implicitly set as the untagged headline title."
   "Letter's closing, as a string.
 This option can also be set with the CLOSING keyword.  Moreover,
 when:
-  (1) Either `org-koma-letter-prefer-special-headings' is non-nil
-      or the CLOSING keyword is empty;
+  (1) there's no CLOSING keyword or it is empty;
   (2) `org-koma-letter-headline-is-opening-maybe' is non-nil;
   (3) the letter contains a headline with the special
-      tag \"closing\";
+      tag closing;
 then the opening will be set as the title of the closing special
-heading title."
+heading."
   :group 'org-export-koma-letter
   :type 'string)
 
@@ -240,15 +219,12 @@ heading title."
   "Signature, as a string.
 This option can also be set with the SIGNATURE keyword.
 Moreover, when:
-  (1) Either `org-koma-letter-prefer-special-headings' is non-nil
-      or there is no CLOSING keyword or the CLOSING keyword is empty;
+  (1) there's no CLOSING keyword or it is empty;
   (2) `org-koma-letter-headline-is-opening-maybe' is non-nil;
   (3) the letter contains a headline with the special
-      tag \"closing\";
+      tag closing;
 then the signature will be  set as the content of the
-closing special heading.
-
-Note if the content is empty the signature will not be set."
+closing special heading."
   :group 'org-export-koma-letter
   :type 'string)
 
@@ -383,9 +359,9 @@ The value must be a member of `org-latex-classes'."
   :type 'string)
 
 (defcustom org-koma-letter-headline-is-opening-maybe t
-  "Non-nil means a headline may be used as an opening and closing.
-See also `org-koma-letter-opening' and
-`org-koma-letter-closing'."
+  "Non-nil means a headline may be used as an opening.
+A headline is only used if #+OPENING is not set.  See also
+`org-koma-letter-opening'."
   :group 'org-export-koma-letter
   :type 'boolean)
 
@@ -396,17 +372,14 @@ e.g. \"title-subject:t\"."
     :group 'org-export-koma-letter
     :type 'boolean)
 
-(defconst org-koma-letter-special-tags-in-letter '(to from closing location)
+(defconst org-koma-letter-special-tags-in-letter '(to from closing)
   "Header tags related to the letter itself.")
 
-(defconst org-koma-letter-special-tags-after-closing '(after_closing ps encl cc)
-  "Header tags to be inserted in the letter after closing.")
-
-(defconst org-koma-letter-special-tags-as-macro '(ps encl cc)
-  "Header tags to be inserted as macros")
+(defconst org-koma-letter-special-tags-after-closing '(ps encl cc)
+  "Header tags to be inserted after closing.")
 
 (defconst org-koma-letter-special-tags-after-letter '(after_letter)
-  "Header tags to be inserted after the letter.")
+  "Header tags to be inserted after closing.")
 
 (defvar org-koma-letter-special-contents nil
   "Holds special content temporarily.")
@@ -429,18 +402,20 @@ e.g. \"title-subject:t\"."
     (:email "EMAIL" nil (org-koma-letter--get-value org-koma-letter-email) t)
     (:to-address "TO_ADDRESS" nil nil newline)
     (:place "PLACE" nil org-koma-letter-place)
-    (:location "LOCATION" nil org-koma-letter-location)
     (:subject "SUBJECT" nil nil parse)
     (:opening "OPENING" nil org-koma-letter-opening parse)
     (:closing "CLOSING" nil org-koma-letter-closing parse)
     (:signature "SIGNATURE" nil org-koma-letter-signature newline)
-    (:special-headings nil "special-headings" org-koma-letter-prefer-special-headings)
-    (:special-tags-as-macro nil nil org-koma-letter-special-tags-as-macro)
-    (:special-tags-in-letter nil nil org-koma-letter-special-tags-in-letter)
-    (:special-tags-after-closing nil "after-closing-order"
-				 org-koma-letter-special-tags-after-closing)
-    (:special-tags-after-letter nil "after-letter-order"
-				org-koma-letter-special-tags-after-letter)
+    (:special-headings nil "special-headings"
+		       org-koma-letter-prefer-special-headings)
+    (:special-tags nil nil (append
+			    org-koma-letter-special-tags-in-letter
+			    org-koma-letter-special-tags-after-closing
+			    org-koma-letter-special-tags-after-letter))
+    (:with-after-closing nil "after-closing-order"
+			 org-koma-letter-special-tags-after-closing)
+    (:with-after-letter nil "after-letter-order"
+			org-koma-letter-special-tags-after-letter)
     (:with-backaddress nil "backaddress" org-koma-letter-use-backaddress)
     (:with-email nil "email" org-koma-letter-use-email)
     (:with-foldmarks nil "foldmarks" org-koma-letter-use-foldmarks)
@@ -453,11 +428,9 @@ e.g. \"title-subject:t\"."
     ;; They are used to prioritize in-buffer settings over "lco"
     ;; files.  See `org-koma-letter-template'.
     (:inbuffer-author "AUTHOR" nil 'koma-letter:empty)
-    (:inbuffer-from "FROM" nil 'koma-letter:empty)
     (:inbuffer-email "EMAIL" nil 'koma-letter:empty)
     (:inbuffer-phone-number "PHONE_NUMBER" nil 'koma-letter:empty)
     (:inbuffer-place "PLACE" nil 'koma-letter:empty)
-    (:inbuffer-location "LOCATION" nil 'koma-letter:empty)
     (:inbuffer-signature "SIGNATURE" nil 'koma-letter:empty)
     (:inbuffer-with-backaddress nil "backaddress" 'koma-letter:empty)
     (:inbuffer-with-email nil "email" 'koma-letter:empty)
@@ -465,10 +438,10 @@ e.g. \"title-subject:t\"."
     (:inbuffer-with-phone nil "phone" 'koma-letter:empty)
     (:inbuffer-with-place nil "place" 'koma-letter:empty))
   :translate-alist '((export-block . org-koma-letter-export-block)
-			(export-snippet . org-koma-letter-export-snippet)
-			(headline . org-koma-letter-headline)
-			(keyword . org-koma-letter-keyword)
-			(template . org-koma-letter-template))
+		     (export-snippet . org-koma-letter-export-snippet)
+		     (headline . org-koma-letter-headline)
+		     (keyword . org-koma-letter-keyword)
+		     (template . org-koma-letter-template))
   :menu-entry
   '(?k "Export with KOMA Scrlttr2"
        ((?L "As LaTeX buffer" org-koma-letter-export-as-latex)
@@ -493,9 +466,8 @@ e.g. \"title-subject:t\"."
 (defun org-koma-letter--get-tagged-contents (key)
   "Get contents from a headline tagged with KEY.
 The contents is stored in `org-koma-letter-special-contents'."
-  (let ((value (cdr (assoc-string (org-koma-letter--get-value key)
-				  org-koma-letter-special-contents))))
-    (when value (org-string-nw-p (org-trim value)))))
+  (cdr (assoc-string (org-koma-letter--get-value key)
+		     org-koma-letter-special-contents)))
 
 (defun org-koma-letter--get-value (value)
   "Turn value into a string whenever possible.
@@ -507,31 +479,46 @@ return a string or nil."
 	  ((symbolp value) (symbol-name value))
 	  (t value))))
 
-(defun org-koma-letter--special-contents-inline (keywords info)
+(defun org-koma-letter--special-contents-as-macro
+    (keywords &optional keep-newlines no-tag)
   "Process KEYWORDS members of `org-koma-letter-special-contents'.
 KEYWORDS is a list of symbols.  Return them as a string to be
 formatted.
 
 The function is used for inserting content of special headings
-such as the one tagged with PS.
-"
+such as PS.
+
+If KEEP-NEWLINES is non-nil leading and trailing newlines are not
+removed.  If NO-TAG is non-nil the content in
+`org-koma-letter-special-contents' are not wrapped in a macro
+named whatever the members of KEYWORDS are called."
   (mapconcat
    (lambda (keyword)
      (let* ((name (org-koma-letter--get-value keyword))
-	    (value (org-koma-letter--get-tagged-contents name))
-	    (macrop (memq keyword (plist-get info :special-tags-as-macro))))
+	    (value (org-koma-letter--get-tagged-contents name)))
        (cond ((not value) nil)
-	     (macrop (format "\\%s{%s}\n" name value))
-	     (t value))))
+	     (no-tag (if keep-newlines value (org-trim value)))
+	     (t (format "\\%s{%s}\n"
+			name
+			(if keep-newlines value (org-trim value)))))))
    keywords
-   "\n"))
+   ""))
 
+(defun org-koma-letter--determine-to-and-from (info key)
+  "Given INFO determine KEY for the letter.
+KEY should be `to' or `from'.
 
-(defun org-koma-letter--add-latex-newlines (string)
-  "Replace regular newlines with LaTeX newlines (i.e. `\\\\')"
-  (let ((str (org-trim string)))
-    (when (org-string-nw-p str)
-      (replace-regexp-in-string "\n" "\\\\\\\\\n" str))))
+`ox-koma-letter' allows two ways to specify TO and FROM.  If both
+are present return the preferred one as determined by
+`org-koma-letter-prefer-special-headings'."
+  (let ((option (org-string-nw-p
+		 (plist-get info (if (eq key 'to) :to-address :from-address))))
+	(headline (org-koma-letter--get-tagged-contents key)))
+    (replace-regexp-in-string
+     "\n" "\\\\\\\\\n"
+     (org-trim
+      (if (plist-get info :special-headings) (or headline option "")
+	(or option headline ""))))))
 
 
 
@@ -589,34 +576,11 @@ appropriate place."
   "Non-nil if HEADLINE is a special headline.
 INFO is a plist holding contextual information.  Return first
 special tag headline."
-  (let ((special-tags (append
-		       (plist-get info :special-tags-in-letter)
-		       (plist-get info :special-tags-after-closing)
-		       (plist-get info :special-tags-after-letter))))
+  (let ((special-tags (plist-get info :special-tags)))
     (catch 'exit
       (dolist (tag (org-export-get-tags headline info))
 	(let ((tag (assoc-string tag special-tags)))
 	  (when tag (throw 'exit tag)))))))
-
-(defun org-koma-letter--keyword-or-headline (plist-key pred info)
-  "Return the correct version of opening or closing.
-PLIST-KEY should be a key in info, typically :opening
-or :closing.  PRED is a predicate run on headline to determine
-which title to use which takes two arguments, a headline element
-and an info plist.  INFO is a plist holding contextual
-information.  Return the preferred candidate for the exported of
-PLIST-KEY."
-  (let* ((keyword-candidate (plist-get info plist-key))
-	 (headline-candidate (when (and (plist-get info :with-headline-opening)
-					(or (plist-get info :special-headings)
-					    (not keyword-candidate)))
-			       (org-element-map (plist-get info :parse-tree)
-				   'headline
-				 (lambda (head)
-				   (when (funcall pred head info)
-				     (org-element-property :title head)))
-				 info t))))
-    (org-export-data (or headline-candidate keyword-candidate "") info)))
 
 ;;;; Template
 
@@ -628,10 +592,8 @@ holding export options."
    ;; Time-stamp.
    (and (plist-get info :time-stamp-file)
         (format-time-string "%% Created %Y-%m-%d %a %H:%M\n"))
-   ;; LaTeX compiler
-   (org-latex--insert-compiler info)
    ;; Document class and packages.
-   (org-latex--make-preamble info)
+   (org-latex--make-header info)
    ;; Settings.  They can come from three locations, in increasing
    ;; order of precedence: global variables, LCO files and in-buffer
    ;; settings.  Thus, we first insert settings coming from global
@@ -642,6 +604,10 @@ holding export options."
 	      (org-split-string (or (plist-get info :lco) "") " ")
 	      "")
    (org-koma-letter--build-settings 'buffer info)
+   ;; From address.
+   (let ((from-address (org-koma-letter--determine-to-and-from info 'from)))
+     (when (org-string-nw-p from-address)
+       (format "\\setkomavar{fromaddress}{%s}\n" from-address)))
    ;; Date.
    (format "\\date{%s}\n" (org-export-data (org-export-get-date info) info))
    ;; Hyperref, document start, and subject and title.
@@ -677,33 +643,40 @@ holding export options."
       (when title (format "\\setkomavar{title}{%s}\n" title))
       (when (or (org-string-nw-p title) (org-string-nw-p subject)) "\n")))
    ;; Letter start.
-   (let ((keyword-val (plist-get info :to-address))
-	 (heading-val (org-koma-letter--get-tagged-contents 'to)))
-     (format "\\begin{letter}{%%\n%s}\n\n"
-	     (org-koma-letter--add-latex-newlines
-	      (or (if (plist-get info :special-headings)
-		      (or heading-val keyword-val)
-		    (or keyword-val heading-val))
-		  "\\\\mbox{}"))))
+   (format "\\begin{letter}{%%\n%s}\n\n"
+	   (org-koma-letter--determine-to-and-from info 'to))
    ;; Opening.
    (format "\\opening{%s}\n\n"
-	   (org-koma-letter--keyword-or-headline
-	    :opening (lambda (h i) (not (org-koma-letter--special-tag h i)))
+	   (org-export-data
+	    (or (org-string-nw-p (plist-get info :opening))
+		(when (plist-get info :with-headline-opening)
+		  (org-element-map (plist-get info :parse-tree) 'headline
+		    (lambda (head)
+		      (unless (org-koma-letter--special-tag head info)
+			(org-element-property :title head)))
+		    info t))
+		"")
 	    info))
    ;; Letter body.
    contents
    ;; Closing.
-   (format "\\closing{%s}\n"
-	   (org-koma-letter--keyword-or-headline
-	    :closing (lambda (h i) (eq (org-koma-letter--special-tag h i)
-				'closing))
+   (format "\n\\closing{%s}\n"
+	   (org-export-data
+	    (or (org-string-nw-p (plist-get info :closing))
+		(when (plist-get info :with-headline-opening)
+		  (org-element-map (plist-get info :parse-tree) 'headline
+		    (lambda (head)
+		      (when (eq (org-koma-letter--special-tag head info)
+				'closing)
+			(org-element-property :title head)))
+		    info t)))
 	    info))
-   (org-koma-letter--special-contents-inline
-    (plist-get info :special-tags-after-closing) info)
+   (org-koma-letter--special-contents-as-macro
+    (plist-get info :with-after-closing))
    ;; Letter end.
    "\n\\end{letter}\n"
-   (org-koma-letter--special-contents-inline
-    (plist-get info :special-tags-after-letter) info)
+   (org-koma-letter--special-contents-as-macro
+    (plist-get info :with-after-letter) t t)
    ;; Document end.
    "\n\\end{document}"))
 
@@ -711,24 +684,14 @@ holding export options."
   "Build settings string according to type.
 SCOPE is either `global' or `buffer'.  INFO is a plist used as
 a communication channel."
-  (let* ((check-scope
-	  (function
-	   ;; Non-nil value when SETTING was defined in SCOPE.
-	   (lambda (setting)
-	     (let ((property (intern (format ":inbuffer-%s" setting))))
-	       (if (eq scope 'global)
-		   (eq (plist-get info property) 'koma-letter:empty)
-		 (not (eq (plist-get info property) 'koma-letter:empty)))))))
-	 (heading-or-key-value
-	  (function
-	   (lambda (heading key &optional scoped)
-	     (let* ((heading-val
-		     (org-koma-letter--get-tagged-contents heading))
-		    (key-val (org-string-nw-p (plist-get info key)))
-		    (scopedp (funcall check-scope (or scoped heading))))
-	       (and (or (and key-val scopedp) heading-val)
-		    (not (and (eq scope 'global) heading-val))
-		    (if scopedp key-val heading-val)))))))
+  (let ((check-scope
+         (function
+          ;; Non-nil value when SETTING was defined in SCOPE.
+          (lambda (setting)
+            (let ((property (intern (format ":inbuffer-%s" setting))))
+              (if (eq scope 'global)
+		  (eq (plist-get info property) 'koma-letter:empty)
+                (not (eq (plist-get info property) 'koma-letter:empty))))))))
     (concat
      ;; Name.
      (let ((author (plist-get info :author)))
@@ -736,11 +699,6 @@ a communication channel."
             (funcall check-scope 'author)
             (format "\\setkomavar{fromname}{%s}\n"
                     (org-export-data author info))))
-     ;; From.
-     (let ((from (funcall heading-or-key-value 'from :from-address)))
-       (and from
-	    (format "\\setkomavar{fromaddress}{%s}\n"
-     		    (org-koma-letter--add-latex-newlines from))))
      ;; Email.
      (let ((email (plist-get info :email)))
        (and email
@@ -784,10 +742,6 @@ a communication channel."
 	    (format "\\setkomavar{place}{%s}\n"
 		    (if (plist-get info :with-place) (plist-get info :place)
 		      ""))))
-     ;; Location.
-     (let ((location (funcall heading-or-key-value 'location :location)))
-       (and location
-	    (format "\\setkomavar{location}{%s}\n" location)))
      ;; Folding marks.
      (and (funcall check-scope 'with-foldmarks)
           (let ((foldmarks (plist-get info :with-foldmarks)))

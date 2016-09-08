@@ -1,4 +1,4 @@
-;;; org-macro.el --- Macro Replacement Code for Org  -*- lexical-binding: t; -*-
+;;; org-macro.el --- Macro Replacement Code for Org Mode
 
 ;; Copyright (C) 2013-2016 Free Software Foundation, Inc.
 
@@ -43,7 +43,6 @@
 ;; {{{email}}} and {{{title}}} macros.
 
 ;;; Code:
-(require 'cl-lib)
 (require 'org-macs)
 (require 'org-compat)
 
@@ -59,13 +58,10 @@
 (declare-function org-file-contents "org" (file &optional noerror))
 (declare-function org-mode "org" ())
 (declare-function org-remove-double-quotes "org" (s))
-(declare-function vc-backend "vc-hooks" (f))
-(declare-function vc-call "vc-hooks" (fun file &rest args) t)
-(declare-function vc-exec-after "vc-dispatcher" (code))
 
 ;;; Variables
 
-(defvar-local org-macro-templates nil
+(defvar org-macro-templates nil
   "Alist containing all macro templates in current buffer.
 Associations are in the shape of (NAME . TEMPLATE) where NAME
 stands for macro's name and template for its replacement value,
@@ -73,48 +69,50 @@ both as strings.  This is an internal variable.  Do not set it
 directly, use instead:
 
   #+MACRO: name template")
+(make-variable-buffer-local 'org-macro-templates)
+
 
 ;;; Functions
 
 (defun org-macro--collect-macros ()
   "Collect macro definitions in current buffer and setup files.
 Return an alist containing all macro templates found."
-  (letrec ((collect-macros
-	    (lambda (files templates)
-	      ;; Return an alist of macro templates.  FILES is a list
-	      ;; of setup files names read so far, used to avoid
-	      ;; circular dependencies.  TEMPLATES is the alist
-	      ;; collected so far.
-	      (let ((case-fold-search t))
-		(org-with-wide-buffer
-		 (goto-char (point-min))
-		 (while (re-search-forward
-			 "^[ \t]*#\\+\\(MACRO\\|SETUPFILE\\):" nil t)
-		   (let ((element (org-element-at-point)))
-		     (when (eq (org-element-type element) 'keyword)
-		       (let ((val (org-element-property :value element)))
-			 (if (equal (org-element-property :key element) "MACRO")
-			     ;; Install macro in TEMPLATES.
-			     (when (string-match
-				    "^\\(.*?\\)\\(?:\\s-+\\(.*\\)\\)?\\s-*$" val)
-			       (let* ((name (match-string 1 val))
-				      (template (or (match-string 2 val) ""))
-				      (old-cell (assoc name templates)))
-				 (if old-cell (setcdr old-cell template)
-				   (push (cons name template) templates))))
-			   ;; Enter setup file.
-			   (let ((file (expand-file-name
-					(org-remove-double-quotes val))))
-			     (unless (member file files)
-			       (with-temp-buffer
-				 (setq default-directory
-				       (file-name-directory file))
-				 (org-mode)
-				 (insert (org-file-contents file 'noerror))
-				 (setq templates
-				       (funcall collect-macros (cons file files)
-						templates)))))))))))
-		templates))))
+  (let* (collect-macros			; For byte-compiler.
+	 (collect-macros
+	  (lambda (files templates)
+	    ;; Return an alist of macro templates.  FILES is a list of
+	    ;; setup files names read so far, used to avoid circular
+	    ;; dependencies.  TEMPLATES is the alist collected so far.
+	    (let ((case-fold-search t))
+	      (org-with-wide-buffer
+	       (goto-char (point-min))
+	       (while (re-search-forward
+		       "^[ \t]*#\\+\\(MACRO\\|SETUPFILE\\):" nil t)
+		 (let ((element (org-element-at-point)))
+		   (when (eq (org-element-type element) 'keyword)
+		     (let ((val (org-element-property :value element)))
+		       (if (equal (org-element-property :key element) "MACRO")
+			   ;; Install macro in TEMPLATES.
+			   (when (string-match
+				  "^\\(.*?\\)\\(?:\\s-+\\(.*\\)\\)?\\s-*$" val)
+			     (let* ((name (match-string 1 val))
+				    (template (or (match-string 2 val) ""))
+				    (old-cell (assoc name templates)))
+			       (if old-cell (setcdr old-cell template)
+				 (push (cons name template) templates))))
+			 ;; Enter setup file.
+			 (let ((file (expand-file-name
+				      (org-remove-double-quotes val))))
+			   (unless (member file files)
+			     (with-temp-buffer
+			       (setq default-directory
+				     (file-name-directory file))
+			       (org-mode)
+			       (insert (org-file-contents file 'noerror))
+			       (setq templates
+				     (funcall collect-macros (cons file files)
+					      templates)))))))))))
+	      templates))))
     (funcall collect-macros nil nil)))
 
 (defun org-macro-initialize-templates ()
@@ -149,8 +147,7 @@ function installs the following ones: \"property\",
 	(mapc update-templates
 	      (list (cons "input-file" (file-name-nondirectory visited-file))
 		    (cons "modification-time"
-			  (format "(eval (format-time-string \"$1\" (or (and (org-string-nw-p \"$2\") (org-macro--vc-modified-time %s)) '%s)))"
-				  (prin1-to-string visited-file)
+			  (format "(eval (format-time-string \"$1\" '%s))"
 				  (prin1-to-string
 				   (nth 5 (file-attributes visited-file)))))))))
     (setq org-macro-templates templates)))
@@ -280,30 +277,6 @@ Return a list of arguments, as strings.  This is the opposite of
 		(if (zerop (mod len 2)) "\000" ","))))
     s nil t)
    "\000"))
-
-(defun org-macro--vc-modified-time (file)
-  (save-window-excursion
-    (when (vc-backend file)
-      (let ((buf (get-buffer-create " *org-vc*"))
-	    (case-fold-search t)
-	    date)
-	(unwind-protect
-	    (progn
-	      (vc-call print-log file buf nil nil 1)
-	      (with-current-buffer buf
-		(vc-exec-after
-		 (lambda ()
-		   (goto-char (point-min))
-		   (when (re-search-forward "Date:?[ \t]*" nil t)
-		     (let ((time (parse-time-string
-				  (buffer-substring
-				   (point) (line-end-position)))))
-		       (when (cl-some #'identity time)
-			 (setq date (apply #'encode-time time))))))))
-	      (let ((proc (get-buffer-process buf)))
-		(while (and proc (accept-process-output proc .5 nil t)))))
-	  (kill-buffer buf))
-	date))))
 
 
 (provide 'org-macro)

@@ -1,4 +1,4 @@
-;;; ob-matlab.el --- Babel support for Matlab        -*- lexical-binding: t; -*-
+;;; ob-matlab.el --- org-babel support for matlab evaluation
 
 ;; Copyright (C) 2010-2016 Free Software Foundation, Inc.
 

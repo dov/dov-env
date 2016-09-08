@@ -1,4 +1,4 @@
-;;; ob-ruby.el --- Babel Functions for Ruby          -*- lexical-binding: t; -*-
+;;; ob-ruby.el --- org-babel functions for ruby evaluation
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
@@ -39,7 +39,6 @@
 (require 'ob)
 (eval-when-compile (require 'cl))
 
-(declare-function org-trim "org" (s &optional keep-lead))
 (declare-function run-ruby "ext:inf-ruby" (&optional command name))
 (declare-function xmp "ext:rcodetools" (&optional option))
 
@@ -122,7 +121,7 @@ This function is called by `org-babel-execute-src-block'."
      (format "%s=%s"
 	     (car pair)
 	     (org-babel-ruby-var-to-ruby (cdr pair))))
-   (org-babel--get-vars params)))
+   (mapcar #'cdr (org-babel-get-header params :var))))
 
 (defun org-babel-ruby-var-to-ruby (var)
   "Convert VAR into a ruby variable.
@@ -145,7 +144,7 @@ Emacs-lisp table, otherwise return the results as a string."
                 res)
       res)))
 
-(defun org-babel-ruby-initiate-session (&optional session _params)
+(defun org-babel-ruby-initiate-session (&optional session params)
   "Initiate a ruby session.
 If there is not a current inferior-process-buffer in SESSION
 then create one.  Return the initialized session."
@@ -221,7 +220,7 @@ return the value of the last statement in BODY, as elisp."
 	  (butlast
 	   (split-string
 	    (mapconcat
-	     #'org-trim
+	     #'org-babel-trim
 	     (org-babel-comint-with-output
 		 (buffer org-babel-ruby-eoe-indicator t body)
 	       (mapc

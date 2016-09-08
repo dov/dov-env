@@ -1,4 +1,4 @@
-;;; ob-js.el --- Babel Functions for Javascript      -*- lexical-binding: t; -*-
+;;; ob-js.el --- org-babel functions for Javascript
 
 ;; Copyright (C) 2010-2016 Free Software Foundation, Inc.
 
@@ -134,7 +134,7 @@ specifying a variable of the same value."
   (mapcar
    (lambda (pair) (format "var %s=%s;"
 			  (car pair) (org-babel-js-var-to-js (cdr pair))))
-   (org-babel--get-vars params)))
+   (mapcar #'cdr (org-babel-get-header params :var))))
 
 (defun org-babel-js-initiate-session (&optional session)
   "If there is not a current inferior-process-buffer in SESSION

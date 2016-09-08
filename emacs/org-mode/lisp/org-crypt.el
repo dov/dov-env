@@ -1,4 +1,5 @@
-;;; org-crypt.el --- Public Key Encryption for Org Entries -*- lexical-binding: t; -*-
+;;; org-crypt.el --- Public key encryption for org-mode entries
+
 ;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
 
 ;; Emacs Lisp Archive Entry
@@ -141,7 +142,7 @@ See `org-crypt-disable-auto-save'."
       (message "org-decrypt: Decrypting entry with auto-save-mode enabled.  This may cause leakage."))
      ((eq org-crypt-disable-auto-save 'encrypt)
       (message "org-decrypt: Enabling re-encryption on auto-save.")
-      (add-hook 'auto-save-hook
+      (org-add-hook 'auto-save-hook
 		    (lambda ()
 		      (message "org-crypt: Re-encrypting all decrypted entries due to auto-save.")
 		      (org-encrypt-entries))
@@ -163,7 +164,7 @@ See `org-crypt-disable-auto-save'."
   (if (and (string= crypt-key (get-text-property 0 'org-crypt-key str))
 	   (string= (sha1 str) (get-text-property 0 'org-crypt-checksum str)))
       (get-text-property 0 'org-crypt-text str)
-    (setq-local epg-context (epg-make-context nil t t))
+    (set (make-local-variable 'epg-context) (epg-make-context nil t t))
     (epg-encrypt-string epg-context str (epg-list-keys epg-context crypt-key))))
 
 (defun org-encrypt-entry ()
@@ -172,18 +173,22 @@ See `org-crypt-disable-auto-save'."
   (require 'epg)
   (org-with-wide-buffer
    (org-back-to-heading t)
-   (setq-local epg-context (epg-make-context nil t t))
+   (set (make-local-variable 'epg-context) (epg-make-context nil t t))
    (let ((start-heading (point)))
      (org-end-of-meta-data)
-     (unless (looking-at-p "-----BEGIN PGP MESSAGE-----")
+     (unless (looking-at "-----BEGIN PGP MESSAGE-----")
        (let ((folded (outline-invisible-p))
 	     (crypt-key (org-crypt-key-for-heading))
-	     (beg (point)))
+	     (beg (point))
+	     end encrypted-text)
 	 (goto-char start-heading)
 	 (org-end-of-subtree t t)
 	 (org-back-over-empty-lines)
-	 (let ((contents (delete-and-extract-region beg (point))))
-	   (insert (org-encrypt-string contents crypt-key)))
+	 (setq end (point)
+	       encrypted-text
+	       (org-encrypt-string (buffer-substring beg end) crypt-key))
+	 (delete-region beg end)
+	 (insert encrypted-text)
 	 (when folded
 	   (goto-char start-heading)
 	   (outline-hide-subtree))
@@ -204,7 +209,7 @@ See `org-crypt-disable-auto-save'."
        (org-end-of-meta-data)
        (when (looking-at "-----BEGIN PGP MESSAGE-----")
 	 (org-crypt-check-auto-save)
-	 (setq-local epg-context (epg-make-context nil t t))
+	 (set (make-local-variable 'epg-context) (epg-make-context nil t t))
 	 (let* ((end (save-excursion
 		       (search-forward "-----END PGP MESSAGE-----")
 		       (forward-line)
@@ -235,20 +240,20 @@ See `org-crypt-disable-auto-save'."
 (defun org-encrypt-entries ()
   "Encrypt all top-level entries in the current buffer."
   (interactive)
-  (let ((org--matcher-tags-todo-only nil))
+  (let (todo-only)
     (org-scan-tags
      'org-encrypt-entry
      (cdr (org-make-tags-matcher org-crypt-tag-matcher))
-     org--matcher-tags-todo-only)))
+     todo-only)))
 
 (defun org-decrypt-entries ()
   "Decrypt all entries in the current buffer."
   (interactive)
-  (let ((org--matcher-tags-todo-only nil))
+  (let (todo-only)
     (org-scan-tags
      'org-decrypt-entry
      (cdr (org-make-tags-matcher org-crypt-tag-matcher))
-     org--matcher-tags-todo-only)))
+     todo-only)))
 
 (defun org-at-encrypted-entry-p ()
   "Is the current entry encrypted?"
@@ -262,7 +267,7 @@ See `org-crypt-disable-auto-save'."
   "Add a hook to automatically encrypt entries before a file is saved to disk."
   (add-hook
    'org-mode-hook
-   (lambda () (add-hook 'before-save-hook 'org-encrypt-entries nil t))))
+   (lambda () (org-add-hook 'before-save-hook 'org-encrypt-entries nil t))))
 
 (add-hook 'org-reveal-start-hook 'org-decrypt-entry)
 

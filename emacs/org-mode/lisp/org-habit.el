@@ -1,4 +1,4 @@
-;;; org-habit.el --- The habit tracking code for Org -*- lexical-binding: t; -*-
+;;; org-habit.el --- The habit tracking code for Org-mode
 
 ;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
@@ -185,7 +185,7 @@ This list represents a \"habit\" for the rest of this module."
 	 habit-entry))
       (setq sr-days (org-habit-duration-to-days scheduled-repeat)
 	    sr-type (progn (string-match "[\\.+]?\\+" scheduled-repeat)
-			   (match-string-no-properties 0 scheduled-repeat)))
+			   (org-match-string-no-properties 0 scheduled-repeat)))
       (unless (> sr-days 0)
 	(error "Habit %s scheduled repeat period is less than 1d" habit-entry))
       (when (string-match "/\\([0-9]+[dwmy]\\)" scheduled-repeat)
@@ -222,8 +222,8 @@ This list represents a \"habit\" for the rest of this module."
 	(while (and (< count maxdays) (funcall search re limit t))
 	  (push (time-to-days
 		 (org-time-string-to-time
-		  (or (match-string-no-properties 1)
-		      (match-string-no-properties 2))))
+		  (or (org-match-string-no-properties 1)
+		      (org-match-string-no-properties 2))))
 		closed-dates)
 	  (setq count (1+ count))))
       (list scheduled sr-days deadline dr-days closed-dates sr-type))))
@@ -286,6 +286,7 @@ Habits are assigned colors on the following basis:
 	    schedule's repeat period."
   (let* ((scheduled (or scheduled-days (org-habit-scheduled habit)))
 	 (s-repeat (org-habit-scheduled-repeat habit))
+	 (scheduled-end (+ scheduled (1- s-repeat)))
 	 (d-repeat (org-habit-deadline-repeat habit))
 	 (deadline (if scheduled-days
 		       (+ scheduled-days (- d-repeat s-repeat))
@@ -309,14 +310,13 @@ Habits are assigned colors on the following basis:
 CURRENT gives the current time between STARTING and ENDING, for
 the purpose of drawing the graph.  It need not be the actual
 current time."
-  (let* ((all-done-dates (sort (org-habit-done-dates habit) #'<))
-	 (done-dates all-done-dates)
+  (let* ((done-dates (sort (org-habit-done-dates habit) '<))
 	 (scheduled (org-habit-scheduled habit))
 	 (s-repeat (org-habit-scheduled-repeat habit))
 	 (start (time-to-days starting))
 	 (now (time-to-days current))
 	 (end (time-to-days ending))
-	 (graph (make-string (1+ (- end start)) ?\s))
+	 (graph (make-string (1+ (- end start)) ?\ ))
 	 (index 0)
 	 last-done-date)
     (while (and done-dates (< (car done-dates) start))
@@ -325,55 +325,35 @@ current time."
     (while (< start end)
       (let* ((in-the-past-p (< start now))
 	     (todayp (= start now))
-	     (donep (and done-dates (= start (car done-dates))))
-	     (faces
-	      (if (and in-the-past-p
-		       (not last-done-date)
-		       (not (< scheduled now)))
-		  '(org-habit-clear-face . org-habit-clear-future-face)
-		(org-habit-get-faces
-		 habit start
-		 (and in-the-past-p
-		      last-done-date
-		      ;; Compute scheduled time for habit at the time
-		      ;; START was current.
-		      (let ((type (org-habit-repeat-type habit)))
-			(cond
-			 ;; At the last done date, use current
-			 ;; scheduling in all cases.
-			 ((null done-dates) scheduled)
-			 ((equal type ".+") (+ last-done-date s-repeat))
-			 ((equal type "+")
-			  ;; Since LAST-DONE-DATE, each done mark
-			  ;; shifted scheduled date by S-REPEAT.
-			  (- scheduled (* (length done-dates) s-repeat)))
-			 (t
-			  ;; Compute the scheduled time after the
-			  ;; first repeat.  This is the closest time
-			  ;; past FIRST-DONE which can reach SCHEDULED
-			  ;; by a number of S-REPEAT hops.
-			  ;;
-			  ;; Then, play TODO state change history from
-			  ;; the beginning in order to find current
-			  ;; scheduled time.
-			  (let* ((first-done (car all-done-dates))
-				 (s (let ((shift (mod (- scheduled first-done)
-						      s-repeat)))
-				      (+ (if (= shift 0) s-repeat shift)
-					 first-done))))
-			    (if (= first-done last-done-date) s
-			      (catch :exit
-				(dolist (done (cdr all-done-dates) s)
-				  ;; Each repeat shifts S by any
-				  ;; number of S-REPEAT hops it takes
-				  ;; to get past DONE, with a minimum
-				  ;; of one hop.
-				  (incf s
-					(* (1+ (/ (max (- done s) 0) s-repeat))
-					   s-repeat))
-				  (when (= done last-done-date)
-				    (throw :exit s))))))))))
-		 donep)))
+	     (donep (and done-dates
+			 (= start (car done-dates))))
+	     (faces (if (and in-the-past-p
+			     (not last-done-date)
+			     (not (< scheduled now)))
+			'(org-habit-clear-face . org-habit-clear-future-face)
+		      (org-habit-get-faces
+		       habit start
+		       (and in-the-past-p last-done-date
+			    ;; Compute scheduled time for habit at the
+			    ;; time START was current.
+			    (let ((type (org-habit-repeat-type habit)))
+			      (cond
+			       ((equal type ".+")
+				(+ last-done-date s-repeat))
+			       ((equal type "+")
+				;; Since LAST-DONE-DATE, each done
+				;; mark shifted scheduled date by
+				;; S-REPEAT.
+				(- scheduled (* (length done-dates) s-repeat)))
+			       (t
+				;; Scheduled time was the first time
+				;; past LAST-DONE-STATE which can jump
+				;; to current SCHEDULED time by
+				;; S-REPEAT hops.
+				(- scheduled
+				   (* (/ (- scheduled last-done-date) s-repeat)
+				      s-repeat))))))
+		       donep)))
 	     markedp face)
 	(if donep
 	    (let ((done-time (time-add
@@ -406,7 +386,7 @@ current time."
 
 (defun org-habit-insert-consistency-graphs (&optional line)
   "Insert consistency graph for any habitual tasks."
-  (let ((inhibit-read-only t)
+  (let ((inhibit-read-only t) l c
 	(buffer-invisibility-spec '(org-link))
 	(moment (time-subtract (current-time)
 			       (list 0 (* 3600 org-extend-today-until) 0))))

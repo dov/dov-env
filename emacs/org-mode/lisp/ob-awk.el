@@ -1,4 +1,4 @@
-;;; ob-awk.el --- Babel Functions for Awk            -*- lexical-binding: t; -*-
+;;; ob-awk.el --- org-babel functions for awk evaluation
 
 ;; Copyright (C) 2011-2016 Free Software Foundation, Inc.
 
@@ -44,7 +44,7 @@
 (defvar org-babel-awk-command "awk"
   "Name of the awk executable command.")
 
-(defun org-babel-expand-body:awk (body _params)
+(defun org-babel-expand-body:awk (body params)
   "Expand BODY according to PARAMS, return the expanded body."
   body)
 
@@ -71,10 +71,10 @@ called by `org-babel-execute-src-block'"
 				"-f" code-file cmd-line)
 			  (mapcar (lambda (pair)
 				    (format "-v %s='%s'"
-					    (car pair)
+					    (cadr pair)
 					    (org-babel-awk-var-to-awk
-					     (cdr pair))))
-				  (org-babel--get-vars params))
+					     (cddr pair))))
+				  (org-babel-get-header params :var))
 			  (list in-file))
 			 " ")))
     (org-babel-reassemble-table

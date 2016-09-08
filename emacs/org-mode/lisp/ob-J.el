@@ -1,4 +1,4 @@
-;;; ob-J.el --- Babel Functions for J                -*- lexical-binding: t; -*-
+;;; ob-J.el --- org-babel functions for J evaluation
 
 ;; Copyright (C) 2011-2016 Free Software Foundation, Inc.
 
@@ -31,10 +31,10 @@
 ;;; Code:
 (require 'ob)
 
-(declare-function org-trim "org" (s &optional keep-lead))
+(declare-function org-trim "org" (S))
 (declare-function j-console-ensure-session "ext:j-console" ())
 
-(defun org-babel-expand-body:J (body _params &optional _processed-params)
+(defun org-babel-expand-body:J (body params &optional processed-params)
   "Expand BODY according to PARAMS, return the expanded body.
 PROCESSED-PARAMS isn't used yet."
   (org-babel-J-interleave-echos-except-functions body))
@@ -66,10 +66,13 @@ This function is called by `org-babel-execute-src-block'"
   (message "executing J source code block")
   (let* ((processed-params (org-babel-process-params params))
 	 (sessionp (cdr (assoc :session params)))
+         (session (org-babel-j-initiate-session sessionp))
+         (vars (nth 2 processed-params))
+         (result-params (nth 3 processed-params))
+         (result-type (nth 4 processed-params))
          (full-body (org-babel-expand-body:J
                      body params processed-params))
 	 (tmp-script-file (org-babel-temp-file "J-src")))
-    (org-babel-j-initiate-session sessionp)
     (org-babel-J-strip-whitespace
      (if (string= sessionp "none")
 	 (progn
