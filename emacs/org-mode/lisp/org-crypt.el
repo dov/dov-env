@@ -1,5 +1,4 @@
-;;; org-crypt.el --- Public key encryption for org-mode entries
-
+;;; org-crypt.el --- Public Key Encryption for Org Entries -*- lexical-binding: t; -*-
 ;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
 
 ;; Emacs Lisp Archive Entry
@@ -7,7 +6,7 @@
 ;; Keywords: org-mode
 ;; Author: John Wiegley <johnw@gnu.org>
 ;; Maintainer: Peter Jones <pjones@pmade.com>
-;; Description: Adds public key encryption to org-mode buffers
+;; Description: Adds public key encryption to Org buffers
 ;; URL: http://www.newartisans.com/software/emacs.html
 ;; Compatibility: Emacs22
 
@@ -142,7 +141,7 @@ See `org-crypt-disable-auto-save'."
       (message "org-decrypt: Decrypting entry with auto-save-mode enabled.  This may cause leakage."))
      ((eq org-crypt-disable-auto-save 'encrypt)
       (message "org-decrypt: Enabling re-encryption on auto-save.")
-      (org-add-hook 'auto-save-hook
+      (add-hook 'auto-save-hook
 		    (lambda ()
 		      (message "org-crypt: Re-encrypting all decrypted entries due to auto-save.")
 		      (org-encrypt-entries))
@@ -164,7 +163,7 @@ See `org-crypt-disable-auto-save'."
   (if (and (string= crypt-key (get-text-property 0 'org-crypt-key str))
 	   (string= (sha1 str) (get-text-property 0 'org-crypt-checksum str)))
       (get-text-property 0 'org-crypt-text str)
-    (set (make-local-variable 'epg-context) (epg-make-context nil t t))
+    (setq-local epg-context (epg-make-context nil t t))
     (epg-encrypt-string epg-context str (epg-list-keys epg-context crypt-key))))
 
 (defun org-encrypt-entry ()
@@ -173,22 +172,18 @@ See `org-crypt-disable-auto-save'."
   (require 'epg)
   (org-with-wide-buffer
    (org-back-to-heading t)
-   (set (make-local-variable 'epg-context) (epg-make-context nil t t))
+   (setq-local epg-context (epg-make-context nil t t))
    (let ((start-heading (point)))
      (org-end-of-meta-data)
-     (unless (looking-at "-----BEGIN PGP MESSAGE-----")
+     (unless (looking-at-p "-----BEGIN PGP MESSAGE-----")
        (let ((folded (outline-invisible-p))
 	     (crypt-key (org-crypt-key-for-heading))
-	     (beg (point))
-	     end encrypted-text)
+	     (beg (point)))
 	 (goto-char start-heading)
 	 (org-end-of-subtree t t)
 	 (org-back-over-empty-lines)
-	 (setq end (point)
-	       encrypted-text
-	       (org-encrypt-string (buffer-substring beg end) crypt-key))
-	 (delete-region beg end)
-	 (insert encrypted-text)
+	 (let ((contents (delete-and-extract-region beg (point))))
+	   (insert (org-encrypt-string contents crypt-key)))
 	 (when folded
 	   (goto-char start-heading)
 	   (outline-hide-subtree))
@@ -209,7 +204,7 @@ See `org-crypt-disable-auto-save'."
        (org-end-of-meta-data)
        (when (looking-at "-----BEGIN PGP MESSAGE-----")
 	 (org-crypt-check-auto-save)
-	 (set (make-local-variable 'epg-context) (epg-make-context nil t t))
+	 (setq-local epg-context (epg-make-context nil t t))
 	 (let* ((end (save-excursion
 		       (search-forward "-----END PGP MESSAGE-----")
 		       (forward-line)
@@ -240,20 +235,20 @@ See `org-crypt-disable-auto-save'."
 (defun org-encrypt-entries ()
   "Encrypt all top-level entries in the current buffer."
   (interactive)
-  (let (todo-only)
+  (let ((org--matcher-tags-todo-only nil))
     (org-scan-tags
      'org-encrypt-entry
      (cdr (org-make-tags-matcher org-crypt-tag-matcher))
-     todo-only)))
+     org--matcher-tags-todo-only)))
 
 (defun org-decrypt-entries ()
   "Decrypt all entries in the current buffer."
   (interactive)
-  (let (todo-only)
+  (let ((org--matcher-tags-todo-only nil))
     (org-scan-tags
      'org-decrypt-entry
      (cdr (org-make-tags-matcher org-crypt-tag-matcher))
-     todo-only)))
+     org--matcher-tags-todo-only)))
 
 (defun org-at-encrypted-entry-p ()
   "Is the current entry encrypted?"
@@ -267,7 +262,7 @@ See `org-crypt-disable-auto-save'."
   "Add a hook to automatically encrypt entries before a file is saved to disk."
   (add-hook
    'org-mode-hook
-   (lambda () (org-add-hook 'before-save-hook 'org-encrypt-entries nil t))))
+   (lambda () (add-hook 'before-save-hook 'org-encrypt-entries nil t))))
 
 (add-hook 'org-reveal-start-hook 'org-decrypt-entry)
 

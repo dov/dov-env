@@ -1,4 +1,4 @@
-;;; org-table.el --- The table editor for Org mode
+;;; org-table.el --- The Table Editor for Org        -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
 
@@ -34,8 +34,7 @@
 
 ;;; Code:
 
-(eval-when-compile
-  (require 'cl))
+(require 'cl-lib)
 (require 'org)
 
 (declare-function org-element-at-point "org-element" ())
@@ -71,6 +70,7 @@
 (defvar constants-unit-system)
 (defvar org-export-filters-alist)
 (defvar org-table-follow-field-mode)
+(defvar sort-fold-case)
 
 (defvar orgtbl-after-send-table-hook nil
   "Hook for functions attaching to `C-c C-c', if the table is sent.
@@ -89,7 +89,7 @@ for empty fields).  Outside tables, the correct binding of the keys is
 restored.
 
 The default for this option is t if the optimized version is also used in
-Org-mode.  See the variable `org-enable-table-editor' for details.  Changing
+Org mode.  See the variable `org-enable-table-editor' for details.  Changing
 this variable requires a restart of Emacs to become effective."
   :group 'org-table
   :type 'boolean)
@@ -144,7 +144,7 @@ table, obtained by prompting the user."
 		(string :tag "Format"))))
 
 (defgroup org-table-settings nil
-  "Settings for tables in Org-mode."
+  "Settings for tables in Org mode."
   :tag "Org Table Settings"
   :group 'org-table)
 
@@ -193,13 +193,13 @@ alignment to the right border applies."
   :type 'number)
 
 (defgroup org-table-editing nil
-  "Behavior of tables during editing in Org-mode."
+  "Behavior of tables during editing in Org mode."
   :tag "Org Table Editing"
   :group 'org-table)
 
 (defcustom org-table-automatic-realign t
   "Non-nil means automatically re-align table when pressing TAB or RETURN.
-When nil, aligning is only done with \\[org-table-align], or after column
+When nil, aligning is only done with `\\[org-table-align]', or after column
 removal/insertion."
   :group 'org-table-editing
   :type 'boolean)
@@ -245,12 +245,12 @@ this line."
   :type 'boolean)
 
 (defgroup org-table-calculation nil
-  "Options concerning tables in Org-mode."
+  "Options concerning tables in Org mode."
   :tag "Org Table Calculation"
   :group 'org-table)
 
 (defcustom org-table-use-standard-references 'from
-  "Should org-mode work with table references like B3 instead of @3$2?
+  "Non-nil means using table references like B3 instead of @3$2.
 Possible values are:
 nil     never use them
 from    accept as input, do not present for editing
@@ -262,9 +262,10 @@ t       accept as input and present for editing"
 	  (const :tag "Convert user input, don't offer during editing" from)))
 
 (defcustom org-table-copy-increment t
-  "Non-nil means increment when copying current field with \\[org-table-copy-down]."
+  "Non-nil means increment when copying current field with \
+`\\[org-table-copy-down]'."
   :group 'org-table-calculation
-  :version "25.1"
+  :version "25.2"
   :package-version '(Org . "8.3")
   :type '(choice
 	  (const :tag "Use the difference between the current and the above fields" t)
@@ -282,7 +283,7 @@ t       accept as input and present for editing"
 		       )
   "List with Calc mode settings for use in `calc-eval' for table formulas.
 The list must contain alternating symbols (Calc modes variables and values).
-Don't remove any of the default settings, just change the values.  Org-mode
+Don't remove any of the default settings, just change the values.  Org mode
 relies on the variables to be present in the list."
   :group 'org-table-calculation
   :type 'plist)
@@ -316,7 +317,7 @@ which should be evaluated as described in the manual and in the documentation
 string of the command `org-table-eval-formula'.  This feature requires the
 Emacs calc package.
 When this variable is nil, formula calculation is only available through
-the command \\[org-table-eval-formula]."
+the command `\\[org-table-eval-formula]'."
   :group 'org-table-calculation
   :type 'boolean)
 
@@ -349,7 +350,7 @@ Constants can also be defined on a per-file basis using a line like
 (defcustom org-table-allow-automatic-line-recalculation t
   "Non-nil means lines marked with |#| or |*| will be recomputed automatically.
 \\<org-mode-map>\
-Automatically means when TAB or RET or \\[org-ctrl-c-ctrl-c] \
+Automatically means when `TAB' or `RET' or `\\[org-ctrl-c-ctrl-c]' \
 are pressed in the line."
   :group 'org-table-calculation
   :type 'boolean)
@@ -377,7 +378,7 @@ portability of tables."
   "Non-nil means that evaluation of a field formula can add new
 columns if an out-of-bounds field is being set."
   :group 'org-table-calculation
-  :version "25.1"
+  :version "25.2"
   :package-version '(Org . "8.3")
   :type '(choice
 	  (const :tag "Setting an out-of-bounds field generates an error (default)" nil)
@@ -386,7 +387,7 @@ columns if an out-of-bounds field is being set."
 	  (const :tag "When setting an out-of-bounds field, the user is prompted" prompt)))
 
 (defgroup org-table-import-export nil
-  "Options concerning table import and export in Org-mode."
+  "Options concerning table import and export in Org mode."
   :tag "Org Table Import Export"
   :group 'org-table)
 
@@ -406,7 +407,7 @@ The function can be slow on larger regions; this safety feature
 prevents it from hanging emacs."
   :group 'org-table-import-export
   :type 'integer
-  :version "25.1"
+  :version "25.2"
   :package-version '(Org . "8.3"))
 
 (defconst org-table-auto-recalculate-regexp "^[ \t]*| *# *\\(|\\|$\\)"
@@ -499,13 +500,13 @@ Field is restored even in case of abnormal exit."
 ;;;###autoload
 (defun org-table-create-with-table.el ()
   "Use the table.el package to insert a new table.
-If there is already a table at point, convert between Org-mode tables
+If there is already a table at point, convert between Org tables
 and table.el tables."
   (interactive)
   (require 'table)
   (cond
    ((org-at-table.el-p)
-    (if (y-or-n-p "Convert table to Org-mode table? ")
+    (if (y-or-n-p "Convert table to Org table? ")
 	(org-table-convert)))
    ((org-at-table-p)
     (when (y-or-n-p "Convert table to table.el table? ")
@@ -549,7 +550,7 @@ SIZE is a string Columns x Rows like for example \"3x2\"."
 	(beginning-of-line 1)
       (newline))
     ;; (mapcar (lambda (x) (insert line)) (make-list rows t))
-    (dotimes (i rows) (insert line))
+    (dotimes (_ rows) (insert line))
     (goto-char pos)
     (if (> rows 1)
 	;; Insert a hline after the first row.
@@ -670,7 +671,7 @@ extension of the given file name, and finally on the variable
     (when (file-directory-p file)
       (user-error "This is a directory path, not a file"))
     (when (and (buffer-file-name (buffer-base-buffer))
-	       (org-file-equal-p
+	       (file-equal-p
 		(file-truename file)
 		(file-truename (buffer-file-name (buffer-base-buffer)))))
       (user-error "Please specify a file name that is different from current"))
@@ -689,7 +690,7 @@ extension of the given file name, and finally on the variable
 		   (or (car (delq nil
 				  (mapcar
 				   (lambda (f)
-				     (and (org-string-match-p fileext f) f))
+				     (and (string-match-p fileext f) f))
 				   formats)))
 		       org-table-export-default-format)
 		   t t) t t)))
@@ -728,13 +729,11 @@ This is being used to correctly align a single field after TAB or RET.")
 (defvar org-table-last-column-widths nil
   "List of max width of fields in each column.
 This is being used to correctly align a single field after TAB or RET.")
-(defvar org-table-formula-debug nil
+(defvar-local org-table-formula-debug nil
   "Non-nil means debug table formulas.
 When nil, simply write \"#ERROR\" in corrupted fields.")
-(make-variable-buffer-local 'org-table-formula-debug)
-(defvar org-table-overlay-coordinates nil
+(defvar-local org-table-overlay-coordinates nil
   "Overlay coordinates after each align of a table.")
-(make-variable-buffer-local 'org-table-overlay-coordinates)
 
 (defvar org-last-recalc-line nil)
 (defvar org-table-do-narrow t)   ; for dynamic scoping
@@ -758,7 +757,7 @@ When nil, simply write \"#ERROR\" in corrupted fields.")
             ;; Table's rows.  Separators are replaced by nil.  Trailing
             ;; spaces are also removed.
             (lines (mapcar (lambda (l)
-                             (and (not (org-string-match-p "\\`[ \t]*|-" l))
+                             (and (not (string-match-p "\\`[ \t]*|-" l))
                                   (let ((l (org-trim l)))
                                     (remove-text-properties
                                      0 (length l) '(display t org-cwidth t) l)
@@ -815,7 +814,7 @@ edit.  Full value is:\n"
                      (if (= (org-string-width x) l) (setq f2 f1)
                        (setq f2 1)
                        (while (< (org-string-width (substring x 0 f2)) f1)
-                         (incf f2)))
+                         (cl-incf f2)))
                      (add-text-properties f2 l (list 'org-cwidth t) x)
                      (add-text-properties
                       (if (>= (string-width (substring x (1- f2) f2)) 2) (1- f2)
@@ -835,10 +834,10 @@ edit.  Full value is:\n"
                  (unless (equal x "")
                    (setq frac
                          (/ (+ (* frac cnt)
-                               (if (org-string-match-p org-table-number-regexp x)
+                               (if (string-match-p org-table-number-regexp x)
                                    1
                                  0))
-                            (incf cnt)))))
+                            (cl-incf cnt)))))
                (push (>= frac org-table-number-fraction) typenums)))))
        (setq lengths (nreverse lengths))
        (setq typenums (nreverse typenums))
@@ -946,41 +945,40 @@ Optional argument NEW may specify text to replace the current field content."
    ((and (not new) org-table-may-need-update)) ; Realignment will happen anyway
    ((org-at-table-hline-p))
    ((and (not new)
-	 (or (not (equal (marker-buffer org-table-aligned-begin-marker)
-			 (current-buffer)))
+	 (or (not (eq (marker-buffer org-table-aligned-begin-marker)
+		      (current-buffer)))
 	     (< (point) org-table-aligned-begin-marker)
 	     (>= (point) org-table-aligned-end-marker)))
-    ;; This is not the same table, force a full re-align
+    ;; This is not the same table, force a full re-align.
     (setq org-table-may-need-update t))
-   (t ;; realign the current field, based on previous full realign
-    (let* ((pos (point)) s
-	   (col (org-table-current-column))
-	   (num (if (> col 0) (nth (1- col) org-table-last-alignment)))
-	   l f n o e)
+   (t
+    ;; Realign the current field, based on previous full realign.
+    (let ((pos (point))
+	  (col (org-table-current-column)))
       (when (> col 0)
-	(skip-chars-backward "^|\n")
-	(if (looking-at " *\\([^|\n]*?\\) *\\(|\\|$\\)")
-	    (progn
-	      (setq s (match-string 1)
-		    o (match-string 0)
-		    l (max 1
-			   (- (org-string-width
-			       (buffer-substring-no-properties
-				(match-end 0) (match-beginning 0))) 3))
-		    e (not (= (match-beginning 2) (match-end 2))))
-	      (setq f (format (if num " %%%ds %s" " %%-%ds %s")
-			      l (if e "|" (setq org-table-may-need-update t) ""))
-		    n (format f s))
-	      (if new
-		  (if (<= (org-string-width new) l)
-		      (setq n (format f new))
-		    (setq n (concat new "|") org-table-may-need-update t)))
-	      (if (equal (string-to-char n) ?-) (setq n (concat " " n)))
-	      (or (equal n o)
-		  (let (org-table-may-need-update)
-		    (replace-match n t t))))
-	  (setq org-table-may-need-update t))
-	(goto-char pos))))))
+	(skip-chars-backward "^|")
+	(if (not (looking-at " *\\([^|\n]*?\\) *\\(|\\|$\\)"))
+	    (setq org-table-may-need-update t)
+	  (let* ((numbers? (nth (1- col) org-table-last-alignment))
+		 (cell (match-string 0))
+		 (field (match-string 1))
+		 (len (max 1 (- (org-string-width cell) 3)))
+		 (properly-closed? (/= (match-beginning 2) (match-end 2)))
+		 (fmt (format (if numbers? " %%%ds %s" " %%-%ds %s")
+			      len
+			      (if properly-closed? "|"
+				(setq org-table-may-need-update t)
+				"")))
+		 (new-cell
+		  (cond ((not new) (format fmt field))
+			((<= (org-string-width new) len) (format fmt new))
+			(t
+			 (setq org-table-may-need-update t)
+			 (format " %s |" new)))))
+	    (unless (equal new-cell cell)
+	      (let (org-table-may-need-update)
+		(replace-match new-cell t t)))
+	    (goto-char pos))))))))
 
 ;;;###autoload
 (defun org-table-next-field ()
@@ -1165,7 +1163,7 @@ to a number.  In the case of a timestamp, increment by days."
 	(user-error "No non-empty field found")
       (if (and org-table-copy-increment
 	       (not (equal orig-n 0))
-	       (string-match "^[-+^/*0-9eE.]+$" txt)
+	       (string-match-p "^[-+^/*0-9eE.]+$" txt)
 	       (< (string-to-number txt) 100000000))
 	  (setq txt (calc-eval (concat txt "+" (number-to-string inc)))))
       (insert txt)
@@ -1236,7 +1234,7 @@ Return t when the line exists, nil if it does not exist."
   "Blank the current table field or active region."
   (interactive)
   (org-table-check-inside-data-field)
-  (if (and (org-called-interactively-p 'any) (org-region-active-p))
+  (if (and (called-interactively-p 'any) (org-region-active-p))
       (let (org-table-clip)
 	(org-table-cut-region (region-beginning) (region-end)))
     (skip-chars-backward "^|")
@@ -1268,7 +1266,7 @@ is always the old value."
     (forward-char 1) ""))
 
 ;;;###autoload
-(defun org-table-field-info (arg)
+(defun org-table-field-info (_arg)
   "Show info about the current field, and highlight any reference at point."
   (interactive "P")
   (unless (org-at-table-p) (user-error "Not at a table"))
@@ -1308,19 +1306,22 @@ is always the old value."
 		   (concat ", formula: "
 			   (org-table-formula-to-user
 			    (concat
-			     (if (string-match "^[$@]"(car eqn)) "" "$")
+			     (if (or (string-prefix-p "$" (car eqn))
+				     (string-prefix-p "@" (car eqn)))
+				 ""
+			       "$")
 			     (car eqn) "=" (cdr eqn))))
 		 "")))))
 
 (defun org-table-current-column ()
   "Find out which column we are in."
   (interactive)
-  (when (org-called-interactively-p 'any) (org-table-check-inside-data-field))
+  (when (called-interactively-p 'any) (org-table-check-inside-data-field))
   (save-excursion
     (let ((column 0) (pos (point)))
       (beginning-of-line)
-      (while (search-forward "|" pos t) (incf column))
-      (when (org-called-interactively-p 'interactive)
+      (while (search-forward "|" pos t) (cl-incf column))
+      (when (called-interactively-p 'interactive)
 	(message "In table column %d" column))
       column)))
 
@@ -1329,16 +1330,16 @@ is always the old value."
   "Find out what table data line we are in.
 Only data lines count for this."
   (interactive)
-  (when (org-called-interactively-p 'any)
+  (when (called-interactively-p 'any)
     (org-table-check-inside-data-field))
   (save-excursion
     (let ((c 0)
 	  (pos (point)))
       (goto-char (org-table-begin))
       (while (<= (point) pos)
-	(when (looking-at org-table-dataline-regexp) (incf c))
+	(when (looking-at org-table-dataline-regexp) (cl-incf c))
 	(forward-line))
-      (when (org-called-interactively-p 'any)
+      (when (called-interactively-p 'any)
 	(message "This is table line %d" c))
       c)))
 
@@ -1556,19 +1557,21 @@ non-nil, the one above is used."
   "Insert a new row above the current line into the table.
 With prefix ARG, insert below the current line."
   (interactive "P")
-  (if (not (org-at-table-p))
-      (user-error "Not at a table"))
-  (let* ((line (buffer-substring (point-at-bol) (point-at-eol)))
+  (unless (org-at-table-p) (user-error "Not at a table"))
+  (let* ((line (buffer-substring (line-beginning-position) (line-end-position)))
 	 (new (org-table-clean-line line)))
     ;; Fix the first field if necessary
     (if (string-match "^[ \t]*| *[#$] *|" line)
 	(setq new (replace-match (match-string 0 line) t t new)))
     (beginning-of-line (if arg 2 1))
+    ;; Buffer may not end of a newline character, so ensure
+    ;; (beginning-of-line 2) moves point to a new line.
+    (unless (bolp) (insert "\n"))
     (let (org-table-may-need-update) (insert-before-markers new "\n"))
     (beginning-of-line 0)
-    (re-search-forward "| ?" (point-at-eol) t)
-    (and (or org-table-may-need-update org-table-overlay-coordinates)
-	 (org-table-align))
+    (re-search-forward "| ?" (line-end-position) t)
+    (when (or org-table-may-need-update org-table-overlay-coordinates)
+      (org-table-align))
     (when (or (not org-table-fix-formulas-confirm)
 	      (funcall org-table-fix-formulas-confirm "Fix formulas? "))
       (org-table-fix-formulas "@" nil (1- (org-table-current-dline)) 1))))
@@ -1581,7 +1584,7 @@ With prefix ABOVE, insert above the current line."
   (if (not (org-at-table-p))
       (user-error "Not at a table"))
   (when (eobp) (insert "\n") (backward-char 1))
-  (if (not (string-match "|[ \t]*$" (org-current-line-string)))
+  (if (not (string-match-p "|[ \t]*$" (org-current-line-string)))
       (org-table-align))
   (let ((line (org-table-clean-line
 	       (buffer-substring (point-at-bol) (point-at-eol))))
@@ -1680,7 +1683,7 @@ numeric compare based on the type of the first key in the table."
   ;; Set appropriate case sensitivity and column used for sorting.
   (let ((column (let ((c (org-table-current-column)))
 		  (cond ((> c 0) c)
-			((org-called-interactively-p 'any)
+			((called-interactively-p 'any)
 			 (read-number "Use column N for sorting: "))
 			(t 1))))
 	(sorting-type
@@ -1715,27 +1718,27 @@ numeric compare based on the type of the first key in the table."
 	     (extract-key-from-field
 	      ;; Function to be called on the contents of the field
 	      ;; used for sorting in the current row.
-	      (case sorting-type
+	      (cl-case sorting-type
 		((?n ?N) #'string-to-number)
 		((?a ?A) #'org-sort-remove-invisible)
 		((?t ?T)
 		 (lambda (f)
 		   (cond ((string-match org-ts-regexp-both f)
-			  (org-float-time
+			  (float-time
 			   (org-time-string-to-time (match-string 0 f))))
 			 ((string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" f)
 			  (org-hh:mm-string-to-minutes f))
 			 (t 0))))
 		((?f ?F)
 		 (or getkey-func
-		     (and (org-called-interactively-p 'any)
+		     (and (called-interactively-p 'any)
 			  (intern
 			   (completing-read "Sort using function: "
 					    obarray #'fboundp t)))
 		     (error "Missing key extractor to sort rows")))
 		(t (user-error "Invalid sorting type `%c'" sorting-type))))
 	     (predicate
-	      (case sorting-type
+	      (cl-case sorting-type
 		((?n ?N ?t ?T) #'<)
 		((?a ?A) #'string<)
 		((?f ?F) compare-func))))
@@ -1825,24 +1828,24 @@ lines."
 	 (dolist (field row)
 	   (org-table-goto-column c nil 'force)
 	   (org-table-get-field nil field)
-	   (incf c)))
+	   (cl-incf c)))
        (forward-line)))
     (org-table-align)))
 
 ;;;###autoload
 (defun org-table-convert ()
   "Convert from `org-mode' table to table.el and back.
-Obviously, this only works within limits.  When an Org-mode table is
-converted to table.el, all horizontal separator lines get lost, because
-table.el uses these as cell boundaries and has no notion of horizontal lines.
-A table.el table can be converted to an Org-mode table only if it does not
-do row or column spanning.  Multiline cells will become multiple cells.
-Beware, Org-mode does not test if the table can be successfully converted - it
-blindly applies a recipe that works for simple tables."
+Obviously, this only works within limits.  When an Org table is converted
+to table.el, all horizontal separator lines get lost, because table.el uses
+these as cell boundaries and has no notion of horizontal lines.  A table.el
+table can be converted to an Org table only if it does not do row or column
+spanning.  Multiline cells will become multiple cells.  Beware, Org mode
+does not test if the table can be successfully converted - it blindly
+applies a recipe that works for simple tables."
   (interactive)
   (require 'table)
   (if (org-at-table.el-p)
-      ;; convert to Org-mode table
+      ;; convert to Org table
       (let ((beg (copy-marker (org-table-begin t)))
 	    (end (copy-marker (org-table-end t))))
 	(table-unrecognize-region beg end)
@@ -1896,10 +1899,10 @@ Note that horizontal lines disappear."
   (let* ((table (delete 'hline (org-table-to-lisp)))
 	 (dline_old (org-table-current-line))
 	 (col_old (org-table-current-column))
-	 (contents (mapcar (lambda (p)
+	 (contents (mapcar (lambda (_)
 			     (let ((tp table))
 			       (mapcar
-				(lambda (rown)
+				(lambda (_)
 				  (prog1
 				      (pop (car tp))
 				    (setq tp (cdr tp))))
@@ -1987,9 +1990,10 @@ blank, and the content is appended to the field above."
 ;;;###autoload
 (defun org-table-edit-field (arg)
   "Edit table field in a different window.
-This is mainly useful for fields that contain hidden parts.
-When called with a \\[universal-argument] prefix, just make the full field visible so that
-it can be edited in place."
+This is mainly useful for fields that contain hidden parts.  When called
+with a `\\[universal-argument]' prefix, just make the full field \
+visible so that it can be
+edited in place."
   (interactive "P")
   (cond
    ((equal arg '(16))
@@ -2029,9 +2033,9 @@ it can be edited in place."
 			      '(invisible t org-cwidth t display t
 					  intangible t))
       (goto-char p)
-      (org-set-local 'org-finish-function 'org-table-finish-edit-field)
-      (org-set-local 'org-window-configuration cw)
-      (org-set-local 'org-field-marker pos)
+      (setq-local org-finish-function 'org-table-finish-edit-field)
+      (setq-local org-window-configuration cw)
+      (setq-local org-field-marker pos)
       (message "Edit and finish with C-c C-c")))))
 
 (defun org-table-finish-edit-field ()
@@ -2064,8 +2068,8 @@ current field.  The mode exits automatically when the cursor leaves the
 table (but see `org-table-exit-follow-field-mode-when-leaving-table')."
   nil " TblFollow" nil
   (if org-table-follow-field-mode
-      (org-add-hook 'post-command-hook 'org-table-follow-fields-with-editor
-		    'append 'local)
+      (add-hook 'post-command-hook 'org-table-follow-fields-with-editor
+		'append 'local)
     (remove-hook 'post-command-hook 'org-table-follow-fields-with-editor 'local)
     (let* ((buf (get-buffer "*Org Table Edit Field*"))
 	   (win (and buf (get-buffer-window buf))))
@@ -2140,7 +2144,7 @@ If NLAST is a number, only the NLAST fields will actually be summed."
 			   s diff)
 		     (format "%.0f:%02.0f:%02.0f" h m s))))
 	(kill-new sres)
-	(when (org-called-interactively-p 'interactive)
+	(when (called-interactively-p 'interactive)
 	    (message "%s" (substitute-command-keys
 			   (format "Sum of %d items: %-20s     \
 \(\\[yank] will insert result into buffer)" (length numbers) sres))))
@@ -2187,7 +2191,7 @@ with \"=\" or \":=\"."
 		      (assoc ref stored-list)
 		      (assoc scol stored-list))))
 	(cond (key (car ass))
-	      (ass (concat (if (string-match "^[0-9]+$" (car ass)) "=" ":=")
+	      (ass (concat (if (string-match-p "^[0-9]+$" (car ass)) "=" ":=")
 			   (cdr ass))))))
      (noerror nil)
      (t (error "No formula active for the current field")))))
@@ -2203,22 +2207,15 @@ When NAMED is non-nil, look for a named equation."
 	 (ref (format "@%d$%d"
 		      (org-table-current-dline)
 		      (org-table-current-column)))
-	 (refass (assoc ref stored-list))
-	 (nameass (assoc name stored-list))
 	 (scol (cond
 		((not named) (format "$%d" (org-table-current-column)))
 		((and name (not (string-match "\\`LR[0-9]+\\'" name))) name)
 		(t ref)))
-	 (dummy (and (or nameass refass)
-		     (not named)
-		     (not (y-or-n-p "Replace existing field formula with \
-column formula? " ))
-		     (message "Formula not replaced")))
 	 (name (or name ref))
 	 (org-table-may-need-update nil)
 	 (stored (cdr (assoc scol stored-list)))
 	 (eq (cond
-	      ((and stored equation (string-match "^ *=? *$" equation))
+	      ((and stored equation (string-match-p "^ *=? *$" equation))
 	       stored)
 	      ((stringp equation)
 	       equation)
@@ -2310,7 +2307,7 @@ LOCATION is a buffer position, consider the formulas there."
       (goto-char (org-table-end)))
     (let ((case-fold-search t))
       (when (looking-at "\\([ \t]*\n\\)*[ \t]*#\\+TBLFM: *\\(.*\\)")
-	(let ((strings (org-split-string (org-match-string-no-properties 2)
+	(let ((strings (org-split-string (match-string-no-properties 2)
 					 " *:: *"))
 	      eq-alist seen)
 	  (dolist (string strings (nreverse eq-alist))
@@ -2322,7 +2319,7 @@ LOCATION is a buffer position, consider the formulas there."
 		       (cond
 			((not (match-end 2)) m)
 			;; Is it a column reference?
-			((org-string-match-p "\\`$\\([0-9]+\\|[<>]+\\)\\'" m) m)
+			((string-match-p "\\`$\\([0-9]+\\|[<>]+\\)\\'" m) m)
 			;; Since named columns are not possible in
 			;; LHS, assume this is a named field.
 			(t (match-string 2 string)))))
@@ -2389,11 +2386,8 @@ If yes, store the formula and apply it."
       (when (string-match "^:?=\\(.*[^=]\\)$" field)
 	(setq named (equal (string-to-char field) ?:)
 	      eq (match-string 1 field))
-	(if (or (fboundp 'calc-eval)
-		(equal (substring eq 0 (min 2 (length eq))) "'("))
-	    (org-table-eval-formula (if named '(4) nil)
-				    (org-table-formula-from-user eq))
-	  (user-error "Calc does not seem to be installed, and is needed to evaluate the formula"))))))
+	(org-table-eval-formula (and named '(4))
+				(org-table-formula-from-user eq))))))
 
 (defvar org-recalc-commands nil
   "List of commands triggering the recalculation of a line.
@@ -2475,7 +2469,7 @@ of the new mark."
     (when l1 (set-marker l1 nil))
     (when l2 (set-marker l2 nil))
     (set-marker l nil)
-    (when (org-called-interactively-p 'interactive)
+    (when (called-interactively-p 'interactive)
       (message "%s" (cdr (assoc newchar org-recalc-marks))))))
 
 ;;;###autoload
@@ -2503,7 +2497,7 @@ This function sets up the following dynamically scoped variables:
 	      (re-search-forward "^[ \t]*| *! *\\(|.*\\)" end t))
 	(let ((c 1))
 	  (dolist (name (org-split-string (match-string 1) " *| *"))
-	    (incf c)
+	    (cl-incf c)
 	    (when (string-match "\\`[a-zA-Z][_a-zA-Z0-9]*\\'" name)
 	      (push (cons name (int-to-string c)) org-table-column-names)))))
       (setq org-table-column-names (nreverse org-table-column-names))
@@ -2532,13 +2526,13 @@ This function sets up the following dynamically scoped variables:
 		(let ((fields1
 		       (and (looking-at "^[ \t]*|[^|]*\\(|.*\\)")
 			    (org-split-string (match-string 1) " *| *")))
-		      (line (incf (cdr last) (count-lines (car last) (point))))
+		      (line (cl-incf (cdr last) (count-lines (car last) (point))))
 		      (col 1))
 		  (setcar last (point))	; Update last known position.
 		  (while (and fields fields1)
 		    (let ((field (pop fields))
 			  (v (pop fields1)))
-		      (incf col)
+		      (cl-incf col)
 		      (when (and (stringp field)
 				 (stringp v)
 				 (string-match "\\`[a-zA-Z][_a-zA-Z0-9]*\\'"
@@ -2556,7 +2550,7 @@ This function sets up the following dynamically scoped variables:
 	  (push (if (match-end 1) 'hline 'dline) types)
 	  (if (match-end 1) (push l hlines) (push l dlines))
 	  (forward-line)
-	  (incf l))
+	  (cl-incf l))
 	(push 'hline types) ; Add an imaginary extra hline to the end.
 	(setq org-table-current-line-types (apply #'vector (nreverse types)))
 	(setq org-table-dlines (apply #'vector (cons nil (nreverse dlines))))
@@ -2826,11 +2820,12 @@ not overwrite the stored one.  SUPPRESS-ANALYSIS prevents any call to
 		(replace-match
 		 (save-match-data
 		   (org-table-make-reference
-		    (org-sublist fields
-				 (+ (if (match-end 2) n0 0)
-				    (string-to-number (match-string 1 form)))
-				 (+ (if (match-end 4) n0 0)
-				    (string-to-number (match-string 3 form))))
+		    (cl-subseq fields
+			       (+ (if (match-end 2) n0 0)
+				  (string-to-number (match-string 1 form))
+				  -1)
+			       (+ (if (match-end 4) n0 0)
+				  (string-to-number (match-string 3 form))))
 		    keep-empty numbers lispp))
 		 t t form)))
 	(setq form0 form)
@@ -2857,20 +2852,23 @@ not overwrite the stored one.  SUPPRESS-ANALYSIS prevents any call to
 		  ev (if duration (org-table-time-seconds-to-string
 				   (string-to-number ev)
 				   duration-output-format) ev))
-	  (or (fboundp 'calc-eval)
-	      (user-error "Calc does not seem to be installed, and is needed to evaluate the formula"))
-	  ;; Use <...> time-stamps so that Calc can handle them
-	  (while (string-match (concat "\\[" org-ts-regexp1 "\\]") form)
-	    (setq form (replace-match "<\\1>" nil nil form)))
-	  ;; I18n-ize local time-stamps by setting (system-time-locale "C")
-	  (when (string-match org-ts-regexp2 form)
-	    (let* ((ts (match-string 0 form))
-		   (tsp (apply 'encode-time (save-match-data (org-parse-time-string ts))))
-		   (system-time-locale "C")
-		   (tf (or (and (save-match-data (string-match "[0-9]\\{1,2\\}:[0-9]\\{2\\}" ts))
-				(cdr org-time-stamp-formats))
-			   (car org-time-stamp-formats))))
-	      (setq form (replace-match (format-time-string tf tsp) t t form))))
+
+	  ;; Use <...> time-stamps so that Calc can handle them.
+	  (setq form
+		(replace-regexp-in-string org-ts-regexp-inactive "<\\1>" form))
+	  ;; Internationalize local time-stamps by setting locale to
+	  ;; "C".
+	  (setq form
+		(replace-regexp-in-string
+		 org-ts-regexp
+		 (lambda (ts)
+		   (let ((system-time-locale "C"))
+		     (format-time-string
+		      (org-time-stamp-format
+		       (string-match-p "[0-9]\\{1,2\\}:[0-9]\\{2\\}" ts))
+		      (apply #'encode-time
+			     (save-match-data (org-parse-time-string ts))))))
+		 form t t))
 
 	  (setq ev (if (and duration (string-match "^[0-9]+:[0-9]+\\(?::[0-9]+\\)?$" form))
 		       form
@@ -2898,7 +2896,7 @@ $1->    %s\n" orig formula form0 form))
 			     (if fmt (format fmt (string-to-number ev)) ev)))))
 	  (setq bw (get-buffer-window "*Substitution History*"))
 	  (org-fit-window-to-buffer bw)
-	  (unless (and (org-called-interactively-p 'any) (not ndown))
+	  (unless (and (called-interactively-p 'any) (not ndown))
 	    (unless (let (inhibit-redisplay)
 		      (y-or-n-p "Debugging Formula.  Continue to next? "))
 	      (org-table-align)
@@ -2934,7 +2932,7 @@ When CORNERS-ONLY is set, only return the corners of the range as
 a list (line1 column1 line2 column2) where line1 and line2 are
 line numbers relative to beginning of table, or TBEG, and column1
 and column2 are table column numbers."
-  (let* ((desc (if (org-string-match-p "\\`\\$[0-9]+\\.\\.\\$[0-9]+\\'" desc)
+  (let* ((desc (if (string-match-p "\\`\\$[0-9]+\\.\\.\\$[0-9]+\\'" desc)
 		   (replace-regexp-in-string "\\$" "@0$" desc)
 		 desc))
 	 (col (or col (org-table-current-column)))
@@ -2982,7 +2980,7 @@ and column2 are table column numbers."
 	      (forward-line (- first-row thisline))
 	      (while (not (looking-at org-table-dataline-regexp))
 		(forward-line)
-		(incf first-row))
+		(cl-incf first-row))
 	      (org-table-goto-column first-column)
 	      (let ((beg (point)))
 		(forward-line (- last-row first-row))
@@ -3020,7 +3018,7 @@ The cursor is currently in relative line number CLINE."
       (when (and hn (not hdir))
 	(setq cline 0)
 	(setq hdir "+")
-	(when (eq (aref org-table-current-line-types 0) 'hline) (decf hn)))
+	(when (eq (aref org-table-current-line-types 0) 'hline) (cl-decf hn)))
       (when (and (not hn) on (not odir)) (user-error "Should never happen"))
       (when hn
 	(setq cline
@@ -3039,7 +3037,7 @@ search, as a string."
   (let ((l (length org-table-current-line-types)))
     (catch :exit
       (dotimes (_ n)
-	(while (and (incf i (if backwards -1 1))
+	(while (and (cl-incf i (if backwards -1 1))
 		    (>= i 0)
 		    (< i l)
 		    (not (eq (aref org-table-current-line-types i) type))
@@ -3051,7 +3049,7 @@ search, as a string."
 		     ((eq org-table-relative-ref-may-cross-hline t))
 		     ((eq org-table-relative-ref-may-cross-hline 'error)
 		      (user-error "Row descriptor %s crosses hline" desc))
-		     (t (decf i (if backwards -1 1)) ; Step back.
+		     (t (cl-decf i (if backwards -1 1)) ; Step back.
 			(throw :exit nil)))))))
     (cond ((or (< i 0) (>= i l))
 	   (user-error "Row descriptor %s leads outside table" desc))
@@ -3178,7 +3176,7 @@ existing formula for column %s"
 				      new))
 			new))
 		     (t old-lhs)))))
-	     (if (org-string-match-p "\\`\\$[0-9]+\\'" lhs)
+	     (if (string-match-p "\\`\\$[0-9]+\\'" lhs)
 		 (push (cons lhs rhs) eqlcol)
 	       (push (cons lhs rhs) eqlfield))))
 	 (setq eqlcol (nreverse eqlcol))
@@ -3199,8 +3197,8 @@ existing formula for column %s"
 		      (re-search-forward org-table-hline-regexp end t)
 		      (re-search-forward org-table-dataline-regexp end t))
 		 (setq beg (match-beginning 0)))
-		;; Just leave BEG where it is.
-		(t (setq beg (line-beginning-position)))))
+		;; Just leave BEG at the start of the table.
+		(t nil)))
 	   (setq beg (line-beginning-position)
 		 end (copy-marker (line-beginning-position 2))))
 	 (goto-char beg)
@@ -3239,7 +3237,7 @@ existing formula for column %s"
 	 (while (re-search-forward line-re end t)
 	   (unless (string-match "\\` *[_^!$/] *\\'" (org-table-get-field 1))
 	     ;; Unprotected line, recalculate.
-	     (incf cnt)
+	     (cl-incf cnt)
 	     (when all
 	       (setq log-last-time
 		     (org-table-message-once-per-second
@@ -3270,19 +3268,19 @@ existing formula for column %s"
 	      ;; `org-table-formula-create-columns' allows it.
 	      (let ((column-count (progn (end-of-line)
 					 (1- (org-table-current-column)))))
-		`(lambda (column)
-		   (when (> column 1000)
-		     (user-error "Formula column target too large"))
-		   (and (> column ,column-count)
-			(or (eq org-table-formula-create-columns t)
-			    (and (eq org-table-formula-create-columns 'warn)
-				 (progn
-				   (org-display-warning
-				    "Out-of-bounds formula added columns")
-				   t))
-			    (and (eq org-table-formula-create-columns 'prompt)
-				 (yes-or-no-p
-				  "Out-of-bounds formula.  Add columns? ")))))))
+		(lambda (column)
+		  (when (> column 1000)
+		    (user-error "Formula column target too large"))
+		  (and (> column column-count)
+		       (or (eq org-table-formula-create-columns t)
+			   (and (eq org-table-formula-create-columns 'warn)
+				(progn
+				  (org-display-warning
+				   "Out-of-bounds formula added columns")
+				  t))
+			   (and (eq org-table-formula-create-columns 'prompt)
+				(yes-or-no-p
+				 "Out-of-bounds formula.  Add columns? ")))))))
 	     (org-table-eval-formula nil formula t t t t))))
 	;; Clean up markers and internal text property.
 	(remove-text-properties (point-min) (point-max) '(org-untouchable t))
@@ -3322,10 +3320,8 @@ with the prefix ARG."
 (defun org-table-recalculate-buffer-tables ()
   "Recalculate all tables in the current buffer."
   (interactive)
-  (save-excursion
-    (save-restriction
-      (widen)
-      (org-table-map-tables (lambda () (org-table-recalculate t)) t))))
+  (org-with-wide-buffer
+   (org-table-map-tables (lambda () (org-table-recalculate t)) t)))
 
 ;;;###autoload
 (defun org-table-iterate-buffer-tables ()
@@ -3335,19 +3331,17 @@ with the prefix ARG."
 	 (i imax)
 	 (checksum (md5 (buffer-string)))
 	 c1)
-    (save-excursion
-      (save-restriction
-	(widen)
-	(catch 'exit
-	  (while (> i 0)
-	    (setq i (1- i))
-	    (org-table-map-tables (lambda () (org-table-recalculate t)) t)
-	    (if (equal checksum (setq c1 (md5 (buffer-string))))
-		(progn
-		  (message "Convergence after %d iterations" (- imax i))
-		  (throw 'exit t))
-	      (setq checksum c1)))
-	  (user-error "No convergence after %d iterations" imax))))))
+    (org-with-wide-buffer
+     (catch 'exit
+       (while (> i 0)
+	 (setq i (1- i))
+	 (org-table-map-tables (lambda () (org-table-recalculate t)) t)
+	 (if (equal checksum (setq c1 (md5 (buffer-string))))
+	     (progn
+	       (message "Convergence after %d iterations" (- imax i))
+	       (throw 'exit t))
+	   (setq checksum c1)))
+       (user-error "No convergence after %d iterations" imax)))))
 
 (defun org-table-calc-current-TBLFM (&optional arg)
   "Apply the #+TBLFM in the line at point to the table."
@@ -3391,13 +3385,13 @@ function assumes the table is already analyzed (i.e., using
       (let ((lhs (car e))
 	    (rhs (cdr e)))
 	(cond
-	 ((org-string-match-p "\\`@-?[-+0-9]+\\$-?[0-9]+\\'" lhs)
+	 ((string-match-p "\\`@-?[-+0-9]+\\$-?[0-9]+\\'" lhs)
 	  ;; This just refers to one fixed field.
 	  (push e res))
-	 ((org-string-match-p "\\`[a-zA-Z][_a-zA-Z0-9]*\\'" lhs)
+	 ((string-match-p "\\`[a-zA-Z][_a-zA-Z0-9]*\\'" lhs)
 	  ;; This just refers to one fixed named field.
 	  (push e res))
-	 ((org-string-match-p "\\`\\$[0-9]+\\'" lhs)
+	 ((string-match-p "\\`\\$[0-9]+\\'" lhs)
 	  ;; Column formulas are treated specially and are not
 	  ;; expanded.
 	  (push e res))
@@ -3413,12 +3407,12 @@ function assumes the table is already analyzed (i.e., using
 		 (c1 (nth 1 range))
 		 (r2 (org-table-line-to-dline (nth 2 range) 'above))
 		 (c2 (nth 3 range)))
-	    (loop for ir from r1 to r2 do
-		  (loop for ic from c1 to c2 do
-			(push
-			 (cons (propertize (format "@%d$%d" ir ic) :orig-eqn e)
-			       rhs)
-			 res))))))))))
+	    (cl-loop for ir from r1 to r2 do
+		     (cl-loop for ic from c1 to c2 do
+			      (push (cons (propertize
+					   (format "@%d$%d" ir ic) :orig-eqn e)
+					  rhs)
+				    res))))))))))
 
 (defun org-table-formula-handle-first/last-rc (s)
   "Replace @<, @>, $<, $> with first/last row/column of the table.
@@ -3444,7 +3438,7 @@ borders of the table using the @< @> $< $> makers."
 		  (- nmax len -1)))
 	(if (or (< n 1) (> n nmax))
 	    (user-error "Reference \"%s\" in expression \"%s\" points outside table"
-		   (match-string 0 s) s))
+			(match-string 0 s) s))
 	(setq start (match-beginning 0))
 	(setq s (replace-match (format "%s%d" (match-string 1 s) n) t t s)))))
   s)
@@ -3453,7 +3447,7 @@ borders of the table using the @< @> $< $> makers."
   "Replace $const with values in string F."
   (let ((start 0)
 	(pp (/= (string-to-char f) ?'))
-	(duration (org-string-match-p ";.*[Tt].*\\'" f))
+	(duration (string-match-p ";.*[Tt].*\\'" f))
 	(new (replace-regexp-in-string	; Check for column names.
 	      org-table-column-name-regexp
 	      (lambda (m)
@@ -3466,7 +3460,7 @@ borders of the table using the @< @> $< $> makers."
 		  "\\$\\([a-zA-Z][_a-zA-Z0-9]*\\)\\|\\(\\<remote([^)]*)\\)"
 		  new start))
       (if (match-end 2) (setq start (match-end 2))
-	(incf start)
+	(cl-incf start)
 	;; When a duration is expected, convert value on the fly.
 	(let ((value
 	       (save-match-data
@@ -3477,7 +3471,7 @@ borders of the table using the @< @> $< $> makers."
 	  (when value
 	    (setq new (replace-match
 		       (concat (and pp "(") value (and pp ")")) t t new))))))
-    (if org-table-formula-debug (org-propertize new :orig-formula f)) new))
+    (if org-table-formula-debug (propertize new :orig-formula f) new)))
 
 (defun org-table-get-constant (const)
   "Find the value for a parameter or constant in a formula.
@@ -3573,13 +3567,13 @@ Parameters get priority."
       ;; Keep global-font-lock-mode from turning on font-lock-mode
       (let ((font-lock-global-modes '(not fundamental-mode)))
 	(fundamental-mode))
-      (org-set-local 'font-lock-global-modes (list 'not major-mode))
-      (org-set-local 'org-pos pos)
-      (org-set-local 'org-table--fedit-source source)
-      (org-set-local 'org-window-configuration wc)
-      (org-set-local 'org-selected-window sel-win)
+      (setq-local font-lock-global-modes (list 'not major-mode))
+      (setq-local org-pos pos)
+      (setq-local org-table--fedit-source source)
+      (setq-local org-window-configuration wc)
+      (setq-local org-selected-window sel-win)
       (use-local-map org-table-fedit-map)
-      (org-add-hook 'post-command-hook #'org-table-fedit-post-command t t)
+      (add-hook 'post-command-hook #'org-table-fedit-post-command t t)
       (easy-menu-add org-table-fedit-menu)
       (setq startline (org-current-line))
       (dolist (entry eql)
@@ -3736,7 +3730,7 @@ minutes or seconds."
 		 (format "%.1f" (/ (float secs0) 60)))
 		((eq output-format 'seconds)
 		 (format "%d" secs0))
-		(t (org-format-seconds "%.2h:%.2m:%.2s" secs0)))))
+		(t (format-seconds "%.2h:%.2m:%.2s" secs0)))))
     (if (< secs 0) (concat "-" res) res)))
 
 (defun org-table-fedit-convert-buffer (function)
@@ -3753,7 +3747,7 @@ minutes or seconds."
 (defun org-table-fedit-toggle-ref-type ()
   "Convert all references in the buffer from B3 to @3$2 and back."
   (interactive)
-  (org-set-local 'org-table-buffer-is-an (not org-table-buffer-is-an))
+  (setq-local org-table-buffer-is-an (not org-table-buffer-is-an))
   (org-table-fedit-convert-buffer
    (if org-table-buffer-is-an
        'org-table-convert-refs-to-an 'org-table-convert-refs-to-rc))
@@ -3966,8 +3960,8 @@ When LOCAL is non-nil, show references for the table at point."
       (when (and  match (not (equal (match-beginning 0) (point-at-bol))))
 	(org-table-add-rectangle-overlay (match-beginning 0) (match-end 0)
 					 'secondary-selection))
-      (org-add-hook 'before-change-functions
-		    #'org-table-remove-rectangle-highlight)
+      (add-hook 'before-change-functions
+		#'org-table-remove-rectangle-highlight)
       (when (eq what 'name) (setq var (substring match 1)))
       (when (eq what 'range)
 	(unless (eq (string-to-char match) ?@) (setq match (concat "@" match)))
@@ -3996,10 +3990,10 @@ When LOCAL is non-nil, show references for the table at point."
 	(when dest
 	  (setq name (substring dest 1))
 	  (cond
-	   ((org-string-match-p "\\`\\$[a-zA-Z][a-zA-Z0-9]*" dest)
+	   ((string-match-p "\\`\\$[a-zA-Z][a-zA-Z0-9]*" dest)
 	    (org-table-goto-field dest))
-	   ((org-string-match-p "\\`@\\([1-9][0-9]*\\)\\$\\([1-9][0-9]*\\)\\'"
-				dest)
+	   ((string-match-p "\\`@\\([1-9][0-9]*\\)\\$\\([1-9][0-9]*\\)\\'"
+			    dest)
 	    (org-table-goto-field dest))
 	   (t (org-table-goto-column (string-to-number name))))
 	  (move-marker pos (point))
@@ -4153,16 +4147,15 @@ FACE, when non-nil, for the highlight."
     (goto-char (car start-coordinates)))
   (add-hook 'before-change-functions #'org-table-remove-rectangle-highlight))
 
-(defun org-table-remove-rectangle-highlight (&rest ignore)
+(defun org-table-remove-rectangle-highlight (&rest _ignore)
   "Remove the rectangle overlays."
   (unless org-inhibit-highlight-removal
     (remove-hook 'before-change-functions 'org-table-remove-rectangle-highlight)
     (mapc 'delete-overlay org-table-rectangle-overlays)
     (setq org-table-rectangle-overlays nil)))
 
-(defvar org-table-coordinate-overlays nil
+(defvar-local org-table-coordinate-overlays nil
   "Collects the coordinate grid overlays, so that they can be removed.")
-(make-variable-buffer-local 'org-table-coordinate-overlays)
 
 (defun org-table-overlay-coordinates ()
   "Add overlays to the table at point, to show row/column coordinates."
@@ -4217,19 +4210,20 @@ FACE, when non-nil, for the highlight."
 ;;; The orgtbl minor mode
 
 ;; Define a minor mode which can be used in other modes in order to
-;; integrate the org-mode table editor.
+;; integrate the Org table editor.
 
-;; This is really a hack, because the org-mode table editor uses several
-;; keys which normally belong to the major mode, for example the TAB and
-;; RET keys.  Here is how it works: The minor mode defines all the keys
-;; necessary to operate the table editor, but wraps the commands into a
-;; function which tests if the cursor is currently inside a table.  If that
-;; is the case, the table editor command is executed.  However, when any of
-;; those keys is used outside a table, the function uses `key-binding' to
-;; look up if the key has an associated command in another currently active
-;; keymap (minor modes, major mode, global), and executes that command.
-;; There might be problems if any of the keys used by the table editor is
-;; otherwise used as a prefix key.
+;; This is really a hack, because the Org table editor uses several
+;; keys which normally belong to the major mode, for example the TAB
+;; and RET keys.  Here is how it works: The minor mode defines all the
+;; keys necessary to operate the table editor, but wraps the commands
+;; into a function which tests if the cursor is currently inside
+;; a table.  If that is the case, the table editor command is
+;; executed.  However, when any of those keys is used outside a table,
+;; the function uses `key-binding' to look up if the key has an
+;; associated command in another currently active keymap (minor modes,
+;; major mode, global), and executes that command.  There might be
+;; problems if any of the keys used by the table editor is otherwise
+;; used as a prefix key.
 
 ;; Another challenge is that the key binding for TAB can be tab or \C-i,
 ;; likewise the binding for RET can be return or \C-m.  Orgtbl-mode
@@ -4279,16 +4273,16 @@ FACE, when non-nil, for the highlight."
       ;; FIXME: maybe it should use emulation-mode-map-alists?
       (and c (setq minor-mode-map-alist
                    (cons c (delq c minor-mode-map-alist)))))
-    (org-set-local (quote org-table-may-need-update) t)
-    (org-add-hook 'before-change-functions 'org-before-change-function
-                  nil 'local)
-    (org-set-local 'org-old-auto-fill-inhibit-regexp
-                   auto-fill-inhibit-regexp)
-    (org-set-local 'auto-fill-inhibit-regexp
-                   (if auto-fill-inhibit-regexp
-                       (concat orgtbl-line-start-regexp "\\|"
-                               auto-fill-inhibit-regexp)
-                     orgtbl-line-start-regexp))
+    (setq-local org-table-may-need-update t)
+    (add-hook 'before-change-functions 'org-before-change-function
+	      nil 'local)
+    (setq-local org-old-auto-fill-inhibit-regexp
+		auto-fill-inhibit-regexp)
+    (setq-local auto-fill-inhibit-regexp
+		(if auto-fill-inhibit-regexp
+		    (concat orgtbl-line-start-regexp "\\|"
+			    auto-fill-inhibit-regexp)
+		  orgtbl-line-start-regexp))
     (add-to-invisibility-spec '(org-cwidth))
     (when (fboundp 'font-lock-add-keywords)
       (font-lock-add-keywords nil orgtbl-extra-font-lock-keywords)
@@ -4404,11 +4398,10 @@ to execute outside of tables."
 		(orgtbl-make-binding 'org-delete-backward-char 109
 				     [backspace] (kbd "DEL")))
 
-    (unless (featurep 'xemacs)
-      (org-defkey orgtbl-mode-map [S-iso-lefttab]
-		  (orgtbl-make-binding 'org-table-previous-field 107
-				       [S-iso-lefttab] [backtab] [(shift tab)]
-				       [(tab)] "\C-i")))
+    (org-defkey orgtbl-mode-map [S-iso-lefttab]
+		(orgtbl-make-binding 'org-table-previous-field 107
+				     [S-iso-lefttab] [backtab] [(shift tab)]
+				     [(tab)] "\C-i"))
 
     (org-defkey orgtbl-mode-map [backtab]
 		(orgtbl-make-binding 'org-table-previous-field 108
@@ -4527,7 +4520,7 @@ With prefix arg, also recompute table."
      (t (let (orgtbl-mode)
 	  (call-interactively (key-binding "\C-c\C-c")))))))
 
-(defun orgtbl-create-or-convert-from-region (arg)
+(defun orgtbl-create-or-convert-from-region (_arg)
   "Create table or convert region to table, if no conflicting binding.
 This installs the table binding `C-c |', but only if there is no
 conflicting binding to this key outside orgtbl-mode."
@@ -4619,20 +4612,24 @@ a radio table."
 	  (beginning-of-line 0)))
       rtn)))
 
-(defun orgtbl-send-replace-tbl (name txt)
-  "Find and replace table NAME with TXT."
+(defun orgtbl-send-replace-tbl (name text)
+  "Find and replace table NAME with TEXT."
   (save-excursion
     (goto-char (point-min))
-    (unless (re-search-forward
-	     (concat "BEGIN +RECEIVE +ORGTBL +" name "\\([ \t]\\|$\\)") nil t)
-      (user-error "Don't know where to insert translated table"))
-    (let ((beg (line-beginning-position 2)))
-      (unless (re-search-forward
-	       (concat "END +RECEIVE +ORGTBL +" name) nil t)
-	(user-error "Cannot find end of insertion region"))
-      (beginning-of-line)
-      (delete-region beg (point)))
-    (insert txt "\n")))
+    (let* ((location-flag nil)
+	   (name (regexp-quote name))
+	   (begin-re (format "BEGIN +RECEIVE +ORGTBL +%s\\([ \t]\\|$\\)" name))
+	   (end-re (format "END +RECEIVE +ORGTBL +%s\\([ \t]\\|$\\)" name)))
+      (while (re-search-forward begin-re nil t)
+	(unless location-flag (setq location-flag t))
+	(let ((beg (line-beginning-position 2)))
+	  (unless (re-search-forward end-re nil t)
+	    (user-error "Cannot find end of receiver location at %d" beg))
+	  (beginning-of-line)
+	  (delete-region beg (point))
+	  (insert text "\n")))
+      (unless location-flag
+	(user-error "No valid receiver location found in the buffer")))))
 
 ;;;###autoload
 (defun org-table-to-lisp (&optional txt)
@@ -4657,7 +4654,7 @@ for this table."
   (catch 'exit
     (unless (org-at-table-p) (user-error "Not at a table"))
     ;; when non-interactive, we assume align has just happened.
-    (when (org-called-interactively-p 'any) (org-table-align))
+    (when (called-interactively-p 'any) (org-table-align))
     (let ((dests (orgtbl-gather-send-defs))
 	  (table (org-table-to-lisp
 		  (buffer-substring-no-properties (org-table-begin)
@@ -4673,7 +4670,7 @@ for this table."
 	  (unless (fboundp transform)
 	    (user-error "No such transformation function %s" transform))
 	  (orgtbl-send-replace-tbl name (funcall transform table params)))
-	(incf ntbl))
+	(cl-incf ntbl))
       (message "Table converted and installed at %d receiver location%s"
 	       ntbl (if (> ntbl 1) "s" ""))
       (and (> ntbl 0) ntbl))))
@@ -4882,7 +4879,7 @@ This may be either a string or a function of two arguments:
 	    (lambda (row)
 	      (if (>= n skip) t
 		(org-element-extract-element row)
-		(incf n)
+		(cl-incf n)
 		nil))
 	    nil t))))
     ;; Handle :skipcols parameter.
@@ -4899,7 +4896,7 @@ This may be either a string or a function of two arguments:
 					  (org-element-contents row)))
 		      (when (memq c skipcols)
 			(org-element-extract-element cell))
-		      (incf c))))))))))
+		      (cl-incf c))))))))))
     ;; Since we are going to export using a low-level mechanism,
     ;; ignore special column and special rows manually.
     (let ((special? (org-export-table-has-special-column-p data))
@@ -5203,7 +5200,7 @@ supported.  It is also possible to use the following one:
 	   params)))
 	(columns (let ((w (plist-get params :columns)))
 		   (cond ((not w) nil)
-			 ((org-string-match-p "{\\|@columnfractions " w) w)
+			 ((string-match-p "{\\|@columnfractions " w) w)
 			 (t (concat "@columnfractions " w))))))
     (if (not columns) output
       (replace-regexp-in-string
@@ -5269,7 +5266,7 @@ supported.  It is also possible to use the following ones:
     params)))
 
 ;; Put the cursor in a column containing numerical values
-;; of an Org-Mode table,
+;; of an Org table,
 ;; type C-c " a
 ;; A new column is added with a bar plot.
 ;; When the table is refreshed (C-u C-c *),
@@ -5277,35 +5274,38 @@ supported.  It is also possible to use the following ones:
 
 (defun orgtbl-ascii-draw (value min max &optional width characters)
   "Draw an ascii bar in a table.
-VALUE is a the value to plot, the width of the bar to draw.  A
-value equal to MIN will be displayed as empty (zero width bar).
-A value equal to MAX will draw a bar filling all the WIDTH.
-WIDTH is the expected width in characters of the column.
-CHARACTERS is a string that will compose the bar, with shades of
-grey from pure white to pure black.  It defaults to a 10
-characters string of regular ascii characters."
-  (let* ((characters (or characters " .:;c!lhVHW"))
-	 (width (or width 12))
-	 (value (if (numberp value) value (string-to-number value)))
-	 (value (* (/ (- (+ value 0.0) min) (- max min)) width)))
-    (cond
-     ((< value     0) "too small")
-     ((> value width) "too large")
-     (t
-      (let ((len (1- (length characters))))
-	(concat
-	 (make-string (floor value) (elt characters len))
-	 (string (elt characters
-		      (floor (* (- value (floor value)) len))))))))))
+VALUE is the value to plot, it determines the width of the bar to draw.
+MIN is the value that will be displayed as empty (zero width bar).
+MAX is the value that will draw a bar filling all the WIDTH.
+WIDTH is the span in characters from MIN to MAX.
+CHARACTERS is a string that will compose the bar, with shades of grey
+from pure white to pure black.  It defaults to a 10 characters string
+of regular ascii characters."
+  (let* ((width      (ceiling (or width 12)))
+	 (characters (or characters " .:;c!lhVHW"))
+	 (len        (1- (length characters)))
+	 (value      (float (if (numberp value)
+				value (string-to-number value))))
+	 (relative   (/ (- value min) (- max min)))
+	 (steps      (round (* relative width len))))
+    (cond ((< steps             0) "too small")
+	  ((> steps (* width len)) "too large")
+	  (t (let* ((int-division (/ steps len))
+		    (remainder    (- steps (* int-division len))))
+	       (concat (make-string int-division (elt characters len))
+		       (string (elt characters remainder))))))))
 
 ;;;###autoload
 (defun orgtbl-ascii-plot (&optional ask)
-  "Draw an ascii bar plot in a column.
-With cursor in a column containing numerical values, this
-function will draw a plot in a new column.
+  "Draw an ASCII bar plot in a column.
+
+With cursor in a column containing numerical values, this function
+will draw a plot in a new column.
+
 ASK, if given, is a numeric prefix to override the default 12
-characters width of the plot.  ASK may also be the
-\\[universal-argument] prefix, which will prompt for the width."
+characters width of the plot.  ASK may also be the `\\[universal-argument]' \
+prefix,
+which will prompt for the width."
   (interactive "P")
   (let ((col (org-table-current-column))
 	(min  1e999)		 ; 1e999 will be converted to infinity
@@ -5444,15 +5444,15 @@ distinguished from a plain table name or ID."
        (save-match-data
 	 (let ((eq (org-table-formula-handle-first/last-rc (match-string 1 m))))
 	   (org-table-get-range
-	    (if (org-string-match-p "\\`\\$[0-9]+\\'" eq)
+	    (if (string-match-p "\\`\\$[0-9]+\\'" eq)
 		(concat "@0" eq)
 	      eq)))))
      form t t 1)))
 
 (defmacro org-define-lookup-function (mode)
   (let ((mode-str (symbol-name mode))
-	(first-p (equal mode 'first))
-	(all-p (equal mode 'all)))
+	(first-p (eq mode 'first))
+	(all-p (eq mode 'all)))
     (let ((plural-str (if all-p "s" "")))
       `(defun ,(intern (format "org-lookup-%s" mode-str)) (val s-list r-list &optional predicate)
 	 ,(format "Find %s occurrence%s of VAL in S-LIST; return corresponding element%s of R-LIST.
@@ -5465,16 +5465,13 @@ This function is generated by a call to the macro `org-define-lookup-function'."
 			      (sl s-list)
 			      (rl (or r-list s-list))
 			      (ret nil))))
-		 (if first-p (add-to-list 'lvars '(match-p nil)))
-		 lvars)
+		 (if first-p (cons '(match-p nil) lvars) lvars))
 	   (while ,(if first-p '(and (not match-p) sl) 'sl)
-	     (progn
-	       (if (funcall p val (car sl))
-		   (progn
-		     ,(if first-p '(setq match-p t))
-		     (let ((rval (car rl)))
-		       (setq ret ,(if all-p '(append ret (list rval)) 'rval)))))
-	       (setq sl (cdr sl) rl (cdr rl))))
+	     (when (funcall p val (car sl))
+	       ,(when first-p '(setq match-p t))
+	       (let ((rval (car rl)))
+		 (setq ret ,(if all-p '(append ret (list rval)) 'rval))))
+	     (setq sl (cdr sl) rl (cdr rl)))
 	   ret)))))
 
 (org-define-lookup-function first)

@@ -312,6 +312,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 (setq sourcepair-source-path    '( "." "./*" ".." "../*"))
 (setq sourcepair-header-path    '( "." "./*" ".." "../*"))
+(setq sourcepair-source-extensions (append (list ".cu") sourcepair-source-extensions))
 
 (define-key global-map "\C-xc" 'sourcepair-load)
 
@@ -446,6 +447,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (interactive)
   (kill-line))
 (load "screenshot.el")
+(load "org.el")
 (load "org-man.el")
 (load "org-git-hyperlink.el")
 (load "org-pydoc-hyperlink.el")
@@ -461,7 +463,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (progn
     (org-remove-from-invisibility-spec '(org-link))
     (org-remove-from-invisibility-spec '(org-cwidth))
-    (org-set-local 'org-pretty-entities nil)
+    (setq org-pretty-entities nil)
     (setq org-hide-emphasis-markers nil)
     (org-restart-font-lock)
     (setq org-descriptive-links nil)))
@@ -472,12 +474,11 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (progn
     (add-to-invisibility-spec '(org-link))
     (add-to-invisibility-spec '(org-cwidth))
-    (org-set-local 'org-pretty-entities t)
+    (setq org-pretty-entities t)
     (setq org-hide-emphasis-markers t)
     (org-restart-font-lock)
     (setq org-descriptive-links t)))
 
-(require 'org)
 (require 'org-crypt)
 (defun my-org-hook ()
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
@@ -503,7 +504,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (setq org-format-latex-options (plist-put org-format-latex-options :scale 1.5))
   (org-bullets-mode)
   (setq org-bullets-bullet-list
-        '("▸"
+        '("►"
           "•"
           "•"
           "•"
@@ -557,7 +558,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (setq org-tags-exclude-from-inheritance (quote ("crypt")))
 ;; GPG key to use for encryption
 ;; Either the Key ID or set to nil to use symmetric encryption.
-(setq org-crypt-key "C1CC1169")
+;(setq org-crypt-key "C1CC1169")  ;; My secrets
+(setq org-crypt-key "95B648B1")  ;; Dov Org Secrets
 
 ;; Make all font-lock faces fonts use inconsolata
 (dolist (face '(font-lock-builtin-face 	
@@ -882,6 +884,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.cxx$" 'c++-mode))
        (list (cons "\\.c$" 'c-mode))
        (list (cons "\\.cu$" 'c++-mode))
+       (list (cons "\\.cuh$" 'c++-mode))
        (list (cons "\\.glsl$" 'c++-mode))
        (list (cons "\\.vala$" 'vala-mode))
        (list (cons "\\.json$" 'js2-mode))
@@ -916,7 +919,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (load "org-htmlslidy")
 (org-babel-do-load-languages
  'org-babel-load-languages
- '((sh . t)
+ '((shell . t)
    (perl . t)
    (emacs-lisp . t)
    (python . t)
@@ -942,6 +945,14 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (setq ansi-color-names-vector
       '("white" "red" "green" "brown" "blue" "magenta" "cyan" "black"))
 (setq ansi-color-map (ansi-color-make-color-map))
+(defun apply-ansi-color (&optional beg end)
+  "Interpret ANSI color esacape sequence by colorifying cotent.
+Operate on selected region on whole buffer."
+  (interactive
+   (if (use-region-p)
+       (list (region-beginning) (region-end))
+     (list (point-min) (point-max))))
+  (ansi-color-apply-on-region beg end))
 
 ;; Solve colorizing of e.g. epylint
 (require 'ansi-color)
