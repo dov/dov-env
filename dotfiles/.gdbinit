@@ -20,16 +20,23 @@ define pyqt5-env
     set env PYTHONPATH=/usr/local/pyqt5/lib/python2.7/site-packages:/usr/local/lib/python2.7/site-packages:/usr/local/lib64/python2.7/site-packages
 end
 
+set disassembly-flavor intel
 define pyqt4-env
     set env PATH=/usr/java/jre1.5.0_06/bin:/usr/X11R6/bin:/home/dov/scripts:/home/dov/Scripts:/home/dov/scripts:/home/dov/bin:/usr/X11R6/bin:/usr/bin:/bin:/usr/sbin:/sbin
     set env PYTHONPATH=/usr/local/lib/python2.7/site-packages:/usr/local/lib64/python2.7/site-packages
 end
 
 source ~/git/dov-env/gdb/pyprint.py
+source ~/git/dov-env/gdb/xjetpyfinish.py
 source ~/git/dov-env/gdb/pythreadgrep.py
 source ~/git/dov-env/gdb/eigmatrixprint.py
 #source ~/git/dov-env/gdb/stl_views.gdb
 source ~/git/dov-env/gdb/load-qt5printers.py
+
+set env PYTHONPATH /usr/local/lib/python2.7/site-packages:/usr/local/lib64/python2.7/site-packages:/home/dov/Experiments/ExtLib
+
+set pagination off
+set print pretty on
 
 python 
 import sys, os
@@ -44,6 +51,7 @@ end
 python
 import sys
 sys.path.insert(0, '/usr/share/gcc-5.3.1/python')
+sys.path.insert(0, '/usr/share/gcc-6.1.1/python')
 from libstdcxx.v6.printers import register_libstdcxx_printers
 end
 

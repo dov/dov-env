@@ -279,7 +279,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
                              (concat emacs-git "snippets")))
 
 (yas-reload-all)
-(global-set-key "\C-ci" 'magit-status)
+(global-set-key "\C-ci" nil)
+(global-set-key "\C-cii" 'magit-status)
+(global-set-key "\C-cif" 'magit-file-popup)
 (global-set-key "\C-c\C-b" 'magit-blame-mode)
 (global-set-key "\C-c\C-o" 'org-open-at-point)
 
@@ -307,7 +309,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (load "dired+")
 (load "dired-details")
 (load "dired-details+")
-(load "csv-mode")
 (load "sourcepair")
 
 (setq sourcepair-source-path    '( "." "./*" ".." "../*"))
@@ -438,6 +439,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 ; This is a bug work around
 (defun org-element-cache-reset (&optional all) (interactive))
+(setq org-babel-sh-command "zsh")
 
 ; The following solves an error with html export
 (add-hook 'nxml-mode-hook (lambda () (rng-validate-mode 0) )t)
@@ -455,6 +457,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (load "org-bullets.el")
 (load "ox.el")
 (load "ox-slidy.el")
+(require 'ox-mediawiki)
 (require 'load-theme-buffer-local)
 
 (defun org-show-all ()
@@ -860,12 +863,20 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'pov-mode "pov-mode.el" "PoVray scene file mode" t)
 (autoload 'sather-mode "sather.el" "Sather mode" t nil)
 (autoload 'cweb-mode "cweb.el" "CWeb mode" t nil)
+(autoload 'rust-mode "rust-mode.el" "Rust mode" t nil)
+(autoload 'csv-mode "csv-mode.el" "CSV mode" t nil)
+(autoload 'octave-mode "octave-mod.el" "Octave mode" t nil)
+;(autoload 'sgml-mode "sgml-mode.el" "SGML mode" t nil)
+(autoload 'doc-mode "doc-mode.el" "Doc load" t nil)
+(autoload 'csharp-mode "csharp-mode-0.4.0.el" "CSharp mode" t nil)
+
 
 ;; Set some auto mode
 (setq auto-mode-alist
       (append
        (list (cons "\\.sa$" 'sather-mode))
        (list (cons "\\.cs$" 'csharp-mode))
+       (list (cons "\\.css$" 'css-mode))
        (list (cons "\\.csv$" 'csv-mode))
        (list (cons "\\.js$" 'js2-mode))
        (list (cons "\\.java$" 'java-mode))
@@ -903,6 +914,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.nxc$" 'c++-mode)) 
        (list (cons "\\.mw" 'mediawiki-mode)) 
        (list (cons "\\.ps" 'ps-mode)) 
+       (list (cons "\\.el\\.gz" 'emacs-lisp-mode))
+       (list (cons "\\.lua$" 'lua-mode)) 
+       (list (cons "\\.rs$" 'rust-mode)) 
        auto-mode-alist))
 
 ;; macros for nxc code
@@ -1657,7 +1671,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (setq javascript-indent-level 2)
 (require 'js-doc)
 
-
 (defun update-indent-mode ()
   (setq c-basic-offset my-indent)
   (c-set-offset 'substatement my-substatement)
@@ -1780,11 +1793,33 @@ With numeric ARG, display the images if and only if ARG is positive."
 (add-hook 'perl-mode-hook (lambda() (my-perlmode-stuff)))
 (add-hook 'c++-mode-hook (lambda() (my-cmode-stuff c++-mode-map)))
 (add-hook 'tcl-mode-hook (lambda() (do-return-indent tcl-mode-map)))
+
+(defun rhino-js-eval-region-or-buffer ()
+  "Evaluate the current buffer (or region if mark-active),
+   and return the result into another buffer,
+   which is to be shown in a window."
+  (interactive)
+  (let ((debug-on-error t) (start 1) (end 1))
+    (cond
+     (mark-active
+      (setq start (point))
+      (setq end (mark)))
+     (t
+      (setq start (point-min))
+      (setq end (point-max))))
+    (setq tmpfile (make-temp-file "js"))
+    (write-region start end tmpfile t)
+    (setq res (shell-command-to-string (concat "rhino " tmpfile)))
+    (message res)
+    (setq deactivate-mark t))) ; deactive the region, regardless
+
 (add-hook 'js2-mode-hook
           (lambda()
             (do-return-indent js2-mode-map)
             (define-key js2-mode-map "\C-c\C-d" 'js-doc-insert-function-doc)
-            (define-key js2-mode-map "@" 'js-doc-insert-tag)))
+            (define-key js2-mode-map "@" 'js-doc-insert-tag)
+            (define-key js2-mode-map "\C-c\C-c" 'rhino-js-eval-region-or-buffer)
+            ))
 
 ;(add-hook 'py-mode-hook '(lambda() 
 ;                           (define-key py-mode-map [(control m)] 'py-newline-and-indent)
@@ -1926,6 +1961,7 @@ Does not delete the prompt."
     (comint-read-input-ring)
     (make-local-variable 'kill-buffer-hook)
     (add-hook 'kill-buffer-hook 'comint-write-input-ring)
+    (setenv "PYTHONPATH" nil)   ;; Solve gdb python3 problems!
     ))
 
 (add-hook 'matlab-shell-mode-hook
