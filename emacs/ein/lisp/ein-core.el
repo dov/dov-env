@@ -43,7 +43,7 @@
   :group 'applications
   :prefix "ein:")
 
-(defvar ein:version "0.7"
+(defvar ein:version "0.12.1"
   "Version number for Emacs IPython Notebook (EIN).")
 
 
@@ -129,6 +129,10 @@ the source is in git repository."
 
 (defvar *running-ipython-version* (make-hash-table))
 
+(defun ein:get-ipython-major-version (vstr)
+  (string-to-number (car (split-string vstr "\\."))))
+
+;; TODO: Use symbols instead of numbers for ipython version ('jupyter and 'legacy)?
 (defun ein:query-ipython-version (&optional url-or-port force)
   (ein:aif (and (not force) (gethash (or url-or-port (ein:default-url-or-port)) *running-ipython-version*))
       it
@@ -145,7 +149,7 @@ the source is in git repository."
             (ein:log 'blather "Version api not implemented, assuming we are working with IPython 2.x")
             (setf (gethash url-or-port *running-ipython-version*) 2))
         (setf (gethash url-or-port *running-ipython-version*)
-              (string-to-number (first (split-string (plist-get (request-response-data resp) :version) "[\\.]"))))))))
+              (ein:get-ipython-major-version (plist-get (request-response-data resp) :version)))))))
 
 (defun ein:force-ipython-version-check ()
   (interactive)

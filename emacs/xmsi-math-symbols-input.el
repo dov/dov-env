@@ -529,6 +529,9 @@
   (puthash "floor" "⌊⌋" xmsi-abrvs)
   (puthash "ceiling" "⌈⌉" xmsi-abrvs)
   (puthash "ceil" "⌈⌉" xmsi-abrvs)
+  (puthash "braket" "⟨⟩" xmsi-abrvs)
+  (puthash "bra" "⟨" xmsi-abrvs)
+  (puthash "ket" "⟩" xmsi-abrvs)
 
   (puthash "angle" "∠" xmsi-abrvs)
   (puthash "rightangle" "⦜" xmsi-abrvs)

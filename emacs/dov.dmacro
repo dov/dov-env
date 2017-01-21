@@ -634,7 +634,7 @@ return fn
 
 #####
 sconstruct	expand	comment block for the top of a sconstruct file
-env = Environment(CPPFLAGS=['-Wall','-g'])
+env = Environment(CPPFLAGS=['-Wall','-g','-std=c++1y'])
 
 env.Program('foo',
             ['foo.cc'])

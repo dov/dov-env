@@ -21,6 +21,14 @@ along with ein.py.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 
+def export_nb(nb_json, format):
+    import IPython.nbconvert as nbconvert
+    import IPython.nbformat as nbformat
+    nb = nbformat.reads(nb_json, nbformat.NO_CONVERT)
+    output = nbconvert.export_by_name(format, nb)
+    print(output[0])
+
+
 def _find_edit_target_012(*args, **kwds):
     from IPython.core.interactiveshell import InteractiveShell
     inst = InteractiveShell.instance()
@@ -32,22 +40,43 @@ def _find_edit_target_013(*args, **kwds):
     inst = InteractiveShell.instance()
     return CodeMagics._find_edit_target(inst, *args, **kwds)
 
+
+def _find_edit_target_python(name):
+    from inspect import getsourcefile, getsourcelines
+    try:
+        obj = eval(name)
+    except NameError:
+        return False
+    else:
+        sfile = getsourcefile(obj)
+        sline = getsourcelines(obj)[-1]
+        if sfile and sline:
+            return(sfile, sline, False)
+        else:
+            return False
+
 try:
     from IPython.core.magics import CodeMagics
     _find_edit_target = _find_edit_target_013
 except ImportError:
     _find_edit_target = _find_edit_target_012
 
+def set_figure_size(*dim):
+    try:
+        from matplotlib.pyplot import rcParams
+        rcParams['figure.figsize'] = dim
+    except:
+        raise RuntimeError("Matplotlib not installed in this instance of python!")
 
 def find_source(name):
     """Given an object as string, `name`, print its place in source code."""
     # FIXME: use JSON display object instead of stdout
-    ret = _find_edit_target(name, {}, [])
+    ret =  _find_edit_target_python(name) or _find_edit_target(name, {}, [])
     if ret:
         (filename, lineno, use_temp) = ret
         if not use_temp:
-            print filename
-            print lineno
+            print(filename)
+            print(lineno)
             return
     raise RuntimeError("Source code for {0} cannot be found".format(name))
 
@@ -58,3 +87,15 @@ def run_docstring_examples(obj, verbose=True):
     inst = InteractiveShell.instance()
     globs = inst.user_ns
     return doctest.run_docstring_examples(obj, globs, verbose=verbose)
+
+
+def print_object_info_for(obj):
+    import IPython.core.oinspect
+    import json
+
+    inspector = IPython.core.oinspect.Inspector()
+
+    try:
+        print(json.dumps(inspector.info(obj)))
+    except NameError:
+        print(json.dumps(inspector.noinfo()))

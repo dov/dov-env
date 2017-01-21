@@ -25,12 +25,12 @@
 
 ;;; Code:
 
-
 (eval-when-compile (require 'cl))
 (require 'eieio)
 (require 'ewoc)
 
 (require 'ein-core)
+(require 'ein-utils)
 (require 'ein-cell)
 (require 'ein-kill-ring)
 
@@ -39,6 +39,14 @@
 
 (define-obsolete-variable-alias
   'ein:notebook-enable-undo 'ein:worksheet-enable-undo "0.2.0")
+
+(defcustom ein:worksheet-show-slide-data nil
+  "Controls whether to show slide metadata by default when
+  opening or creating worksheets. Note that viewing of slide
+  metadata can be toggled in an open worksheet using the command
+  C-cS."
+  :type 'boolean
+  :group 'ein)
 
 (defcustom ein:worksheet-enable-undo 'yes
   "Configure undo in notebook buffers.
@@ -68,8 +76,9 @@ this value."
 
 (defun ein:worksheet-empty-undo-maybe ()
   "Empty `buffer-undo-list' if `ein:worksheet-enable-undo' is `yes'."
-  (when (eq ein:worksheet-enable-undo 'yes)
-    (setq buffer-undo-list nil)))
+  ;; (when (eq ein:worksheet-enable-undo 'yes)
+  ;;   (setq buffer-undo-list nil))
+  )
 
 
 ;;; Class and variable
@@ -92,6 +101,9 @@ this value."
    (kernel :initarg :kernel :type ein:$kernel)
    (dirty :initarg :dirty :type boolean :initform nil)
    (metadata :initarg :metadata :initform nil)
+   (show-slide-data-p :initarg :show-slide-data-p
+                      :initform nil
+                      :accessor ein:worksheet-show-slide-data-p)
    (events :initarg :events)))
 
 (ein:deflocal ein:%worksheet% nil
@@ -105,6 +117,7 @@ this value."
   (apply #'make-instance 'ein:worksheet
          :nbformat nbformat :get-notebook-name get-notebook-name
          :discard-output-p discard-output-p :kernel kernel :events events
+         :show-slide-data-p ein:worksheet-show-slide-data
          args))
 
 (defmethod ein:worksheet-bind-events ((ws ein:worksheet))
@@ -185,6 +198,14 @@ this value."
   (ein:with-live-buffer (ein:worksheet-buffer ws)
     (set-buffer-modified-p dirty))
   (oset ws :dirty dirty))
+
+(defun ein:worksheet-toggle-slideshow-view ()
+  "Changes the display of slideshow metadata in the current worksheet."
+  (interactive)
+  (let ((ws (ein:worksheet--get-ws-or-error)))
+    (setf (ein:worksheet-show-slide-data-p ws)
+          (not (ein:worksheet-show-slide-data-p ws)))
+    (ein:worksheet-render ws)))
 
 (defmethod ein:worksheet-render ((ws ein:worksheet))
   (with-current-buffer (ein:worksheet--get-buffer ws)
@@ -339,7 +360,7 @@ buffer or there is no cell in the current buffer, return `nil'."
     (if (funcall cell-p cell)
         cell
       (unless noerror
-        (error "No cell found at pos=%s" pos)))))
+        (error "No cell of type %s found at current position." cell-p)))))
 
 (defun ein:worksheet-at-codecell-p ()
   (ein:worksheet-get-current-cell :noerror t :cell-p #'ein:codecell-p))
@@ -387,7 +408,7 @@ If you really want use this command, you can do something like this
            (oref ws :ewoc)
            (ein:cell-all-element cell)))
   (oset ws :dirty t)
-  (ein:worksheet-empty-undo-maybe)
+  ;;(ein:worksheet-empty-undo-maybe)
   (when focus (ein:worksheet-focus-cell)))
 
 (defun ein:worksheet-kill-cell (ws cells &optional focus)
@@ -472,7 +493,8 @@ after PIVOT and return the new cell."
       (ein:cell-insert-below pivot cell))
      (t (error
          "PIVOT is `nil' but ncells != 0.  There is something wrong...")))
-    (ein:worksheet-empty-undo-maybe)
+                                        ;(ein:worksheet-empty-undo-maybe)
+    (push `(apply ein:worksheet-delete-cell ,ws ,cell) buffer-undo-list)
     (oset ws :dirty t)
     (when focus (ein:cell-goto cell))
     cell))
@@ -496,7 +518,7 @@ See also: `ein:worksheet-insert-cell-below'."
           (ein:cell-enter-first cell))))
      (t (error
          "PIVOT is `nil' but ncells > 0.  There is something wrong...")))
-    (ein:worksheet-empty-undo-maybe)
+    (push `(apply ein:worksheet-delete-cell ,ws ,cell) buffer-undo-list)
     (oset ws :dirty t)
     (when focus (ein:cell-goto cell))
     cell))
@@ -526,7 +548,27 @@ directly."
       (when (ein:codecell-p new)
         (oset new :kernel (oref ws :kernel)))
       (ein:worksheet-empty-undo-maybe)
-      (when focus (ein:cell-goto new relpos)))))
+      (when focus (ein:cell-goto new relpos))))
+  )
+
+(defun ein:worksheet-toggle-slide-type (ws cell &optional focus)
+  "Toggle the slide metadata of the cell at point. Available slide settings are:
+ [slide, subslide, fragment, skip, notes, - (none)]."
+  (interactive (list (ein:worksheet--get-ws-or-error)
+                     (ein:worksheet-get-current-cell)
+                     t))
+  (let ((new_slide_type (ein:case-equal (oref cell :slidetype)
+                          (("-") "slide")
+                          (("slide") "subslide")
+                          (("subslide") "fragment")
+                          (("fragment") "skip")
+                          (("skip") "notes")
+                          (("notes") "-"))))
+    (message "changing slide type %s" new_slide_type)
+    (oset cell :slidetype new_slide_type))
+  (ewoc-invalidate (oref cell :ewoc) (ein:cell-element-get cell :prompt))
+  (ein:worksheet-empty-undo-maybe)
+  (when focus (ein:cell-goto cell)))
 
 (defun ein:worksheet-change-cell-type (ws cell type &optional level focus)
   "Change the cell type of the current cell.
@@ -697,14 +739,16 @@ It is set in `ein:notebook-multilang-mode'."
   (ein:aif (if up (ein:cell-prev cell) (ein:cell-next cell))
       (let ((inhibit-read-only t)
             (pivot-cell it))
-        (ein:cell-save-text cell)
-        (ein:worksheet-delete-cell ws cell)
-        (funcall (if up
-                     #'ein:worksheet-insert-cell-above
-                   #'ein:worksheet-insert-cell-below)
-                 ws cell pivot-cell)
-        (ein:cell-goto cell)
-        (oset ws :dirty t))
+        (ein:with-undo-disabled
+         (ein:cell-save-text cell)
+         (ein:worksheet-delete-cell ws cell)
+         (funcall (if up
+                      #'ein:worksheet-insert-cell-above
+                    #'ein:worksheet-insert-cell-below)
+                  ws cell pivot-cell)
+         (ein:cell-goto cell)
+         (oset ws :dirty t))
+        (push `(apply ein:worksheet-move-cell ,ws ,cell ,(not up)) buffer-undo-list))
     (error "No %s cell" (if up "previous" "next"))))
 
 (defun ein:worksheet-move-cell-up (ws cell)
@@ -765,14 +809,22 @@ Do not clear input prompts when the prefix argument is given."
   (mapc (lambda (cell) (oset cell :kernel (oref ws :kernel)))
         (ein:filter #'ein:codecell-p (ein:worksheet-get-cells ws))))
 
+(defun ein:undo-execute-cell (ws cell old-cell)
+  (ein:worksheet-insert-cell-below ws old-cell cell)
+  (ein:worksheet-delete-cell ws cell))
+
 (defun ein:worksheet-execute-cell (ws cell)
   "Execute code type CELL."
   (interactive (list (ein:worksheet--get-ws-or-error)
                      (ein:worksheet-get-current-cell
                       :cell-p #'ein:codecell-p)))
-  (ein:kernel-if-ready (oref ws :kernel)
-    (ein:cell-execute cell)
-    (oset ws :dirty t)
+  (ein:kernel-if-ready (slot-value ws 'kernel)
+    (push `(apply ein:undo-execute-cell ,ws ,cell ,(ein:cell-copy cell)) buffer-undo-list)
+    (ein:log 'debug "buffer-undo-list: %s" (length buffer-undo-list))
+    (ein:with-undo-disabled
+     (ein:cell-execute cell)
+     (oset ws :dirty t))
+    (ein:log 'debug "buffer-undo-list: %s" (length buffer-undo-list))
     cell))
 
 (defun ein:worksheet-execute-cell-and-goto-next (ws cell &optional insert)
@@ -835,7 +887,7 @@ to decrement index to less than or equal to 1."
               (+ ein:worksheet--history-index inc))
         (when (< ein:worksheet--history-index 1)
           (setq ein:worksheet--history-index 1)
-          (error "This is the latest input"))
+          (warn "This is the latest input"))
         ein:worksheet--history-index)
     (setq ein:worksheet--history-index 1)))
 

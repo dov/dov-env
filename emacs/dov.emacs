@@ -144,6 +144,8 @@
 (load "xmsi-math-symbols-input.el")
 (load "xml-rpc")
 (require 'ein)
+(global-set-key [?\C-c ?j] 'ein:notebooklist-open)  ; j for jupyter
+
 (require 'ein-loaddefs)
 (require 'wgrep)
 (require 'pretty-mode)
@@ -359,6 +361,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
             (define-key ein:notebook-mode-map [(control up)] 'scroll-up-line)
             (define-key ein:notebook-mode-map [(control down)] 'scroll-down-line)
             (define-key ein:notebook-mode-map [(return)] 'newline-and-indent)
+            (define-key ein:notebook-mode-map [(control c) ?t] 'ein:worksheet-change-cell-type)
             ))
 ;(add-hook 'LaTeX-mode-hook #'my-latex-mode-hook)
 ;(defun my-latex-mode-hook ()
@@ -1463,6 +1466,8 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control c) ?b ?p] 'find-most-recent-python-buffer)
 (global-set-key [(control c) ?b ?m] 'find-most-recent-magit-buffer)
 (global-set-key [(control c) ?b ?o] 'find-most-recent-org-buffer)
+(global-set-key [(control c) ?b ?j] '(lambda () (interactive) 
+  (switch-to-buffer (find-most-recent-pattern-buffer "\\*ein: http"))))
 (global-set-key [(alt meta m)] 'find-most-recent-magit-buffer)
 (global-set-key [(alt meta y)] 'find-most-recent-python-buffer)
 (global-set-key [(alt meta n)] '(lambda () (interactive) 
@@ -1479,6 +1484,8 @@ With numeric ARG, display the images if and only if ARG is positive."
   (switch-to-buffer "*scratch*")))
 (global-set-key [(alt meta p)] '(lambda () (interactive) 
   (switch-to-buffer "*Python*")))
+(global-set-key [(alt meta j)] '(lambda () (interactive) 
+  (switch-to-buffer (find-most-recent-pattern-buffer "\\*ein:notebook"))))
 
 (global-set-key [(control up)] 'scroll-up-line)
 (global-set-key [(control kp-up)] 'scroll-up-line)

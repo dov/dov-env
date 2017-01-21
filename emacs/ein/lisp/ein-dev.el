@@ -137,6 +137,14 @@ callback (`websocket-callback-debug-on-error') is enabled."
   (ein:dev-depatch-backtrace)
   (ein:dev-show-debug-setting))
 
+(defun ein:dev-pop-to-debug-channels ()
+  "Open notebok communication channels websocket log buffer."
+  (interactive)
+  (pop-to-buffer
+   (websocket-get-debug-buffer-create
+    (ein:$websocket-ws (ein:$kernel-channels
+                        (ein:$notebook-kernel ein:%notebook%))))))
+
 (defun ein:dev-pop-to-debug-shell ()
   "Open shell channel websocket log buffer."
   (interactive)
@@ -326,7 +334,7 @@ Use this function in addition to `pp' (see `ein:dev--pp-to-string')."
       (while t
         (forward-sexp)
         ;; Prettify nested s-exp.
-        (when (looking-back ")")
+        (when (looking-back ")" (1- (point)))
           (save-excursion
             (backward-sexp)
             (ein:dev--prettify-sexp)))

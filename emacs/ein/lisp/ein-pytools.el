@@ -54,8 +54,9 @@ If OTHER-WINDOW is non-`nil', open the file in the other window."
 (defun ein:pytools-setup-hooks (kernel notebook)
   (push (cons #'ein:pytools-add-sys-path kernel)
         (ein:$kernel-after-start-hook kernel))
-  (push (cons #'ein:pytools-get-notebook-dir (list kernel notebook))
-        (ein:$kernel-after-start-hook kernel)))
+  ;; (push (cons #'ein:pytools-get-notebook-dir (list kernel notebook))
+  ;;       (ein:$kernel-after-start-hook kernel))
+  )
 
 (defun ein:pytools-add-sys-path (kernel)
   (ein:kernel-execute
@@ -334,7 +335,14 @@ Currently EIN/IPython supports exporting to the following formats:
        (list buffer)))
     (switch-to-buffer buffer)))
 
+
 
+;;;; Helper functions for working with matplotlib
+
+(defun ein:pytools-set-figure-size (width height)
+  "Set the default figure size for matplotlib figures. Works by setting `rcParams['figure.figsize']`."
+  (interactive "nWidth: \nnHeight: ")
+  (ein:shared-output-eval-string (format "__import__('ein').set_figure_size(%s,%s)" width height)))
 
 (provide 'ein-pytools)
 
