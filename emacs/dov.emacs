@@ -306,7 +306,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 	    (doxymacs-font-lock)))
 ))
 (load "python-mode")
-(load "pydoc")
+;(load "pydoc")
 (load "mediawiki")
 (load "dired+")
 (load "dired-details")

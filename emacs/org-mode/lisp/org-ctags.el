@@ -1,6 +1,6 @@
 ;;; org-ctags.el - Integrate Emacs "tags" Facility with Org -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2017 Free Software Foundation, Inc.
 
 ;; Author: Paul Sexton <eeeickythump@gmail.com>
 
@@ -413,7 +413,6 @@ the heading a destination for the tag `NAME'."
   (insert (org-ctags-string-search-and-replace
            "%t" (capitalize name) org-ctags-new-topic-template))
   (backward-char 4)
-  (org-update-radio-target-regexp)
   (end-of-line)
   (forward-line 2)
   (when narrowp

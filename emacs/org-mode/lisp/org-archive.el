@@ -1,6 +1,6 @@
 ;;; org-archive.el --- Archiving for Org             -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -356,7 +356,8 @@ this heading."
 		   (org-set-tags-to all-tags))
 	      ;; Mark the entry as done
 	      (when (and org-archive-mark-done
-			 (looking-at org-todo-line-regexp)
+			 (let ((case-fold-search nil))
+			   (looking-at org-todo-line-regexp))
 			 (or (not (match-end 2))
 			     (not (member (match-string 2) org-done-keywords))))
 		(let (org-log-done org-todo-log-states)
@@ -395,9 +396,12 @@ this heading."
 ;;;###autoload
 (defun org-archive-to-archive-sibling ()
   "Archive the current heading by moving it under the archive sibling.
+
 The archive sibling is a sibling of the heading with the heading name
 `org-archive-sibling-heading' and an `org-archive-tag' tag.  If this
-sibling does not exist, it will be created at the end of the subtree."
+sibling does not exist, it will be created at the end of the subtree.
+
+Archiving time is retained in the ARCHIVE_TIME node property."
   (interactive)
   (if (and (org-region-active-p) org-loop-over-headlines-in-active-region)
       (let ((cl (when (eq org-loop-over-headlines-in-active-region 'start-level)
@@ -469,8 +473,9 @@ it is on a headline, try all direct children.
 When TAG is non-nil, don't move trees, but mark them with the ARCHIVE tag."
   (org-archive-all-matches
    (lambda (_beg end)
-     (unless (re-search-forward org-not-done-heading-regexp end t)
-       "no open TODO items"))
+     (let ((case-fold-search nil))
+       (unless (re-search-forward org-not-done-heading-regexp end t)
+	 "no open TODO items")))
    tag))
 
 (defun org-archive-all-old (&optional tag)

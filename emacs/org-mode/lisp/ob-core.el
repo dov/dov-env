@@ -1,6 +1,6 @@
 ;;; ob-core.el --- Working with Code Blocks          -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
 
 ;; Authors: Eric Schulte
 ;;	Dan Davison
@@ -207,7 +207,7 @@ This string must include a \"%s\" which will be replaced by the results."
 (defun org-babel--get-vars (params)
   "Return the babel variable assignments in PARAMS.
 
-PARAMS is a quasi-alist of header args, whcih may contain
+PARAMS is a quasi-alist of header args, which may contain
 multiple entries for the key `:var'.  This function returns a
 list of the cdr of all the `:var' entries."
   (mapcar #'cdr
@@ -247,15 +247,15 @@ should be asked whether to allow evaluation."
 
 (defun org-babel-check-evaluate (info)
   "Check if code block INFO should be evaluated.
-
 Do not query the user, but do display an informative message if
 evaluation is blocked.  Returns non-nil if evaluation is not blocked."
-  (let ((evalp (org-babel-check-confirm-evaluate info)))
-    (when (null evalp)
-      (message "Evaluation of this %s code-block%sis disabled."
+  (let ((confirmed (org-babel-check-confirm-evaluate info)))
+    (unless confirmed
+      (message "Evaluation of this %s code block%sis disabled."
 	       (nth 0 info)
-	       (let ((name (nth 4 info))) (if name (format " (%s) " name) ""))))
-    evalp))
+	       (let ((name (nth 4 info)))
+		 (if name (format " (%s) " name) " "))))
+    confirmed))
 
 ;; Dynamically scoped for asynchronous export.
 (defvar org-babel-confirm-evaluate-answer-no)
@@ -288,7 +288,7 @@ environment, to override this check."
 		     (format "Evaluate this %s code block%son your system? "
 			     lang name-string)))
 	       (progn
-		(message "Evaluation of this %s code-block%sis aborted."
+		(message "Evaluation of this %s code block%sis aborted."
 			 lang name-string)
 		nil)))
       (x (error "Unexpected value `%s' from `org-babel-check-confirm-evaluate'" x)))))
@@ -297,8 +297,6 @@ environment, to override this check."
 (defun org-babel-execute-safely-maybe ()
   (unless org-babel-no-eval-on-ctrl-c-ctrl-c
     (org-babel-execute-maybe)))
-
-(add-hook 'org-ctrl-c-ctrl-c-hook 'org-babel-execute-safely-maybe)
 
 ;;;###autoload
 (defun org-babel-execute-maybe ()
@@ -1329,7 +1327,6 @@ This can be called with `\\[org-ctrl-c-ctrl-c]'."
 			      (lambda (ol) (overlay-get ol 'babel-hash))
                               (overlays-at (or point (point))))))))
     (when hash (kill-new hash) (message hash))))
-(add-hook 'org-ctrl-c-ctrl-c-hook 'org-babel-hash-at-point)
 
 (defun org-babel-result-hide-spec ()
   "Hide portions of results lines.

@@ -1,6 +1,6 @@
 ;;; org-clock.el --- The time clocking code for Org mode -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -37,8 +37,6 @@
 (declare-function org-element-type "org-element" (element))
 (declare-function org-table-goto-line "org-table" (n))
 
-(defvar org-clock-stored-history nil
-  "Clock history, populated by `org-clock-load', which see.")
 (defvar org-frame-title-format-backup frame-title-format)
 (defvar org-time-stamp-formats)
 (defvar org-ts-what)
@@ -461,6 +459,11 @@ to add an effort property.")
 (defvar org-clock-has-been-used nil
   "Has the clock been used during the current Emacs session?")
 
+(defvar org-clock-stored-history nil
+  "Clock history, populated by `org-clock-load'")
+(defvar org-clock-stored-resume-clock nil
+  "Clock to resume, saved by `org-clock-load'")
+
 (defconst org-clock--oldest-date
   (let* ((dichotomy
 	  (lambda (min max pred)
@@ -676,7 +679,7 @@ If not, show simply the clocked time like 01:50."
 				   "] (" (replace-regexp-in-string "%" "%%" org-clock-heading) ")")
 			  'face 'org-mode-line-clock)))
 	  (format clockstr work-done-str))
-      (propertize (concat "[" (org-minutes-to-clocksum-string clocked-time)
+      (propertize (concat " [" (org-minutes-to-clocksum-string clocked-time)
 			  "]" (format " (%s)" org-clock-heading))
 		  'face 'org-mode-line-clock))))
 
@@ -1266,10 +1269,11 @@ the default behavior."
 	 (org-clock-history-push)
 	 (setq org-clock-current-task (nth 4 (org-heading-components)))
 	 (cond ((functionp org-clock-in-switch-to-state)
-		(looking-at org-complex-heading-regexp)
+		(let ((case-fold-search nil))
+		  (looking-at org-complex-heading-regexp))
 		(let ((newstate (funcall org-clock-in-switch-to-state
 					 (match-string 2))))
-		  (if newstate (org-todo newstate))))
+		  (when newstate (org-todo newstate))))
 	       ((and org-clock-in-switch-to-state
 		     (not (looking-at (concat org-outline-regexp "[ \t]*"
 					      org-clock-in-switch-to-state
@@ -1617,10 +1621,11 @@ to, overriding the existing value of `org-clock-out-switch-to-state'."
 		    (org-clock-out-when-done nil))
 		(cond
 		 ((functionp org-clock-out-switch-to-state)
-		  (looking-at org-complex-heading-regexp)
+		  (let ((case-fold-search nil))
+		    (looking-at org-complex-heading-regexp))
 		  (let ((newstate (funcall org-clock-out-switch-to-state
 					   (match-string 2))))
-		    (if newstate (org-todo newstate))))
+		    (when newstate (org-todo newstate))))
 		 ((and org-clock-out-switch-to-state
 		       (not (looking-at (concat org-outline-regexp "[ \t]*"
 						org-clock-out-switch-to-state
@@ -1945,10 +1950,11 @@ This creates a new overlay and stores it in `org-clock-overlays', so that it
 will be easy to remove."
   (let (ov tx)
     (beginning-of-line)
-    (when (looking-at org-complex-heading-regexp)
-      (goto-char (match-beginning 4)))
+    (let ((case-fold-search nil))
+      (when (looking-at org-complex-heading-regexp)
+	(goto-char (match-beginning 4))))
     (setq ov (make-overlay (point) (point-at-eol))
-    	  tx (concat (buffer-substring-no-properties (point) (match-end 4))
+	  tx (concat (buffer-substring-no-properties (point) (match-end 4))
 		     (org-add-props
 			 (make-string
 			  (max 0 (- (- 60 (current-column))
@@ -2356,6 +2362,16 @@ the currently selected interval size."
   (setq params (org-combine-plists org-clocktable-defaults params))
   (catch 'exit
     (let* ((scope (plist-get params :scope))
+	   (files (pcase scope
+		    (`agenda
+		     (org-agenda-files t))
+		    (`agenda-with-archives
+		     (org-add-archive-files (org-agenda-files t)))
+		    (`file-with-archives
+		     (and buffer-file-name
+			  (org-add-archive-files (list buffer-file-name))))
+		    ((pred consp) scope)
+		    (_ (or (buffer-file-name) (current-buffer)))))
 	   (block (plist-get params :block))
 	   (ts (plist-get params :tstart))
 	   (te (plist-get params :tend))
@@ -2365,7 +2381,7 @@ the currently selected interval size."
 	   (formatter (or (plist-get params :formatter)
 			  org-clock-clocktable-formatter
 			  'org-clocktable-write-default))
-	   cc ipos one-file-with-archives scope-is-list tbls level)
+	   cc)
       ;; Check if we need to do steps
       (when block
 	;; Get the range text for the header
@@ -2379,62 +2395,48 @@ the currently selected interval size."
 	(org-clocktable-steps params)
 	(throw 'exit nil))
 
-      (setq ipos (point)) ; remember the insertion position
+      (org-agenda-prepare-buffers (if (consp files) files (list files)))
 
-      ;; Get the right scope
-      (cond
-       ((eq scope 'agenda)
-	(setq scope (org-agenda-files t)))
-       ((eq scope 'agenda-with-archives)
-	(setq scope (org-agenda-files t))
-	(setq scope (org-add-archive-files scope)))
-       ((eq scope 'file-with-archives)
-	(setq scope (and buffer-file-name
-			 (org-add-archive-files (list buffer-file-name)))
-	      one-file-with-archives t)))
-      (setq scope-is-list (and scope (listp scope)))
-      (if scope-is-list
-	  ;; we collect from several files
-	  (let* ((files scope)
-		 file)
-	    (org-agenda-prepare-buffers files)
-	    (while (setq file (pop files))
-	      (with-current-buffer (find-buffer-visiting file)
-		(save-excursion
-		  (save-restriction
-		    (push (org-clock-get-table-data file params) tbls))))))
-	;; Just from the current file
-	(save-restriction
-	  ;; get the right range into the restriction
-	  (org-agenda-prepare-buffers (list (or (buffer-file-name)
-						(current-buffer))))
-	  (cond
-	   ((not scope))  ; use the restriction as it is now
-	   ((eq scope 'file) (widen))
-	   ((eq scope 'subtree) (org-narrow-to-subtree))
-	   ((eq scope 'tree)
-	    (while (org-up-heading-safe))
-	    (org-narrow-to-subtree))
-	   ((and (symbolp scope) (string-match "^tree\\([0-9]+\\)$"
-					       (symbol-name scope)))
-	    (setq level (string-to-number (match-string 1 (symbol-name scope))))
-	    (catch 'exit
-	      (while (org-up-heading-safe)
-		(looking-at org-outline-regexp)
-		(if (<= (org-reduced-level (funcall outline-level)) level)
-		    (throw 'exit nil))))
-	    (org-narrow-to-subtree)))
-	  ;; do the table, with no file name.
-	  (push (org-clock-get-table-data nil params) tbls)))
+      (let ((origin (point))
+	    (tables
+	     (if (consp files)
+		 (mapcar (lambda (file)
+			   (with-current-buffer (find-buffer-visiting file)
+			     (save-excursion
+			       (save-restriction
+				 (org-clock-get-table-data file params)))))
+			 files)
+	       ;; Get the right restriction for the scope.
+	       (cond
+		((not scope))	     ;use the restriction as it is now
+		((eq scope 'file) (widen))
+		((eq scope 'subtree) (org-narrow-to-subtree))
+		((eq scope 'tree)
+		 (while (org-up-heading-safe))
+		 (org-narrow-to-subtree))
+		((and (symbolp scope)
+		      (string-match "\\`tree\\([0-9]+\\)\\'"
+				    (symbol-name scope)))
+		 (let ((level (string-to-number
+			       (match-string 1 (symbol-name scope)))))
+		   (catch 'exit
+		     (while (org-up-heading-safe)
+		       (looking-at org-outline-regexp)
+		       (when (<= (org-reduced-level (funcall outline-level))
+				 level)
+			 (throw 'exit nil))))
+		   (org-narrow-to-subtree))))
+	       (list (org-clock-get-table-data nil params))))
+	    (multifile
+	     ;; Even though `file-with-archives' can consist of
+	     ;; multiple files, we consider this is one extended file
+	     ;; instead.
+	     (and (consp files) (not (eq scope 'file-with-archives)))))
 
-      ;; OK, at this point we tbls as a list of tables, one per file
-      (setq tbls (nreverse tbls))
-
-      (setq params (plist-put params :multifile scope-is-list))
-      (setq params (plist-put params :one-file-with-archives
-			      one-file-with-archives))
-
-      (funcall formatter ipos tbls params))))
+	(funcall formatter
+		 origin
+		 tables
+		 (org-combine-plists params `(:multifile ,multifile)))))))
 
 (defun org-clocktable-write-default (ipos tables params)
   "Write out a clock table at position IPOS in the current buffer.
@@ -2468,7 +2470,6 @@ from the dynamic block definition."
 	 (timestamp (plist-get params :timestamp))
 	 (properties (plist-get params :properties))
 	 (ntcol (max 1 (or (plist-get params :tcolumns) 100)))
-	 (rm-file-column (plist-get params :one-file-with-archives))
 	 (indent (plist-get params :indent))
 	 (case-fold-search t)
 	 range-text total-time tbl level hlc formula pcol
@@ -2673,10 +2674,6 @@ from the dynamic block definition."
 	    (org-table-goto-column pcol nil 'force)
 	    (insert "%")))
       (org-table-recalculate 'all))
-    (when rm-file-column
-      ;; The file column is actually not wanted
-      (forward-char 1)
-      (org-table-delete-column))
     total-time))
 
 (defun org-clocktable-indent-string (level)
@@ -2755,7 +2752,7 @@ file time (in minutes) as 1st and 2nd elements.  The third element
 of this list will be a list of headline entries.  Each entry has the
 following structure:
 
-  \(LEVEL HEADLINE TIMESTAMP TIME)
+  (LEVEL HEADLINE TIMESTAMP TIME)
 
 LEVEL:     The level of the headline, as an integer.  This will be
            the reduced level, so 1,2,3,... even if only odd levels
@@ -2855,23 +2852,16 @@ TOTAL s a time string like 10:21 specifying the total times.
 STRINGS is a list of strings that should be checked for a time.
 The first string that does have a time will be used.
 This function is made for clock tables."
-  (let ((re "\\([0-9]+\\):\\([0-9]+\\)")
-	tot s)
-    (save-match-data
-      (catch 'exit
-	(if (not (string-match re total))
-	    (throw 'exit 0.)
-	  (setq tot (+ (string-to-number (match-string 2 total))
-		       (* 60 (string-to-number (match-string 1 total)))))
-	  (if (= tot 0.) (throw 'exit 0.)))
-	(while (setq s (pop strings))
-	  (if (string-match "\\([0-9]+\\):\\([0-9]+\\)" s)
-	      (throw 'exit
-		     (/ (* 100.0 (+ (string-to-number (match-string 2 s))
-				    (* 60 (string-to-number
-					   (match-string 1 s)))))
-			tot))))
-	0))))
+  (save-match-data
+    (let ((total (org-duration-string-to-minutes total)))
+      (if (= total 0) 0
+	(cl-some (lambda (s)
+		   ;; Any number can express a duration.  See
+		   ;; `org-hh:mm-string-to-minutes' for details.
+		   (and (string-match-p "[0-9]" s)
+			(/ (* 100.0 (org-duration-string-to-minutes s))
+			   total)))
+		 strings)))))
 
 ;; Saving and loading the clock
 
@@ -2929,84 +2919,66 @@ The details of what will be saved are regulated by the variable
              (or org-clock-loaded
 		 org-clock-has-been-used
 		 (not (file-exists-p org-clock-persist-file))))
-    (let (b)
-      (with-current-buffer (find-file (expand-file-name org-clock-persist-file))
-	(progn
-	  (delete-region (point-min) (point-max))
-	  ;;Store clock
-	  (insert (format ";; org-persist.el - %s at %s\n"
-			  (system-name) (format-time-string
-					 (cdr org-time-stamp-formats))))
-	  (if (and (memq org-clock-persist '(t clock))
-		   (setq b (org-clocking-buffer))
-		   (setq b (or (buffer-base-buffer b) b))
-		   (buffer-live-p b)
-		   (buffer-file-name b)
-		   (or (not org-clock-persist-query-save)
-		       (y-or-n-p (concat "Save current clock ("
-					 org-clock-heading ") "))))
-	      (insert "(setq resume-clock '(\""
-		      (buffer-file-name (org-clocking-buffer))
-		      "\" . " (int-to-string (marker-position org-clock-marker))
-		      "))\n"))
-	  ;; Store clocked task history.  Tasks are stored reversed to make
-	  ;; reading simpler
-	  (when (and (memq org-clock-persist '(t history))
-		     org-clock-history)
-	    (insert
-	     "(setq org-clock-stored-history '("
-	     (mapconcat
-	      (lambda (m)
-		(when (and (setq b (marker-buffer m))
-			   (setq b (or (buffer-base-buffer b) b))
-			   (buffer-live-p b)
-			   (buffer-file-name b))
-		  (concat "(\"" (buffer-file-name b)
-			  "\" . " (int-to-string (marker-position m))
-			  ")")))
-	      (reverse org-clock-history) " ") "))\n"))
-	  (save-buffer)
-	  (kill-buffer (current-buffer)))))))
+    (with-temp-file org-clock-persist-file
+      (insert (format ";; org-persist.el - %s at %s\n"
+		      (system-name)
+		      (format-time-string (org-time-stamp-format t))))
+      ;; Store clock to be resumed.
+      (when (and (memq org-clock-persist '(t clock))
+		 (let ((b (org-base-buffer (org-clocking-buffer))))
+		   (and (buffer-live-p b)
+			(buffer-file-name b)
+			(or (not org-clock-persist-query-save)
+			    (y-or-n-p (format "Save current clock (%s) "
+					      org-clock-heading))))))
+	(insert
+	 (format "(setq org-clock-stored-resume-clock '(%S . %d))\n"
+		 (buffer-file-name (org-base-buffer (org-clocking-buffer)))
+		 (marker-position org-clock-marker))))
+      ;; Store clocked task history.  Tasks are stored reversed to
+      ;; make reading simpler.
+      (when (and (memq org-clock-persist '(t history))
+		 org-clock-history)
+	(insert
+	 (format "(setq org-clock-stored-history '(%s))\n"
+		 (mapconcat
+		  (lambda (m)
+		    (let ((b (org-base-buffer (marker-buffer m))))
+		      (when (and (buffer-live-p b)
+				 (buffer-file-name b))
+			(format "(%S . %d)"
+				(buffer-file-name b)
+				(marker-position m)))))
+		  (reverse org-clock-history)
+		  " ")))))))
 
 (defun org-clock-load ()
   "Load clock-related data from disk, maybe resuming a stored clock."
   (when (and org-clock-persist (not org-clock-loaded))
-    (let ((filename (expand-file-name org-clock-persist-file))
-	  (org-clock-in-resume 'auto-restart)
-	  resume-clock)
-      (if (not (file-readable-p filename))
-	  (message "Not restoring clock data; %s not found"
-		   org-clock-persist-file)
-	(message "%s" "Restoring clock data")
-	(setq org-clock-loaded t)
-	;; Load history.
-	(load-file filename)
-	(save-window-excursion
-	  (dolist (task org-clock-stored-history)
-	    (when (file-exists-p (car task))
-	      (org-clock-history-push (cdr task)
-				      (find-file (car task))))))
-	;; Resume clock.
-	(when (and resume-clock org-clock-persist
-		   (file-exists-p (car resume-clock))
-		   (or (not org-clock-persist-query-resume)
-		       (y-or-n-p
-			(concat
-			 "Resume clock ("
-			 (with-current-buffer (find-file (car resume-clock))
-			   (save-excursion
-			     (goto-char (cdr resume-clock))
-			     (org-back-to-heading t)
-			     (and (looking-at org-complex-heading-regexp)
-				  (match-string 4))))
-			 ") "))))
-	  (when (file-exists-p (car resume-clock))
-	    (with-current-buffer (find-file (car resume-clock))
-	      (goto-char (cdr resume-clock))
-	      (let ((org-clock-auto-clock-resolution nil))
-		(org-clock-in)
-		(if (outline-invisible-p)
-		    (org-show-context))))))))))
+    (if (not (file-readable-p org-clock-persist-file))
+	(message "Not restoring clock data; %S not found" org-clock-persist-file)
+      (message "Restoring clock data")
+      ;; Load history.
+      (load-file org-clock-persist-file)
+      (setq org-clock-loaded t)
+      (pcase-dolist (`(,(and file (pred file-exists-p)) . ,position)
+		     org-clock-stored-history)
+	(org-clock-history-push position (find-file-noselect file)))
+      ;; Resume clock.
+      (pcase org-clock-stored-resume-clock
+	(`(,(and file (pred file-exists-p)) . ,position)
+	 (with-current-buffer (find-file-noselect file)
+	   (when (or (not org-clock-persist-query-resume)
+		     (y-or-n-p (format "Resume clock (%s) "
+				       (save-excursion
+					 (goto-char position)
+					 (org-get-heading t t)))))
+	     (goto-char position)
+	     (let ((org-clock-in-resume 'auto-restart)
+		   (org-clock-auto-clock-resolution nil))
+	       (org-clock-in)
+	       (when (outline-invisible-p) (org-show-context))))))
+	(_ nil)))))
 
 ;; Suggested bindings
 (org-defkey org-mode-map "\C-c\C-x\C-e" 'org-clock-modify-effort-estimate)

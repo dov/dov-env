@@ -1,6 +1,6 @@
 ;;; org-table.el --- The Table Editor for Org        -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -65,11 +65,12 @@
 
 (declare-function calc-eval "calc" (str &optional separator &rest args))
 
-(defvar orgtbl-mode) ; defined below
-(defvar orgtbl-mode-menu) ; defined when orgtbl mode get initialized
 (defvar constants-unit-system)
+(defvar org-element-use-cache)
 (defvar org-export-filters-alist)
 (defvar org-table-follow-field-mode)
+(defvar orgtbl-mode) ; defined below
+(defvar orgtbl-mode-menu) ; defined when orgtbl mode get initialized
 (defvar sort-fold-case)
 
 (defvar orgtbl-after-send-table-hook nil
@@ -563,6 +564,7 @@ SIZE is a string Columns x Rows like for example \"3x2\"."
 ;;;###autoload
 (defun org-table-convert-region (beg0 end0 &optional separator)
   "Convert region to a table.
+
 The region goes from BEG0 to END0, but these borders will be moved
 slightly, to make sure a beginning of line in the first line is included.
 
@@ -572,7 +574,7 @@ following values:
 (4)     Use the comma as a field separator
 (16)    Use a TAB as field separator
 (64)    Prompt for a regular expression as field separator
-integer  When a number, use that many spaces as field separator
+integer  When a number, use that many spaces, or a TAB, as field separator
 regexp   When a regular expression, use it to match the separator
 nil      When nil, the command tries to be smart and figure out the
          separator in the following way:
@@ -1315,23 +1317,15 @@ is always the old value."
 
 (defun org-table-current-column ()
   "Find out which column we are in."
-  (interactive)
-  (when (called-interactively-p 'any) (org-table-check-inside-data-field))
   (save-excursion
     (let ((column 0) (pos (point)))
       (beginning-of-line)
       (while (search-forward "|" pos t) (cl-incf column))
-      (when (called-interactively-p 'interactive)
-	(message "In table column %d" column))
       column)))
 
-;;;###autoload
 (defun org-table-current-dline ()
   "Find out what table data line we are in.
 Only data lines count for this."
-  (interactive)
-  (when (called-interactively-p 'any)
-    (org-table-check-inside-data-field))
   (save-excursion
     (let ((c 0)
 	  (pos (point)))
@@ -1339,8 +1333,6 @@ Only data lines count for this."
       (while (<= (point) pos)
 	(when (looking-at org-table-dataline-regexp) (cl-incf c))
 	(forward-line))
-      (when (called-interactively-p 'any)
-	(message "This is table line %d" c))
       c)))
 
 ;;;###autoload
@@ -1990,11 +1982,15 @@ blank, and the content is appended to the field above."
 ;;;###autoload
 (defun org-table-edit-field (arg)
   "Edit table field in a different window.
-This is mainly useful for fields that contain hidden parts.  When called
-with a `\\[universal-argument]' prefix, just make the full field \
-visible so that it can be
-edited in place."
+This is mainly useful for fields that contain hidden parts.
+
+When called with a `\\[universal-argument]' prefix, just make the full field
+visible so that it can be edited in place.
+
+When called with a `\\[universal-argument] \\[universal-argument]' prefix, \
+toggle `org-table-follow-field-mode'."
   (interactive "P")
+  (unless (org-at-table-p) (user-error "Not at a table"))
   (cond
    ((equal arg '(16))
     (org-table-follow-field-mode (if org-table-follow-field-mode -1 1)))
@@ -2661,17 +2657,25 @@ For details, see the Org mode manual.
 
 This function can also be called from Lisp programs and offers
 additional arguments: EQUATION can be the formula to apply.  If this
-argument is given, the user will not be prompted.  SUPPRESS-ALIGN is
-used to speed-up recursive calls by by-passing unnecessary aligns.
+argument is given, the user will not be prompted.
+
+SUPPRESS-ALIGN is used to speed-up recursive calls by by-passing
+unnecessary aligns.
+
 SUPPRESS-CONST suppresses the interpretation of constants in the
-formula, assuming that this has been done already outside the function.
-SUPPRESS-STORE means the formula should not be stored, either because
-it is already stored, or because it is a modified equation that should
-not overwrite the stored one.  SUPPRESS-ANALYSIS prevents any call to
-`org-table-analyze'."
+formula, assuming that this has been done already outside the
+function.
+
+SUPPRESS-STORE means the formula should not be stored, either
+because it is already stored, or because it is a modified
+equation that should not overwrite the stored one.
+
+SUPPRESS-ANALYSIS prevents analyzing the table and checking
+location of point."
   (interactive "P")
-  (org-table-check-inside-data-field)
-  (or suppress-analysis (org-table-analyze))
+  (unless suppress-analysis
+    (org-table-check-inside-data-field)
+    (org-table-analyze))
   (if (equal arg '(16))
       (let ((eq (org-table-current-field-formula)))
 	(org-table-get-field nil eq)
@@ -2906,7 +2910,14 @@ $1->    %s\n" orig formula form0 form))
 	(when (consp ev) (setq fmt nil ev "#ERROR"))
 	(org-table-justify-field-maybe
 	 (format org-table-formula-field-format
-		 (if fmt (format fmt (string-to-number ev)) ev)))
+		 (cond
+		  ((not (stringp ev)) ev)
+		  (fmt (format fmt (string-to-number ev)))
+		  ;; Replace any active time stamp in the result with
+		  ;; an inactive one.  Dates in tables are likely
+		  ;; piece of regular data, not meant to appear in the
+		  ;; agenda.
+		  (t (replace-regexp-in-string org-ts-regexp "[\\1]" ev)))))
 	(if (and down (> ndown 0) (looking-at ".*\n[ \t]*|[^-]"))
 	    (call-interactively 'org-return)
 	  (setq ndown 0)))
@@ -3321,7 +3332,14 @@ with the prefix ARG."
   "Recalculate all tables in the current buffer."
   (interactive)
   (org-with-wide-buffer
-   (org-table-map-tables (lambda () (org-table-recalculate t)) t)))
+   (org-table-map-tables
+    (lambda ()
+      ;; Reason for separate `org-table-align': When repeating
+      ;; (org-table-recalculate t) `org-table-may-need-update' gets in
+      ;; the way.
+      (org-table-recalculate t t)
+      (org-table-align))
+    t)))
 
 ;;;###autoload
 (defun org-table-iterate-buffer-tables ()
@@ -3335,12 +3353,14 @@ with the prefix ARG."
      (catch 'exit
        (while (> i 0)
 	 (setq i (1- i))
-	 (org-table-map-tables (lambda () (org-table-recalculate t)) t)
+	 (org-table-map-tables (lambda () (org-table-recalculate t t)) t)
 	 (if (equal checksum (setq c1 (md5 (buffer-string))))
 	     (progn
+	       (org-table-map-tables #'org-table-align t)
 	       (message "Convergence after %d iterations" (- imax i))
 	       (throw 'exit t))
 	   (setq checksum c1)))
+       (org-table-map-tables #'org-table-align t)
        (user-error "No convergence after %d iterations" imax)))))
 
 (defun org-table-calc-current-TBLFM (&optional arg)
@@ -4806,7 +4826,7 @@ strings, or the current cell) returning a string:
   a property list with column numbers and format strings, or
   functions, e.g.,
 
-    \(:fmt (2 \"$%s$\" 4 (lambda (c) (format \"$%s$\" c))))
+    (:fmt (2 \"$%s$\" 4 (lambda (c) (format \"$%s$\" c))))
 
 :hlstart :hllstart :hlend :hllend :hsep :hlfmt :hllfmt :hfmt
 
@@ -4846,7 +4866,8 @@ This may be either a string or a function of two arguments:
     ;; Initialize communication channel in INFO.
     (with-temp-buffer
       (let ((org-inhibit-startup t)) (org-mode))
-      (let ((standard-output (current-buffer)))
+      (let ((standard-output (current-buffer))
+	    (org-element-use-cache nil))
 	(dolist (e table)
 	  (cond ((eq e 'hline) (princ "|--\n"))
 		((consp e)
@@ -4970,9 +4991,12 @@ information."
 	     ((plist-member params :hline)
 	      (org-table--generic-apply (plist-get params :hline) ":hline"))
 	     (backend `(org-export-with-backend ',backend row nil info)))
-	 (let ((headerp (org-export-table-row-in-header-p row info))
-	       (lastp (not (org-export-get-next-element row info)))
-	       (last-header-p (org-export-table-row-ends-header-p row info)))
+	 (let ((headerp ,(and (or hlfmt hlstart hlend)
+			      '(org-export-table-row-in-header-p row info)))
+	       (last-header-p
+		,(and (or hllfmt hllstart hllend)
+		      '(org-export-table-row-ends-header-p row info)))
+	       (lastp (not (org-export-get-next-element row info))))
 	   (when contents
 	     ;; Check if we can apply `:lfmt', `:llfmt', `:hlfmt', or
 	     ;; `:hllfmt' to CONTENTS.  Otherwise, fallback on
@@ -5049,25 +5073,33 @@ information."
 	 (sep (plist-get params :sep))
 	 (hsep (plist-get params :hsep)))
     `(lambda (cell contents info)
-       (let ((headerp (org-export-table-row-in-header-p
-		       (org-export-get-parent-element cell) info))
-	     (column (1+ (cdr (org-export-table-cell-address cell info)))))
-	 ;; Make sure that contents are exported as Org data when :raw
-	 ;; parameter is non-nil.
-	 ,(when (and backend (plist-get params :raw))
-	    `(setq contents
-		   ;; Since we don't know what are the pseudo object
-		   ;; types defined in backend, we cannot pass them to
-		   ;; `org-element-interpret-data'.  As a consequence,
-		   ;; they will be treated as pseudo elements, and
-		   ;; will have newlines appended instead of spaces.
-		   ;; Therefore, we must make sure :post-blank value
-		   ;; is really turned into spaces.
-		   (replace-regexp-in-string
-		    "\n" " "
-		    (org-trim
-		     (org-element-interpret-data
-		      (org-element-contents cell))))))
+       ;; Make sure that contents are exported as Org data when :raw
+       ;; parameter is non-nil.
+       ,(when (and backend (plist-get params :raw))
+	  `(setq contents
+		 ;; Since we don't know what are the pseudo object
+		 ;; types defined in backend, we cannot pass them to
+		 ;; `org-element-interpret-data'.  As a consequence,
+		 ;; they will be treated as pseudo elements, and will
+		 ;; have newlines appended instead of spaces.
+		 ;; Therefore, we must make sure :post-blank value is
+		 ;; really turned into spaces.
+		 (replace-regexp-in-string
+		  "\n" " "
+		  (org-trim
+		   (org-element-interpret-data
+		    (org-element-contents cell))))))
+
+       (let ((headerp ,(and (or hfmt hsep)
+			    '(org-export-table-row-in-header-p
+			      (org-export-get-parent-element cell) info)))
+	     (column
+	      ;; Call costly `org-export-table-cell-address' only if
+	      ;; absolutely necessary, i.e., if one
+	      ;; of :fmt :efmt :hmft has a "plist type" value.
+	      ,(and (cl-some (lambda (v) (integerp (car-safe v)))
+			     (list efmt hfmt fmt))
+		    '(1+ (cdr (org-export-table-cell-address cell info))))))
 	 (when contents
 	   ;; Check if we can apply `:efmt' on CONTENTS.
 	   ,(when efmt

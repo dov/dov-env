@@ -1,6 +1,6 @@
 ;;; ox-html.el --- HTML Back-End for Org Export Engine -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;;      Jambunathan K <kjambunathan at gmail dot com>
@@ -101,6 +101,7 @@
     (verbatim . org-html-verbatim)
     (verse-block . org-html-verse-block))
   :filters-alist '((:filter-options . org-html-infojs-install-script)
+		   (:filter-parse-tree . org-html-image-link-filter)
 		   (:filter-final-output . org-html-final-function))
   :menu-entry
   '(?h "Export to HTML"
@@ -948,18 +949,18 @@ The function will be called with these arguments:
 
          `number': row number (0 is the first row)
    `group-number': group number of current row
-  `start-group-p': non-nil means the row starts a group
-    `end-group-p': non-nil means the row ends a group
-           `topp': non-nil means this is the top row
-        `bottomp': non-nil means this is the bottom row
+   `start-group?': non-nil means the row starts a group
+     `end-group?': non-nil means the row ends a group
+           `top?': non-nil means this is the top row
+        `bottom?': non-nil means this is the bottom row
 
 For example:
 
-  \(setq org-html-table-row-open-tag
-        \(lambda (number group-number start-group-p end-group-p topp bottomp)
-           \(cond (topp \"<tr class=\\\"tr-top\\\">\")
-                 \(bottomp \"<tr class=\\\"tr-bottom\\\">\")
-                 \(t (if (= (mod number 2) 1)
+  (setq org-html-table-row-open-tag
+        (lambda (number group-number start-group? end-group-p top? bottom?)
+           (cond (top? \"<tr class=\\\"tr-top\\\">\")
+                 (bottom? \"<tr class=\\\"tr-bottom\\\">\")
+                 (t (if (= (mod number 2) 1)
                         \"<tr class=\\\"tr-odd\\\">\"
                       \"<tr class=\\\"tr-even\\\">\")))))
 
@@ -1566,21 +1567,26 @@ INFO is the current state of the export process, as a plist."
        (org-html-html5-p info)))
 
 (defun org-html-close-tag (tag attr info)
-  (concat "<" tag " " attr
+  "Return close-tag for string TAG.
+ATTR specifies additional attributes.  INFO is a property list
+containing current export state."
+  (concat "<" tag
+	  (org-string-nw-p (concat " " attr))
 	  (if (org-html-xhtml-p info) " />" ">")))
 
 (defun org-html-doctype (info)
-  "Return correct html doctype tag from `org-html-doctype-alist',
-or the literal value of :html-doctype from INFO if :html-doctype
-is not found in the alist.
-INFO is a plist used as a communication channel."
+  "Return correct HTML doctype tag.
+INFO is a plist used as a communication channel.  Doctype tag is
+extracted from `org-html-doctype-alist', or the literal value
+of :html-doctype from INFO if :html-doctype is not found in the
+alist."
   (let ((dt (plist-get info :html-doctype)))
     (or (cdr (assoc dt org-html-doctype-alist)) dt)))
 
 (defun org-html--make-attribute-string (attributes)
   "Return a list of attributes, as a string.
-ATTRIBUTES is a plist where values are either strings or nil. An
-attributes with a nil value will be omitted from the result."
+ATTRIBUTES is a plist where values are either strings or nil.  An
+attribute with a nil value will be omitted from the result."
   (let (output)
     (dolist (item attributes (mapconcat 'identity (nreverse output) " "))
       (cond ((null item) (pop output))
@@ -1875,25 +1881,24 @@ INFO is a plist used as a communication channel."
 	    (setq template (replace-match val t t template))))))))
 
 (defun org-html-format-spec (info)
-  "Return format specification for elements that can be
-used in the preamble or postamble."
-  `((?t . ,(org-export-data (plist-get info :title) info))
-    (?s . ,(org-export-data (plist-get info :subtitle) info))
-    (?d . ,(org-export-data (org-export-get-date info) info))
-    (?T . ,(format-time-string
-	    (plist-get info :html-metadata-timestamp-format)))
-    (?a . ,(org-export-data (plist-get info :author) info))
-    (?e . ,(mapconcat
-	    (lambda (e)
-	      (format "<a href=\"mailto:%s\">%s</a>" e e))
-	    (split-string (plist-get info :email)  ",+ *")
-	    ", "))
-    (?c . ,(plist-get info :creator))
-    (?C . ,(let ((file (plist-get info :input-file)))
-	     (format-time-string
-	      (plist-get info :html-metadata-timestamp-format)
-	      (when file (nth 5 (file-attributes file))))))
-    (?v . ,(or (plist-get info :html-validation-link) ""))))
+  "Return format specification for preamble and postamble.
+INFO is a plist used as a communication channel."
+  (let ((timestamp-format (plist-get info :html-metadata-timestamp-format)))
+    `((?t . ,(org-export-data (plist-get info :title) info))
+      (?s . ,(org-export-data (plist-get info :subtitle) info))
+      (?d . ,(org-export-data (org-export-get-date info timestamp-format)
+			      info))
+      (?T . ,(format-time-string timestamp-format))
+      (?a . ,(org-export-data (plist-get info :author) info))
+      (?e . ,(mapconcat
+	      (lambda (e) (format "<a href=\"mailto:%s\">%s</a>" e e))
+	      (split-string (plist-get info :email)  ",+ *")
+	      ", "))
+      (?c . ,(plist-get info :creator))
+      (?C . ,(let ((file (plist-get info :input-file)))
+	       (format-time-string timestamp-format
+				   (and file (nth 5 (file-attributes file))))))
+      (?v . ,(or (plist-get info :html-validation-link) "")))))
 
 (defun org-html--build-pre/postamble (type info)
   "Return document preamble or postamble as a string, or nil.
@@ -2836,6 +2841,9 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
 ;;;; Link
 
+(defun org-html-image-link-filter (data _backend info)
+  (org-export-insert-image-links data info org-html-inline-image-rules))
+
 (defun org-html-inline-image-p (link info)
   "Non-nil when LINK is meant to appear as an image.
 INFO is a plist used as a communication channel.  LINK is an
@@ -3588,20 +3596,16 @@ information."
   "Transcode a VERSE-BLOCK element from Org to HTML.
 CONTENTS is verse block contents.  INFO is a plist holding
 contextual information."
-  ;; Replace each newline character with line break.  Also replace
-  ;; each blank line with a line break.
-  (setq contents (replace-regexp-in-string
-		  "^ *\\\\\\\\$" (format "%s\n" (org-html-close-tag "br" nil info))
-		  (replace-regexp-in-string
-		   "\\(\\\\\\\\\\)?[ \t]*\n"
-		   (format "%s\n" (org-html-close-tag "br" nil info)) contents)))
-  ;; Replace each white space at beginning of a line with a
-  ;; non-breaking space.
-  (while (string-match "^[ \t]+" contents)
-    (let* ((num-ws (length (match-string 0 contents)))
-	   (ws (org-html--make-string num-ws "&#xa0;")))
-      (setq contents (replace-match ws nil t contents))))
-  (format "<p class=\"verse\">\n%s</p>" contents))
+  (format "<p class=\"verse\">\n%s</p>"
+	  ;; Replace leading white spaces with non-breaking spaces.
+	  (replace-regexp-in-string
+	   "^[ \t]+" (lambda (m) (org-html--make-string (length m) "&#xa0;"))
+	   ;; Replace each newline character with line break.  Also
+	   ;; remove any trailing "br" close-tag so as to avoid
+	   ;; duplicates.
+	   (let* ((br (org-html-close-tag "br" nil info))
+		  (re (format "\\(%s\\)[ \t]*$" (regexp-quote br))))
+	     (replace-regexp-in-string re br contents)))))
 
 
 ;;; Filter Functions

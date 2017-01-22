@@ -1,6 +1,6 @@
 ;;; org-colview.el --- Column View in Org            -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -239,17 +239,15 @@ display, as a string."
 	    (org-columns-compact-links value)))
    (value)))
 
-(defun org-columns--collect-values (&optional agenda)
+(defun org-columns--collect-values (&optional compiled-fmt)
   "Collect values for columns on the current line.
-
-When optional argument AGENDA is non-nil, assume the value is
-meant for the agenda, i.e., caller is `org-agenda-columns'.
 
 Return a list of triplets (SPEC VALUE DISPLAYED) suitable for
 `org-columns--display-here'.
 
 This function assumes `org-columns-current-fmt-compiled' is
-initialized."
+initialized is set in the current buffer.  However, it is
+possible to override it with optional argument COMPILED-FMT."
   (let ((summaries (get-text-property (point) 'org-summaries)))
     (mapcar
      (lambda (spec)
@@ -257,19 +255,18 @@ initialized."
 	 (`(,p . ,_)
 	  (let* ((v (or (cdr (assoc spec summaries))
 			(org-entry-get (point) p 'selective t)
-			(and agenda
+			(and compiled-fmt ;assume `org-agenda-columns'
 			     ;; Effort property is not defined.  Try
 			     ;; to use appointment duration.
 			     org-agenda-columns-add-appointments-to-effort-sum
 			     (string= p (upcase org-effort-property))
 			     (get-text-property (point) 'duration)
-			     (propertize
-			      (org-minutes-to-clocksum-string
-			       (get-text-property (point) 'duration))
-			      'face 'org-warning))
+			     (propertize (org-minutes-to-clocksum-string
+					  (get-text-property (point) 'duration))
+					 'face 'org-warning))
 			"")))
 	    (list spec v (org-columns--displayed-value spec v))))))
-     org-columns-current-fmt-compiled)))
+     (or compiled-fmt org-columns-current-fmt-compiled))))
 
 (defun org-columns--set-widths (cache)
   "Compute the maximum column widths from the format and CACHE.
@@ -1068,12 +1065,12 @@ This function updates `org-columns-current-fmt-compiled'."
 A time is expressed as HH:MM, HH:MM:SS, or with units defined in
 `org-effort-durations'.  Plain numbers are considered as hours."
   (cond
-   ((string-match "\\([0-9]+\\):\\([0-9]+\\)\\(?::\\([0-9]+\\)\\)?" s)
+   ((string-match-p org-columns--duration-re s)
+    (* 60 (org-duration-string-to-minutes s)))
+   ((string-match "\\`\\([0-9]+\\):\\([0-9]+\\)\\(?::\\([0-9]+\\)\\)?\\'" s)
     (+ (* 3600 (string-to-number (match-string 1 s)))
        (* 60 (string-to-number (match-string 2 s)))
        (if (match-end 3) (string-to-number (match-string 3 s)) 0)))
-   ((string-match-p org-columns--duration-re s)
-    (* 60 (org-duration-string-to-minutes s)))
    (t (* 3600 (string-to-number s)))))
 
 (defun org-columns--age-to-seconds (s)
@@ -1507,26 +1504,26 @@ PARAMS is a property list of parameters:
   (interactive)
   (org-columns-remove-overlays)
   (move-marker org-columns-begin-marker (point))
-  (let ((org-columns--time (float-time (current-time)))
-	(fmt
-	 (cond
-	  ((bound-and-true-p org-agenda-overriding-columns-format))
-	  ((let ((m (org-get-at-bol 'org-hd-marker)))
-	     (and m
-		  (or (org-entry-get m "COLUMNS" t)
-		      (with-current-buffer (marker-buffer m)
-			org-columns-default-format)))))
-	  ((and (local-variable-p 'org-columns-current-fmt)
-		org-columns-current-fmt))
-	  ((let ((m (next-single-property-change (point-min) 'org-hd-marker)))
-	     (and m
-		  (let ((m (get-text-property m 'org-hd-marker)))
-		    (or (org-entry-get m "COLUMNS" t)
-			(with-current-buffer (marker-buffer m)
-			  org-columns-default-format))))))
-	  (t org-columns-default-format))))
-    (setq-local org-columns-current-fmt fmt)
-    (org-columns-compile-format fmt)
+  (let* ((org-columns--time (float-time (current-time)))
+	 (fmt
+	  (cond
+	   ((bound-and-true-p org-agenda-overriding-columns-format))
+	   ((let ((m (org-get-at-bol 'org-hd-marker)))
+	      (and m
+		   (or (org-entry-get m "COLUMNS" t)
+		       (with-current-buffer (marker-buffer m)
+			 org-columns-default-format)))))
+	   ((and (local-variable-p 'org-columns-current-fmt)
+		 org-columns-current-fmt))
+	   ((let ((m (next-single-property-change (point-min) 'org-hd-marker)))
+	      (and m
+		   (let ((m (get-text-property m 'org-hd-marker)))
+		     (or (org-entry-get m "COLUMNS" t)
+			 (with-current-buffer (marker-buffer m)
+			   org-columns-default-format))))))
+	   (t org-columns-default-format)))
+	 (compiled-fmt (org-columns-compile-format fmt)))
+    (setq org-columns-current-fmt fmt)
     (when org-agenda-columns-compute-summary-properties
       (org-agenda-colview-compute org-columns-current-fmt-compiled))
     (save-excursion
@@ -1538,8 +1535,13 @@ PARAMS is a property list of parameters:
 		       (org-get-at-bol 'org-marker))))
 	    (when m
 	      (push (cons (line-beginning-position)
+			  ;; `org-columns-current-fmt-compiled' is
+			  ;; initialized but only set locally to the
+			  ;; agenda buffer.  Since current buffer is
+			  ;; changing, we need to force the original
+			  ;; compiled-fmt there.
 			  (org-with-point-at m
-			    (org-columns--collect-values 'agenda)))
+			    (org-columns--collect-values compiled-fmt)))
 		    cache)))
 	  (forward-line))
 	(when cache
@@ -1564,56 +1566,60 @@ This will add overlays to the date lines, to show the summary for each day."
 		   (if (member property '("CLOCKSUM" "CLOCKSUM_T"))
 		       (list property title width ":" nil)
 		     spec))))
-	      org-columns-current-fmt-compiled))
-	entries)
+	      org-columns-current-fmt-compiled)))
     ;; Ensure there's at least one summation column.
     (when (cl-some (lambda (spec) (nth 3 spec)) fmt)
       (goto-char (point-max))
-      (while (not (bobp))
-	(when (or (get-text-property (point) 'org-date-line)
-		  (eq (get-text-property (point) 'face)
-		      'org-agenda-structure))
-	  ;; OK, this is a date line that should be used.
-	  (let (rest)
-	    (dolist (c cache (setq cache rest))
-	      (if (> (car c) (point))
-		  (push c entries)
-		(push c rest))))
-	  ;; Now ENTRIES contains entries below the current one.
-	  ;; CACHE is the rest.  Compute the summaries for the
-	  ;; properties we want, set nil properties for the rest.
-	  (when (setq entries (mapcar 'cdr entries))
-	    (org-columns--display-here
-	     (mapcar
-	      (lambda (spec)
-		(pcase spec
-		  (`("ITEM" . ,_)
-		   ;; Replace ITEM with current date.  Preserve
-		   ;; properties for fontification.
-		   (let ((date (buffer-substring
-				(line-beginning-position)
-				(line-end-position))))
-		     (list spec date date)))
-		  (`(,_ ,_ ,_ nil ,_) (list spec "" ""))
-		  (`(,_ ,_ ,_ ,operator ,printf)
-		   (let* ((summarize (org-columns--summarize operator))
-			  (values
-			   ;; Use real values for summary, not those
-			   ;; prepared for display.
-			   (delq nil
-				 (mapcar
-				  (lambda (e)
-				    (org-string-nw-p (nth 1 (assoc spec e))))
-				  entries)))
-			  (final (if values (funcall summarize values printf)
-				   "")))
-		     (unless (equal final "")
-		       (put-text-property 0 (length final) 'face 'bold final))
-		     (list spec final final)))))
-	      fmt)
-	     'dateline)
-	    (setq-local org-agenda-columns-active t)))
-	(forward-line -1)))))
+      (catch :complete
+	(while t
+	  (when (or (get-text-property (point) 'org-date-line)
+		    (eq (get-text-property (point) 'face)
+			'org-agenda-structure))
+	    ;; OK, this is a date line that should be used.
+	    (let (entries)
+	      (let (rest)
+		(dolist (c cache)
+		  (if (> (car c) (point))
+		      (push c entries)
+		    (push c rest)))
+		(setq cache rest))
+	      ;; ENTRIES contains entries below the current one.
+	      ;; CACHE is the rest.  Compute the summaries for the
+	      ;; properties we want, set nil properties for the rest.
+	      (when (setq entries (mapcar #'cdr entries))
+		(org-columns--display-here
+		 (mapcar
+		  (lambda (spec)
+		    (pcase spec
+		      (`("ITEM" . ,_)
+		       ;; Replace ITEM with current date.  Preserve
+		       ;; properties for fontification.
+		       (let ((date (buffer-substring
+				    (line-beginning-position)
+				    (line-end-position))))
+			 (list spec date date)))
+		      (`(,_ ,_ ,_ nil ,_) (list spec "" ""))
+		      (`(,_ ,_ ,_ ,operator ,printf)
+		       (let* ((summarize (org-columns--summarize operator))
+			      (values
+			       ;; Use real values for summary, not
+			       ;; those prepared for display.
+			       (delq nil
+				     (mapcar
+				      (lambda (e) (org-string-nw-p
+					      (nth 1 (assoc spec e))))
+				      entries)))
+			      (final (if values
+					 (funcall summarize values printf)
+				       "")))
+			 (unless (equal final "")
+			   (put-text-property 0 (length final)
+					      'face 'bold final))
+			 (list spec final final)))))
+		  fmt)
+		 'dateline)
+		(setq-local org-agenda-columns-active t))))
+	  (if (bobp) (throw :complete t) (forward-line -1)))))))
 
 (defun org-agenda-colview-compute (fmt)
   "Compute the relevant columns in the contributing source buffers."
