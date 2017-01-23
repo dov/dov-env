@@ -2,7 +2,8 @@
 ;;
 ;;; Code:
 
-;;;### (autoloads nil "ob-core" "ob-core.el" (22413 4776 840319 838000))
+;;;### (autoloads nil "ob-core" "ob-core.el" (22661 45245 207276
+;;;;;;  482000))
 ;;; Generated autoloads from ob-core.el
 
 (autoload 'org-babel-execute-safely-maybe "ob-core" "\
@@ -232,8 +233,8 @@ Mark current src block.
 
 ;;;***
 
-;;;### (autoloads nil "ob-keys" "ob-keys.el" (22393 20522 568274
-;;;;;;  887000))
+;;;### (autoloads nil "ob-keys" "ob-keys.el" (22661 45245 208276
+;;;;;;  461000))
 ;;; Generated autoloads from ob-keys.el
 
 (autoload 'org-babel-describe-bindings "ob-keys" "\
@@ -243,7 +244,7 @@ Describe all keybindings behind `org-babel-key-prefix'.
 
 ;;;***
 
-;;;### (autoloads nil "ob-lob" "ob-lob.el" (22393 20522 568274 887000))
+;;;### (autoloads nil "ob-lob" "ob-lob.el" (22661 45245 208276 461000))
 ;;; Generated autoloads from ob-lob.el
 
 (autoload 'org-babel-lob-execute-maybe "ob-lob" "\
@@ -263,8 +264,8 @@ compatible with `org-babel-get-src-block-info', which see.
 
 ;;;***
 
-;;;### (autoloads nil "ob-tangle" "ob-tangle.el" (22393 20522 569274
-;;;;;;  867000))
+;;;### (autoloads nil "ob-tangle" "ob-tangle.el" (22661 45245 209276
+;;;;;;  439000))
 ;;; Generated autoloads from ob-tangle.el
 
 (autoload 'org-babel-tangle-file "ob-tangle" "\
@@ -292,8 +293,8 @@ used to limit the exported source code blocks by language.
 
 ;;;***
 
-;;;### (autoloads nil "org-agenda" "org-agenda.el" (22393 20522 571274
-;;;;;;  826000))
+;;;### (autoloads nil "org-agenda" "org-agenda.el" (22661 45245 211276
+;;;;;;  396000))
 ;;; Generated autoloads from org-agenda.el
 
 (autoload 'org-toggle-sticky-agenda "org-agenda" "\
@@ -313,7 +314,6 @@ T     Call `org-todo-list' to display the global todo list, select only
 m     Call `org-tags-view' to display headlines with tags matching
       a condition  (the user is prompted for the condition).
 M     Like `m', but select only TODO entries, no ordinary headlines.
-L     Create a timeline for the current buffer.
 e     Export views to associated files.
 s     Search entries for keywords.
 S     Search entries for keywords, only with TODO keywords.
@@ -330,9 +330,9 @@ More commands can be added by configuring the variable
 `org-agenda-custom-commands'.  In particular, specific tags and TODO keyword
 searches can be pre-defined in this way.
 
-If the current buffer is in Org-mode and visiting a file, you can also
+If the current buffer is in Org mode and visiting a file, you can also
 first press `<' once to indicate that the agenda should be temporarily
-\(until the next use of \\[org-agenda]) restricted to the current file.
+\(until the next use of `\\[org-agenda]') restricted to the current file.
 Pressing `<' twice means to restrict to the current subtree or region
 \(if active).
 
@@ -461,7 +461,7 @@ in `org-agenda-text-search-extra-files'.
 (autoload 'org-todo-list "org-agenda" "\
 Show all (not done) TODO entries from all agenda file in a single list.
 The prefix arg can be used to select a specific TODO keyword and limit
-the list to these.  When using \\[universal-argument], you will be prompted
+the list to these.  When using `\\[universal-argument]', you will be prompted
 for a keyword.  A numeric prefix directly selects the Nth keyword in
 `org-todo-keywords-1'.
 
@@ -524,15 +524,15 @@ in the file.  Otherwise, restriction will be to the current subtree.
 \(fn &optional TYPE)" t nil)
 
 (autoload 'org-calendar-goto-agenda "org-agenda" "\
-Compute the Org-mode agenda for the calendar date displayed at the cursor.
+Compute the Org agenda for the calendar date displayed at the cursor.
 This is a command that has to be installed in `calendar-mode-map'.
 
 \(fn)" t nil)
 
 (autoload 'org-agenda-to-appt "org-agenda" "\
 Activate appointments found in `org-agenda-files'.
-With a \\[universal-argument] prefix, refresh the list of
-appointments.
+
+With a `\\[universal-argument]' prefix, refresh the list of appointments.
 
 If FILTER is t, interactively prompt the user for a regular
 expression, and filter out entries that don't match it.
@@ -566,8 +566,8 @@ to override `appt-message-warning-time'.
 
 ;;;***
 
-;;;### (autoloads nil "org-archive" "org-archive.el" (22393 20522
-;;;;;;  571274 826000))
+;;;### (autoloads nil "org-archive" "org-archive.el" (22661 45245
+;;;;;;  211276 396000))
 ;;; Generated autoloads from org-archive.el
 
 (autoload 'org-add-archive-files "org-archive" "\
@@ -595,9 +595,12 @@ this heading.
 
 (autoload 'org-archive-to-archive-sibling "org-archive" "\
 Archive the current heading by moving it under the archive sibling.
+
 The archive sibling is a sibling of the heading with the heading name
 `org-archive-sibling-heading' and an `org-archive-tag' tag.  If this
 sibling does not exist, it will be created at the end of the subtree.
+
+Archiving time is retained in the ARCHIVE_TIME node property.
 
 \(fn)" t nil)
 
@@ -622,8 +625,8 @@ This command is set with the variable `org-archive-default-command'.
 
 ;;;***
 
-;;;### (autoloads nil "org-attach" "org-attach.el" (22393 20522 571274
-;;;;;;  826000))
+;;;### (autoloads nil "org-attach" "org-attach.el" (22661 45245 211276
+;;;;;;  396000))
 ;;; Generated autoloads from org-attach.el
 
 (autoload 'org-attach "org-attach" "\
@@ -634,8 +637,8 @@ Shows a list of commands and prompts for another key to execute a command.
 
 ;;;***
 
-;;;### (autoloads nil "org-bbdb" "org-bbdb.el" (22393 20522 571274
-;;;;;;  826000))
+;;;### (autoloads nil "org-bbdb" "org-bbdb.el" (22661 45245 211276
+;;;;;;  396000))
 ;;; Generated autoloads from org-bbdb.el
 
 (autoload 'org-bbdb-anniversaries "org-bbdb" "\
@@ -650,8 +653,8 @@ Return list of anniversaries for today and the next n-1 days (default n=7).
 
 ;;;***
 
-;;;### (autoloads nil "org-capture" "org-capture.el" (22393 20522
-;;;;;;  572274 805000))
+;;;### (autoloads nil "org-capture" "org-capture.el" (22661 45245
+;;;;;;  212276 375000))
 ;;; Generated autoloads from org-capture.el
 
 (autoload 'org-capture-string "org-capture" "\
@@ -662,16 +665,17 @@ Capture STRING with the template selected by KEYS.
 (autoload 'org-capture "org-capture" "\
 Capture something.
 \\<org-capture-mode-map>
-This will let you select a template from `org-capture-templates', and then
-file the newly captured information.  The text is immediately inserted
-at the target location, and an indirect buffer is shown where you can
-edit it.  Pressing \\[org-capture-finalize] brings you back to the previous state
-of Emacs, so that you can continue your work.
+This will let you select a template from `org-capture-templates', and
+then file the newly captured information.  The text is immediately
+inserted at the target location, and an indirect buffer is shown where
+you can edit it.  Pressing `\\[org-capture-finalize]' brings you back to the previous
+state of Emacs, so that you can continue your work.
 
-When called interactively with a \\[universal-argument] prefix argument GOTO, don't capture
-anything, just go to the file/headline where the selected template
-stores its notes.  With a double prefix argument \\[universal-argument] \\[universal-argument], go to the last note
-stored.
+When called interactively with a `\\[universal-argument]' prefix argument GOTO, don't
+capture anything, just go to the file/headline where the selected
+template stores its notes.
+
+With a `\\[universal-argument] \\[universal-argument]' prefix argument, go to the last note stored.
 
 When called with a `C-0' (zero) prefix, insert a template at point.
 
@@ -693,12 +697,12 @@ Set `org-capture-templates' to be similar to `org-remember-templates'.
 
 ;;;***
 
-;;;### (autoloads nil "org-clock" "org-clock.el" (22393 20522 572274
-;;;;;;  805000))
+;;;### (autoloads nil "org-clock" "org-clock.el" (22661 45245 212276
+;;;;;;  375000))
 ;;; Generated autoloads from org-clock.el
 
 (autoload 'org-resolve-clocks "org-clock" "\
-Resolve all currently open org-mode clocks.
+Resolve all currently open Org clocks.
 If `only-dangling-p' is non-nil, only ask to resolve dangling
 \(i.e., not currently open and valid) clocks.
 
@@ -706,14 +710,19 @@ If `only-dangling-p' is non-nil, only ask to resolve dangling
 
 (autoload 'org-clock-in "org-clock" "\
 Start the clock on the current item.
+
 If necessary, clock-out of the currently active clock.
-With a prefix argument SELECT (\\[universal-argument]), offer a list of recently clocked
-tasks to clock into.  When SELECT is \\[universal-argument] \\[universal-argument], clock into the current task
-and mark it as the default task, a special task that will always be offered
-in the clocking selection, associated with the letter `d'.
-When SELECT is \\[universal-argument] \\[universal-argument] \\[universal-argument], clock in by using the last clock-out
-time as the start time (see `org-clock-continuously' to
-make this the default behavior.)
+
+With a `\\[universal-argument]' prefix argument SELECT, offer a list of recently clocked
+tasks to clock into.
+
+When SELECT is `\\[universal-argument] \\[universal-argument]', clock into the current task and mark it as
+the default task, a special task that will always be offered in the
+clocking selection, associated with the letter `d'.
+
+When SELECT is `\\[universal-argument] \\[universal-argument] \\[universal-argument]', clock in by using the last clock-out
+time as the start time.  See `org-clock-continuously' to make this
+the default behavior.
 
 \(fn &optional SELECT START-TIME)" t nil)
 
@@ -764,12 +773,15 @@ PROPNAME lets you set a custom text property instead of :org-clock-minutes.
 Show subtree times in the entire buffer.
 
 By default, show the total time for the range defined in
-`org-clock-display-default-range'.  With \\[universal-argument] prefix, show
-the total time for today instead.  With \\[universal-argument] \\[universal-argument] prefix, use
-a custom range, entered at the prompt.  With \\[universal-argument] \\[universal-argument] \\[universal-argument]
-prefix, display the total time in the echo area.
+`org-clock-display-default-range'.  With `\\[universal-argument]' prefix, show
+the total time for today instead.
 
-Use \\[org-clock-remove-overlays] to remove the subtree times.
+With `\\[universal-argument] \\[universal-argument]' prefix, use a custom range, entered at prompt.
+
+With `\\[universal-argument] \\[universal-argument] \\[universal-argument]' prefix, display the total time in the
+echo area.
+
+Use `\\[org-clock-remove-overlays]' to remove the subtree times.
 
 \(fn &optional ARG)" t nil)
 
@@ -824,8 +836,8 @@ Otherwise, return nil.
 
 ;;;***
 
-;;;### (autoloads nil "org-colview" "org-colview.el" (22393 20522
-;;;;;;  572274 805000))
+;;;### (autoloads nil "org-colview" "org-colview.el" (22661 45245
+;;;;;;  212276 375000))
 ;;; Generated autoloads from org-colview.el
 
 (autoload 'org-columns-remove-overlays "org-colview" "\
@@ -844,7 +856,7 @@ Turn on column view on an Org mode file.
 Column view applies to the whole buffer if point is before the
 first headline.  Otherwise, it applies to the first ancestor
 setting \"COLUMNS\" property.  If there is none, it defaults to
-the current headline.  With a \\[universal-argument] prefix argument, turn on column
+the current headline.  With a `\\[universal-argument]' prefix argument, turn on column
 view for the whole buffer unconditionally.
 
 When COLUMNS-FMT-STRING is non-nil, use it as the column format.
@@ -893,8 +905,8 @@ Turn on or update column view in the agenda.
 
 ;;;***
 
-;;;### (autoloads nil "org-compat" "org-compat.el" (22393 20522 572274
-;;;;;;  805000))
+;;;### (autoloads nil "org-compat" "org-compat.el" (22661 45245 212276
+;;;;;;  375000))
 ;;; Generated autoloads from org-compat.el
 
 (autoload 'org-check-version "org-compat" "\
@@ -904,8 +916,8 @@ Try very hard to provide sensible version strings.
 
 ;;;***
 
-;;;### (autoloads nil "org-datetree" "org-datetree.el" (22393 20522
-;;;;;;  573274 785000))
+;;;### (autoloads nil "org-datetree" "org-datetree.el" (22661 45245
+;;;;;;  213276 354000))
 ;;; Generated autoloads from org-datetree.el
 
 (autoload 'org-datetree-find-date-create "org-datetree" "\
@@ -928,8 +940,8 @@ tree can be found.
 
 ;;;***
 
-;;;### (autoloads nil "org-element" "org-element.el" (22393 20522
-;;;;;;  574274 764000))
+;;;### (autoloads nil "org-element" "org-element.el" (22661 45245
+;;;;;;  213276 354000))
 ;;; Generated autoloads from org-element.el
 
 (autoload 'org-element-update-syntax "org-element" "\
@@ -1001,8 +1013,8 @@ Providing it allows for quicker computation.
 
 ;;;***
 
-;;;### (autoloads nil "org-feed" "org-feed.el" (22393 20522 574274
-;;;;;;  764000))
+;;;### (autoloads nil "org-feed" "org-feed.el" (22661 45245 214276
+;;;;;;  332000))
 ;;; Generated autoloads from org-feed.el
 
 (autoload 'org-feed-update-all "org-feed" "\
@@ -1029,8 +1041,8 @@ Show the raw feed buffer of a feed.
 
 ;;;***
 
-;;;### (autoloads nil "org-footnote" "org-footnote.el" (22393 20522
-;;;;;;  574274 764000))
+;;;### (autoloads nil "org-footnote" "org-footnote.el" (22661 45245
+;;;;;;  214276 332000))
 ;;; Generated autoloads from org-footnote.el
 
 (autoload 'org-footnote-action "org-footnote" "\
@@ -1051,7 +1063,7 @@ offer additional commands in a menu.
 
 ;;;***
 
-;;;### (autoloads nil "org-id" "org-id.el" (22393 20522 575274 744000))
+;;;### (autoloads nil "org-id" "org-id.el" (22661 45245 214276 332000))
 ;;; Generated autoloads from org-id.el
 
 (autoload 'org-id-get-create "org-id" "\
@@ -1128,7 +1140,6 @@ Store the relation between files and corresponding IDs.
 This will scan all agenda files, all associated archives, and all
 files currently mentioned in `org-id-locations'.
 When FILES is given, scan these files instead.
-When CHECK is given, prepare detailed information about duplicate IDs.
 
 \(fn &optional FILES SILENT)" t nil)
 
@@ -1144,8 +1155,8 @@ Store a link to the current entry, using its ID.
 
 ;;;***
 
-;;;### (autoloads nil "org-indent" "org-indent.el" (22393 20522 575274
-;;;;;;  744000))
+;;;### (autoloads nil "org-indent" "org-indent.el" (22661 45245 214276
+;;;;;;  332000))
 ;;; Generated autoloads from org-indent.el
 
 (autoload 'org-indent-mode "org-indent" "\
@@ -1162,8 +1173,8 @@ during idle time.
 
 ;;;***
 
-;;;### (autoloads nil "org-irc" "org-irc.el" (22393 20522 575274
-;;;;;;  744000))
+;;;### (autoloads nil "org-irc" "org-irc.el" (22661 45245 215276
+;;;;;;  310000))
 ;;; Generated autoloads from org-irc.el
 
 (autoload 'org-irc-store-link "org-irc" "\
@@ -1173,16 +1184,16 @@ Dispatch to the appropriate function to store a link to an IRC session.
 
 ;;;***
 
-;;;### (autoloads nil "org-lint" "org-lint.el" (22393 20522 575274
-;;;;;;  744000))
+;;;### (autoloads nil "org-lint" "org-lint.el" (22661 45245 215276
+;;;;;;  310000))
 ;;; Generated autoloads from org-lint.el
 
 (autoload 'org-lint "org-lint" "\
 Check current Org buffer for syntax mistakes.
 
-By default, run all checkers.  With a single prefix ARG \\[universal-argument],
-select one category of checkers only.  With a double prefix
-\\[universal-argument] \\[universal-argument], select one precise checker by its name.
+By default, run all checkers.  With a `\\[universal-argument]' prefix ARG, select one
+category of checkers only.  With a `\\[universal-argument] \\[universal-argument]' prefix, run one precise
+checker by its name.
 
 ARG can also be a list of checker names, as symbols, to run.
 
@@ -1190,8 +1201,8 @@ ARG can also be a list of checker names, as symbols, to run.
 
 ;;;***
 
-;;;### (autoloads nil "org-macs" "org-macs.el" (22393 20522 576274
-;;;;;;  723000))
+;;;### (autoloads nil "org-macs" "org-macs.el" (22661 45245 215276
+;;;;;;  310000))
 ;;; Generated autoloads from org-macs.el
 
 (autoload 'org-load-noerror-mustsuffix "org-macs" "\
@@ -1201,8 +1212,8 @@ Load FILE with optional arguments NOERROR and MUSTSUFFIX.
 
 ;;;***
 
-;;;### (autoloads nil "org-mobile" "org-mobile.el" (22393 20522 576274
-;;;;;;  723000))
+;;;### (autoloads nil "org-mobile" "org-mobile.el" (22661 45245 216276
+;;;;;;  289000))
 ;;; Generated autoloads from org-mobile.el
 
 (autoload 'org-mobile-push "org-mobile" "\
@@ -1221,8 +1232,8 @@ agenda view showing the flagged items.
 
 ;;;***
 
-;;;### (autoloads nil "org-plot" "org-plot.el" (22393 20522 576274
-;;;;;;  723000))
+;;;### (autoloads nil "org-plot" "org-plot.el" (22661 45245 216276
+;;;;;;  289000))
 ;;; Generated autoloads from org-plot.el
 
 (autoload 'org-plot/gnuplot "org-plot" "\
@@ -1234,13 +1245,13 @@ line directly before or after the table.
 
 ;;;***
 
-;;;### (autoloads nil "org-table" "org-table.el" (22393 20522 577274
-;;;;;;  702000))
+;;;### (autoloads nil "org-table" "org-table.el" (22661 45245 217276
+;;;;;;  268000))
 ;;; Generated autoloads from org-table.el
 
 (autoload 'org-table-create-with-table\.el "org-table" "\
 Use the table.el package to insert a new table.
-If there is already a table at point, convert between Org-mode tables
+If there is already a table at point, convert between Org tables
 and table.el tables.
 
 \(fn)" t nil)
@@ -1263,6 +1274,7 @@ SIZE is a string Columns x Rows like for example \"3x2\".
 
 (autoload 'org-table-convert-region "org-table" "\
 Convert region to a table.
+
 The region goes from BEG0 to END0, but these borders will be moved
 slightly, to make sure a beginning of line in the first line is included.
 
@@ -1272,7 +1284,7 @@ following values:
 \(4)     Use the comma as a field separator
 \(16)    Use a TAB as field separator
 \(64)    Prompt for a regular expression as field separator
-integer  When a number, use that many spaces as field separator
+integer  When a number, use that many spaces, or a TAB, as field separator
 regexp   When a regular expression, use it to match the separator
 nil      When nil, the command tries to be smart and figure out the
          separator in the following way:
@@ -1381,12 +1393,6 @@ Blank the current table field or active region.
 Show info about the current field, and highlight any reference at point.
 
 \(fn ARG)" t nil)
-
-(autoload 'org-table-current-dline "org-table" "\
-Find out what table data line we are in.
-Only data lines count for this.
-
-\(fn)" t nil)
 
 (autoload 'org-table-goto-column "org-table" "\
 Move the cursor to the Nth column in the current table line.
@@ -1515,13 +1521,13 @@ lines.
 
 (autoload 'org-table-convert "org-table" "\
 Convert from `org-mode' table to table.el and back.
-Obviously, this only works within limits.  When an Org-mode table is
-converted to table.el, all horizontal separator lines get lost, because
-table.el uses these as cell boundaries and has no notion of horizontal lines.
-A table.el table can be converted to an Org-mode table only if it does not
-do row or column spanning.  Multiline cells will become multiple cells.
-Beware, Org-mode does not test if the table can be successfully converted - it
-blindly applies a recipe that works for simple tables.
+Obviously, this only works within limits.  When an Org table is converted
+to table.el, all horizontal separator lines get lost, because table.el uses
+these as cell boundaries and has no notion of horizontal lines.  A table.el
+table can be converted to an Org table only if it does not do row or column
+spanning.  Multiline cells will become multiple cells.  Beware, Org mode
+does not test if the table can be successfully converted - it blindly
+applies a recipe that works for simple tables.
 
 \(fn)" t nil)
 
@@ -1553,8 +1559,11 @@ blank, and the content is appended to the field above.
 (autoload 'org-table-edit-field "org-table" "\
 Edit table field in a different window.
 This is mainly useful for fields that contain hidden parts.
-When called with a \\[universal-argument] prefix, just make the full field visible so that
-it can be edited in place.
+
+When called with a `\\[universal-argument]' prefix, just make the full field
+visible so that it can be edited in place.
+
+When called with a `\\[universal-argument] \\[universal-argument]' prefix, toggle `org-table-follow-field-mode'.
 
 \(fn ARG)" t nil)
 
@@ -1646,14 +1655,21 @@ For details, see the Org mode manual.
 
 This function can also be called from Lisp programs and offers
 additional arguments: EQUATION can be the formula to apply.  If this
-argument is given, the user will not be prompted.  SUPPRESS-ALIGN is
-used to speed-up recursive calls by by-passing unnecessary aligns.
+argument is given, the user will not be prompted.
+
+SUPPRESS-ALIGN is used to speed-up recursive calls by by-passing
+unnecessary aligns.
+
 SUPPRESS-CONST suppresses the interpretation of constants in the
-formula, assuming that this has been done already outside the function.
-SUPPRESS-STORE means the formula should not be stored, either because
-it is already stored, or because it is a modified equation that should
-not overwrite the stored one.  SUPPRESS-ANALYSIS prevents any call to
-`org-table-analyze'.
+formula, assuming that this has been done already outside the
+function.
+
+SUPPRESS-STORE means the formula should not be stored, either
+because it is already stored, or because it is a modified
+equation that should not overwrite the stored one.
+
+SUPPRESS-ANALYSIS prevents analyzing the table and checking
+location of point.
 
 \(fn &optional ARG EQUATION SUPPRESS-ALIGN SUPPRESS-CONST SUPPRESS-STORE SUPPRESS-ANALYSIS)" t nil)
 
@@ -1901,19 +1917,21 @@ be set to provide ORGTBL directives for the generated table.
 \(fn TABLE PARAMS)" nil nil)
 
 (autoload 'orgtbl-ascii-plot "org-table" "\
-Draw an ascii bar plot in a column.
-With cursor in a column containing numerical values, this
-function will draw a plot in a new column.
+Draw an ASCII bar plot in a column.
+
+With cursor in a column containing numerical values, this function
+will draw a plot in a new column.
+
 ASK, if given, is a numeric prefix to override the default 12
-characters width of the plot.  ASK may also be the
-\\[universal-argument] prefix, which will prompt for the width.
+characters width of the plot.  ASK may also be the `\\[universal-argument]' prefix,
+which will prompt for the width.
 
 \(fn &optional ASK)" t nil)
 
 ;;;***
 
-;;;### (autoloads nil "org-timer" "org-timer.el" (22393 20522 577274
-;;;;;;  702000))
+;;;### (autoloads nil "org-timer" "org-timer.el" (22661 45245 217276
+;;;;;;  268000))
 ;;; Generated autoloads from org-timer.el
 
 (autoload 'org-timer-start "org-timer" "\
@@ -1931,16 +1949,18 @@ the region 0:00:00.
 
 (autoload 'org-timer "org-timer" "\
 Insert a H:MM:SS string from the timer into the buffer.
-The first time this command is used, the timer is started.  When used with
-a \\[universal-argument] prefix, force restarting the timer.
-When used with a double prefix argument \\[universal-argument], change all the timer string
-in the region by a fixed amount.  This can be used to recalibrate a timer
-that was not started at the correct moment.
+The first time this command is used, the timer is started.
 
-If NO-INSERT-P is non-nil, return the string instead of inserting
+When used with a `\\[universal-argument]' prefix, force restarting the timer.
+
+When used with a `\\[universal-argument] \\[universal-argument]' prefix, change all the timer strings
+in the region by a fixed amount.  This can be used to re-calibrate
+a timer that was not started at the correct moment.
+
+If NO-INSERT is non-nil, return the string instead of inserting
 it in the buffer.
 
-\(fn &optional RESTART NO-INSERT-P)" t nil)
+\(fn &optional RESTART NO-INSERT)" t nil)
 
 (autoload 'org-timer-change-times-in-region "org-timer" "\
 Change all h:mm:ss time in region by a DELTA.
@@ -1977,19 +1997,19 @@ using three `C-u' prefix arguments.
 
 ;;;***
 
-;;;### (autoloads nil "org-version" "org-version.el" (22413 4997
-;;;;;;  574894 648000))
+;;;### (autoloads nil "org-version" "org-version.el" (22661 46446
+;;;;;;  623496 168000))
 ;;; Generated autoloads from org-version.el
 
 (autoload 'org-release "org-version" "\
-The release version of org-mode.
-  Inserted by installing org-mode or when a release is made.
+The release version of Org.
+Inserted by installing Org mode or when a release is made.
 
 \(fn)" nil nil)
 
 (autoload 'org-git-version "org-version" "\
 The Git version of org-mode.
-  Inserted by installing org-mode or when a release is made.
+Inserted by installing Org or when a release is made.
 
 \(fn)" nil nil)
 
@@ -1998,7 +2018,7 @@ The location of ODT styles.")
 
 ;;;***
 
-;;;### (autoloads nil "org" "org.el" (22413 4776 860319 432000))
+;;;### (autoloads nil "org" "org.el" (22661 46440 809620 924000))
 ;;; Generated autoloads from org.el
 
 (autoload 'org-babel-do-load-languages "org" "\
@@ -2007,7 +2027,7 @@ Load the languages defined in `org-babel-load-languages'.
 \(fn SYM VALUE)" nil nil)
 
 (autoload 'org-babel-load-file "org" "\
-Load Emacs Lisp source code blocks in the Org-mode FILE.
+Load Emacs Lisp source code blocks in the Org FILE.
 This function exports the source code using `org-babel-tangle'
 and then loads the resulting file using `load-file'.  With prefix
 arg (noninteractively: 2nd arg) COMPILE the tangled Emacs Lisp
@@ -2016,13 +2036,30 @@ file to byte-code before it is loaded.
 \(fn FILE &optional COMPILE)" t nil)
 
 (autoload 'org-version "org" "\
-Show the org-mode version.
+Show the Org version.
 Interactively, or when MESSAGE is non-nil, show it in echo area.
 With prefix argument, or when HERE is non-nil, insert it at point.
 In non-interactive uses, a reduced version string is output unless
 FULL is given.
 
 \(fn &optional HERE FULL MESSAGE)" t nil)
+
+(autoload 'org-link-get-parameter "org" "\
+Get TYPE link property for KEY.
+TYPE is a string and KEY is a plist keyword.
+
+\(fn TYPE KEY)" nil nil)
+
+(autoload 'org-link-set-parameters "org" "\
+Set link TYPE properties to PARAMETERS.
+  PARAMETERS should be :key val pairs.
+
+\(fn TYPE &rest PARAMETERS)" nil nil)
+
+(autoload 'org-link-types "org" "\
+Return a list of known link types.
+
+\(fn)" nil nil)
 
 (autoload 'turn-on-orgtbl "org" "\
 Unconditionally turn on `orgtbl-mode'.
@@ -2038,15 +2075,15 @@ Set up hooks for clock persistence.
 Outline-based notes management and organizer, alias
 \"Carsten's outline-mode for keeping track of everything.\"
 
-Org-mode develops organizational tasks around a NOTES file which
-contains information about projects as plain text.  Org-mode is
-implemented on top of outline-mode, which is ideal to keep the content
+Org mode develops organizational tasks around a NOTES file which
+contains information about projects as plain text.  Org mode is
+implemented on top of Outline mode, which is ideal to keep the content
 of large files well structured.  It supports ToDo items, deadlines and
 time stamps, which magically appear in the diary listing of the Emacs
 calendar.  Tables are easily created with a built-in table editor.
 Plain text URL-like links connect to websites, emails (VM), Usenet
 messages (Gnus), BBDB entries, and any files related to the project.
-For printing and sharing of notes, an Org-mode file (or a part of it)
+For printing and sharing of notes, an Org file (or a part of it)
 can be exported as a structured ASCII or HTML file.
 
 The following commands are available:
@@ -2056,57 +2093,60 @@ The following commands are available:
 \(fn)" t nil)
 
 (autoload 'org-cycle "org" "\
-TAB-action and visibility cycling for Org-mode.
+TAB-action and visibility cycling for Org mode.
 
-This is the command invoked in Org-mode by the TAB key.  Its main purpose
-is outline visibility cycling, but it also invokes other actions
+This is the command invoked in Org mode by the `TAB' key.  Its main
+purpose is outline visibility cycling, but it also invokes other actions
 in special contexts.
 
-- When this function is called with a prefix argument, rotate the entire
-  buffer through 3 states (global cycling)
+When this function is called with a `\\[universal-argument]' prefix, rotate the entire
+buffer through 3 states (global cycling)
   1. OVERVIEW: Show only top-level headlines.
   2. CONTENTS: Show all headlines of all levels, but no body text.
   3. SHOW ALL: Show everything.
-  With a double \\[universal-argument] prefix argument, switch to the startup visibility,
-  determined by the variable `org-startup-folded', and by any VISIBILITY
-  properties in the buffer.
-  With a triple \\[universal-argument] prefix argument, show the entire buffer, including any drawers.
 
-- When inside a table, re-align the table and move to the next field.
+With a `\\[universal-argument] \\[universal-argument]' prefix argument, switch to the startup visibility,
+determined by the variable `org-startup-folded', and by any VISIBILITY
+properties in the buffer.
 
-- When point is at the beginning of a headline, rotate the subtree started
-  by this line through 3 different states (local cycling)
+With a `\\[universal-argument] \\[universal-argument] \\[universal-argument]' prefix argument, show the entire buffer, including
+any drawers.
+
+When inside a table, re-align the table and move to the next field.
+
+When point is at the beginning of a headline, rotate the subtree started
+by this line through 3 different states (local cycling)
   1. FOLDED:   Only the main headline is shown.
   2. CHILDREN: The main headline and the direct children are shown.
                From this state, you can move to one of the children
                and zoom in further.
   3. SUBTREE:  Show the entire subtree, including body text.
-  If there is no subtree, switch directly from CHILDREN to FOLDED.
+If there is no subtree, switch directly from CHILDREN to FOLDED.
 
-- When point is at the beginning of an empty headline and the variable
-  `org-cycle-level-after-item/entry-creation' is set, cycle the level
-  of the headline by demoting and promoting it to likely levels.  This
-  speeds up creation document structure by pressing TAB once or several
-  times right after creating a new headline.
+When point is at the beginning of an empty headline and the variable
+`org-cycle-level-after-item/entry-creation' is set, cycle the level
+of the headline by demoting and promoting it to likely levels.  This
+speeds up creation document structure by pressing `TAB' once or several
+times right after creating a new headline.
 
-- When there is a numeric prefix, go up to a heading with level ARG, do
-  a `show-subtree' and return to the previous cursor position.  If ARG
-  is negative, go up that many levels.
+When there is a numeric prefix, go up to a heading with level ARG, do
+a `show-subtree' and return to the previous cursor position.  If ARG
+is negative, go up that many levels.
 
-- When point is not at the beginning of a headline, execute the global
-  binding for TAB, which is re-indenting the line.  See the option
-  `org-cycle-emulate-tab' for details.
+When point is not at the beginning of a headline, execute the global
+binding for `TAB', which is re-indenting the line.  See the option
+`org-cycle-emulate-tab' for details.
 
-- Special case: if point is at the beginning of the buffer and there is
-  no headline in line 1, this function will act as if called with prefix arg
-  (\\[universal-argument] TAB, same as S-TAB) also when called without prefix arg.
-  But only if also the variable `org-cycle-global-at-bob' is t.
+As a special case, if point is at the beginning of the buffer and there is
+no headline in line 1, this function will act as if called with prefix arg
+\(`\\[universal-argument] TAB', same as `S-TAB') also when called without prefix arg, but only
+if the variable `org-cycle-global-at-bob' is t.
 
 \(fn &optional ARG)" t nil)
 
 (autoload 'org-global-cycle "org" "\
 Cycle the global visibility.  For details see `org-cycle'.
-With \\[universal-argument] prefix arg, switch to startup visibility.
+With `\\[universal-argument]' prefix ARG, switch to startup visibility.
 With a numeric prefix, show all headlines up to that level.
 
 \(fn &optional ARG)" t nil)
@@ -2114,10 +2154,10 @@ With a numeric prefix, show all headlines up to that level.
 
 (autoload 'orgstruct-mode "org" "\
 Toggle the minor mode `orgstruct-mode'.
-This mode is for using Org-mode structure commands in other
-modes.  The following keys behave as if Org-mode were active, if
+This mode is for using Org mode structure commands in other
+modes.  The following keys behave as if Org mode were active, if
 the cursor is on a headline, or on a plain list item (both as
-defined by Org-mode).
+defined by Org mode).
 
 \(fn &optional ARG)" t nil)
 
@@ -2132,33 +2172,34 @@ Unconditionally turn on `orgstruct++-mode'.
 \(fn)" nil nil)
 
 (autoload 'org-run-like-in-org-mode "org" "\
-Run a command, pretending that the current buffer is in Org-mode.
+Run a command, pretending that the current buffer is in Org mode.
 This will temporarily bind local variables that are typically bound in
-Org-mode to the values they have in Org-mode, and then interactively
+Org mode to the values they have in Org mode, and then interactively
 call CMD.
 
 \(fn CMD)" nil nil)
 
 (autoload 'org-store-link "org" "\
-\\<org-mode-map>Store an org-link to the current location.
+Store an org-link to the current location.
+\\<org-mode-map>
 This link is added to `org-stored-links' and can later be inserted
-into an Org buffer with \\[org-insert-link].
+into an Org buffer with `org-insert-link' (`\\[org-insert-link]').
 
-For some link types, a prefix ARG is interpreted.
+For some link types, a `\\[universal-argument]' prefix ARG is interpreted.
 For links to Usenet articles, ARG negates `org-gnus-prefer-web-links'.
 For file links, ARG negates `org-context-in-file-links'.
 
-A double prefix ARG force skipping storing functions that are not
-part of Org's core.
+A `\\[universal-argument] \\[universal-argument]' prefix ARG forces skipping storing functions that are not
+part of Org core.
 
-A triple prefix ARG force storing a link for each line in the
+A `\\[universal-argument] \\[universal-argument] \\[universal-argument]' prefix ARG forces storing a link for each line in the
 active region.
 
 \(fn ARG)" t nil)
 
 (autoload 'org-insert-link-global "org" "\
-Insert a link like Org-mode does.
-This command can be called in any mode to insert a link in Org-mode syntax.
+Insert a link like Org mode does.
+This command can be called in any mode to insert a link in Org syntax.
 
 \(fn)" t nil)
 
@@ -2172,16 +2213,16 @@ Raise an error when there is nothing to follow.
 \(fn)" t nil)
 
 (autoload 'org-open-link-from-string "org" "\
-Open a link in the string S, as if it was in Org-mode.
+Open a link in the string S, as if it was in Org mode.
 
 \(fn S &optional ARG REFERENCE-BUFFER)" t nil)
 
 (autoload 'org-switchb "org" "\
 Switch between Org buffers.
 
-With \\[universal-argument] prefix, restrict available buffers to files.
+With `\\[universal-argument]' prefix, restrict available buffers to files.
 
-With \\[universal-argument] \\[universal-argument] prefix, restrict available buffers to agenda files.
+With `\\[universal-argument] \\[universal-argument]' prefix, restrict available buffers to agenda files.
 
 \(fn &optional ARG)" t nil)
 
@@ -2193,13 +2234,13 @@ If the current buffer does not, find the first agenda file.
 \(fn)" t nil)
 
 (autoload 'org-submit-bug-report "org" "\
-Submit a bug report on Org-mode via mail.
+Submit a bug report on Org via mail.
 
 Don't hesitate to report any problems or inaccurate documentation.
 
 If you don't have setup sending mail from (X)Emacs, please copy the
 output buffer into your mail program, as it gives us important
-information about your Org-mode version and configuration.
+information about your Org version and configuration.
 
 \(fn)" t nil)
 
@@ -2216,8 +2257,8 @@ Call the customize function with org as argument.
 
 ;;;***
 
-;;;### (autoloads nil "ox-ascii" "ox-ascii.el" (22393 20522 582274
-;;;;;;  600000))
+;;;### (autoloads nil "ox-ascii" "ox-ascii.el" (22661 45245 221276
+;;;;;;  182000))
 ;;; Generated autoloads from ox-ascii.el
 
 (autoload 'org-ascii-export-as-ascii "ox-ascii" "\
@@ -2317,8 +2358,8 @@ Return output file name.
 
 ;;;***
 
-;;;### (autoloads nil "ox-beamer" "ox-beamer.el" (22393 20522 582274
-;;;;;;  600000))
+;;;### (autoloads nil "ox-beamer" "ox-beamer.el" (22661 45245 222276
+;;;;;;  160000))
 ;;; Generated autoloads from ox-beamer.el
 
 (autoload 'org-beamer-mode "ox-beamer" "\
@@ -2453,8 +2494,8 @@ Return output file name.
 
 ;;;***
 
-;;;### (autoloads nil "ox-html" "ox-html.el" (22393 20522 583274
-;;;;;;  579000))
+;;;### (autoloads nil "ox-html" "ox-html.el" (22661 45245 222276
+;;;;;;  160000))
 ;;; Generated autoloads from ox-html.el
 
 (put 'org-html-head-include-default-style 'safe-local-variable 'booleanp)
@@ -2510,10 +2551,10 @@ is non-nil.
 \(fn &optional ASYNC SUBTREEP VISIBLE-ONLY BODY-ONLY EXT-PLIST)" t nil)
 
 (autoload 'org-html-convert-region-to-html "ox-html" "\
-Assume the current region has org-mode syntax, and convert it to HTML.
+Assume the current region has Org syntax, and convert it to HTML.
 This can be used in any buffer.  For example, you can write an
-itemized list in org-mode syntax in an HTML buffer and use this
-command to convert it.
+itemized list in Org syntax in an HTML buffer and use this command
+to convert it.
 
 \(fn)" t nil)
 
@@ -2560,8 +2601,8 @@ Return output file name.
 
 ;;;***
 
-;;;### (autoloads nil "ox-icalendar" "ox-icalendar.el" (22393 20522
-;;;;;;  583274 579000))
+;;;### (autoloads nil "ox-icalendar" "ox-icalendar.el" (22661 45245
+;;;;;;  222276 160000))
 ;;; Generated autoloads from ox-icalendar.el
 
 (autoload 'org-icalendar-export-to-ics "ox-icalendar" "\
@@ -2611,9 +2652,17 @@ The file is stored under the name chosen in
 
 ;;;***
 
-;;;### (autoloads nil "ox-latex" "ox-latex.el" (22393 20522 584274
-;;;;;;  559000))
+;;;### (autoloads nil "ox-latex" "ox-latex.el" (22661 45245 223276
+;;;;;;  139000))
 ;;; Generated autoloads from ox-latex.el
+
+(autoload 'org-latex-make-preamble "ox-latex" "\
+Return a formatted LaTeX preamble.
+INFO is a plist used as a communication channel.  Optional
+argument TEMPLATE, when non-nil, is the header template string,
+as expected by `org-splice-latex-header'.
+
+\(fn INFO &optional TEMPLATE)" nil nil)
 
 (autoload 'org-latex-export-as-latex "ox-latex" "\
 Export current buffer as a LaTeX buffer.
@@ -2648,9 +2697,9 @@ is non-nil.
 \(fn &optional ASYNC SUBTREEP VISIBLE-ONLY BODY-ONLY EXT-PLIST)" t nil)
 
 (autoload 'org-latex-convert-region-to-latex "ox-latex" "\
-Assume the current region has org-mode syntax, and convert it to LaTeX.
+Assume the current region has Org syntax, and convert it to LaTeX.
 This can be used in any buffer.  For example, you can write an
-itemized list in org-mode syntax in an LaTeX buffer and use this
+itemized list in Org syntax in an LaTeX buffer and use this
 command to convert it.
 
 \(fn)" t nil)
@@ -2737,7 +2786,7 @@ Return output file name.
 
 ;;;***
 
-;;;### (autoloads nil "ox-md" "ox-md.el" (22393 20522 584274 559000))
+;;;### (autoloads nil "ox-md" "ox-md.el" (22661 45245 223276 139000))
 ;;; Generated autoloads from ox-md.el
 
 (autoload 'org-md-export-as-markdown "ox-md" "\
@@ -2766,9 +2815,9 @@ non-nil.
 \(fn &optional ASYNC SUBTREEP VISIBLE-ONLY)" t nil)
 
 (autoload 'org-md-convert-region-to-md "ox-md" "\
-Assume the current region has org-mode syntax, and convert it to Markdown.
+Assume the current region has Org syntax, and convert it to Markdown.
 This can be used in any buffer.  For example, you can write an
-itemized list in org-mode syntax in a Markdown buffer and use
+itemized list in Org syntax in a Markdown buffer and use
 this command to convert it.
 
 \(fn)" t nil)
@@ -2809,7 +2858,7 @@ Return output file name.
 
 ;;;***
 
-;;;### (autoloads nil "ox-odt" "ox-odt.el" (22393 20522 585274 538000))
+;;;### (autoloads nil "ox-odt" "ox-odt.el" (22661 45245 223276 139000))
 ;;; Generated autoloads from ox-odt.el
 
 (put 'org-odt-preferred-output-format 'safe-local-variable 'stringp)
@@ -2871,7 +2920,7 @@ is non-nil then the newly converted file is opened using
 
 ;;;***
 
-;;;### (autoloads nil "ox-org" "ox-org.el" (22393 20522 585274 538000))
+;;;### (autoloads nil "ox-org" "ox-org.el" (22661 45245 223276 139000))
 ;;; Generated autoloads from ox-org.el
 
 (autoload 'org-org-export-as-org "ox-org" "\
@@ -2949,8 +2998,8 @@ Return output file name.
 
 ;;;***
 
-;;;### (autoloads nil "ox-publish" "ox-publish.el" (22393 20522 585274
-;;;;;;  538000))
+;;;### (autoloads nil "ox-publish" "ox-publish.el" (22661 45245 224276
+;;;;;;  118000))
 ;;; Generated autoloads from ox-publish.el
 
 (defalias 'org-publish-project 'org-publish)
@@ -2993,8 +3042,8 @@ the project.
 
 ;;;***
 
-;;;### (autoloads nil "ox-texinfo" "ox-texinfo.el" (22393 20522 585274
-;;;;;;  538000))
+;;;### (autoloads nil "ox-texinfo" "ox-texinfo.el" (22661 45245 224276
+;;;;;;  118000))
 ;;; Generated autoloads from ox-texinfo.el
 
 (autoload 'org-texinfo-publish-to-texinfo "ox-texinfo" "\
@@ -3009,17 +3058,38 @@ Return output file name.
 \(fn PLIST FILENAME PUB-DIR)" nil nil)
 
 (autoload 'org-texinfo-convert-region-to-texinfo "ox-texinfo" "\
-Assume the current region has org-mode syntax, and convert it to Texinfo.
+Assume the current region has Org syntax, and convert it to Texinfo.
 This can be used in any buffer.  For example, you can write an
-itemized list in org-mode syntax in an Texinfo buffer and use
-this command to convert it.
+itemized list in Org syntax in an Texinfo buffer and use this
+command to convert it.
 
 \(fn)" t nil)
 
 ;;;***
 
-;;;### (autoloads nil "ox" "ox.el" (22393 20522 586274 517000))
+;;;### (autoloads nil "ox" "ox.el" (22661 45245 225276 96000))
 ;;; Generated autoloads from ox.el
+
+(autoload 'org-export-get-backend "ox" "\
+Return export back-end named after NAME.
+NAME is a symbol.  Return nil if no such back-end is found.
+
+\(fn NAME)" nil nil)
+
+(autoload 'org-export-get-environment "ox" "\
+Collect export options from the current buffer.
+
+Optional argument BACKEND is an export back-end, as returned by
+`org-export-create-backend'.
+
+When optional argument SUBTREEP is non-nil, assume the export is
+done against the current sub-tree.
+
+Third optional argument EXT-PLIST is a property list with
+external parameters overriding Org default settings, but still
+inferior to file-local settings.
+
+\(fn &optional BACKEND SUBTREEP EXT-PLIST)" nil nil)
 
 (autoload 'org-export-as "ox" "\
 Transcode current Org buffer into BACKEND code.
@@ -3177,10 +3247,10 @@ SPC and DEL (resp. C-n and C-p) keys.
 Set variable `org-export-dispatch-use-expert-ui' to switch to one
 flavor or the other.
 
-When ARG is \\[universal-argument], repeat the last export action, with the same set
-of options used back then, on the current buffer.
+When ARG is `\\[universal-argument]', repeat the last export action, with the same
+set of options used back then, on the current buffer.
 
-When ARG is \\[universal-argument] \\[universal-argument], display the asynchronous export stack.
+When ARG is `\\[universal-argument] \\[universal-argument]', display the asynchronous export stack.
 
 \(fn &optional ARG)" t nil)
 

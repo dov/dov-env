@@ -1829,6 +1829,7 @@ as arguments."
   :type '(alist :tag "Link display parameters"
 		:value-type plist))
 
+;;;###autoload
 (defun org-link-get-parameter (type key)
   "Get TYPE link property for KEY.
 TYPE is a string and KEY is a plist keyword."
@@ -1836,6 +1837,7 @@ TYPE is a string and KEY is a plist keyword."
    (cdr (assoc type org-link-parameters))
    key))
 
+;;;###autoload
 (defun org-link-set-parameters (type &rest parameters)
   "Set link TYPE properties to PARAMETERS.
   PARAMETERS should be :key val pairs."
@@ -1845,6 +1847,7 @@ TYPE is a string and KEY is a plist keyword."
       (org-make-link-regexps)
       (org-element-update-syntax))))
 
+;;;###autoload
 (defun org-link-types ()
   "Return a list of known link types."
   (mapcar #'car org-link-parameters))
@@ -16000,24 +16003,22 @@ If yes, return this value.  If not, return the current value of the variable."
   "Delete PROPERTY from entry at point-or-marker POM.
 Accumulated properties, i.e. PROPERTY+, are also removed.  Return
 non-nil when a property was removed."
-  (unless (member property org-special-properties)
-    (org-with-point-at pom
-      (let ((range (org-get-property-block)))
-	(when range
-	  (let* ((begin (car range))
-		 (origin (cdr range))
-		 (end (copy-marker origin))
-		 (re (org-re-property
-		      (concat (regexp-quote property) "\\+?") t t)))
-	    (goto-char begin)
-	    (while (re-search-forward re end t)
-	      (delete-region (match-beginning 0) (line-beginning-position 2)))
-	    ;; If drawer is empty, remove it altogether.
-	    (when (= begin end)
-	      (delete-region (line-beginning-position 0)
-			     (line-beginning-position 2)))
-	    ;; Return non-nil if some property was removed.
-	    (prog1 (/= end origin) (set-marker end nil))))))))
+  (org-with-point-at pom
+    (pcase (org-get-property-block)
+      (`(,begin . ,origin)
+       (let* ((end (copy-marker origin))
+	      (re (org-re-property
+		   (concat (regexp-quote property) "\\+?") t t)))
+	 (goto-char begin)
+	 (while (re-search-forward re end t)
+	   (delete-region (match-beginning 0) (line-beginning-position 2)))
+	 ;; If drawer is empty, remove it altogether.
+	 (when (= begin end)
+	   (delete-region (line-beginning-position 0)
+			  (line-beginning-position 2)))
+	 ;; Return non-nil if some property was removed.
+	 (prog1 (/= end origin) (set-marker end nil))))
+      (_ nil))))
 
 ;; Multi-values properties are properties that contain multiple values
 ;; These values are assumed to be single words, separated by whitespace.

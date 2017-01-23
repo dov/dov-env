@@ -281,7 +281,7 @@ See also:
 (autoload 'ein:org-open "ein-org" "\
 Open IPython notebook specified by LINK-PATH.
 This function is to be used for FOLLOW function of
-`org-add-link-type'.
+`org-link-set-parameters'.
 
 \(fn LINK-PATH)" nil nil)
 
@@ -306,7 +306,7 @@ node `(org) External links' and Info node `(org) Search options'
 
 \(fn)" nil nil)
 
-(eval-after-load "org" '(progn (org-add-link-type "ipynb" 'ein:org-open) (add-hook 'org-store-link-functions 'ein:org-store-link)))
+(eval-after-load "org" '(progn (org-link-set-parameters "ipynb" :follow #'ein:org-open) (add-hook 'org-store-link-functions 'ein:org-store-link)))
 
 ;;;***
 

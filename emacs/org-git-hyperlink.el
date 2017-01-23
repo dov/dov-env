@@ -35,7 +35,7 @@
 
 (require 'org)
 
-(org-add-link-type "git" 'org-git-hyperlink-open)
+(org-link-set-parameters "git" :follow #'org-git-hyperlink-open)
 
 (defun org-git-hyperlink-open (path)
   "Visit the file in learning-git"

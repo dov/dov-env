@@ -143,9 +143,9 @@
 (load "mo-git-blame")
 (load "xmsi-math-symbols-input.el")
 (load "xml-rpc")
-(require 'ein)
 (global-set-key [?\C-c ?j] 'ein:notebooklist-open)  ; j for jupyter
 
+(require 'org-loaddefs)
 (require 'ein-loaddefs)
 (require 'wgrep)
 (require 'pretty-mode)
@@ -452,13 +452,11 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (interactive)
   (kill-line))
 (load "screenshot.el")
-(load "org.el")
 (load "org-man.el")
 (load "org-git-hyperlink.el")
 (load "org-pydoc-hyperlink.el")
 (load "org-wp.el")
 (load "org-bullets.el")
-(load "ox.el")
 (load "ox-slidy.el")
 (require 'ox-mediawiki)
 (require 'load-theme-buffer-local)
@@ -932,8 +930,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;; mapping between languages and their major mode  (in Emacs)
 ;(setq org-export-htmlized-org-css-url "/home/dov/tmp/org-mode/ORGWEBPAGE/org.css")
 ;(load "htmlize")
-(load "org-s5")
-(load "org-htmlslidy")
 (org-babel-do-load-languages
  'org-babel-load-languages
  '((shell . t)
