@@ -7,19 +7,28 @@
 ;; Based on URL: http://www.emacswiki.org/cgi-bin/wiki/FindFileInProject
 ;;               http://github.com/re5et/find-file-in-git-repo
 
+(setq git-find-file-files-cache (make-hash-table :test 'equal))
+
+(defun build-files-cache (repo)
+  (let ((old-dir default-directory)
+        (file-alist nil))
+  (cd repo)
+  (setq ret
+     (mapcar (lambda (file)
+       (let ((file-cons (cons (file-name-nondirectory file) file)))
+         (add-to-list 'file-alist file-cons)
+         file-cons))
+             (split-string (shell-command-to-string "git ls-files") "\n")))
+  (puthash repo ret git-find-file-files-cache)
+  (cd old-dir)
+  ret))
+
 (defun ffip-project-files (repo)
   "Return an alist of all filenames in the project and their path."
-  (let ((file-alist nil)
-        (old-dir default-directory))
-    (progn 
-      (cd repo)
-      (setq ret (mapcar (lambda (file)
-                          (let ((file-cons (cons (file-name-nondirectory file) file)))
-                            (add-to-list 'file-alist file-cons)
-                            file-cons))
-                        (split-string (shell-command-to-string "git ls-files") "\n")))
-      (cd old-dir)
-      ret)))
+  (setq ret (gethash repo git-find-file-files-cache))
+  (if (not ret)
+      (setq ret (build-files-cache repo)))
+  ret)
 
 (defun find-git-repo (dir)
   "Find base git directory"
