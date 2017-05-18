@@ -2002,7 +2002,7 @@ Does not delete the prompt."
   "Send the current (python) buffer to be evaluated in the MetalJet Application"
   (interactive)
   (write-region (point-min) (point-max) "/tmp/buffer.py")
-  (shell-command "xjet-python /tmp/buffer.py"))
+  (shell-command "/home/dov/scripts/xjet-python /tmp/buffer.py"))
 (define-key py-mode-map [(control c) (control j)] 'xjet-python-buffer)
 
 ;;(swedish-keys global-map)

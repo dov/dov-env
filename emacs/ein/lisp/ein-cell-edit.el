@@ -113,12 +113,15 @@ cell."
   (interactive)
   (set-buffer-modified-p nil)
   (let* ((edited-code (buffer-string))
+         (cell ein:src--cell)
          (overlay ein:src--overlay)
          (read-only (overlay-get overlay 'modification-hooks)))
     (overlay-put overlay 'modification-hooks nil)
     (overlay-put overlay 'insert-in-front-hooks nil)
     (overlay-put overlay 'insert-behind-hooks nil)
-    (setf (slot-value ein:src--cell 'input) edited-code)
+    (with-current-buffer (ein:worksheet--get-buffer ein:src--ws)
+        (ein:cell-set-text cell edited-code))
+    ;;(setf (slot-value ein:src--cell 'input) edited-code)
     (overlay-put overlay 'modification-hooks read-only)
     (overlay-put overlay 'insert-in-front-hooks read-only)
     (overlay-put overlay 'insert-behind-hooks read-only)))
@@ -135,8 +138,6 @@ original notebook cell, unless being called via
     (ein:remove-overlay)
     (when ein:src--allow-write-back
       (ein:edit-cell-save))
-    (ewoc-invalidate (oref ein:src--cell :ewoc)
-                     (ein:cell-element-get cell :input))
     (kill-buffer edit-buffer)
     (switch-to-buffer-other-window (ein:worksheet--get-buffer ws))
     (ein:cell-goto cell)))
@@ -147,8 +148,8 @@ previous value."
   (interactive)
   (let (ein:src--allow-write-back) (ein:edit-cell-exit)))
 
-(defun ein:construct-cell-edit-buffer-name (bufname cell-type)
-  (concat "*EIN Src " bufname "[ " cell-type " ]*" ))
+(defun ein:construct-cell-edit-buffer-name (bufname cid cell-type)
+  (concat "*EIN Src " bufname "[ " cid "/" cell-type " ]*" ))
 
 (defun ein:get-mode-for-kernel (kernelspec)
   (if (null kernelspec)
@@ -200,9 +201,15 @@ appropriate language major mode. Functionality is very similar to
                    (error "Must be called from inside an EIN worksheet cell.")))
          (nb (ein:notebook--get-nb-or-error))
          (ws (ein:worksheet--get-ws-or-error))
-         (contents (ein:cell-get-text cell))
          (type (slot-value cell 'cell-type))
-         (name (ein:construct-cell-edit-buffer-name (buffer-name) type))
+         (name (ein:construct-cell-edit-buffer-name (buffer-name) (ein:cell-id cell) type)))
+    (ein:aif (get-buffer name)
+        (switch-to-buffer-other-window it)
+      (ein:create-edit-cell-buffer name cell nb ws))))
+
+(defun ein:create-edit-cell-buffer (name cell notebook worksheet)
+  (let* ((contents (ein:cell-get-text cell))
+         (type (slot-value cell 'cell-type))
          (buffer (generate-new-buffer-name name))
          (overlay (ein:make-source-overlay (ein:cell-input-pos-min cell)
                                            (ein:cell-input-pos-max cell)
@@ -213,17 +220,18 @@ appropriate language major mode. Functionality is very similar to
                             '(display nil invisible nil intangible nil))
     (set-buffer-modified-p nil)
     (setq buffer-file-name buffer) ;; Breaks anaconda-mode without this special fix.
+
     (condition-case e
         (ein:case-equal type
           (("markdown") (markdown-mode))
           (("code")
-           (case (ein:get-mode-for-kernel (ein:$notebook-kernelspec nb))
+           (case (ein:get-mode-for-kernel (ein:$notebook-kernelspec notebook))
              (python (python-mode)))))
       (error (message "Language mode `%s' fails with: %S"
                       type (nth 1 e))))
     (set (make-local-variable 'ein:src--overlay) overlay)
     (set (make-local-variable 'ein:src--cell) cell)
-    (set (make-local-variable 'ein:src--ws) ws)
+    (set (make-local-variable 'ein:src--ws) worksheet)
     (set (make-local-variable 'ein:src--allow-write-back) t)
     (ein:edit-cell-mode)))
 

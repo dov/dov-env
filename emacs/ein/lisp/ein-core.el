@@ -43,7 +43,7 @@
   :group 'applications
   :prefix "ein:")
 
-(defvar ein:version "0.12.1"
+(defvar ein:version "0.13.0"
   "Version number for Emacs IPython Notebook (EIN).")
 
 
@@ -127,10 +127,14 @@ the source is in git repository."
       (concat ein:version "." it)
     ein:version))
 
-(defvar *running-ipython-version* (make-hash-table))
+(defvar *running-ipython-version* (make-hash-table :test #'equal))
 
 (defun ein:get-ipython-major-version (vstr)
-  (string-to-number (car (split-string vstr "\\."))))
+  (if vstr
+      (string-to-number (car (split-string vstr "\\.")))
+    (if (>= ein:log-level (ein:log-level-name-to-int 'debug))
+        (throw 'error "Null value passed to ein:get-ipython-major-version.")
+      (ein:log 'warn "Null value passed to ein:get-ipython-major-version."))))
 
 ;; TODO: Use symbols instead of numbers for ipython version ('jupyter and 'legacy)?
 (defun ein:query-ipython-version (&optional url-or-port force)
@@ -261,7 +265,8 @@ but can operate in different contexts."
   (ein:generic-getter '(ein:get-kernel--notebook
                         ein:get-kernel--worksheet
                         ein:get-kernel--shared-output
-                        ein:get-kernel--connect)))
+                        ein:get-kernel--connect
+                        ein:get-kernel--worksheet-in-edit-cell)))
 
 (defun ein:get-kernel-or-error ()
   (or (ein:get-kernel)

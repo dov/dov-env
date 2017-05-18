@@ -31,6 +31,7 @@
 
 (require 'ein-core)
 (require 'ein-notebook)
+(require 'ein-file)
 (require 'ein-contents-api)
 (require 'ein-subpackages)
 
@@ -166,6 +167,49 @@ To suppress popup, you can pass a function `ein:do-nothing' as CALLBACK."
   ;(ein:notebooklist-get-buffer url-or-port)
   )
 
+(defcustom ein:notebooklist-keepalive-refresh-time 1
+  "When the notebook keepalive is enabled, the frequency, IN
+HOURS, with which to make calls to the jupyter content API to
+refresh the notebook connection."
+  :type 'float
+  :group 'ein)
+
+(defcustom ein:enable-keepalive nil
+  "When non-nil, will cause EIN to automatically call
+  `ein:notebooklist-enable-keepalive' after any call to
+  `ein:notebooklist-open'."
+  :type 'boolean
+  :group 'ein)
+
+(defvar ein:notebooklist--keepalive-timer nil)
+
+;;;###autoload
+(defun ein:notebooklist-enable-keepalive (&optional url-or-port)
+  "Enable periodic calls to the notebook server to keep long running sessions from expiring.
+By long running we mean sessions to last days, or weeks. The
+frequency of the refresh (which is very similar to a call to
+`ein:notebooklist-open`) is controlled by
+`ein:notebooklist-keepalive-refresh-time`, and is measured in
+terms of hours. If `ein:enable-keepalive' is non-nil this will
+automatically be called during calls to `ein:notebooklist-open`."
+  (interactive (list (ein:notebooklist-ask-url-or-port)))
+  (unless ein:notebooklist--keepalive-timer
+    (message "Enabling notebooklist keepalive...")
+    (let ((success
+           (lambda (content)
+             (ein:log 'info "Refreshing notebooklist connection.")))
+          (refresh-time (* ein:notebooklist-keepalive-refresh-time 60 60)))
+      (setq ein:notebooklist--keepalive-timer
+            (run-at-time 0.1 refresh-time #'ein:content-query-contents "" url-or-port nil success)))))
+
+;;;###autoload
+(defun ein:notebooklist-disable-keepalive ()
+  "Disable the notebooklist keepalive calls to the jupyter notebook server."
+  (interactive)
+  (message "Disabling notebooklist keepalive...")
+  (cancel-timer ein:notebooklist--keepalive-timer)
+  (setq ein:notebooklist--keepalive-timer nil))
+
 (defun* ein:notebooklist-url-retrieve-callback (content)
   "Called via `ein:notebooklist-open'."
   (let ((url-or-port (ein:$content-url-or-port content))
@@ -190,6 +234,8 @@ To suppress popup, you can pass a function `ein:do-nothing' as CALLBACK."
         (ein:log 'info "Opened notebook list at %s with path %s" url-or-port path)
         (unless already-opened-p
           (run-hooks 'ein:notebooklist-first-open-hook))
+        (when ein:enable-keepalive
+          (ein:notebooklist-enable-keepalive (ein:$content-url-or-port content)))
         (current-buffer)))))
 
 (defun* ein:notebooklist-open-error (url-or-port path
@@ -225,13 +271,25 @@ This function is called via `ein:notebook-after-rename-hook'."
                      callback
                      cbargs))
 
+(defun ein:notebooklist-open-file (url-or-port path)
+  (ein:file-open url-or-port
+                 path))
+
+;;;###autoload
+(defun ein:notebooklist-upload-file (upload-path)
+  (interactive "fSelect file to upload:")
+  (unless ein:%notebooklist%
+    (error "Only works when called from an ein:notebooklist buffer."))
+  (let ((nb-path (ein:$notebooklist-path ein:%notebooklist%)))
+    (ein:content-upload nb-path upload-path)))
+
 ;;;###autoload
 (defun ein:notebooklist-new-notebook (&optional url-or-port kernelspec path callback cbargs)
   "Ask server to create a new notebook and open it in a new buffer."
   (interactive (list (ein:notebooklist-ask-url-or-port)
-		     (completing-read
-		      "Select kernel [default]: "
-		      (ein:list-available-kernels (ein:$notebooklist-url-or-port ein:%notebooklist%)) nil t nil nil "default" nil)))
+                     (completing-read
+                      "Select kernel [default]: "
+                      (ein:list-available-kernels (ein:$notebooklist-url-or-port ein:%notebooklist%)) nil t nil nil "default" nil)))
   (let ((path (or path (ein:$notebooklist-path (or ein:%notebooklist%
                                                    (ein:notebooklist-list-get url-or-port)))))
         (version (ein:$notebooklist-api-version (or ein:%notebooklist%
@@ -524,9 +582,9 @@ Notebook list data is passed via the buffer local variable
         (widget-radio-add-item radio-widget (list 'item :value (car k)
                                                   :format (format "%s\n" (cdr k)))))))
   (widget-insert "\n")
-  (let ((api-version (ein:$notebooklist-api-version ein:%notebooklist%))
-        (sessions (make-hash-table :test 'equal)))
+  (let ((sessions (make-hash-table :test 'equal)))
     (ein:content-query-sessions sessions (ein:$notebooklist-url-or-port ein:%notebooklist%) t)
+    (sit-for 0.2) ;; FIXME: What is the optimum number here?
     (loop for note in (ein:$notebooklist-data ein:%notebooklist%)
           for urlport = (ein:$notebooklist-url-or-port ein:%notebooklist%)
           for name = (plist-get note :name)
@@ -548,6 +606,23 @@ Notebook list data is passed via the buffer local variable
                                                         (ein:url (ein:$notebooklist-path ein:%notebooklist%)
                                                                  path))))
                      "Dir")
+                    (widget-insert " : " name)
+                    (widget-insert "\n"))
+          if (string= type "file")
+          do (progn (widget-create
+                     'link
+                     :notify (lexical-let ((urlport urlport)
+                                           (path path))
+                               (lambda (&rest ignore)
+                                 (ein:notebooklist-open-file urlport path)))
+                     "Open")
+                    (widget-insert " ")
+                    (widget-create
+                     'link
+                     :notify (lexical-let ((path path))
+                               (lambda (&rest ignore)
+                                 (message "[EIN]: NBlist delete file command. Implement me!")))
+                     "Delete")
                     (widget-insert " : " name)
                     (widget-insert "\n"))
           if (string= type "notebook")
@@ -734,7 +809,7 @@ FIMXE: document how to use `ein:notebooklist-find-file-callback'
 ;;; Login
 
 ;;;###autoload
-(defun ein:notebooklist-login (url-or-port password)
+(defun ein:notebooklist-login (url-or-port password &optional retry-p)
   "Login to IPython notebook server."
   (interactive (list (ein:notebooklist-ask-url-or-port)
                      (read-passwd "Password: ")))
@@ -745,7 +820,7 @@ FIMXE: document how to use `ein:notebooklist-find-file-callback'
    :type "POST"
    :data (concat "password=" (url-hexify-string password))
    :parser #'ein:notebooklist-login--parser
-   :error (apply-partially #'ein:notebooklist-login--error url-or-port)
+   :error (apply-partially #'ein:notebooklist-login--error url-or-port password retry-p)
    :success (apply-partially #'ein:notebooklist-login--success url-or-port)))
 
 (defun ein:notebooklist-login--parser ()
@@ -767,13 +842,16 @@ Now you can open notebook list by `ein:notebooklist-open'." url-or-port))
     (ein:notebooklist-login--success-1 url-or-port)))
 
 (defun* ein:notebooklist-login--error
-    (url-or-port &key
+    (url-or-port password retry-p &key
                  data
                  symbol-status
                  response
                  &allow-other-keys
                  &aux
                  (response-status (request-response-status-code response)))
+  (if (and (eq response-status 403)
+           (not retry-p))
+      (ein:notebooklist-login url-or-port password t))
   (if (or
        ;; workaround for url-retrieve backend
        (and (eq symbol-status 'timeout)

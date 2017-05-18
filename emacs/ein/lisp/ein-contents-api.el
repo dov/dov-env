@@ -133,7 +133,7 @@ global setting.  For global setting and more information, see
                                params))
       (url-encode-url (ein:url url-or-port "api/notebooks" path)))))
 
-(defun ein:content-query-contents (path &optional url-or-port force-sync callback)
+(defun ein:content-query-contents (path &optional url-or-port force-sync callback retry-p)
   "Return the contents of the object at the specified path from the Jupyter server."
   (condition-case err
       (let* ((url-or-port (or url-or-port (ein:default-url-or-port)))
@@ -152,10 +152,12 @@ global setting.  For global setting and more information, see
            :parser #'ein:json-read
            :sync ein:force-sync
            :success (apply-partially #'ein:new-content new-content callback)
-           :error (apply-partially #'ein:content-query-contents-error url)))
+           :error (apply-partially #'ein:content-query-contents-error url retry-p
+                                   (list path url-or-port force-sync callback t))))
         new-content)
-    (error (progn (message "Error %s on query contents, let's try logging in first..." err)
-                  (call-interactively #'ein:notebooklist-login)))))
+    (error (progn (message "Error %s on query contents, try calling `ein:notebooklist-login` first..." err)
+                  (if (>= ein:log-level (ein:log-level-name-to-int 'debug))
+                      (throw 'error err))))))
 
 (defun ein:content-query-contents-legacy (path &optional url-or-port force-sync callback)
   "Return contents of object at specified path for IPython Notebook versions 2.x"
@@ -235,7 +237,7 @@ global setting.  For global setting and more information, see
     (json-encode `((:type . ,(ein:$content-type content))
                    (:name . ,(ein:$content-name content))
                    (:path . ,path)
-                   (:format . "json")
+                   (:format . ,(or (ein:$content-format content) "json"))
                    (:content ,@(ein:$content-raw-content content))))))
 
 (defun ein:content-from-notebook (nb)
@@ -248,12 +250,12 @@ global setting.  For global setting and more information, see
                        :raw-content nb-content)))
 
 
-(defun* ein:content-query-contents-error (url &key symbol-status response &allow-other-keys)
-  (if (eql symbol-status 'parse-error)
+(defun* ein:content-query-contents-error (url retry-p packed &key symbol-status response &allow-other-keys)
+  (if (and (eql symbol-status 'parse-error)
+           (not retry-p))
       (progn
-        (message "Content list call failed, most likely because ein:notebooklist-login needs to be called first.")
-        (sleep-for 1)
-        (call-interactively #'ein:notebooklist-login))
+        (message "Content list call failed, maybe because curl hasn't updated it's cookie jar yet? Let's try one more time....")
+        (apply #'ein:content-query-contents packed))
     (progn
       (ein:log 'verbose
         "Error thrown: %S" (request-response-error-thrown response))
@@ -472,3 +474,48 @@ global setting.  For global setting and more information, see
 
 (defun* ein:content-query-checkpoints-error (content &key symbol-status response &allow-other-keys)
   (ein:log 'error "Content checkpoint operation failed with status %s (%s)." symbol-status response))
+
+
+;;; Uploads
+
+(defun ein:get-local-file (path)
+  "If path exists, get contents and try to guess type of file (one of file, notebook, or directory)
+and content format (one of json, text, or base64)."
+  (unless (file-readable-p path)
+    (error "File %s is not accessible and cannot be uploaded." path))
+  (let ((name (file-name-nondirectory path))
+        (type (file-name-extension path)))
+    (with-temp-buffer
+      (insert-file-contents path)
+      (cond ((string= type "ipynb")
+             (list name "notebook" "json" (buffer-string)))
+            ((eql buffer-file-coding-system 'no-conversion)
+             (list name "file" "base64" (buffer-string)))
+            (t (list name "file" "text" (buffer-string)))))))
+
+
+(defun ein:content-upload (path uploaded-file-path &optional url-or-port)
+  (multiple-value-bind (name type format contents) (ein:get-local-file uploaded-file-path)
+    (let* ((content (make-ein:$content :url-or-port (or url-or-port (ein:default-url-or-port))
+                                       :name name
+                                       :path (concat path "/" name)
+                                       :raw-content contents))
+           (data (make-hash-table)))
+      (setf (gethash 'path data) path
+            (gethash 'name data) name
+            (gethash 'type data) type
+            (gethash 'format data) format
+            (gethash 'content data) contents)
+      (ein:query-singleton-ajax
+       (list 'content-upload name)
+       (ein:content-url content)
+       :type "PUT"
+       :headers '(("Content-Type" . "application/json"))
+       :timeout ein:content-query-timeout
+       :data (json-encode data)
+       :success (lexical-let ((uploaded-file-path uploaded-file-path))
+                  #'(lambda (&rest -ignore-) (message "File %s succesfully uploaded." uploaded-file-path)))
+       :error (apply-partially #'ein:content-upload-error uploaded-file-path)))))
+
+(cl-defun ein:content-upload-error (path &key symbol-status response &allow-other-keys)
+  (ein:display-warning (format "Could not upload %s. Failed with status %s" path symbol-status)))

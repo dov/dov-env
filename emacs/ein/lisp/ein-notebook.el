@@ -57,7 +57,7 @@
 (require 'ein-query)
 (require 'ein-pytools)
 (require 'ein-traceback)
-
+(require 'ein-inspector)
 
 ;;; Configuration
 
@@ -299,6 +299,22 @@ call notebook destructor `ein:notebook-del'."
 
 ;;; Notebook utility functions
 
+(defun ein:notebook-update-url-or-port (new-url-or-port notebook)
+  "Change the url-or-port the notebook is saved under. Calling
+this will propagate the change to the kernel, trying to restart
+the kernel in the process. Use case for this command is when
+the jupyter server dies and restarted on a different port."
+  (interactive (list
+                (ein:notebooklist-ask-url-or-port)
+                (ein:get-notebook-or-error)))
+  (setf (ein:$notebook-url-or-port notebook) new-url-or-port
+        (ein:$kernel-url-or-port (ein:$notebook-kernel notebook)) new-url-or-port)
+  (ein:kernel-restart (ein:$notebook-kernel notebook))
+  (with-current-buffer (ein:notebook-buffer notebook)
+    (rename-buffer (format ein:notebook-buffer-name-template
+                           (ein:$notebook-url-or-port notebook)
+                           (ein:$notebook-notebook-name notebook)))))
+
 (defun ein:notebook-buffer (notebook)
   "Return the buffer that is associated with NOTEBOOK."
   ;; FIXME: Find a better way to define notebook buffer!
@@ -532,7 +548,7 @@ of minor mode."
   spec
   language)
 
-(defvar ein:available-kernelspecs (make-hash-table))
+(defvar ein:available-kernelspecs (make-hash-table :test #'equal))
 
 (defun ein:kernelspec-for-nb-metadata (kernelspec)
   (let ((display-name (plist-get (ein:$kernelspec-spec kernelspec) :display_name)))
@@ -560,15 +576,16 @@ of minor mode."
   "Query jupyter server for the list of available
 kernels. Results are stored in ein:available-kernelspec, hashed
 on server url/port."
-  (ein:query-singleton-ajax
-   (list 'ein:qeury-kernelspecs url-or-port)
-   (ein:url url-or-port "api/kernelspecs")
-   :type "GET"
-   :timeout ein:content-query-timeout
-   :parser 'ein:json-read
-   :sync t
-   :success (apply-partially #'ein:query-kernelspecs-success url-or-port)
-   :error (apply-partially #'ein:query-kernelspecs-error)))
+  (unless (gethash url-or-port ein:available-kernelspecs)
+    (ein:query-singleton-ajax
+     (list 'ein:qeury-kernelspecs url-or-port)
+     (ein:url url-or-port "api/kernelspecs")
+     :type "GET"
+     :timeout ein:content-query-timeout
+     :parser 'ein:json-read
+     :sync t
+     :success (apply-partially #'ein:query-kernelspecs-success url-or-port)
+     :error (apply-partially #'ein:query-kernelspecs-error))))
 
 (defun* ein:query-kernelspecs-success (url-or-port &key data &allow-other-keys)
   (let ((ks (list :default (plist-get data :default)))
@@ -807,13 +824,17 @@ This is equivalent to do ``C-c`` in the console program."
            (3 (ein:write-nbformat3-worksheets notebook))
            (4 (ein:write-nbformat4-worksheets notebook))
            (t (ein:log 'error "EIN does not support saving notebook format %s" (ein:$notebook-nbformat notebook))))))
-    (plist-put (cdr (assq 'metadata data))
-               :name (ein:$notebook-notebook-name notebook))
-    (ein:aif (ein:$notebook-nbformat-minor notebook)
-        ;; Do not set nbformat when it is not given from server.
-        (push `(nbformat_minor . ,it) data))
-    (push `(nbformat . ,(ein:$notebook-nbformat notebook)) data)
-    data))
+    ;; Apparently metadata can be either a hashtable or a plist...
+    (let ((metadata (cdr (assq 'metadata data))))
+      (if (hash-table-p metadata)
+          (setf (gethash 'name metadata) (ein:$notebook-notebook-name notebook))
+        (plist-put metadata
+                   :name (ein:$notebook-notebook-name notebook)))
+      (ein:aif (ein:$notebook-nbformat-minor notebook)
+          ;; Do not set nbformat when it is not given from server.
+          (push `(nbformat_minor . ,it) data))
+      (push `(nbformat . ,(ein:$notebook-nbformat notebook)) data)
+      data)))
 
 
 (defun ein:write-nbformat3-worksheets (notebook)
@@ -850,8 +871,9 @@ This is equivalent to do ``C-c`` in the console program."
 
 (defun ein:notebook-save-notebook (notebook retry &optional callback cbargs)
   (condition-case err
-      (run-hooks 'before-save-hook)
-    (error (warn "Error running save hooks: '%s'. I will still try to save the notebook." (error-message-string err))))
+      (with-current-buffer (ein:notebook-buffer notebook)
+        (run-hooks 'before-save-hook))
+    (error (ein:log 'warn "Error running save hooks: '%s'. I will still try to save the notebook." (error-message-string err))))
   (let ((content (ein:content-from-notebook notebook)))
     (ein:events-trigger (ein:$notebook-events notebook)
                         'notebook_saving.Notebook)
@@ -891,7 +913,7 @@ This is equivalent to do ``C-c`` in the console program."
           "Status code (=%s) is not 200 and retry exceeds limit (=%s)."
           response-status ein:notebook-save-retry-max)))))
 
-(defun ein:notebook-save-notebook-success (notebook &rest ignore)
+(defun ein:notebook-save-notebook-success (notebook callback cbargs)
   (ein:log 'verbose "Notebook is saved.")
   (setf (ein:$notebook-dirty notebook) nil)
   (mapc (lambda (ws)
@@ -901,7 +923,9 @@ This is equivalent to do ``C-c`` in the console program."
   (ein:events-trigger (ein:$notebook-events notebook)
                       'notebook_saved.Notebook)
   (when ein:notebook-create-checkpoint-on-save
-    (ein:notebook-create-checkpoint notebook)))
+    (ein:notebook-create-checkpoint notebook))
+  (when callback
+    (apply callback cbargs)))
 
 ;; .. [#] Consider the following case.
 ;;    (1) Open worksheet WS0 and other worksheets.
@@ -1430,6 +1454,7 @@ This hook is run regardless the actual major mode used."
 (defvar ein:notebook-mode-map (make-sparse-keymap))
 
 (let ((map ein:notebook-mode-map))
+  (define-key map "\C-ci" 'ein:inspect-object)
   (define-key map "\C-c'" 'ein:edit-cell-contents)
   (define-key map "\C-cS" 'ein:worksheet-toggle-slideshow-view)
   (define-key map "\C-c\C-c" 'ein:worksheet-execute-cell)
