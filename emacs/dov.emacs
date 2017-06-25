@@ -5,9 +5,12 @@
 ;; To use this file, add lines similar to the following to ~/.emacs.d/init.el:
 ;;
 ;;  (setq emacs-git "d:/git/dov/dov-env/emacs")
+;;  (setq my-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
 ;;  (setq default-notes-file "w:/users/Dov/git/xjet-git/notes/notes.org")
 ;;  (load (concat emacs-git "/dov.emacs"))
 ;;  (setenv "PATH" (concat (getenv "PATH") ";D:\\DevTools\\git\\bin"))
+;;  (setenv "SJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
+;;  
 ;;----------------------------------------------------------------------
 
 (if (or (string-match "mingw-nt" system-configuration)
@@ -58,7 +61,8 @@
 
     ; Use Miriam mono font for Hebrew
     (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam Mono CLM:bold")
-    (set-face-font 'default "fontset-default")
+    (ignore-errors
+      (set-face-font 'default "fontset-default"))
     (setq load-path (append (list
                              "/usr/local/share/emacs/site-lisp/vm"
                              ) load-path))
@@ -76,8 +80,11 @@
 (add-to-list 'default-frame-alist
              (cons 'font my-default-font))
 
+;; Takes care of some failure of autocomplete-mode
+(eval-after-load 'auto-complete '(global-auto-complete-mode 1))
+
 ;; Always use utf-8
-(setq coding-system-for-read 'utf-8)
+; (setq coding-system-for-read 'utf-8) - Conflicts with zip file moe
 
 (setq load-path (append
                  (list
@@ -105,24 +112,24 @@
 
 ;; Get newer private versions of standard libraries
 ;(load "cmake-mode")
-(load "cc-mode")
+(autoload 'cc-mode "cc-mode" nil t)
 (load "vc")
 (load "gdb-libtool")
-(load "gtk-look")
-(load "icicles")
-(load "ps-mode")
+(autoload 'gtk-lookup-symbol "gtk-look" nil t)
+;(load "icicles")
+(autoload 'ps-mode "ps-mode" nil t)
 ;(icy-mode)
 ;(load "icicles-xmas")
 ;(load "icicles-menu-xmas")
 ;(load "vala-mode")
-(load "js2-mode.el")
+(autoload 'js2-mode "js2-mode.el" nil t)
 (load "scott.emacs")
-(load "sgml-mode")
-(load "doc-mode")
-(load "csharp-mode-0.4.0")
-(load "octave-mod")
-(load "vc-ediff")
-(load "magit")
+(autoload 'sgml-mode "sgml-mode" nil t)
+(autoload 'doc-mode "doc-mode" nil t)
+;(load "csharp-mode-0.4.0")
+(autoload 'octave-mode "octave-mod" nil t)
+(autoload 'vc-ediff "vc-ediff" nil t)
+(autoload 'magit-status "magit" "Open a Magit status buffer […]" t nil)
 
 ; magit-diff-file was written by me, but requsted to be merged into magit.
 ; See: https://github.com/magit/magit/issues/2553
@@ -137,19 +144,18 @@
 
 (setq magit-push-always-verify nil)
 (setq git-commit-summary-max-length 80)
-(load "magit-blame")
-(load "markdown-mode")
+(autoload 'magit-blame "magit-blame" nil t)
+(autoload 'markdown-mode "markdown-mode" nil t)
 (setq magit-diff-options '("-w"))
-(load "mo-git-blame")
+(autoload 'mo-git-blame "mo-git-blame" nil t)
 (load "xmsi-math-symbols-input.el")
-(load "xml-rpc")
+;(load "xml-rpc")
 (global-set-key [?\C-c ?j] 'ein:notebooklist-open)  ; j for jupyter
 
 (require 'org-loaddefs)
 (require 'ein-loaddefs)
 (require 'wgrep)
 (require 'pretty-mode)
-
 (require 'browse-kill-ring)
 (global-set-key "\M-y" 'browse-kill-ring)
 
@@ -215,6 +221,7 @@ Optional argument ARG is the same as for `kill-word'."
     (backward-char))
   (yank))
 
+;; Minibuffer commands
 (defun mb-expand-tilde-and-copy ()
   "Expand tilde to full path in the minibuffer and copy it to the kill buffer.
 Nice for copying"
@@ -227,7 +234,25 @@ Nice for copying"
   (call-interactively 'kill-line)
   (call-interactively 'minibuffer-keyboard-quit))
 
+(defun name-of-the-file ()
+  "Gets the name of the file the current buffer is based on."
+  (interactive)
+  (insert (buffer-file-name (window-buffer (minibuffer-selected-window)))))
+
+(defun name-nondirectory-of-the-file ()
+  "Gets the name of the file the current buffer is based on."
+  (interactive)
+  (insert (file-name-nondirectory (buffer-file-name (window-buffer (minibuffer-selected-window))))))
+
+(defun name-of-the-buffer ()
+  "Gets the name of current buffer."
+  (interactive)
+  (insert (buffer-name (window-buffer (minibuffer-selected-window)))))
+
 (define-key minibuffer-local-map [(control c) (control k)] 'mb-expand-tilde-and-copy)
+(define-key minibuffer-local-map (kbd "C-c f") 'name-of-the-file)
+(define-key minibuffer-local-map (kbd "C-c b") 'name-nondirectory-of-the-file)
+(define-key minibuffer-local-map (kbd "C-c B") 'name-of-the-buffer)
 
 (defun subword-backward-kill ()
   "Do the same as `backward-kill-word' but on subwords.
@@ -305,14 +330,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
 	(if (or (eq major-mode 'c-mode) (eq major-mode 'c++-mode))
 	    (doxymacs-font-lock)))
 ))
-(load "python-mode")
-;(load "pydoc")
-(load "mediawiki")
-(load "dired+")
-(load "dired-details")
-(load "dired-details+")
-(load "sourcepair")
 
+(load "sourcepair")
 (setq sourcepair-source-path    '( "." "./*" ".." "../*"))
 (setq sourcepair-header-path    '( "." "./*" ".." "../*"))
 (setq sourcepair-source-extensions (append (list ".cu") sourcepair-source-extensions))
@@ -321,7 +340,14 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 
 (autoload 'octave-help "octave-hlp" nil t)
-(load-library "matlab-load")
+(autoload 'python-mode "python-mode" nil t)
+(autoload 'mediawiki-mode "mediawiki" nil t)
+;(load "dired+")
+(load "dired-details")
+(load "dired-details+")
+
+(autoload 'matlab-shell "matlab" "matlab.el" nil t)
+(autoload 'matlab-load "matlab" "matlab.el" nil t)
 
 (require 'color-moccur)
 ;; TeX
@@ -381,7 +407,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;              (if (re-search-forward re 3000 t)
 ;                  "XeLaTeX"
 ;                "LaTeX"))))))
-(load "octave-mod")
 
 ;; Tramp
 (require 'tramp)
@@ -407,9 +432,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (setq buffer-display-table (make-display-table))
   (aset buffer-display-table ?\^M []))
 
-;; DMacro
+;; DMacro - How to delay loading?
 (load "dmacro")
-(load "dired")  ;; Since I am using a dired function below
+;(load "dired")  ;; Since I am using a dired function below
 (dmacro-load (concat emacs-git "/dov.dmacro"))
 (def-dmacro-function pwdleaf() (basename (substring (pwd) 0 -1)))
 (def-dmacro-function datestring() (format-time-string "%A %Y-%m-%d %R"))
@@ -451,13 +476,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   "Redefined to do kill-line as I believe that lines breaks are for display only!"
   (interactive)
   (kill-line))
-(load "screenshot.el")
-(load "org-man.el")
-(load "org-git-hyperlink.el")
-(load "org-pydoc-hyperlink.el")
-(load "org-wp.el")
-(load "org-bullets.el")
-(load "ox-slidy.el")
+(autoload 'org-man-open "org-man.el" nil t)
 (require 'ox-mediawiki)
 (require 'load-theme-buffer-local)
 
@@ -485,6 +504,12 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 (require 'org-crypt)
 (defun my-org-hook ()
+  (load "org-git-hyperlink.el")
+  (load "org-pydoc-hyperlink.el")
+  (load "org-wp.el")
+  (load "org-bullets.el")
+  (load "ox-slidy.el")
+  (load "screenshot.el")
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
   (local-set-key "\M-R" 'refresh-iimages)
@@ -740,7 +765,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 ;; Python use python-mode
 (setq ipython-command "ipython")
-(require 'ipython)
+;(require 'ipython)
 ;(setq py-python-command-args '("-pylab" "-p" "pylab" "-colors" "LightBG"))
 ;(setq py-python-command "python")
 ;(setq py-python-command-args nil)
@@ -851,6 +876,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (setq cperl-electric-keywords nil)
   (setq cperl-hairy nil)
   (setq cperl-mode-abbrev-table nil)
+  (setq cperl-highlight-variables-indiscriminately t)
   
   (abbrev-mode 0)
   (define-key cperl-mode-map [(return)] 'newline-and-indent)
@@ -870,7 +896,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;(autoload 'sgml-mode "sgml-mode.el" "SGML mode" t nil)
 (autoload 'doc-mode "doc-mode.el" "Doc load" t nil)
 (autoload 'csharp-mode "csharp-mode-0.4.0.el" "CSharp mode" t nil)
-
+(autoload 'web-mode "web-mode.el" "WEB mode" t nil)
 
 ;; Set some auto mode
 (setq auto-mode-alist
@@ -911,13 +937,14 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.txt$" 'text-mode)) 
        (list (cons "\\.org$" 'org-mode)) 
        (list (cons "\\.rst$" 'rst-mode)) 
-       (list (cons "\\.pl" 'cperl-mode)) 
+       (list (cons "\\.pl$" 'cperl-mode)) 
        (list (cons "\\.nxc$" 'c++-mode)) 
        (list (cons "\\.mw" 'mediawiki-mode)) 
        (list (cons "\\.ps" 'ps-mode)) 
        (list (cons "\\.el\\.gz" 'emacs-lisp-mode))
        (list (cons "\\.lua$" 'lua-mode)) 
        (list (cons "\\.rs$" 'rust-mode)) 
+       (list (cons "\\.html$" 'web-mode)) 
        auto-mode-alist))
 
 ;; macros for nxc code
@@ -1008,6 +1035,12 @@ With numeric ARG, display the images if and only if ARG is positive."
   (redisplay t))
 
 (add-hook 'org-babel-after-execute-hook 'my-org-iimage-refresh)
+
+(defun my-web-mode ()
+  (interactive)
+  (setq web-mode-markup-indent-offset 2)
+  (setq web-mode-code-indent-offset 2))
+(add-hook 'web-mode-hook 'my-web-mode)
 
 ; Choose applications to open external files .
 
@@ -1575,7 +1608,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control next)] 'end-of-buffer)
 (global-set-key [(control kp_5)] 'move-to-middle-window-line)
 (global-set-key [kp_5] 'recenter)
-(define-key sgml-mode-map [(meta f2)] 'html-date-line)
 
 ; icicle completion does not work for 
 (if (< emacs-major-version 24)
@@ -1594,7 +1626,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 
 ;; Perl mode stuff
-;(load "cperl-mode")
+(autoload 'cperl-mode "cperl-mode" nil t)
 (setq auto-mode-alist
       (append '(("\\.[pP][Llm]$" . cperl-mode))  auto-mode-alist ))
 (setq interpreter-mode-alist (append interpreter-mode-alist
@@ -1679,7 +1711,8 @@ With numeric ARG, display the images if and only if ARG is positive."
   (c-set-offset 'substatement my-substatement)
   (c-set-offset 'substatement-open my-substatement-open)
   (c-set-offset 'access-label my-access-label)
-  (c-set-offset 'topmost-intro my-topmost-intro))
+  (c-set-offset 'topmost-intro my-topmost-intro)
+  (c-set-offset 'topmost-intro-cont '+))
   
 ;; Default indent mode for home projects
 (setq my-indent 2)
@@ -1773,7 +1806,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (local-set-key [(alt ?f)] 'right-word)
   
   ;  (subword-mode)
-  (auto-complete-mode 0)   ; I don't believe in autocomplete mode for C/C++
+;  (auto-complete-mode 0)   ; I don't believe in autocomplete mode for C/C++
   )
 
 (defun my-perlmode-stuff () ""
@@ -1836,6 +1869,7 @@ With numeric ARG, display the images if and only if ARG is positive."
                                (local-set-key [(alt ? )] 'gud-break)
                                (local-set-key [(alt ?b)] 'left-word)
                                (local-set-key [(alt ?f)] 'right-word)
+                               (define-key py-mode-map [(control c) (control j)] 'xjet-python-buffer)
                                ))
 (add-hook 'diff-mode-hook '(lambda() 
                              (remove-dos-eol)))
@@ -2003,7 +2037,6 @@ Does not delete the prompt."
   (interactive)
   (write-region (point-min) (point-max) "/tmp/buffer.py")
   (shell-command "/home/dov/scripts/xjet-python /tmp/buffer.py"))
-(define-key py-mode-map [(control c) (control j)] 'xjet-python-buffer)
 
 ;;(swedish-keys global-map)
 ;(swedish-keys mail-mode-map)

@@ -10,17 +10,18 @@ UnderlinePosition: -100
 UnderlineWidth: 50
 Ascent: 820
 Descent: 180
+InvalidEm: 0
 sfntRevision: 0x0001028f
 LayerCount: 2
-Layer: 0 1 "Back"  1
-Layer: 1 1 "Fore"  0
+Layer: 0 1 "Back" 1
+Layer: 1 1 "Fore" 0
 XUID: [1021 478 146653008 6552238]
 FSType: 8
 OS2Version: 1
 OS2_WeightWidthSlopeOnly: 0
 OS2_UseTypoMetrics: 1
 CreationTime: 1161020814
-ModificationTime: 1371153372
+ModificationTime: 1472019165
 PfmFamily: 17
 TTFWeight: 500
 TTFWidth: 5
@@ -73,7 +74,7 @@ ShortTable: maxp 16
   3
   3
 EndShort
-LangName: 1033 
+LangName: 1033
 GaspTable: 1 65535 2 0
 Encoding: UnicodeBmp
 UnicodeInterp: none
@@ -81,10 +82,10 @@ NameList: Adobe Glyph List
 DisplaySize: -36
 AntiAlias: 1
 FitToEm: 1
-WinInfo: 13091 19 11
+WinInfo: 8949 19 11
 BeginPrivate: 0
 EndPrivate
-BeginChars: 65546 396
+BeginChars: 65546 400
 
 StartChar: .notdef
 Encoding: 65536 -1 0
@@ -529,7 +530,7 @@ StartChar: hyphen
 Encoding: 45 45 16
 Width: 600
 GlyphClass: 2
-Flags: WO
+Flags: W
 LayerCount: 2
 Fore
 SplineSet
@@ -5299,7 +5300,7 @@ StartChar: uni02CB
 Encoding: 715 715 197
 Width: 600
 GlyphClass: 2
-Flags: WO
+Flags: W
 LayerCount: 2
 Fore
 SplineSet
@@ -7152,7 +7153,7 @@ Flags: W
 LayerCount: 2
 Fore
 SplineSet
-124 59 m 25,0,-1
+124 59 m 1049,0,-1
 51 79 m 1,1,-1
  291 334 l 1,2,-1
  50 598 l 1,3,-1
@@ -7174,7 +7175,7 @@ EndChar
 StartChar: arrowright
 Encoding: 8594 8594 297
 Width: 600
-Flags: WO
+Flags: W
 LayerCount: 2
 Fore
 SplineSet
@@ -8517,8 +8518,8 @@ SplineSet
  428 732 428 732 492 637.5 c 128,-1,31
  556 543 556 543 556 373 c 0,32,33
  556 0 556 0 303 0 c 0,17,18
-434 412 m 1,34,-1
-172 411 m 1,35,-1
+434 412 m 1025,34,-1
+172 411 m 1025,35,-1
 434 332 m 1,36,-1
  172 332 l 1,37,-1
  172 411 l 1,38,39
@@ -8695,7 +8696,7 @@ SplineSet
  68 -21 l 1,14,-1
  68 27 l 1,15,-1
  255 354 l 1,0,-1
-338 354 m 1,16,-1
+338 354 m 1025,16,-1
 EndSplineSet
 Validated: 1
 EndChar
@@ -9166,7 +9167,7 @@ EndChar
 StartChar: gradient
 Encoding: 8711 8711 390
 Width: 600
-Flags: WO
+Flags: W
 LayerCount: 2
 Fore
 SplineSet
@@ -9222,7 +9223,7 @@ SplineSet
  177 211 l 5,6,-1
  107 -1 l 5,7,-1
  27 -1 l 5,0,-1
-286 549 m 5,8,-1
+286 549 m 1029,8,-1
 EndSplineSet
 EndChar
 
@@ -9242,14 +9243,14 @@ SplineSet
  177 523 l 5,6,-1
  107 735 l 5,7,-1
  27 735 l 5,0,-1
-286 185 m 5,8,-1
+286 185 m 1029,8,-1
 EndSplineSet
 EndChar
 
 StartChar: emptyset
 Encoding: 8709 8709 394
 Width: 600
-Flags: WO
+Flags: W
 LayerCount: 2
 Fore
 SplineSet
@@ -9290,7 +9291,7 @@ EndChar
 StartChar: element
 Encoding: 8712 8712 395
 Width: 600
-Flags: WO
+Flags: W
 LayerCount: 2
 Fore
 SplineSet
@@ -9312,6 +9313,74 @@ SplineSet
  543 21.25 l 1,24,-1
  543 75.25 l 1,25,-1
  308 72 l 1,0,1
+EndSplineSet
+EndChar
+
+StartChar: uni230A
+Encoding: 8970 8970 396
+Width: 600
+Flags: W
+LayerCount: 2
+Fore
+SplineSet
+236 776 m 5,0,-1
+ 162 776 l 5,5,-1
+ 162 -103 l 1,4,-1
+ 494 -103 l 1,3,-1
+ 494 -37 l 1,2,-1
+ 236 -37 l 1,1,-1
+ 236 776 l 5,0,-1
+EndSplineSet
+EndChar
+
+StartChar: uni2308
+Encoding: 8968 8968 397
+Width: 600
+Flags: W
+LayerCount: 2
+Fore
+SplineSet
+237 -103 m 5,0,-1
+ 162 -103 l 1,1,-1
+ 162 776 l 1,2,-1
+ 493 776 l 1,3,-1
+ 493 707 l 1,4,-1
+ 236 707 l 1,5,-1
+ 237 -103 l 5,0,-1
+EndSplineSet
+EndChar
+
+StartChar: uni2309
+Encoding: 8969 8969 398
+Width: 600
+Flags: W
+LayerCount: 2
+Fore
+SplineSet
+366 -103 m 5,6,-1
+ 438 -103 l 1,1,-1
+ 438 776 l 1,2,-1
+ 107 776 l 1,3,-1
+ 107 707 l 1,4,-1
+ 364 707 l 1,5,-1
+ 366 -103 l 5,6,-1
+EndSplineSet
+EndChar
+
+StartChar: uni230B
+Encoding: 8971 8971 399
+Width: 600
+Flags: WO
+LayerCount: 2
+Fore
+SplineSet
+365 776 m 5,0,-1
+ 438 776 l 1,5,-1
+ 438 -103 l 1,4,-1
+ 106 -103 l 1,3,-1
+ 106 -37 l 1,2,-1
+ 364 -37 l 1,1,-1
+ 365 776 l 5,0,-1
 EndSplineSet
 EndChar
 EndChars

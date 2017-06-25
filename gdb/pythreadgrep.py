@@ -51,19 +51,14 @@ class PyThreadGrep (gdb.Command):
 
     pattern = args[argp]
 
-    # Get list of threads
-    threads_string = gdb.execute('info threads',False,True)
-    thread_ids = []
-    for thread_string in threads_string.split('\n'):
-      m = re.match(r'^\*?\s+(\d+).*?\"(.*?)\"',thread_string)
-      if m:
-        thread_ids += [(int(m.group(1)), m.group(2))]
-    thread_ids.sort()
+    threads = sorted(gdb.inferiors()[0].threads(),
+                     key = lambda v : v.global_num)
 
-    # Loop over all threads
-    thread_names = [i.name for i in gdb.inferiors()[0].threads()]
-    for thread_id,thread_name in thread_ids:
-      gdb.execute("thread %d"%thread_id, False, True)
+    for th in threads:
+      th.switch()
+      thread_id = th.global_num
+      thread_name = th.num
+                   
       where_string = gdb.execute('where',False,True)
       if re.search(pattern, where_string):
         print(colors.HEADER + "Match in thread #%d (%s)"%(thread_id, thread_name) + colors.ENDC)
