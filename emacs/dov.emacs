@@ -59,7 +59,7 @@
 ;     (set-default-font "Menlo:pixelsize=12")
      (error "No such font, but who cares"))
 
-    ; Use Miriam mono font for Hebrew
+                                        ; Use Miriam mono font for Hebrew
     (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam Mono CLM:bold")
     (ignore-errors
       (set-face-font 'default "fontset-default"))

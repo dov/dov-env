@@ -43,7 +43,7 @@ XTerm*thickness: 8
 *VT100*background: grey20
 *VT100*foreground: green
 *VT100*cursorColor: green
-XTerm*color0: grey70
+XTerm*color0: black
 XTerm*color3: yellow
 XTerm*color4: aquamarine1
 XTerm*color2: orange1
