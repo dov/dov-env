@@ -113,17 +113,17 @@
 ;; Get newer private versions of standard libraries
 ;(load "cmake-mode")
 (autoload 'cc-mode "cc-mode" nil t)
-(load "vc")
+;(load "vc")
 (load "gdb-libtool")
 (autoload 'gtk-lookup-symbol "gtk-look" nil t)
-;(load "icicles")
+(autoload 'icicle-apropos-complete "icicles" nil t)
 (autoload 'ps-mode "ps-mode" nil t)
 ;(icy-mode)
 ;(load "icicles-xmas")
 ;(load "icicles-menu-xmas")
 ;(load "vala-mode")
 (autoload 'js2-mode "js2-mode.el" nil t)
-(load "scott.emacs")
+;(load "scott.emacs")
 (autoload 'sgml-mode "sgml-mode" nil t)
 (autoload 'doc-mode "doc-mode" nil t)
 ;(load "csharp-mode-0.4.0")
@@ -148,7 +148,7 @@
 (autoload 'markdown-mode "markdown-mode" nil t)
 (setq magit-diff-options '("-w"))
 (autoload 'mo-git-blame "mo-git-blame" nil t)
-(load "xmsi-math-symbols-input.el")
+(autoload 'xmsi-mode "xmsi-math-symbols-input" "Load xmsi minor mode for inputting math (Unicode) symbols." t)
 ;(load "xml-rpc")
 (global-set-key [?\C-c ?j] 'ein:notebooklist-open)  ; j for jupyter
 
@@ -432,25 +432,28 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (setq buffer-display-table (make-display-table))
   (aset buffer-display-table ?\^M []))
 
-;; DMacro - How to delay loading?
-(load "dmacro")
-;(load "dired")  ;; Since I am using a dired function below
-(dmacro-load (concat emacs-git "/dov.dmacro"))
-(def-dmacro-function pwdleaf() (basename (substring (pwd) 0 -1)))
-(def-dmacro-function datestring() (format-time-string "%A %Y-%m-%d %R"))
-(def-dmacro-function pwdleaf-spacefill ()
-  (substring
-   (concat
-    (basename (substring (pwd) 0 -1))
-    "                               ")
-   0 20))
-;; A version of (file-name) that space fills the result
-(def-dmacro-function buffername-spacefill ()
-  (substring
-   (concat
-    (replace-regexp-in-string "\\.\\w+$" "" (buffer-name))
-    "                               ")
-   0 20))
+;; Delayed loading of dmacro
+(autoload 'insert-dmacro "dmacro" "dmacro.el" nil t)
+
+(with-eval-after-load "dmacro"
+  ;(load "dired")  ;; Since I am using a dired function below
+  (dmacro-load (concat emacs-git "/dov.dmacro"))
+  (def-dmacro-function pwdleaf() (basename (substring (pwd) 0 -1)))
+  (def-dmacro-function datestring() (format-time-string "%A %Y-%m-%d %R"))
+  (def-dmacro-function pwdleaf-spacefill ()
+    (substring
+     (concat
+      (basename (substring (pwd) 0 -1))
+      "                               ")
+     0 20))
+  ;; A version of (file-name) that space fills the result
+  (def-dmacro-function buffername-spacefill ()
+    (substring
+     (concat
+      (replace-regexp-in-string "\\.\\w+$" "" (buffer-name))
+      "                               ")
+     0 20)))
+
 (global-set-key "\C-cm" 'insert-dmacro)
 
 (setq auto-dmacro-alist '())
