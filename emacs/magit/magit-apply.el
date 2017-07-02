@@ -1,6 +1,6 @@
 ;;; magit-apply.el --- apply Git diffs  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2016  The Magit Project Contributors
+;; Copyright (C) 2010-2017  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -40,30 +40,50 @@
 (declare-function magit-checkout-stage 'magit)
 (declare-function magit-checkout-read-stage 'magit)
 (defvar auto-revert-verbose)
+;; For `magit-stage-untracked'
+(declare-function magit-submodule-add 'magit-submodule)
+(declare-function magit-submodule-read-name-for-path 'magit-submodule)
 
 (require 'dired)
 
 ;;; Options
 
 (defcustom magit-delete-by-moving-to-trash t
-  "Whether Magit uses the system's trash can."
+  "Whether Magit uses the system's trash can.
+
+You should absolutely not disable this and also remove `discard'
+from `magit-no-confirm'.  You shouldn't do that even if you have
+all of the Magit-Wip modes enabled, because those modes do not
+track any files that are not tracked in the proper branch."
   :package-version '(magit . "2.1.0")
-  :group 'magit
+  :group 'magit-essentials
   :type 'boolean)
 
 (defcustom magit-unstage-committed t
   "Whether unstaging a committed change reverts it instead.
 
 A committed change cannot be unstaged, because staging and
-unstaging are actions that are concern with the differences
+unstaging are actions that are concerned with the differences
 between the index and the working tree, not with committed
 changes.
 
 If this option is non-nil (the default), then typing \"u\"
-(`magit-unstage') on a committed change, causes it to be
+\(`magit-unstage') on a committed change, causes it to be
 reversed in the index but not the working tree.  For more
 information see command `magit-reverse-in-index'."
   :package-version '(magit . "2.4.1")
+  :group 'magit-commands
+  :type 'boolean)
+
+(defcustom magit-reverse-atomically nil
+  "Whether to reverse changes atomically.
+
+If some changes can be reversed while others cannot, then nothing
+is reversed if the value of this option is non-nil.  But when it
+is nil, then the changes that can be reversed are reversed and
+for the other changes diff files are created that contain the
+rejected reversals."
+  :package-version '(magit . "2.7.0")
   :group 'magit-commands
   :type 'boolean)
 
@@ -71,8 +91,9 @@ information see command `magit-reverse-in-index'."
 ;;;; Apply
 
 (defun magit-apply (&rest args)
-  "Apply the change at point.
-With a prefix argument and if necessary, attempt a 3-way merge."
+  "Apply the change at point to the working tree.
+With a prefix argument fallback to a 3-way merge.  Doing
+so causes the change to be applied to the index as well."
   (interactive (and current-prefix-arg (list "--3way")))
   (--when-let (magit-apply--get-selection)
     (pcase (list (magit-diff-type) (magit-diff-scope))
@@ -175,21 +196,24 @@ With a prefix argument and if necessary, attempt a 3-way merge."
 
 ;;;; Stage
 
-(defun magit-stage ()
-  "Add the change at point to the staging area."
-  (interactive)
-  (--when-let (magit-apply--get-selection)
-    (pcase (list (magit-diff-type) (magit-diff-scope))
-      (`(untracked     ,_) (magit-stage-untracked))
-      (`(unstaged  region) (magit-apply-region it "--cached"))
-      (`(unstaged    hunk) (magit-apply-hunk   it "--cached"))
-      (`(unstaged   hunks) (magit-apply-hunks  it "--cached"))
-      (`(unstaged    file) (magit-stage-1 "-u" (list (magit-section-value it))))
-      (`(unstaged   files) (magit-stage-1 "-u" (magit-region-values)))
-      (`(unstaged    list) (magit-stage-1 "-u"))
-      (`(staged        ,_) (user-error "Already staged"))
-      (`(committed     ,_) (user-error "Cannot stage committed changes"))
-      (`(undefined     ,_) (user-error "Cannot stage this change")))))
+(defun magit-stage (&optional intent)
+  "Add the change at point to the staging area.
+With a prefix argument, INTENT, and an untracked file (or files)
+at point, stage the file but not its content."
+  (interactive "P")
+  (--if-let (and (derived-mode-p 'magit-mode) (magit-apply--get-selection))
+      (pcase (list (magit-diff-type) (magit-diff-scope))
+        (`(untracked     ,_) (magit-stage-untracked intent))
+        (`(unstaged  region) (magit-apply-region it "--cached"))
+        (`(unstaged    hunk) (magit-apply-hunk   it "--cached"))
+        (`(unstaged   hunks) (magit-apply-hunks  it "--cached"))
+        (`(unstaged    file) (magit-stage-1 "-u" (list (magit-section-value it))))
+        (`(unstaged   files) (magit-stage-1 "-u" (magit-region-values)))
+        (`(unstaged    list) (magit-stage-1 "-u"))
+        (`(staged        ,_) (user-error "Already staged"))
+        (`(committed     ,_) (user-error "Cannot stage committed changes"))
+        (`(undefined     ,_) (user-error "Cannot stage this change")))
+    (call-interactively 'magit-stage-file)))
 
 ;;;###autoload
 (defun magit-stage-file (file)
@@ -200,7 +224,7 @@ requiring confirmation."
   (interactive
    (let* ((atpoint (magit-section-when (file)))
           (current (magit-file-relative-name))
-          (choices (nconc (magit-modified-files)
+          (choices (nconc (magit-unstaged-files)
                           (magit-untracked-files)))
           (default (car (member (or atpoint current) choices))))
      (list (if (or current-prefix-arg (not default))
@@ -232,7 +256,7 @@ ignored) files.
     (mapc #'magit-turn-on-auto-revert-mode-if-desired files))
   (magit-wip-commit-after-apply files " after stage"))
 
-(defun magit-stage-untracked ()
+(defun magit-stage-untracked (&optional intent)
   (let* ((section (magit-current-section))
          (files (pcase (magit-diff-scope)
                   (`file  (list (magit-section-value section)))
@@ -240,12 +264,14 @@ ignored) files.
                   (`list  (magit-untracked-files))))
          plain repos)
     (dolist (file files)
-      (if (magit-git-repo-p file t)
+      (if (and (not (file-symlink-p file))
+               (magit-git-repo-p file t))
           (push file repos)
         (push file plain)))
     (magit-wip-commit-before-change files " before stage")
     (when plain
-      (magit-run-git "add" "--" plain)
+      (magit-run-git "add" (and intent "--intent-to-add")
+                     "--" plain)
       (when magit-auto-revert-mode
         (mapc #'magit-turn-on-auto-revert-mode-if-desired plain)))
     (dolist (repo repos)
@@ -253,7 +279,13 @@ ignored) files.
         (goto-char (magit-section-start
                     (magit-get-section
                      `((file . ,repo) (untracked) (status)))))
-        (call-interactively 'magit-submodule-add)))
+        (magit-submodule-add
+         (let ((default-directory
+                 (file-name-as-directory (expand-file-name repo))))
+           (or (magit-get "remote" (or (magit-get-remote) "origin") "url")
+               (concat (file-name-as-directory ".") repo)))
+         repo
+         (magit-submodule-read-name-for-path repo))))
     (magit-wip-commit-after-apply files " after stage")))
 
 ;;;; Unstage
@@ -345,7 +377,7 @@ without requiring confirmation."
                (magit-section-parent-value section)))
         (progn (let ((inhibit-magit-refresh t))
                  (funcall apply section "--reverse" "--cached")
-                 (funcall apply section "--reverse"))
+                 (funcall apply section "--reverse" "--reject"))
                (magit-refresh))
       (funcall apply section "--reverse" "--index"))))
 
@@ -366,7 +398,7 @@ without requiring confirmation."
                  (magit-section-parent-value section)))
           (progn (let ((inhibit-magit-refresh t))
                    (funcall apply sections "--reverse" "--cached")
-                   (funcall apply sections "--reverse"))
+                   (funcall apply sections "--reverse" "--reject"))
                  (magit-refresh))
         (funcall apply sections "--reverse" "--index")))))
 
@@ -453,7 +485,10 @@ without requiring confirmation."
     (dolist (file files)
       (let ((orig (cadr (assoc file status))))
         (if (file-exists-p file)
-            (magit-call-git "mv" file orig)
+            (progn
+              (--when-let (file-name-directory orig)
+                (make-directory it t))
+              (magit-call-git "mv" file orig))
           (magit-call-git "rm" "--cached" "--" file)
           (magit-call-git "reset" "--" orig))))))
 
@@ -472,11 +507,12 @@ without requiring confirmation."
             (setq sections
                   (--filter (not (member (magit-section-value it) binaries))
                             sections)))
-          (if (= (length sections) 1)
-              (magit-discard-apply (car sections) 'magit-apply-diff)
-            (magit-discard-apply-n sections 'magit-apply-diffs))
+          (cond ((= (length sections) 1)
+                 (magit-discard-apply (car sections) 'magit-apply-diff))
+                (sections
+                 (magit-discard-apply-n sections 'magit-apply-diffs)))
           (when binaries
-            (let ((modified (magit-modified-files t)))
+            (let ((modified (magit-unstaged-files t)))
               (setq binaries (--separate (member it modified) binaries)))
             (when (cadr binaries)
               (magit-call-git "reset" "--" (cadr binaries)))
@@ -489,7 +525,9 @@ without requiring confirmation."
 ;;;; Reverse
 
 (defun magit-reverse (&rest args)
-  "Reverse the change at point in the working tree."
+  "Reverse the change at point in the working tree.
+With a prefix argument fallback to a 3-way merge.  Doing
+so causes the change to be applied to the index as well."
   (interactive (and current-prefix-arg (list "--3way")))
   (--when-let (magit-apply--get-selection)
     (pcase (list (magit-diff-type) (magit-diff-scope))
@@ -504,18 +542,18 @@ without requiring confirmation."
 
 (defun magit-reverse-region (section args)
   (when (magit-confirm 'reverse "Reverse region")
-    (apply 'magit-apply-region section "--reverse" args)))
+    (magit-reverse-apply section 'magit-apply-region args)))
 
 (defun magit-reverse-hunk (section args)
   (when (magit-confirm 'reverse "Reverse hunk")
-    (apply 'magit-apply-hunk section "--reverse" args)))
+    (magit-reverse-apply section 'magit-apply-hunk args)))
 
 (defun magit-reverse-hunks (sections args)
   (when (magit-confirm 'reverse
           (format "Reverse %s hunks from %s"
                   (length sections)
                   (magit-section-parent-value (car sections))))
-    (magit-apply-hunks sections "--reverse" args)))
+    (magit-reverse-apply sections 'magit-apply-hunks args)))
 
 (defun magit-reverse-file (section args)
   (magit-reverse-files (list section) args))
@@ -526,10 +564,16 @@ without requiring confirmation."
            (--separate (member (magit-section-value it) bs) sections))]
     (when (magit-confirm-files 'reverse (mapcar #'magit-section-value sections))
       (if (= (length sections) 1)
-          (magit-apply-diff (car sections) "--reverse" args)
-        (magit-apply-diffs sections "--reverse" args)))
+          (magit-reverse-apply (car sections) 'magit-apply-diff args)
+        (magit-reverse-apply sections 'magit-apply-diffs args)))
     (when binaries
       (user-error "Cannot reverse binary files"))))
+
+(defun magit-reverse-apply (section:s apply args)
+  (funcall apply section:s "--reverse" args
+           (and (not magit-reverse-atomically)
+                (not (member "--3way" args))
+                "--reject")))
 
 (defun magit-reverse-in-index (&rest args)
   "Reverse the change at point in the index but not the working tree.
@@ -550,9 +594,5 @@ a separate commit.  A typical workflow would be:
   (interactive)
   (magit-reverse (cons "--cached" args)))
 
-;;; magit-apply.el ends soon
 (provide 'magit-apply)
-;; Local Variables:
-;; indent-tabs-mode: nil
-;; End:
 ;;; magit-apply.el ends here

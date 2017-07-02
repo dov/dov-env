@@ -1,6 +1,6 @@
 ;;; magit-commit.el --- create Git commits  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008-2016  The Magit Project Contributors
+;; Copyright (C) 2008-2017  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -45,7 +45,7 @@
 
 (defcustom magit-commit-arguments nil
   "The arguments used when committing."
-  :group 'magit-commands
+  :group 'magit-git-arguments
   :type '(repeat (string :tag "Argument")))
 
 (defcustom magit-commit-ask-to-stage 'verbose
@@ -85,7 +85,7 @@ an error while using those is harder to recover from."
   :group 'magit-commands
   :type 'boolean)
 
-;;; Code
+;;; Popup
 
 (defun magit-commit-popup (&optional arg)
   "Popup console for commit commands."
@@ -125,18 +125,29 @@ an error while using those is harder to recover from."
       magit-current-popup-args
     magit-commit-arguments))
 
-(defun magit-commit-message-buffer ()
-  (let* ((find-file-visit-truename t) ; git uses truename of COMMIT_EDITMSG
-         (topdir (magit-toplevel)))
-    (--first (equal topdir (with-current-buffer it
-                             (and git-commit-mode (magit-toplevel))))
-             (append (buffer-list (selected-frame))
-                     (buffer-list)))))
+(defvar magit-gpg-secret-key-hist nil)
+
+(defun magit-read-gpg-secret-key (prompt &optional _initial-input)
+  (require 'epa)
+  (let ((keys (--map (concat (epg-sub-key-id (car (epg-key-sub-key-list it)))
+                             " "
+                             (-when-let (id-obj (car (epg-key-user-id-list it)))
+                               (let    ((id-str (epg-user-id-string id-obj)))
+                                 (if (stringp id-str)
+                                     id-str
+                                   (epg-decode-dn id-obj)))))
+                     (epg-list-keys (epg-make-context epa-protocol) nil t))))
+    (car (split-string (magit-completing-read
+                        prompt keys nil nil nil 'magit-gpg-secret-key-hist
+                        (car (or magit-gpg-secret-key-hist keys)))
+                       " "))))
+
+;;; Commands
 
 ;;;###autoload
 (defun magit-commit (&optional args)
-  "Create a new commit on HEAD.
-With a prefix argument amend to the commit at HEAD instead.
+  "Create a new commit on `HEAD'.
+With a prefix argument, amend to the commit at `HEAD' instead.
 \n(git commit [--amend] ARGS)"
   (interactive (if current-prefix-arg
                    (list (cons "--amend" (magit-commit-arguments)))
@@ -245,10 +256,17 @@ depending on the value of option `magit-commit-squash-confirm'."
                           current-prefix-arg
                           magit-commit-squash-confirm))))
         (let ((magit-commit-show-diff nil))
-          (magit-run-git-with-editor "commit"
-                                     (unless edit "--no-edit")
-                                     (concat option "=" commit)
-                                     args))
+          (push (concat option "=" commit) args)
+          (unless edit
+            (push "--no-edit" args))
+          (if rebase
+              (magit-with-editor
+                (magit-call-git
+                 "commit" "--no-gpg-sign"
+                 (-remove-first
+                  (apply-partially #'string-match-p "\\`--gpg-sign=")
+                  args)))
+            (magit-run-git-with-editor "commit" args)))
       (magit-log-select
         `(lambda (commit)
            (magit-commit-squash-internal ,option commit ',args ,rebase ,edit t)
@@ -295,20 +313,27 @@ depending on the value of option `magit-commit-squash-confirm'."
    (t
     (user-error "Nothing staged"))))
 
+;;; Pending Diff
+
 (defun magit-commit-diff ()
-  (--when-let (and git-commit-mode
-                   magit-commit-show-diff
-                   (pcase last-command
-                     (`magit-commit
-                      (apply-partially 'magit-diff-staged nil))
-                     (`magit-commit-amend  'magit-diff-while-amending)
-                     (`magit-commit-reword 'magit-diff-while-amending)))
+  (-when-let (fn (and git-commit-mode
+                      magit-commit-show-diff
+                      (pcase last-command
+                        (`magit-commit
+                         (apply-partially 'magit-diff-staged nil))
+                        (`magit-commit-amend  'magit-diff-while-amending)
+                        (`magit-commit-reword 'magit-diff-while-amending))))
+    (-when-let (diff-buffer (magit-mode-get-buffer 'magit-diff-mode))
+      ;; This window just started displaying the commit message
+      ;; buffer.  Without this that buffer would immediately be
+      ;; replaced with the diff buffer.  See #2632.
+      (unrecord-window-buffer nil diff-buffer))
     (condition-case nil
         (let ((magit-inhibit-save-previous-winconf 'unset)
               (magit-display-buffer-noselect t)
               (inhibit-quit nil))
           (message "Diffing changes to be committed (C-g to abort diffing)")
-          (funcall it (car (magit-diff-arguments))))
+          (funcall fn (car (magit-diff-arguments))))
       (quit))))
 
 ;; Mention `magit-diff-while-committing' because that's
@@ -318,19 +343,15 @@ depending on the value of option `magit-commit-squash-confirm'."
 (add-to-list 'with-editor-server-window-alist
              (cons git-commit-filename-regexp 'switch-to-buffer))
 
-(defvar magit-gpg-secret-key-hist nil)
+;;; Message Utilities
 
-(defun magit-read-gpg-secret-key (prompt &optional _initial-input)
-  (require 'epa)
-  (let ((keys (--map (list (epg-sub-key-id (car (epg-key-sub-key-list it)))
-                           (-when-let (id-obj (car (epg-key-user-id-list it)))
-                             (let    ((id-str (epg-user-id-string id-obj)))
-                               (if (stringp id-str)
-                                   id-str
-                                 (epg-decode-dn id-obj)))))
-                     (epg-list-keys (epg-make-context epa-protocol) nil t))))
-    (magit-completing-read prompt keys nil nil nil 'magit-gpg-secret-key-hist
-                           (car (or magit-gpg-secret-key-hist keys)))))
+(defun magit-commit-message-buffer ()
+  (let* ((find-file-visit-truename t) ; git uses truename of COMMIT_EDITMSG
+         (topdir (magit-toplevel)))
+    (--first (equal topdir (with-current-buffer it
+                             (and git-commit-mode (magit-toplevel))))
+             (append (buffer-list (selected-frame))
+                     (buffer-list)))))
 
 (defvar magit-commit-add-log-insert-function 'magit-commit-add-log-insert
   "Used by `magit-commit-add-log' to insert a single entry.")
@@ -345,8 +366,8 @@ actually insert the entry."
         (log (magit-commit-message-buffer)) buf pos)
     (save-window-excursion
       (call-interactively #'magit-diff-visit-file)
-      (setq buf (current-buffer)
-            pos (point)))
+      (setq buf (current-buffer))
+      (setq pos (point)))
     (unless log
       (unless (magit-commit-assert nil)
         (user-error "Abort"))
@@ -394,9 +415,5 @@ actually insert the entry."
           (insert (format "(%s): \n" defun))
           (backward-char))))))
 
-;;; magit-commit.el ends soon
 (provide 'magit-commit)
-;; Local Variables:
-;; indent-tabs-mode: nil
-;; End:
 ;;; magit-commit.el ends here

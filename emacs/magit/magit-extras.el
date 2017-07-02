@@ -1,6 +1,6 @@
 ;;; magit-extras.el --- additional functionality for Magit  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008-2016  The Magit Project Contributors
+;; Copyright (C) 2008-2017  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
@@ -25,6 +25,9 @@
 ;;; Code:
 
 (require 'magit)
+
+(declare-function dired-do-shell-command 'dired-aux)
+(declare-function dired-read-shell-command 'dired-aux)
 
 (defgroup magit-extras nil
   "Additional functionality for Magit."
@@ -53,7 +56,7 @@
 ;;;###autoload
 (defun magit-run-git-gui-blame (commit filename &optional linenum)
   "Run `git gui blame' on the given FILENAME and COMMIT.
-Interactively run it for the current file and the HEAD, with a
+Interactively run it for the current file and the `HEAD', with a
 prefix or when the current file cannot be determined let the user
 choose.  When the current buffer is visiting FILENAME instruct
 blame to center around the line point is on."
@@ -62,8 +65,8 @@ blame to center around the line point is on."
      (when (or current-prefix-arg
                (not (setq revision "HEAD"
                           filename (magit-file-relative-name nil 'tracked))))
-       (setq revision (magit-read-branch-or-commit "Blame from revision")
-             filename (magit-read-file-from-rev revision "Blame file")))
+       (setq revision (magit-read-branch-or-commit "Blame from revision"))
+       (setq filename (magit-read-file-from-rev revision "Blame file")))
      (list revision filename
            (and (equal filename
                        (ignore-errors
@@ -92,6 +95,55 @@ blame to center around the line point is on."
   "Run `gitk --all' in the current repository."
   (interactive)
   (call-process magit-gitk-executable nil 0 nil "--all"))
+
+;;; Emacs Tools
+
+;;;###autoload
+(defun ido-enter-magit-status ()
+  "Drop into `magit-status' from file switching.
+
+To make this command available use something like:
+
+  (add-hook \\='ido-setup-hook
+            (lambda ()
+              (define-key ido-completion-map
+                (kbd \"C-x g\") \\='ido-enter-magit-status)))
+
+Starting with Emacs 25.1 the Ido keymaps are defined just once
+instead of every time Ido is invoked, so now you can modify it
+like pretty much every other keymap:
+
+  (define-key ido-common-completion-map
+    (kbd \"C-x g\") 'ido-enter-magit-status)"
+  (interactive)
+  (with-no-warnings ; FIXME these are internal variables
+    (setq ido-exit 'fallback fallback 'magit-status))
+  (exit-minibuffer))
+
+;;;###autoload
+(defun magit-dired-jump (&optional other-window)
+  "Visit file at point using Dired.
+With a prefix argument, visit in another window.  If there
+is no file at point, then instead visit `default-directory'."
+  (interactive "P")
+  (dired-jump other-window (-if-let (file (magit-file-at-point))
+                               (progn (setq file (expand-file-name file))
+                                      (if (file-directory-p file)
+                                          (concat file "/.")
+                                        file))
+                             (concat default-directory "/."))))
+
+;;;###autoload
+(defun magit-do-async-shell-command (file)
+  "Open FILE with `dired-do-async-shell-command'.
+Interactively, open the file at point."
+  (interactive (list (or (magit-file-at-point)
+                         (completing-read "Act on file: "
+                                          (magit-list-files)))))
+  (require 'dired-aux)
+  (dired-do-async-shell-command
+   (dired-read-shell-command "& on %s: " current-prefix-arg (list file))
+   nil (list file)))
 
 ;;; Clean
 
@@ -177,8 +229,8 @@ a position in a file-visiting buffer."
   (let (buf pos)
     (save-window-excursion
       (call-interactively #'magit-diff-visit-file)
-      (setq buf (current-buffer)
-            pos (point)))
+      (setq buf (current-buffer))
+      (setq pos (point)))
     (save-excursion
       (with-current-buffer buf
         (goto-char pos)
@@ -195,9 +247,19 @@ on a position in a file-visiting buffer."
                           (prompt-for-change-log-name))))
   (magit-add-change-log-entry whoami file-name t))
 
-;;; magit-extras.el ends soon
+;;; Miscellaneous
+
+;;;###autoload
+(defun magit-abort-dwim ()
+  "Abort current operation.
+Depending on the context, this will abort a merge, a rebase, a
+patch application, a cherry-pick, a revert, or a bisect."
+  (interactive)
+  (cond ((magit-merge-state)             (magit-merge-abort))
+        ((magit-rebase-in-progress-p)    (magit-rebase-abort))
+        ((magit-am-in-progress-p)        (magit-am-abort))
+        ((magit-sequencer-in-progress-p) (magit-sequencer-abort))
+        ((magit-bisect-in-progress-p)    (magit-bisect-reset))))
+
 (provide 'magit-extras)
-;; Local Variables:
-;; indent-tabs-mode: nil
-;; End:
 ;;; magit-extras.el ends here

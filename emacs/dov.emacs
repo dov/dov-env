@@ -130,7 +130,9 @@
 ;(load "csharp-mode-0.4.0")
 (autoload 'octave-mode "octave-mod" nil t)
 (autoload 'vc-ediff "vc-ediff" nil t)
+(setq with-editor-file-name-history-exclude 'nil)
 (autoload 'magit-status "magit" "Open a Magit status buffer […]" t nil)
+(autoload 'with-editor-file-name-history-exclude "with-editor" "with-editor" t nil)
 
 ; magit-diff-file was written by me, but requsted to be merged into magit.
 ; See: https://github.com/magit/magit/issues/2553
