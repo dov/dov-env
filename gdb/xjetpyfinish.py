@@ -36,28 +36,31 @@ class PyXJetFinish (gdb.Command):
 
     n = len(lines)-2  # Get rid of last empty line
     
-    assert(re.match('0x0+$',lines[n].split()[1]))
+    assert re.match('0x0+$',lines[n].split()[1]),'Last line should be 0x0000'
 
-    # Now find first place that does not have () args
+    # Now find first place that does not have () args.
     k = n-1
     while k>=0 and lines[k].split()[3]=='()':
       k-=1
 
     assert(k>=0 and lines[k].split()[3]!='()')
 
-    # Find number of finishes to do, to get out of C++ and into
-    # python.
-    num_finish = n-k+1
+#    # Count frames through python. This is not used yet!
+#    num_frames = 1
+#    fr = gdb.newest_frame()
+#    while fr.older():
+#      num_frames += 1
+#      fr = fr.older()
+#    print('num_frames = %d'%num_frames)
 
-    # Get out of C++
-    for i in range(num_finish):
-      gdb.execute('finish',False,True)
-
-    # Step through Ran's garbled stack
-    for i in range(2):
-      gdb.execute('stepi',False,True)
+    # Select this last frame and finish from it
+    for Cmd in ['select-frame %d'%k,
+                'finish',
+                'stepi 3']:
+      gdb.execute(Cmd,from_tty=False,to_string=True)
 
     # Present the python stack to the user!
+    print('<<--------- Python stack ----------->>')
     print(gdb.execute('py-bt',False,True),end='')
 
 PyXJetFinish()

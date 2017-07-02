@@ -79,6 +79,13 @@ ido is used for the completing read if available."
                       (car file-paths))))
     (find-file (concat root file-path))))
 
+(defun git-find-file-rehash ()
+  (interactive)
+  (let* ((repo (find-git-repo default-directory)))
+    (remhash repo git-find-file-files-cache)
+    (build-files-cache repo)))
+  
+
 ;;;###autoload
 (defalias 'gffip 'git-find-file)
 

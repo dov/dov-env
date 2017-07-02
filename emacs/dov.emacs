@@ -124,6 +124,7 @@
 ;(load "vala-mode")
 (autoload 'js2-mode "js2-mode.el" nil t)
 ;(load "scott.emacs")
+(autoload 'find-matching-keyword "scott.emacs.el" nil t)
 (autoload 'sgml-mode "sgml-mode" nil t)
 (autoload 'doc-mode "doc-mode" nil t)
 ;(load "csharp-mode-0.4.0")
@@ -900,8 +901,11 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'doc-mode "doc-mode.el" "Doc load" t nil)
 (autoload 'csharp-mode "csharp-mode-0.4.0.el" "CSharp mode" t nil)
 (autoload 'web-mode "web-mode.el" "WEB mode" t nil)
+(autoload 'elisp-mode "elisp-mode.el" "ELisp" t nil)
+(autoload 'python-mode "python-mode.el" "python mode" t nil)
 
 ;; Set some auto mode
+
 (setq auto-mode-alist
       (append
        (list (cons "\\.sa$" 'sather-mode))
@@ -940,7 +944,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.txt$" 'text-mode)) 
        (list (cons "\\.org$" 'org-mode)) 
        (list (cons "\\.rst$" 'rst-mode)) 
-       (list (cons "\\.pl$" 'cperl-mode)) 
+       (list (cons "\\.p[lm]$" 'cperl-mode)) 
        (list (cons "\\.nxc$" 'c++-mode)) 
        (list (cons "\\.mw" 'mediawiki-mode)) 
        (list (cons "\\.ps" 'ps-mode)) 
@@ -1103,7 +1107,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;; D-language support
 (autoload 'd-mode "d-mode" 
   "Major mode for editing D code." t)
-(setq auto-mode-alist (cons '( "\\.d\\'" . d-mode ) auto-mode-alist ))
 (autoload 'dlint-minor-mode "dlint" nil t)
 (add-hook 'd-mode-hook (lambda () (dlint-minor-mode 1)))
 
@@ -1630,8 +1633,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 ;; Perl mode stuff
 (autoload 'cperl-mode "cperl-mode" nil t)
-(setq auto-mode-alist
-      (append '(("\\.[pP][Llm]$" . cperl-mode))  auto-mode-alist ))
 (setq interpreter-mode-alist (append interpreter-mode-alist
 				     '(("miniperl" . perl-mode))))
 ; (load "perl-mode")   ; old mode
@@ -1653,7 +1654,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (setq qt4-gui-dir "/usr/include/QtGui") 
   (semantic-add-system-include qt4-base-dir 'c++-mode)
   (semantic-add-system-include qt4-gui-dir 'c++-mode) 
-  (add-to-list 'auto-mode-alist (cons qt4-base-dir 'c++-mode))
+;  (add-to-list 'auto-mode-alist (cons qt4-base-dir 'c++-mode))
   (add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qconfig.h"))
   (add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qconfig-dist.h"))
   (add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qglobal.h"))
@@ -1681,26 +1682,6 @@ With numeric ARG, display the images if and only if ARG is positive."
   "Expand all templates in the current buffer." t)
 
 (setq minibuffer-max-depth nil)
-
-;;; Commands added by calc-private-autoloads on Thu Jan  4 09:13:22 1996.
-;(autoload 'calc-dispatch	   "calc" "Calculator Options" t)
-;(autoload 'full-calc		   "calc" "Full-screen Calculator" t)
-;(autoload 'full-calc-keypad	   "calc" "Full-screen X Calculator" t)
-;(autoload 'calc-eval		   "calc" "Use Calculator from Lisp")
-;(autoload 'defmath		   "calc" nil t t)
-;(autoload 'calc			   "calc" "Calculator Mode" t)
-;(autoload 'quick-calc		   "calc" "Quick Calculator" t)
-;(autoload 'calc-keypad		   "calc" "X windows Calculator" t)
-;(autoload 'calc-embedded	   "calc" "Use Calc inside any buffer" t)
-;(autoload 'calc-embedded-activate  "calc" "Activate =>'s in buffer" t)
-;(autoload 'calc-grab-region	   "calc" "Grab region of Calc data" t)
-;(autoload 'calc-grab-rectangle	   "calc" "Grab rectangle of data" t)
-;(autoload 'edit-kbd-macro	   "macedit" "Edit Keyboard Macro" t)
-;(autoload 'edit-last-kbd-macro	   "macedit" "Edit Keyboard Macro" t)
-;(autoload 'read-kbd-macro	   "macedit" "Read Keyboard Macro" t)
-;(setq load-path (append load-path (list "/home/dov/lib/emacs/calc")))
-;(global-set-key "\e#" 'calc-dispatch)
-;;; End of Calc autoloads.
 
 ;; Here is where xemacs adds on its customization options
 (put 'narrow-to-region 'disabled nil)
@@ -1788,7 +1769,8 @@ With numeric ARG, display the images if and only if ARG is positive."
 (defun find-dov-env ()
   "Edit this file"
   (interactive)
-  (find-file (concat emacs-git "/dov.emacs")))
+  (find-file (concat emacs-git "/dov.emacs"))
+  (lisp-mode))
 
 (defun my-cmode-stuff (map) ""
   (update-indent-mode)

@@ -687,6 +687,8 @@
   (puthash "<<" "≪" xmsi-abrvs)
   (puthash "anchor" "⚓" xmsi-abrvs)
   (puthash "ell" "ℓ" xmsi-abrvs)
+  (puthash ":." "⋮" xmsi-abrvs)
+  (puthash "vellipsis" "⋮" xmsi-abrvs)
   )
 
 (defun xmsi-hash-to-list (hashtable)
