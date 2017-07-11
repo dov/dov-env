@@ -105,6 +105,18 @@
   (setq x-select-enable-clipboard t)
   (setq custom-theme-directory (concat emacs-git "themes")))
   
+;; terminal support
+(unless window-system
+  (define-key input-decode-map "[6~" [next])
+  (define-key input-decode-map "[5~" [prior])
+  (global-set-key "\C-c[" 'find-matching-keyword)
+
+  )
+
+;; The following key should be fixed!
+(if window-system
+    (global-set-key "\M-[" 'find-matching-keyword))
+    
 (defconst inhibit-startup-message t)
 
 (menu-bar-mode 't)
@@ -1045,10 +1057,30 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 (add-hook 'org-babel-after-execute-hook 'my-org-iimage-refresh)
 
+(defun buffer-local-set-key (key func)
+  (interactive "KSet key on this buffer: \naCommand: ")
+  (let ((name (format "%s-magic" (buffer-name))))
+    (eval
+     `(define-minor-mode ,(intern name)
+        "Automagically built minor mode to define buffer-local keys."))
+    (let* ((mapname (format "%s-map" name))
+           (map (intern mapname)))
+      (unless (boundp (intern mapname))
+        (set map (make-sparse-keymap)))
+      (eval
+       `(define-key ,map ,key func)))
+    (funcall (intern name) t)))
+
+(defun browse-current-file ()
+  (interactive)
+  (browse-url (buffer-file-name)))
+
 (defun my-web-mode ()
   (interactive)
   (setq web-mode-markup-indent-offset 2)
-  (setq web-mode-code-indent-offset 2))
+  (setq web-mode-code-indent-offset 2)
+  (local-set-key [(control c) (control v)] 'browse-current-file))
+
 (add-hook 'web-mode-hook 'my-web-mode)
 
 ; Choose applications to open external files .
@@ -1379,7 +1411,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (eval-after-load "vc-dir"
   '(define-key vc-dir-mode-map "H" 'my-vc-dir-hide-some))
 
-(global-set-key "\M-[" 'find-matching-keyword)
 (global-set-key "\M-]" 'c-beginning-of-defun)
 (global-set-key [(control ?') ?'] 'find-matching-keyword)
 (global-set-key [(control ?') (control a)] 'save-buffer)
@@ -2075,17 +2106,30 @@ Does not delete the prompt."
 
 ;; Emacs customization - this might be overwritten in the .emacs file
 
-(custom-set-faces
-  ;; custom-set-faces was added by Custom.
-  ;; If you edit it by hand, you could mess it up, so be careful.
-  ;; Your init file should contain only one such instance.
-  ;; If there is more than one, they won't work right.
- '(font-lock-constant-face ((((class color) (min-colors 88) (background light)) (:foreground "MidnightBlue"))))
- '(font-lock-string-face ((((class color) (min-colors 88) (background light)) (:foreground "green4"))))
- '(font-mediawiki-bold-face ((((class color) (background light)) (:inherit bold :foreground "Midnight blue"))))
- '(font-mediawiki-italic-face ((((class color) (background light)) (:inherit italic :foreground "Midnightblue"))))
- '(font-mediawiki-sedate-face ((((class color) (background light)) (:foreground "Black" :weight bold))))
- '(show-paren-match ((((class color) (background light)) (:background "#b4eeb4")))))
+(add-hook 'after-init-hook
+  (lambda ()
+    (if (string= window-system "x")
+        (custom-set-faces
+         '(font-lock-constant-face ((((class color) (min-colors 88) (background light)) (:foreground "MidnightBlue"))))
+         '(font-lock-string-face ((((class color) (min-colors 88) (background light)) (:foreground "green4"))))
+         '(font-mediawiki-bold-face ((((class color) (background light)) (:inherit bold :foreground "Midnight blue"))))
+         '(font-mediawiki-italic-face ((((class color) (background light)) (:inherit italic :foreground "Midnightblue"))))
+         '(font-mediawiki-sedate-face ((((class color) (background light)) (:foreground "Black" :weight bold))))
+         '(show-paren-match ((((class color) (background light)) (:background "#b4eeb4"))))
+         )
+    ;; else
+    ;; Colors for green on black terminal
+    (custom-set-faces
+     '(font-lock-function-name-face ((t (:foreground "Yellow" :family "InconsolataDov"))))
+     '(font-lock-comment-face ((t (:foreground "#4040ff" :family "InconsolataDov"))))
+     '(font-lock-keyword-face ((t (:foreground "Orange" :family "InconsolataDov"))))
+     '(font-lock-string-face ((t (:foreground "white" :family "InconsolataDov"))))
+
+     '(py-builtins-face ((t (:foreground "#f84" :family "InconsolataDov"))) t)
+     '(minibuffer-prompt ((t (:foreground "green"))))
+     '(show-paren-match ((t (:background "#333300"))))
+     )
+    )))
 
 (custom-set-variables
  '(blink-cursor-mode nil)
