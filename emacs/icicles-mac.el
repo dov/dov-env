@@ -3,17 +3,17 @@
 ;; Filename: icicles-mac.el
 ;; Description: Macros for Icicles
 ;; Author: Drew Adams
-;; Maintainer: Drew Adams
-;; Copyright (C) 1996-2012, Drew Adams, all rights reserved.
+;; Maintainer: Drew Adams (concat "drew.adams" "@" "oracle" ".com")
+;; Copyright (C) 1996-2017, Drew Adams, all rights reserved.
 ;; Created: Mon Feb 27 09:24:28 2006
-;; Version: 22.0
-;; Last-Updated: Sun Apr 22 07:51:00 2012 (-0700)
+;; Last-Updated: Fri Jul  7 05:46:47 2017 (-0700)
 ;;           By: dradams
-;;     Update #: 981
-;; URL: http://www.emacswiki.org/cgi-bin/wiki/icicles-mac.el
+;;     Update #: 1273
+;; URL: https://www.emacswiki.org/emacs/download/icicles-mac.el
+;; Doc URL: https://www.emacswiki.org/emacs/Icicles
 ;; Keywords: internal, extensions, help, abbrev, local, minibuffer,
 ;;           keys, apropos, completion, matching, regexp, command
-;; Compatibility: GNU Emacs: 20.x, 21.x, 22.x, 23.x
+;; Compatibility: GNU Emacs: 20.x, 21.x, 22.x, 23.x, 24.x, 25.x
 ;;
 ;; Features that might be required by this library:
 ;;
@@ -37,24 +37,17 @@
 ;;    `icicle-define-command', `icicle-define-file-command',
 ;;    `icicle-define-search-bookmark-command',
 ;;    `icicle-define-sort-command', `icicle-file-bindings',
-;;    `icicle-kbd', `icicle-with-selected-window'.
-;;
-;;  Commands defined here:
-;;
-;;    `icicle-read-kbd-macro'.
+;;    `icicle-menu-bar-make-toggle', `icicle-user-error',
+;;    `icicle-with-help-window', `icicle-with-icy-mode-OFF',
+;;    `icicle-with-icy-mode-ON', `icicle-with-selected-window'.
 ;;
 ;;  Non-interactive functions defined here:
 ;;
-;;    `icicle-edmacro-parse-keys'.
+;;    `icicle-assoc-delete-all', `icicle-remove-if'.
 ;;
 ;;  You might also be interested in my library `imenu+.el', which
 ;;  teaches the macros defined here to Imenu, so the functions defined
 ;;  with those macros show up in Imenu menus.
-;;
-;;  I've also included some commented-out code at the end, which you
-;;  might want to use in your init file (~/.emacs).  It provides
-;;  better indentation for the doc string when you use the macros here
-;;  in your code.
 ;;
 ;;  For descriptions of changes to this file, see `icicles-chg.el'.
 ;;
@@ -80,9 +73,8 @@
 ;;  navigate around the sections of this doc.  Linkd mode will
 ;;  highlight this Index, as well as the cross-references and section
 ;;  headings throughout this file.  You can get `linkd.el' here:
-;;  http://dto.freeshell.org/notebook/Linkd.html.
+;;  http://www.emacswiki.org/emacs/download/linkd.el.
 ;;
-;;  (@> "User Options")
 ;;  (@> "Macros")
  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -123,6 +115,8 @@
   (defvar minibuffer-prompt-properties nil))
 
 ;; Quiet the byte-compiler.
+(defvar icicle-buffer-completing-p)
+(defvar icicle-file-completing-p)
 (defvar icicle-inhibit-try-switch-buffer)
 (defvar read-file-name-completion-ignore-case)
 
@@ -147,137 +141,27 @@
 ;;             (funcall ,bodysym)
 ;;           ,@handlers)))))
 
-
-;; Same as `naked-edmacro-parse-keys' in `naked.el'.
-(defun icicle-edmacro-parse-keys (string &optional need-vector angles)
-  "Like `edmacro-parse-keys', but does not use angle brackets, by default.
-Non-nil optional arg ANGLES means to use angle brackets, exactly like
-`edmacro-parse-keys'.  See `icicle-read-kbd-macro' for more about
-ANGLES."
-  (let ((case-fold-search  nil)
-	(len               (length string)) ; We won't alter string in the loop below.
-        (pos               0)
-        (res               []))
-    (while (and (< pos len)  (string-match "[^ \t\n\f]+" string pos))
-      (let* ((word-beg  (match-beginning 0))
-	     (word-end  (match-end 0))
-	     (word      (substring string word-beg len))
-	     (times     1)
-             (key       nil))
-        (if (and angles  (string-match "\\`<[^ <>\t\n\f][^>\t\n\f]*>" word))
-            (setq word  (match-string 0 word)
-                  pos   (+ word-beg (match-end 0)))
-          (setq word  (substring string word-beg word-end)
-                pos   word-end))
-        (when (string-match "\\([0-9]+\\)\\*." word)
-          (setq times  (string-to-number (substring word 0 (match-end 1)))
-                word   (substring word (1+ (match-end 1)))))
-        (cond ((string-match "^<<.+>>$" word)
-               (setq key  (vconcat (if (eq (key-binding [?\M-x])
-                                           'execute-extended-command)
-                                       [?\M-x]
-                                     (or (car (where-is-internal
-                                               'execute-extended-command))
-                                         [?\M-x]))
-                                   (substring word 2 -2) "\r")))
-              ((or (equal word "REM") (string-match "^;;" word))
-               (setq pos  (string-match "$" string pos)))
-              ((and (string-match (if angles
-                                      "^\\(\\([ACHMsS]-\\)*\\)<\\(..+\\)>$"
-                                    "^\\(\\([ACHMsS]-\\)*\\)\\([^ \t\f\n][^ \t\f\n]+\\)$")
-                                  word)
-                    (or angles
-                        ;; Do not count `C-' etc. when at end of string.
-                        (save-match-data (not (string-match "\\([ACHMsS]-.\\)+$" word))))
-                    (progn
-                      (setq word  (concat (substring word (match-beginning 1) (match-end 1))
-                                          (substring word (match-beginning 3) (match-end 3))))
-                      (not (string-match "\\<\\(NUL\\|RET\\|LFD\\|ESC\\|SPC\\|DEL\\)$" word))))
-               (setq key  (list (intern word))))
-              (t
-               (let ((orig-word  word)
-                     (prefix     0)
-                     (bits       0))
-                 (while (string-match "^[ACHMsS]-." word)
-                   (incf bits (cdr (assq (aref word 0) '((?A . ?\A-\^@) (?C . ?\C-\^@)
-                                                         (?H . ?\H-\^@) (?M . ?\M-\^@)
-                                                         (?s . ?\s-\^@) (?S . ?\S-\^@)))))
-                   (incf prefix 2)
-                   (callf substring word 2))
-                 (when (string-match "^\\^.$" word)
-                   (incf bits ?\C-\^@)
-                   (incf prefix)
-                   (callf substring word 1))
-                 (let ((found  (assoc word '(("NUL" . "\0") ("RET" . "\r")
-                                             ("LFD" . "\n") ("TAB" . "\t")
-                                             ("ESC" . "\e") ("SPC" . " ")
-                                             ("DEL" . "\177")))))
-                   (when found (setq word  (cdr found))))
-                 (when (string-match "^\\\\[0-7]+$" word)
-                   (loop for ch across word
-                         for n = 0 then (+ (* n 8) ch -48)
-                         finally do (setq word  (vector n))))
-                 (cond ((= bits 0) (setq key  word))
-                       ((and (= bits ?\M-\^@) (stringp word)  (string-match "^-?[0-9]+$" word))
-                        (setq key  (loop for x across word collect (+ x bits))))
-                       ((/= (length word) 1)
-                        (error "%s must prefix a single character, not %s"
-                               (substring orig-word 0 prefix) word))
-                       ((and (/= (logand bits ?\C-\^@) 0) (stringp word)
-                             ;; Used to accept `.' and `?' here, but `.' is simply wrong,
-                             ;; and `C-?' is not used (so use `DEL' instead).
-                             (string-match "[@-_a-z]" word))
-                        (setq key  (list (+ bits (- ?\C-\^@) (logand (aref word 0) 31)))))
-                       (t (setq key  (list (+ bits (aref word 0)))))))))
-        (when key (loop repeat times do (callf vconcat res key)))))
-    (when (and (>= (length res) 4)  (eq (aref res 0) ?\C-x)  (eq (aref res 1) ?\()
-               (eq (aref res (- (length res) 2)) ?\C-x)  (eq (aref res (- (length res) 1)) ?\)))
-      (setq res  (edmacro-subseq res 2 -2)))
-    (if (and (not need-vector)
-	     (loop for ch across res
-		   always (and (if (fboundp 'characterp)  (characterp ch)  (char-valid-p ch))
-			       (let ((ch2  (logand ch (lognot ?\M-\^@))))
-				 (and (>= ch2 0)  (<= ch2 127))))))
-	(concat (loop for ch across res collect (if (= (logand ch ?\M-\^@) 0)  ch  (+ ch 128))))
-      res)))
-
-;; Same as `naked-read-kbd-macro' in `naked.el'.
-(defun icicle-read-kbd-macro (start &optional end angles)
-  "Read the region as a keyboard macro definition.
-Like `read-kbd-macro', but does not use angle brackets, by default.
-
-With a prefix arg use angle brackets, exactly like `read-kbd-macro'.
-That is, with non-nil arg ANGLES, expect key descriptions to use angle
-brackets (<...>).  Otherwise, expect key descriptions not to use angle
-brackets.  For example:
-
- (icicle-read-kbd-macro  \"mode-line\"  t) returns [mode-line]
- (icicle-read-kbd-macro \"<mode-line>\" t t)   returns [mode-line]"
-  (interactive "r\P")
-  (if (stringp start)
-      (icicle-edmacro-parse-keys start end angles)
-    (setq last-kbd-macro  (icicle-edmacro-parse-keys (buffer-substring start end) nil angles))))
-
-;; Same as `naked' in `naked.el'.
-(defmacro icicle-kbd (keys &optional angles)
-  "Like `kbd', but does not use angle brackets, by default.
-With non-nil optional arg ANGLES, expect key descriptions to use angle
-brackets (<...>), exactly like `kbd'.  Otherwise, expect key
-descriptions not to use angle brackets.  For example:
-
- (icicle-kbd \"mode-line\")     returns [mode-line]
- (icicle-kbd \"<mode-line>\" t) returns [mode-line]
-
-The default behavior lets you use, e.g., \"C-x delete\" and \"C-delete\"
-instead of \"C-x <delete>\" and \"C-<delete>\"."
-  (icicle-read-kbd-macro keys nil angles))
-
 ;; Same definition as in `icicles-fn.el'.
 (defun icicle-remove-if (pred xs)
   "A copy of list XS with no elements that satisfy predicate PRED."
   (let ((result  ()))
     (dolist (x xs) (unless (funcall pred x) (push x result)))
     (nreverse result)))
+
+;; Same definition as in `icicles-fn.el'.
+(defun icicle-assoc-delete-all (key alist)
+  "Delete from ALIST all elements whose car is `equal' to KEY.
+Return the modified alist.
+Elements of ALIST that are not conses are ignored."
+  (while (and (consp (car alist))  (equal (car (car alist)) key))
+    (setq alist  (cdr alist)))
+  (let ((tail  alist)
+        tail-cdr)
+    (while (setq tail-cdr  (cdr tail))
+      (if (and (consp (car tail-cdr))  (equal (car (car tail-cdr)) key))
+          (setcdr tail (cdr tail-cdr))
+        (setq tail  tail-cdr))))
+  alist)
 
 (defmacro icicle-condition-case-no-debug (var bodyform &rest handlers)
   "Like `condition-case', but do not catch per `debug-on-(error|quit)'.
@@ -304,7 +188,7 @@ NOTE:
    `debug-on-error' is non-nil."
   (let ((bodysym  (make-symbol "body")))
     `(let ((,bodysym  (lambda () ,bodyform)))
-      (cond ((and debug-on-error debug-on-quit)
+      (cond ((and debug-on-error  debug-on-quit)
              (condition-case ,var
                  (funcall ,bodysym)
                ,@(icicle-remove-if
@@ -350,8 +234,8 @@ the buffer list ordering."
            ;; It is necessary to save all of these, because calling
            ;; select-window changes frame-selected-window for whatever
            ;; frame that window is in.
-           (save-selected-window-alist   (mapcar #'(lambda (frame)
-                                                     (list frame (frame-selected-window frame)))
+           (save-selected-window-alist   (mapcar (lambda (frame)
+                                                   (list frame (frame-selected-window frame)))
                                           (frame-list))))
       (save-current-buffer
         (unwind-protect
@@ -369,6 +253,10 @@ the buffer list ordering."
             (if (> emacs-major-version 21)
                 (select-window save-selected-window-window 'norecord) ; Emacs 22+
               (select-window save-selected-window-window))))))))
+
+(defmacro icicle-user-error (&rest args)
+  "`user-error' if defined, otherwise `error'."
+  `(if (fboundp 'user-error) (user-error ,@args) (error ,@args)))
 
 (defmacro icicle-define-add-to-alist-command (command doc-string construct-item-fn alist-var
                                               &optional dont-save)
@@ -394,12 +282,15 @@ Optional arg DONT-SAVE non-nil means do not call
 PRE-BINDINGS is a list of additional bindings, which are created
 before the others.  POST-BINDINGS is similar, but the bindings are
 created after the others."
-  ;; We use `append' rather than backquote syntax (with ,@post-bindings in particular) because of a bug
+  ;; Use `append' rather than backquote syntax (with ,@post-bindings in particular) because of a bug
   ;; in Emacs 20.  This ensures that you can byte-compile in, say, Emacs 20 and still use the result
   ;; in later Emacs releases.
   `,(append
      pre-bindings
-     `((completion-ignore-case                      (or (and (boundp 'read-buffer-completion-ignore-case)
+     `((icicle-buffer-name-input-p                  t) ; But must also be non-nil for non multi-commands.
+       (icicle-buffer-complete-fn                   (and (fboundp 'internal-complete-buffer)
+                                                     'internal-complete-buffer))
+       (completion-ignore-case                      (or (and (boundp 'read-buffer-completion-ignore-case)
                                                          read-buffer-completion-ignore-case)
                                                      completion-ignore-case))
        (icicle-show-Completions-initially-flag      (or icicle-show-Completions-initially-flag
@@ -414,13 +305,13 @@ created after the others."
        (icicle-must-not-match-regexp                icicle-buffer-no-match-regexp)
        (icicle-must-pass-after-match-predicate      icicle-buffer-predicate)
        (icicle-require-match-flag                   icicle-buffer-require-match-flag)
+       (icicle-buffer-completing-p                  t)
        (icicle-extra-candidates                     icicle-buffer-extras)
-       (icicle-ignore-space-prefix-flag             icicle-buffer-ignore-space-prefix-flag)
        (icicle-delete-candidate-object              'icicle-kill-a-buffer) ; `S-delete' kills current buf
        (icicle-transform-function                   'icicle-remove-dups-if-extras)
        (icicle--temp-orders
         (append (list
-                 '("by last access")    ; Renamed from "turned OFF'.
+                 '("by last display time") ; Renamed from "turned OFF'.
                  '("*...* last" . icicle-buffer-sort-*...*-last)
                  '("by buffer size" . icicle-buffer-smaller-p)
                  '("by major mode name" . icicle-major-mode-name-less-p)
@@ -430,7 +321,7 @@ created after the others."
          (delete '("turned OFF") (copy-sequence icicle-sort-orders-alist))))
        ;; Put `icicle-buffer-sort' first.  If already in the list, move it, else add it, to beginning.
        (icicle-sort-orders-alist
-        (progn (when (and icicle-buffer-sort-first-time-p icicle-buffer-sort)
+        (progn (when (and icicle-buffer-sort-first-time-p  icicle-buffer-sort)
                  (setq icicle-sort-comparer             icicle-buffer-sort
                        icicle-buffer-sort-first-time-p  nil))
                (if icicle-buffer-sort
@@ -441,25 +332,45 @@ created after the others."
                        (cons `("by `icicle-buffer-sort'" . ,icicle-buffer-sort) icicle--temp-orders)))
                  icicle--temp-orders)))
        (icicle-candidate-alt-action-fn
-        (or icicle-candidate-alt-action-fn (icicle-alt-act-fn-for-type "buffer")))
+        (or icicle-candidate-alt-action-fn  (icicle-alt-act-fn-for-type "buffer")))
        (icicle-all-candidates-list-alt-action-fn
-        (or icicle-all-candidates-list-alt-action-fn (icicle-alt-act-fn-for-type "buffer")))
+        (or icicle-all-candidates-list-alt-action-fn  (icicle-alt-act-fn-for-type "buffer")))
        (icicle-bufflist
-        (if current-prefix-arg
-            (cond ((and (consp current-prefix-arg)  (fboundp 'derived-mode-p)) ; `C-u'
-                   (icicle-remove-if-not #'(lambda (bf)
+        (if (eq 'use-default icicle-buffer-prefix-arg-filtering)
+            (if (not current-prefix-arg)
+                (buffer-list)
+              (cond ((and (consp current-prefix-arg)
+                          (> (prefix-numeric-value current-prefix-arg) 16)) ; `C-u C-u C-u'
+                     (icicle-remove-if (lambda (bf) (get-buffer-window bf 0)) (buffer-list)))
+                    ((and (consp current-prefix-arg)
+                          (> (prefix-numeric-value current-prefix-arg) 4)) ; `C-u C-u'
+                     (icicle-remove-if-not (lambda (bf) (get-buffer-window bf 0)) (buffer-list)))
+                    ((and (consp current-prefix-arg)  (fboundp 'derived-mode-p)) ; `C-u'
+                     (icicle-remove-if-not (lambda (bf)
                                              (derived-mode-p (with-current-buffer bf major-mode)))
-                                         (buffer-list)))
-                  ((zerop (prefix-numeric-value current-prefix-arg)) ; `C-0'
-                   (let ((this-mode  major-mode))
-                     (icicle-remove-if-not `(lambda (bf)
+                                           (buffer-list)))
+                    ((zerop (prefix-numeric-value current-prefix-arg)) ; `C-0'
+                     (let ((this-mode  major-mode))
+                       (icicle-remove-if-not `(lambda (bf)
                                                (with-current-buffer bf (eq major-mode ',this-mode)))
-                                           (buffer-list))))
-                  ((< (prefix-numeric-value current-prefix-arg) 0) ; `C--'
-                   (cdr (assq 'buffer-list (frame-parameters))))
-                  (t                    ; `C-1'
-                   (icicle-remove-if-not #'(lambda (bf) (buffer-file-name bf)) (buffer-list))))
-          (buffer-list))))
+                                             (buffer-list))))
+                    ((< (prefix-numeric-value current-prefix-arg) 0) ; `C--'
+                     (cdr (assq 'buffer-list (frame-parameters))))
+                    (t                  ; `C-1'
+                     (icicle-remove-if-not (lambda (bf)
+                                             (or (buffer-file-name bf)
+                                                 (with-current-buffer bf (eq major-mode 'dired-mode))))
+                                           (buffer-list)))))
+          (catch 'icicle-buffer-bindings
+            (dolist (entry  icicle-buffer-prefix-arg-filtering)
+              (when (funcall (car entry) current-prefix-arg)
+                (throw 'icicle-buffer-bindings
+                  (if (cdr entry) (icicle-remove-if (cdr entry) (buffer-list)) (buffer-list)))))
+            (buffer-list))))
+       (icicle-bufflist
+        (icicle-remove-if
+         (lambda (bf) (icicle-string-match-p "^ [*]Minibuf-[0-9]" (buffer-name bf)))
+         icicle-bufflist)))
      post-bindings))
 
 (defmacro icicle-file-bindings (&optional pre-bindings post-bindings)
@@ -473,7 +384,7 @@ created after the others."
   `,(append
      pre-bindings
      `((completion-ignore-case
-        (or (and (boundp 'read-file-name-completion-ignore-case) read-file-name-completion-ignore-case)
+        (or (and (boundp 'read-file-name-completion-ignore-case)  read-file-name-completion-ignore-case)
          completion-ignore-case))
        (icicle-show-Completions-initially-flag      (or icicle-show-Completions-initially-flag
                                                      icicle-files-ido-like-flag))
@@ -489,12 +400,13 @@ created after the others."
        (icicle-must-not-match-regexp                icicle-file-no-match-regexp)
        (icicle-must-pass-after-match-predicate      icicle-file-predicate)
        (icicle-require-match-flag                   icicle-file-require-match-flag)
+       (icicle-file-completing-p                    t)
        (icicle-extra-candidates                     icicle-file-extras)
        (icicle-transform-function                   'icicle-remove-dups-if-extras)
        ;; Put `icicle-file-sort' first.  If already in the list, move it, else add it, to beginning.
        (icicle--temp-orders                         (copy-sequence icicle-sort-orders-alist))
        (icicle-sort-orders-alist
-        (progn (when (and icicle-file-sort-first-time-p icicle-file-sort)
+        (progn (when (and icicle-file-sort-first-time-p  icicle-file-sort)
                  (setq icicle-sort-comparer           icicle-file-sort
                        icicle-file-sort-first-time-p  nil))
                (if icicle-file-sort
@@ -504,12 +416,12 @@ created after the others."
                                                                                 icicle--temp-orders)))
                        (cons `("by `icicle-file-sort'" ,@icicle-file-sort) icicle--temp-orders)))
                  icicle--temp-orders)))
-       (icicle-candidate-help-fn                    #'(lambda (cand)
-                                                        (icicle-describe-file cand current-prefix-arg)))
+       (icicle-candidate-help-fn                    (lambda (cand)
+                                                      (icicle-describe-file cand current-prefix-arg t)))
        (icicle-candidate-alt-action-fn
-        (or icicle-candidate-alt-action-fn (icicle-alt-act-fn-for-type "file")))
+        (or icicle-candidate-alt-action-fn  (icicle-alt-act-fn-for-type "file")))
        (icicle-all-candidates-list-alt-action-fn
-        (or icicle-all-candidates-list-alt-action-fn (icicle-alt-act-fn-for-type "file")))
+        (or icicle-all-candidates-list-alt-action-fn  (icicle-alt-act-fn-for-type "file")))
        (icicle-delete-candidate-object              'icicle-delete-file-or-directory))
      post-bindings))
 
@@ -569,10 +481,14 @@ The created command also binds `icicle-candidate-action-fn' to a
 function that calls FUNCTION on the current completion candidate.
 Note that the BINDINGS are of course not in effect within
 `icicle-candidate-action-fn'."
-  `(defun ,command ()
-    ,(concat doc-string "\n\nRead input, then "
-             (and (symbolp function) (concat "call `" (symbol-name function) "'\nto "))
-             "act on it.
+  (let ((choice        (make-symbol "cmd-choice"))
+        (hide-common   (make-symbol "hide-common-match"))
+        (no-incr-comp  (make-symbol "no-incr-comp"))
+        (no-icomplete  (make-symbol "no-icomplete")))
+    `(defun ,command ()
+      ,(concat doc-string "\n\nRead input, then "
+               (and (symbolp function)  (concat "call `" (symbol-name function) "'\nto "))
+               "act on it.
 
 Input-candidate completion and cycling are available.  While cycling,
 these keys with prefix `C-' are active:
@@ -597,63 +513,105 @@ Use `mouse-2', `RET', or `S-RET' to finally choose a candidate, or
 `C-g' to quit.
 
 This is an Icicles command - see command `icicle-mode'.")
-    ,(and (not not-interactive-p) '(interactive))
-    (let* ((icicle-orig-buff    (current-buffer))
-           (icicle-orig-window  (selected-window))
-           ,@(macroexpand bindings)
-           (icicle-candidate-action-fn
-            (lambda (candidate)
-              (let ((minibuffer-completion-table      minibuffer-completion-table)
-                    (minibuffer-completion-predicate  minibuffer-completion-predicate)
-                    (minibuffer-completion-confirm    minibuffer-completion-confirm)
-                    (minibuffer-completing-file-name  minibuffer-completing-file-name)
-                    (minibuffer-completing-symbol     (and (boundp 'minibuffer-completing-symbol)
-                                                           minibuffer-completing-symbol))
-                    (minibuffer-exit-hook             minibuffer-exit-hook)
-                    (minibuffer-help-form             minibuffer-help-form)
-                    (minibuffer-history-variable      minibuffer-history-variable)
-                    (minibuffer-history-case-insensitive-variables
-                     minibuffer-history-case-insensitive-variables)
-                    (minibuffer-history-sexp-flag     minibuffer-history-sexp-flag)
-                    (minibuffer-message-timeout       (and (boundp 'minibuffer-message-timeout)
-                                                           minibuffer-message-timeout))
-                    (minibuffer-prompt-properties     (and (boundp 'minibuffer-prompt-properties)
-                                                           minibuffer-prompt-properties))
-                    (minibuffer-setup-hook            minibuffer-setup-hook)
-                    (minibuffer-text-before-history   minibuffer-text-before-history))
-                (icicle-condition-case-no-debug in-action-fn
-                    ;; Treat 3 cases, because previous use of `icicle-candidate-action-fn'
-                    ;; might have killed the buffer or deleted the window.
-                    (cond ((and (buffer-live-p icicle-orig-buff) (window-live-p icicle-orig-window))
-                           (with-current-buffer icicle-orig-buff
+      ,(and (not not-interactive-p)  '(interactive))
+      (let* ((icicle-orig-buff    (current-buffer))
+             (icicle-orig-window  (selected-window))
+             ,@(macroexpand bindings)   ; User-provided bindings.
+             (icicle-candidate-action-fn
+              (lambda (candidate)
+                (let ((minibuffer-completion-table      minibuffer-completion-table)
+                      (minibuffer-completion-predicate  minibuffer-completion-predicate)
+                      (minibuffer-completion-confirm    minibuffer-completion-confirm)
+                      (minibuffer-completing-file-name  minibuffer-completing-file-name)
+                      (minibuffer-completing-symbol     (and (boundp 'minibuffer-completing-symbol)
+                                                             minibuffer-completing-symbol))
+                      (minibuffer-exit-hook             minibuffer-exit-hook)
+                      (minibuffer-help-form             minibuffer-help-form)
+                      (minibuffer-history-variable      minibuffer-history-variable)
+                      (minibuffer-history-case-insensitive-variables
+                       minibuffer-history-case-insensitive-variables)
+                      (minibuffer-history-sexp-flag     minibuffer-history-sexp-flag)
+                      (minibuffer-message-timeout       (and (boundp 'minibuffer-message-timeout)
+                                                             minibuffer-message-timeout))
+                      (minibuffer-prompt-properties     (and (boundp 'minibuffer-prompt-properties)
+                                                             minibuffer-prompt-properties))
+                      (minibuffer-setup-hook            minibuffer-setup-hook)
+                      (minibuffer-text-before-history   minibuffer-text-before-history))
+                  (icicle-condition-case-no-debug in-action-fn
+                      ;; Treat 3 cases, because previous use of `icicle-candidate-action-fn'
+                      ;; might have killed the buffer or deleted the window.
+                      (cond ((and (buffer-live-p icicle-orig-buff)  (window-live-p icicle-orig-window))
+                             (with-current-buffer icicle-orig-buff
+                               (save-selected-window (select-window icicle-orig-window)
+                                                     (funcall #',function candidate))))
+                            ((window-live-p icicle-orig-window)
                              (save-selected-window (select-window icicle-orig-window)
-                                                   (funcall #',function candidate))))
-                          ((window-live-p icicle-orig-window)
-                           (save-selected-window (select-window icicle-orig-window)
-                                                 (funcall #',function candidate)))
-                          (t
+                                                   (funcall #',function candidate)))
+                            (t
+                             (funcall #',function candidate)))
+                    (error (unless (string= "Cannot switch buffers in minibuffer window"
+                                            (error-message-string in-action-fn))
+                             (error "%s" (error-message-string in-action-fn)))
+                           (when (window-live-p icicle-orig-window)
+                             (select-window icicle-orig-window)
+                             (select-frame-set-input-focus (selected-frame)))
                            (funcall #',function candidate)))
-                  (error (unless (string= "Cannot switch buffers in minibuffer window"
-                                          (error-message-string in-action-fn))
-                           (error "%s" (error-message-string in-action-fn)))
-                         (when (window-live-p icicle-orig-window)
-                           (select-window icicle-orig-window)
-                           (select-frame-set-input-focus (selected-frame)))
-                         (funcall #',function candidate)))
-                (select-window (minibuffer-window))
-                (select-frame-set-input-focus (selected-frame))
-                nil))))                 ; Return nil for success.
-      ,first-sexp
-      (icicle-condition-case-no-debug act-on-choice
-          (let ((cmd-choice  (completing-read ,prompt ,collection ,predicate ,require-match
-                                              ,initial-input ,hist ,def ,inherit-input-method)))
-            ;; Reset after reading input, so that commands can tell whether input has been read.
-            (setq icicle-candidate-action-fn  nil)
-            (funcall #',function cmd-choice))
-        (quit  (icicle-try-switch-buffer icicle-orig-buff) ,undo-sexp)
-        (error (icicle-try-switch-buffer icicle-orig-buff) ,undo-sexp
-               (error "%s" (error-message-string act-on-choice))))
-      ,last-sexp)))
+                  (select-window (minibuffer-window))
+                  (select-frame-set-input-focus (selected-frame))
+                  nil))))               ; Return nil for success.
+
+        (icicle-condition-case-no-debug catch-top-level
+            (catch 'icicle-top-level
+              (let (,hide-common  ,no-incr-comp  ,no-icomplete)
+                (when (and (get this-command 'icicle-hide-common-match)
+                           (not icicle-hide-common-match-in-Completions-flag))
+                  (setq icicle-hide-common-match-in-Completions-flag  t
+                        ,hide-common                                  t))
+                (when (and (get this-command 'icicle-turn-off-incremental-completion)
+                           icicle-incremental-completion)
+                  (setq icicle-incremental-completion  nil
+                        ,no-incr-comp                  t))
+                (when (and (get this-command 'icicle-turn-off-icomplete-mode)
+                           (featurep 'icomplete)  icomplete-mode)
+                  (icomplete-mode -1)
+                  (setq ,no-icomplete  t))
+                (when (or ,hide-common  ,no-incr-comp  ,no-icomplete)
+                  (message "Turned OFF: %s%s%s%s%s"
+                           (if ,hide-common
+                               (concat (icicle-propertize "showing common match"
+                                                          'face 'icicle-msg-emphasis)
+                                       " (`C-x .')")
+                             "")
+                           (if (and ,hide-common  (or ,no-incr-comp  ,no-icomplete)) ", " "")
+                           (if ,no-incr-comp
+                               (concat (icicle-propertize "incremental completion"
+                                                          'face 'icicle-msg-emphasis)
+                                       " (`C-#')")
+                             "")
+                           (if (and ,no-incr-comp  ,no-icomplete) ", " "")
+                           (if ,no-icomplete
+                               (concat (icicle-propertize "Icomplete mode" 
+                                                          'face 'icicle-msg-emphasis)
+                                       " (`C-M-#')")
+                             ""))
+                  (sit-for 3))
+                ,first-sexp
+                (icicle-condition-case-no-debug act-on-choice
+                    (let ((,choice
+                           (if icicle-buffer-name-input-p
+                               (icicle-read-buffer ,prompt ,def ,require-match)
+                             (completing-read ,prompt ,collection ,predicate ,require-match
+                                              ,initial-input ,hist ,def ,inherit-input-method))))
+                      ;; Reset after reading input, so commands can tell if input has been read.
+                      (setq icicle-candidate-action-fn  nil)
+                      (funcall #',function ,choice))
+                  (quit  (icicle-try-switch-buffer icicle-orig-buff) ,undo-sexp)
+                  (error (icicle-try-switch-buffer icicle-orig-buff) ,undo-sexp
+                         (error "%s" (error-message-string act-on-choice)))))
+              ,last-sexp)
+          (quit  (icicle-try-switch-buffer icicle-orig-buff) ,last-sexp)
+          (error (icicle-try-switch-buffer icicle-orig-buff) ,last-sexp
+                 (error "%s" (error-message-string catch-top-level))))))))
 
 (defmacro icicle-define-file-command
     (command doc-string function prompt &optional
@@ -710,10 +668,14 @@ The created command also binds `icicle-candidate-action-fn' to a
 function that calls FUNCTION on the current completion candidate.
 Note that the BINDINGS are of course not in effect within
 `icicle-candidate-action-fn'."
-  `(defun ,command ()
-    ,(concat doc-string "\n\nRead input, then "
-             (and (symbolp function) (concat "call `" (symbol-name function) "'\nto "))
-             "act on it.
+  (let ((choice        (make-symbol "file-choice"))
+        (hide-common   (make-symbol "hide-common-match"))
+        (no-incr-comp  (make-symbol "no-incr-comp"))
+        (no-icomplete  (make-symbol "no-icomplete")))
+    `(defun ,command ()
+      ,(concat doc-string "\n\nRead input, then "
+               (and (symbolp function)  (concat "call `" (symbol-name function) "'\nto "))
+               "act on it.
 
 Input-candidate completion and cycling are available.  While cycling,
 these keys with prefix `C-' are active:
@@ -738,89 +700,116 @@ Use `mouse-2', `RET', or `S-RET' to finally choose a candidate, or
 `C-g' to quit.
 
 This is an Icicles command - see command `icicle-mode'.")
-    ,(and (not not-interactive-p) '(interactive))
-    (let* ((icicle-orig-buff    (current-buffer))
-           (icicle-orig-window  (selected-window))
-           ,@(macroexpand bindings)
-           (icicle-candidate-action-fn
-            (lambda (candidate)
-              (let ((minibuffer-completion-table      minibuffer-completion-table)
-                    (minibuffer-completion-predicate  minibuffer-completion-predicate)
-                    (minibuffer-completion-confirm    minibuffer-completion-confirm)
-                    (minibuffer-completing-file-name  minibuffer-completing-file-name)
-                    (minibuffer-completing-symbol     (and (boundp 'minibuffer-completing-symbol)
-                                                           minibuffer-completing-symbol))
-                    (minibuffer-exit-hook             minibuffer-exit-hook)
-                    (minibuffer-help-form             minibuffer-help-form)
-                    (minibuffer-history-variable      minibuffer-history-variable)
-                    (minibuffer-history-case-insensitive-variables
-                     minibuffer-history-case-insensitive-variables)
-                    (minibuffer-history-sexp-flag     minibuffer-history-sexp-flag)
-                    (minibuffer-message-timeout       (and (boundp 'minibuffer-message-timeout)
-                                                           minibuffer-message-timeout))
-                    (minibuffer-prompt-properties     (and (boundp 'minibuffer-prompt-properties)
-                                                           minibuffer-prompt-properties))
-                    (minibuffer-setup-hook            minibuffer-setup-hook)
-                    (minibuffer-text-before-history   minibuffer-text-before-history))
-                (setq candidate  (expand-file-name candidate (icicle-file-name-directory
-                                                              icicle-last-input)))
-                (icicle-condition-case-no-debug in-action-fn
-                    ;; Treat 3 cases, because previous use of `icicle-candidate-action-fn'
-                    ;; might have deleted the file or the window.
-                    (cond ((and (buffer-live-p icicle-orig-buff) (window-live-p icicle-orig-window))
-                           (with-current-buffer icicle-orig-buff
+      ,(and (not not-interactive-p)  '(interactive))
+      (let* ((icicle-orig-buff    (current-buffer))
+             (icicle-orig-window  (selected-window))
+             ,@(macroexpand bindings)   ; User-provided bindings.
+             (icicle-candidate-action-fn
+              (lambda (candidate)
+                (let ((minibuffer-completion-table      minibuffer-completion-table)
+                      (minibuffer-completion-predicate  minibuffer-completion-predicate)
+                      (minibuffer-completion-confirm    minibuffer-completion-confirm)
+                      (minibuffer-completing-file-name  minibuffer-completing-file-name)
+                      (minibuffer-completing-symbol     (and (boundp 'minibuffer-completing-symbol)
+                                                             minibuffer-completing-symbol))
+                      (minibuffer-exit-hook             minibuffer-exit-hook)
+                      (minibuffer-help-form             minibuffer-help-form)
+                      (minibuffer-history-variable      minibuffer-history-variable)
+                      (minibuffer-history-case-insensitive-variables
+                       minibuffer-history-case-insensitive-variables)
+                      (minibuffer-history-sexp-flag     minibuffer-history-sexp-flag)
+                      (minibuffer-message-timeout       (and (boundp 'minibuffer-message-timeout)
+                                                             minibuffer-message-timeout))
+                      (minibuffer-prompt-properties     (and (boundp 'minibuffer-prompt-properties)
+                                                             minibuffer-prompt-properties))
+                      (minibuffer-setup-hook            minibuffer-setup-hook)
+                      (minibuffer-text-before-history   minibuffer-text-before-history))
+                  (setq candidate  (expand-file-name candidate
+                                                     (and icicle-last-input
+                                                          (icicle-file-name-directory
+                                                           (directory-file-name icicle-last-input)))))
+                  (icicle-condition-case-no-debug in-action-fn
+                      ;; Treat 3 cases, because previous use of `icicle-candidate-action-fn'
+                      ;; might have deleted the file or the window.
+                      (cond ((and (buffer-live-p icicle-orig-buff)  (window-live-p icicle-orig-window))
+                             (with-current-buffer icicle-orig-buff
+                               (save-selected-window (select-window icicle-orig-window)
+                                                     (funcall #',function candidate))))
+                            ((window-live-p icicle-orig-window)
                              (save-selected-window (select-window icicle-orig-window)
-                                                   (funcall #',function candidate))))
-                          ((window-live-p icicle-orig-window)
-                           (save-selected-window (select-window icicle-orig-window)
-                                                 (funcall #',function candidate)))
-                          (t
+                                                   (funcall #',function candidate)))
+                            (t
+                             (funcall #',function candidate)))
+                    (error (unless (string= "Cannot switch buffers in minibuffer window"
+                                            (error-message-string in-action-fn))
+                             (error "%s" (error-message-string in-action-fn)))
+                           (when (window-live-p icicle-orig-window)
+                             (select-window icicle-orig-window)
+                             (select-frame-set-input-focus (selected-frame)))
                            (funcall #',function candidate)))
-                  (error (unless (string= "Cannot switch buffers in minibuffer window"
-                                          (error-message-string in-action-fn))
-                           (error "%s" (error-message-string in-action-fn)))
-                         (when (window-live-p icicle-orig-window)
-                           (select-window icicle-orig-window)
-                           (select-frame-set-input-focus (selected-frame)))
-                         (funcall #',function candidate)))
-                (select-window (minibuffer-window))
-                (select-frame-set-input-focus (selected-frame))
-                nil))))                 ; Return nil for success.
-      ,first-sexp
-      (icicle-condition-case-no-debug act-on-choice
-          (let ((file-choice
-                 (if (< emacs-major-version 21) ; No predicate arg for Emacs 20.
-                     (read-file-name ,prompt ,dir ,default-filename ,require-match ,initial-input)
-                   (read-file-name ,prompt ,dir ,default-filename ,require-match
-                                   ,initial-input ,predicate))))
-            ;; Reset after reading input, so that commands can tell whether input has been read.
-            (setq icicle-candidate-action-fn  nil) ; Reset after completion.
-            (funcall #',function file-choice))
-        (quit  (icicle-try-switch-buffer icicle-orig-buff) ,undo-sexp)
-        (error (icicle-try-switch-buffer icicle-orig-buff) ,undo-sexp
-               (error "%s" (error-message-string act-on-choice))))
-      ,last-sexp)))
+                  (select-window (minibuffer-window))
+                  (select-frame-set-input-focus (selected-frame))
+                  nil))))               ; Return nil for success.
 
-;; Same definition as in `icicles-fn.el'.
-(defun icicle-assoc-delete-all (key alist)
-  "Delete from ALIST all elements whose car is `equal' to KEY.
-Return the modified alist.
-Elements of ALIST that are not conses are ignored."
-  (while (and (consp (car alist)) (equal (car (car alist)) key))
-    (setq alist  (cdr alist)))
-  (let ((tail  alist)
-        tail-cdr)
-    (while (setq tail-cdr  (cdr tail))
-      (if (and (consp (car tail-cdr))  (equal (car (car tail-cdr)) key))
-          (setcdr tail (cdr tail-cdr))
-        (setq tail  tail-cdr))))
-  alist)
+        (icicle-condition-case-no-debug catch-top-level
+            (catch 'icicle-top-level
+              (let (,hide-common  ,no-incr-comp  ,no-icomplete)
+                (when (and (get this-command 'icicle-hide-common-match)
+                           (not icicle-hide-common-match-in-Completions-flag))
+                  (setq icicle-hide-common-match-in-Completions-flag  t
+                        ,hide-common                                  t))
+                (when (and (get this-command 'icicle-turn-off-incremental-completion)
+                           icicle-incremental-completion)
+                  (setq icicle-incremental-completion  nil
+                        ,no-incr-comp                  t))
+                (when (and (get this-command 'icicle-turn-off-icomplete-mode)
+                           (featurep 'icomplete)  icomplete-mode)
+                  (icomplete-mode -1)
+                  (setq ,no-icomplete  t))
+                (when (or ,hide-common  ,no-incr-comp  ,no-icomplete)
+                  (message "Turned OFF: %s%s%s%s%s"
+                           (if ,hide-common
+                               (concat (icicle-propertize "showing common match"
+                                                          'face 'icicle-msg-emphasis)
+                                       " (`C-x .')")
+                             "")
+                           (if (and ,hide-common  (or ,no-incr-comp  ,no-icomplete)) ", " "")
+                           (if ,no-incr-comp
+                               (concat (icicle-propertize "incremental completion"
+                                                          'face 'icicle-msg-emphasis)
+                                       " (`C-#')")
+                             "")
+                           (if (and ,no-incr-comp  ,no-icomplete) ", " "")
+                           (if ,no-icomplete
+                               (concat (icicle-propertize "Icomplete mode" 
+                                                          'face 'icicle-msg-emphasis)
+                                       " (`C-M-#')")
+                             ""))
+                  (sit-for 3))
+                ,first-sexp
+                (icicle-condition-case-no-debug act-on-choice
+                    (let ((,choice
+                           (if (< emacs-major-version 21) ; No predicate arg for Emacs 20.
+                               (read-file-name ,prompt ,dir ,default-filename ,require-match
+                                               ,initial-input)
+                             (read-file-name ,prompt ,dir ,default-filename ,require-match
+                                             ,initial-input ,predicate))))
+                      ;; Reset after reading input, so commands can tell if input has been read.
+                      (setq icicle-candidate-action-fn  nil) ; Reset after completion.
+                      (funcall #',function ,choice))
+                  (quit  (icicle-try-switch-buffer icicle-orig-buff) ,undo-sexp)
+                  (error (icicle-try-switch-buffer icicle-orig-buff) ,undo-sexp
+                         (error "%s" (error-message-string act-on-choice)))))
+              ,last-sexp)
+          (quit  (icicle-try-switch-buffer icicle-orig-buff) ,last-sexp)
+          (error (icicle-try-switch-buffer icicle-orig-buff) ,last-sexp
+                 (error "%s" (error-message-string catch-top-level))))))))
 
 (defmacro icicle-define-sort-command (sort-order comparison-fn doc-string)
   "Define a command to sort completions by SORT-ORDER.
 SORT-ORDER is a short string (or symbol) describing the sort order.
  It is used after the phrase \"Sorting is now \".  Examples: \"by date\",
- \"alphabetically\", \"directories first\", and \"previously used first\".
+ \"alphabetical\", \"directories first\", and \"previously used first\".
 
 The new command is named by replacing any spaces in SORT-ORDER with
 hyphens (`-') and then adding the prefix `icicle-sort-'.
@@ -838,9 +827,9 @@ DOC-STRING is the doc string of the new command."
         ,doc-string
         (interactive)
         (setq icicle-sort-comparer  #',comparison-fn)
-        (message "Sorting is now %s%s" ,(icicle-propertize
-                                         (concat sort-order (and icicle-reverse-sort-p ", REVERSED"))
-                                                           'face 'icicle-msg-emphasis))
+        (message "Sorting is now %s" ,(icicle-propertize
+                                       (concat sort-order (and icicle-reverse-sort-p  ", REVERSED"))
+                                       'face 'icicle-msg-emphasis))
         (icicle-complete-again-update)))))
 
 (defmacro icicle-define-bookmark-command (type &optional prompt &rest args)
@@ -890,25 +879,25 @@ to update the list of tags available for completion." "")) ; Doc string
     nil (if (boundp 'bookmark-history) 'bookmark-history 'icicle-bookmark-history)
     nil nil
     ((IGNORED1                               (unless (require 'bookmark+ nil t) ; Additional bindings
-                                               (error "You need library `Bookmark+' for this command")))
+                                               (icicle-user-error
+                                                "You need library `Bookmark+' for this command")))
      (IGNORED2                               (bookmark-maybe-load-default-file)) ; `bookmark-alist'.
      (enable-recursive-minibuffers           t) ; In case we read input, e.g. File changed on disk...
      (bmk-alist                              (bmkp-sort-omit
                                               (funcall ',(intern (format "bmkp-%s-alist-only" type))
                                                ,@args)))
      (completion-ignore-case                 bookmark-completion-ignore-case)
-     (prompt1                                ,(or prompt
-                                                  (format "%s%s bookmark: "
-                                                          (capitalize (substring type 0 1))
-                                                          (substring type 1 (length type)))))
+     (prompt1                                ,(or prompt  (format "%s%s bookmark: "
+                                                                  (capitalize (substring type 0 1))
+                                                                  (substring type 1 (length type)))))
+     (icicle-multi-completing-p              icicle-show-multi-completion-flag)
+     (icicle-bookmark-completing-p           t)
      (icicle-list-use-nth-parts              '(1))
      (icicle-candidate-properties-alist      (if (not icicle-show-multi-completion-flag)
-                                                 nil
-                                               (if (facep 'file-name-shadow)
-                                                   '((2 (face file-name-shadow))
-                                                     (3 (face bookmark-menu-heading)))
-                                                 '((3 (face bookmark-menu-heading))))))
-     (icicle-transform-function              (if (interactive-p) nil icicle-transform-function))
+                                                 ()
+                                               '((2 (face icicle-annotation))
+                                                 (3 (face icicle-msg-emphasis)))))
+     (icicle-transform-function              (and (not (interactive-p))  icicle-transform-function))
      (icicle-whole-candidate-as-text-prop-p  t)
      (icicle-transform-before-sort-p         t)
      (icicle-delete-candidate-object         'icicle-bookmark-delete-action)
@@ -951,13 +940,13 @@ to update the list of tags available for completion." "")) ; Doc string
        '(("by previous use alphabetically" . icicle-historical-alphabetic-p)
          ("case insensitive" . icicle-case-insensitive-string-less-p))))
      (icicle-candidate-help-fn
-      #'(lambda (cand)
-          (when icicle-show-multi-completion-flag
-            (setq cand  (funcall icicle-get-alist-candidate-function cand))
-            (setq cand  (cons (caar cand) (cdr cand))))
-          (if current-prefix-arg
-              (bmkp-describe-bookmark-internals cand)
-            (bmkp-describe-bookmark cand)))))
+      (lambda (cand)
+        (when icicle-show-multi-completion-flag
+          (setq cand  (funcall icicle-get-alist-candidate-function cand))
+          (setq cand  (cons (caar cand) (cdr cand))))
+        (if current-prefix-arg
+            (bmkp-describe-bookmark-internals cand)
+          (bmkp-describe-bookmark cand)))))
     (when (equal ,type "autofile") (icicle-bind-file-candidate-keys)) ; First code
     (icicle-bookmark-cleanup-on-quit)	; Undo code
     (progn (when (equal ,type "autofile") (icicle-unbind-file-candidate-keys))
@@ -985,20 +974,20 @@ You need library `Bookmark+' for this command." type type) ; Doc string
     nil (if (boundp 'bookmark-history) 'bookmark-history 'icicle-bookmark-history)
     nil nil
     ((IGNORED1                                 (unless (require 'bookmark+ nil t) ; Bindings
-                                                 (error "You need library `Bookmark+' for this \
-command")))
+                                                 (icicle-user-error
+                                                  "You need library `Bookmark+' for this command")))
      (IGNORED2                                 (bookmark-maybe-load-default-file)) ; `bookmark-alist'.
      (enable-recursive-minibuffers             t) ; In case we read input, e.g. File changed on...
      (completion-ignore-case                   bookmark-completion-ignore-case)
-     (prompt1                                  ,(or prompt (format "Search %s bookmark: " type)))
+     (prompt1                                  ,(or prompt  (format "Search %s bookmark: " type)))
+     (icicle-multi-completing-p                icicle-show-multi-completion-flag)
+     (icicle-bookmark-completing-p             t)
      (icicle-list-use-nth-parts                '(1))
      (icicle-candidate-properties-alist        (if (not icicle-show-multi-completion-flag)
-                                                   nil
-                                                 (if (facep 'file-name-shadow)
-                                                     '((2 (face file-name-shadow))
-                                                       (3 (face bookmark-menu-heading)))
-                                                   '((3 (face bookmark-menu-heading))))))
-     (icicle-transform-function                (if (interactive-p) nil icicle-transform-function))
+                                                   ()
+                                                 '((2 (face icicle-annotation))
+                                                   (3 (face icicle-msg-emphasis)))))
+     (icicle-transform-function                (and (not (interactive-p))  icicle-transform-function))
      (icicle-whole-candidate-as-text-prop-p    t)
      (icicle-transform-before-sort-p           t)
      (icicle-delete-candidate-object           'icicle-bookmark-delete-action)
@@ -1009,7 +998,11 @@ command")))
                                                 (bmkp-sort-omit
                                                  (funcall ',(intern (format "bmkp-%s-alist-only" type))
                                                   ,@args))))
-     (regexp                                   (icicle-search-read-context-regexp))
+     (regexp                                   (icicle-search-read-context-regexp
+                                                ,(format
+                                                  "Search %s bookmarks %swithin contexts (regexp): "
+                                                  type
+                                                  (if icicle-search-complement-domain-p "*NOT* " ""))))
      (bookmark-automatically-show-annotations  nil) ; Do not show annotations
      (icicle-sort-orders-alist
       (append
@@ -1046,17 +1039,57 @@ command")))
        '(("by previous use alphabetically" . icicle-historical-alphabetic-p)
          ("case insensitive" . icicle-case-insensitive-string-less-p))))
      (icicle-candidate-help-fn
-      #'(lambda (cand)
-          (when icicle-show-multi-completion-flag
-            (setq cand  (funcall icicle-get-alist-candidate-function cand))
-            (setq cand  (cons (caar cand) (cdr cand))))
-          (if current-prefix-arg
-              (bmkp-describe-bookmark-internals cand)
-            (bmkp-describe-bookmark cand)))))
+      (lambda (cand)
+        (when icicle-show-multi-completion-flag
+          (setq cand  (funcall icicle-get-alist-candidate-function cand))
+          (setq cand  (cons (caar cand) (cdr cand))))
+        (if current-prefix-arg
+            (bmkp-describe-bookmark-internals cand)
+          (bmkp-describe-bookmark cand)))))
     (when (equal ,type "autofile") (icicle-bind-file-candidate-keys)) ; First code
     (icicle-bookmark-cleanup-on-quit)   ; Undo code
     (progn (when (equal ,type "autofile") (icicle-unbind-file-candidate-keys))
            (icicle-bookmark-cleanup)))) ; Last code
+
+;; Same as `bmkp-menu-bar-make-toggle' in `bookmark+-mac.el'.
+(defmacro icicle-menu-bar-make-toggle (name variable doc message help &rest body)
+  "Return a valid `menu-bar-make-toggle' call in Emacs 20 or later.
+NAME is the name of the toggle command to define.
+VARIABLE is the variable to set.
+DOC is the menu-item name.
+MESSAGE is the toggle message, minus status.
+HELP is `:help' string.
+BODY is the function body to use.  If present, it is responsible for
+setting the variable and displaying a status message (not MESSAGE)."
+  (if (< emacs-major-version 21)
+      `(menu-bar-make-toggle ,name ,variable ,doc ,message ,@body)
+    `(menu-bar-make-toggle ,name ,variable ,doc ,message ,help ,@body)))
+
+(defmacro icicle-with-help-window (buffer &rest body)
+  "`with-help-window', if available; else `with-output-to-temp-buffer'."
+  (if (fboundp 'with-help-window)
+      `(with-help-window ,buffer ,@body)
+    `(with-output-to-temp-buffer ,buffer ,@body)))
+
+(defmacro icicle-with-icy-mode-OFF (&rest body)
+  "Turn off `icicle-mode' for the evaluation of BODY forms.
+The current value of `icicle-mode' before evaluating the forms is
+restored after their evaluation.  It is also restored in case of error
+or other non-local exit."
+  (let ((g-orig  (make-symbol "orig-val-icicle-mode")))
+    `(let ((,g-orig  icicle-mode))
+       (unwind-protect (progn (when icicle-mode (icy-mode -1)) ,@body)
+         (when ,g-orig (icy-mode 1)))))) ; No-op if it was already off.
+
+(defmacro icicle-with-icy-mode-ON (&rest body)
+  "Turn on `icicle-mode' for the evaluation of BODY forms.
+The current value of `icicle-mode' before evaluating the forms is
+restored after their evaluation.  It is also restored in case of error
+or other non-local exit."
+  (let ((g-orig  (make-symbol "orig-val-icicle-mode")))
+    `(let ((,g-orig  icicle-mode))
+       (unwind-protect (progn (unless icicle-mode (icy-mode 1)) ,@body)
+         (unless ,g-orig (icy-mode -1)))))) ; No-op if it was already off.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
