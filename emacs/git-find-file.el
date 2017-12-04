@@ -16,7 +16,7 @@
   (setq ret
      (mapcar (lambda (file)
        (let ((file-cons (cons (file-name-nondirectory file) file)))
-         (add-to-list 'file-alist file-cons)
+         (add-to-list #'file-alist file-cons)
          file-cons))
              (split-string (shell-command-to-string "git ls-files") "\n")))
   (puthash repo ret git-find-file-files-cache)
@@ -56,7 +56,7 @@ ido is used for the completing read if available."
     (if (eq nil file-name)
         (find-file root)
       (let*
-        ((file-paths (delq 'nil (mapcar '(lambda (file-cons)
+        ((file-paths (delq 'nil (mapcar (lambda (file-cons)
                                           (when (string= file-name (car file-cons))
                                             (cdr file-cons))) project-files)))
          (file-path (if (cdr file-paths)
@@ -71,7 +71,7 @@ ido is used for the completing read if available."
          (project-files (ffip-project-files root))
          (files (delete-dups (mapcar 'car project-files)))
          (file-name (ffip-completing-read (concat (last-component root "/") ": ") files))
-         (file-paths (delq 'nil (mapcar '(lambda (file-cons)
+         (file-paths (delq 'nil (mapcar (lambda (file-cons)
                                            (when (string= file-name (car file-cons))
                                              (cdr file-cons))) project-files)))
          (file-path (if (cdr file-paths)
