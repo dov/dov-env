@@ -212,7 +212,7 @@ notebooks."
       (ein:log 'info "Buffer is already connected to notebook."))))
 
 (defun ein:connect-get-notebook ()
-  (oref ein:%connect% :notebook))
+  (slot-value ein:%connect% 'notebook))
 
 (defun ein:connect-get-kernel ()
   (ein:$notebook-kernel (ein:connect-get-notebook)))
@@ -288,7 +288,7 @@ See also: `ein:connect-run-buffer', `ein:connect-eval-buffer'."
 
 (defun ein:get-notebook--connect ()
   (when (ein:connect-p ein:%connect%)
-    (oref ein:%connect% :notebook)))
+    (slot-value ein:%connect% 'notebook)))
 
 (defun ein:get-kernel--connect ()
   (ein:aand (ein:get-notebook--connect) (ein:$notebook-kernel it)))
@@ -306,13 +306,13 @@ See also: `ein:connect-run-buffer', `ein:connect-eval-buffer'."
   (assert (ein:connect-p ein:%connect%) nil
           "Current buffer (%s) is not connected to IPython notebook."
           (buffer-name))
-  (assert (ein:notebook-live-p (oref ein:%connect% :notebook)) nil
+  (assert (ein:notebook-live-p (slot-value ein:%connect% 'notebook)) nil
           "Connected notebook is not live (probably already closed)."))
 
 (defun ein:connect-execute-autoexec-cells ()
   "Call `ein:notebook-execute-autoexec-cells' via `after-save-hook'."
   (ein:connect-assert-connected)
-  (when (oref ein:%connect% :autoexec)
+  (when (slot-value ein:%connect% 'autoexec)
     (ein:notebook-execute-autoexec-cells (ein:connect-get-notebook))))
 
 (defun ein:connect-toggle-autoexec ()
@@ -335,8 +335,8 @@ Use the `ein:worksheet-turn-on-autoexec' command in notebook to
 change the cells to run."
   (interactive)
   (ein:connect-assert-connected)
-  (let ((autoexec-p (not (oref ein:%connect% :autoexec))))
-    (oset ein:%connect% :autoexec autoexec-p)
+  (let ((autoexec-p (not (slot-value ein:%connect% 'autoexec))))
+    (setf (slot-value ein:%connect% 'autoexec) autoexec-p)
     (ein:log 'info "Auto-execution mode is %s."
              (if autoexec-p "enabled" "disabled"))))
 
@@ -381,7 +381,7 @@ notebook."
   map)
 
 (defun ein:connect-mode-get-lighter ()
-  (if (oref ein:%connect% :autoexec)
+  (if (slot-value ein:%connect% 'autoexec)
       (format " ein:c%s" (or ein:connect-aotoexec-lighter
                              ein:cell-autoexec-prompt))
     " ein:c"))
@@ -393,7 +393,16 @@ notebook."
   :lighter (:eval (ein:connect-mode-get-lighter))
   :keymap ein:connect-mode-map
   :group 'ein
-  (ein:complete-on-dot-install ein:connect-mode-map))
+  (case ein:completion-backend
+    (ein:use-ac-backend (ein:complete-on-dot-install ein:connect-mode-map)
+                        (auto-complete-mode +1))
+    (ein:use-ac-jedi-backend (ein:jedi-complete-on-dot-install ein:connect-mode-map)
+                             (auto-complete-mode +1))
+    (ein:use-company-backend (company-mode +1))
+    (ein:use-company-jedi-backend (warn "Support for jedi+company currently not implemented. Defaulting to just company-mode")
+                                  (company-mode +1))
+
+    (t (warn "No autocompletion backend has been selected - see `ein:completion-backend'."))))
 
 (put 'ein:connect-mode 'permanent-local t)
 

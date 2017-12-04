@@ -43,7 +43,7 @@
   :group 'applications
   :prefix "ein:")
 
-(defvar ein:version "0.13.0"
+(defvar ein:version "0.13.1"
   "Version number for Emacs IPython Notebook (EIN).")
 
 
@@ -140,20 +140,27 @@ the source is in git repository."
 (defun ein:query-ipython-version (&optional url-or-port force)
   (ein:aif (and (not force) (gethash (or url-or-port (ein:default-url-or-port)) *running-ipython-version*))
       it
-    (let ((resp (request (ein:url (or url-or-port
-                                      (ein:default-url-or-port))
-                                  "api")
-                         :parser #'(lambda ()
-                                     (ignore-errors
-                                       (ein:json-read)))
-                         :timeout 0.5
-                         :sync t)))
-      (if (eql 404 (request-response-status-code resp))
+    (let ((resp (request
+                 (ein:jupyterhub-correct-query-url-maybe (ein:url (or url-or-port
+                                                                      (ein:default-url-or-port))
+                                                                  "api"))
+                 :parser #'(lambda ()
+                             (ignore-errors
+                               (ein:json-read)))
+                 :timeout 5.0
+                 :sync t)))
+      (if (eql 408 (request-response-status-code resp))
           (progn
-            (ein:log 'blather "Version api not implemented, assuming we are working with IPython 2.x")
-            (setf (gethash url-or-port *running-ipython-version*) 2))
-        (setf (gethash url-or-port *running-ipython-version*)
-              (ein:get-ipython-major-version (plist-get (request-response-data resp) :version)))))))
+            (ein:log 'blather "Version request timed out, could be the server is still warming up. Assuming we are working Jupyter 4.x, and will recheck later.")
+            4)
+        (if (eql 404 (request-response-status-code resp))
+            (progn
+              (ein:log 'blather "Version api not implemented, assuming we are working with IPython 2.x")
+              (setf (gethash url-or-port *running-ipython-version*) 2))
+          (condition-case nil
+              (setf (gethash url-or-port *running-ipython-version*)
+                    (ein:get-ipython-major-version (plist-get (request-response-data resp) :version)))
+            (error (ein:force-ipython-version-check))))))))
 
 (defun ein:force-ipython-version-check ()
   (interactive)

@@ -29,6 +29,7 @@
 (require 'eieio)
 
 (require 'ein-core)
+(require 'ein-classes)
 (require 'ein-events)
 
 
@@ -52,62 +53,10 @@ S-mouse-1/3 (Shift + left/right click): move this tab to left/right"
   "Help message.")
 ;; Note: can't put this below of `ein:notification-setup'...
 
-(defclass ein:notification-status ()
-  ((status :initarg :status :initform nil)
-   (message :initarg :message :initform nil)
-   (s2m :initarg :s2m))
-  "Hold status and it's string representation (message).")
-
-(defclass ein:notification-tab ()
-  ((get-list :initarg :get-list :type function)
-   (get-current :initarg :get-current :type function)
-   (get-name :initarg :get-name :type function)
-   (get-buffer :initarg :get-buffer :type function)
-   (delete :initarg :delete :type function)
-   (insert-prev :initarg :insert-prev :type function)
-   (insert-next :initarg :insert-next :type function)
-   (move-prev :initarg :move-prev :type function)
-   (move-next :initarg :move-next :type function)
-   )
-  ;; These "methods" are for not depending on what the TABs for.
-  ;; Probably I'd want change this to be a separated Emacs lisp
-  ;; library at some point.
-  "See `ein:notification-setup' for explanation.")
-
-(defclass ein:notification ()
-  ((buffer :initarg :buffer :type buffer :document "Notebook buffer")
-   (tab :initarg :tab :type ein:notification-tab)
-   (execution-count
-    :initform "y" :initarg :execution-count
-    :documentation "Last `execution_count' sent by `execute_reply'.")
-   (notebook
-    :initarg :notebook
-    :initform
-    (ein:notification-status
-     "NotebookStatus"
-     :s2m
-     '((notebook_saving.Notebook       . "Saving Notebook...")
-       (notebook_create_checkpoint.Notebook . "Creating Checkpoint...")
-       (notebook_saved.Notebook        . "Notebook is saved")
-       (notebook_checkpoint_created.Notebook . "Checkpoint created.")
-       (notebook_save_failed.Notebook  . "Failed to save Notebook!")))
-    :type ein:notification-status)
-   (kernel
-    :initarg :kernel
-    :initform
-    (ein:notification-status
-     "KernelStatus"
-     :s2m
-     '((status_idle.Kernel . nil)
-       (status_busy.Kernel . "Kernel is busy...")
-       (status_dead.Kernel . "Kernel is dead. Need restart.")))
-    :type ein:notification-status))
-  "Notification widget for Notebook.")
-
 (defmethod ein:notification-status-set ((ns ein:notification-status) status)
-  (let* ((message (cdr (assoc status (oref ns :s2m)))))
-    (oset ns :status status)
-    (oset ns :message message)))
+  (let* ((message (cdr (assoc status (slot-value ns 's2m)))))
+    (setf (slot-value ns 'status) status)
+    (setf (slot-value ns 'message) message)))
 
 (defmethod ein:notification-bind-events ((notification ein:notification)
                                          events)
@@ -115,9 +64,9 @@ S-mouse-1/3 (Shift + left/right click): move this tab to left/right"
 just set the status \(= event-type):
     \(ein:notification-status-set NS EVENT-TYPE)
 where NS is `:kernel' or `:notebook' slot of NOTIFICATION."
-  (loop for ns in (list (oref notification :kernel)
-                        (oref notification :notebook))
-        for statuses = (mapcar #'car (oref ns :s2m))
+  (loop for ns in (list (slot-value notification 'kernel)
+                        (slot-value notification 'notebook))
+        for statuses = (mapcar #'car (slot-value ns 's2m))
         do (loop for st in statuses
                  do (ein:events-on events
                                    st   ; = event-type
@@ -126,14 +75,14 @@ where NS is `:kernel' or `:notebook' slot of NOTIFICATION."
   (ein:events-on events
                  'notebook_checkpoint_created.Notebook
                  #'ein:notification--fadeout-callback
-                 (list (oref notification :notebook)
+                 (list (slot-value notification 'notebook)
                        "Checkpoint created."
                        'notebook_checkpoint_created.Notebook
                        nil))
   (ein:events-on events
                  'notebook_saved.Notebook
                  #'ein:notification--fadeout-callback
-                 (list (oref notification :notebook)
+                 (list (slot-value notification 'notebook)
                        "Notebook is saved"
                        'notebook_saved.Notebook
                        nil))
@@ -144,7 +93,7 @@ where NS is `:kernel' or `:notebook' slot of NOTIFICATION."
   (ein:events-on events
                  'status_restarting.Kernel
                  #'ein:notification--fadeout-callback
-                 (list (oref notification :kernel)
+                 (list (slot-value notification 'kernel)
                        "Restarting kernel..."
                        'status_restarting.Kernel
                        'status_idle.Kernel)))
@@ -169,9 +118,9 @@ where NS is `:kernel' or `:notebook' slot of NOTIFICATION."
     (apply #'run-at-time
            1 nil
            (lambda (ns message status next)
-             (when (equal (oref ns :status) status)
+             (when (equal (slot-value ns 'status) status)
                (ein:notification-status-set ns next)
-               ;; (ein:with-live-buffer (oref ns :buffer)
+               ;; (ein:with-live-buffer (slot-value ns :buffer)
                ;;   (force-mode-line-update))
                ))
            packed)))
@@ -208,7 +157,8 @@ MOVE-PREV / MOVE-NEXT : function
 insert-prev insert-next move-prev move-next)"
   (with-current-buffer buffer
     (setq ein:%notification%
-          (ein:notification :buffer buffer))
+          (make-instance 'ein:notification
+                         :buffer buffer))
     (setq header-line-format ein:header-line-format)
     (ein:notification-bind-events ein:%notification% events)
     (oset ein:%notification% :tab
@@ -229,9 +179,9 @@ insert-prev insert-next move-prev move-next)"
   :group 'ein)
 
 (defmethod ein:notification-tab-create-line ((tab ein:notification-tab))
-  (let ((list (funcall (oref tab :get-list)))
-        (current (funcall (oref tab :get-current)))
-        (get-name (oref tab :get-name)))
+  (let ((list (funcall (slot-value tab 'get-list)))
+        (current (funcall (slot-value tab 'get-current)))
+        (get-name (slot-value tab 'get-name)))
     (ein:join-str
      " "
      (append
@@ -307,7 +257,7 @@ insert-prev insert-next move-prev move-next)"
     (get-char-property (cdr object) 'ein:worksheet (car object))))
 
 (defun ein:header-line-key-event-get-buffer (key-event)
-  (funcall (oref (oref ein:%notification% :tab) :get-buffer)
+  (funcall (slot-value (slot-value ein:%notification% 'tab) 'get-buffer)
            (ein:header-line-key-event-get-worksheet key-event)))
 
 (defun ein:header-line-switch-to-this-tab (key-event)
@@ -323,7 +273,7 @@ insert-prev insert-next move-prev move-next)"
 (defun ein:header-line-do-slot-function (key-event slot)
   "Call SLOT function on worksheet instance fetched from KEY-EVENT."
   (ein:header-line-select-window key-event)
-  (funcall (slot-value (oref ein:%notification% :tab) slot)
+  (funcall (slot-value (slot-value ein:%notification% 'tab) slot)
            (ein:header-line-key-event-get-worksheet key-event)))
 
 (defmacro ein:header-line-define-mouse-commands (&rest name-slot-list)
@@ -348,9 +298,9 @@ Generated by `ein:header-line-define-mouse-commands'" slot)
   "Insert new tab."
   (interactive "e")
   (ein:header-line-select-window key-event)
-  (let ((notification (oref ein:%notification% :tab)))
-    (funcall (oref notification :insert-next)
-             (car (last (funcall (oref notification :get-list)))))))
+  (let ((notification (slot-value ein:%notification% 'tab)))
+    (funcall (slot-value notification 'insert-next)
+             (car (last (funcall (slot-value notification 'get-list)))))))
 
 (defun ein:header-line-switch-kernel (key-event)
   (interactive "e")
@@ -366,15 +316,15 @@ Generated by `ein:header-line-define-mouse-commands'" slot)
 (defun ein:header-line ()
   (format
    "IP[%s]: %s"
-   (oref ein:%notification% :execution-count)
+   (slot-value ein:%notification% 'execution-count)
    (ein:join-str
     " | "
     (ein:filter
      'identity
-     (list (oref (oref ein:%notification% :notebook) :message)
-           (oref (oref ein:%notification% :kernel) :message)
+     (list (slot-value (slot-value ein:%notification% 'notebook) 'message)
+           (slot-value (slot-value ein:%notification% 'kernel) 'message)
            (ein:notification-tab-create-line
-            (oref ein:%notification% :tab)))))))
+            (slot-value ein:%notification% 'tab)))))))
 
 (defun ein:header-line-setup-maybe ()
   "Setup `header-line-format' for mumamo.

@@ -32,6 +32,13 @@
 
 ;;;***
 
+;;;### (autoloads nil "ein-classes" "ein-classes.el" (0 0 0 0))
+;;; Generated autoloads from ein-classes.el
+
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-classes" '("ein:")))
+
+;;;***
+
 ;;;### (autoloads nil "ein-company" "ein-company.el" (0 0 0 0))
 ;;; Generated autoloads from ein-company.el
 
@@ -39,6 +46,8 @@
 
 
 \(fn COMMAND &optional ARG &rest IGNORE)" t nil)
+
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-company" '("ein:company-handle-doc-buffer")))
 
 ;;;***
 
@@ -155,7 +164,14 @@ Open a buffer with bug report template.
 ;;;### (autoloads nil "ein-events" "ein-events.el" (0 0 0 0))
 ;;; Generated autoloads from ein-events.el
 
-(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-events" '("ein:events")))
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-events" '("ein:events-")))
+
+;;;***
+
+;;;### (autoloads nil "ein-file" "ein-file.el" (0 0 0 0))
+;;; Generated autoloads from ein-file.el
+
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-file" '("ein:" "*ein:file-buffername-template*")))
 
 ;;;***
 
@@ -251,9 +267,9 @@ Insert \".\" and run `ein:jedi-complete'.
 Setup auto-completion using EIN and Jedi.el_ together.
 
 Jedi.el_ is a Python auto-completion library for Emacs.
-To use EIN and Jedi together, add the following in your Emacs setup.::
+To use EIN and Jedi together, add the following in your Emacs setup before loading EIN.::
 
-  (add-hook 'ein:connect-mode-hook 'ein:jedi-setup)
+  (setq ein:completion-backend 'ein:use-ac-jedi-backend)
 
 .. _Jedi.el: https://github.com/tkf/emacs-jedi
 
@@ -288,6 +304,17 @@ and save it immediately.
 ;;;### (autoloads nil "ein-jupyter" "ein-jupyter.el" (0 0 0 0))
 ;;; Generated autoloads from ein-jupyter.el
 
+(autoload 'ein:jupyter-server-login-and-open "ein-jupyter" "\
+Log in and open a notebooklist buffer for a running jupyter notebook server.
+
+Determine if there is a running jupyter server (started via a
+call to `ein:jupyter-server-start') and then try to guess if
+token authentication is enabled. If a token is found use it to generate a
+call to `ein:notebooklist-login' and once authenticated open the notebooklist buffer
+via a call to `ein:notebooklist-open'.
+
+\(fn)" t nil)
+
 (autoload 'ein:jupyter-server-start "ein-jupyter" "\
 Start the jupyter notebook server at the given path.
 
@@ -303,7 +330,7 @@ the notebooks the user wants to access.
 The buffer named by `ein:jupyter-server-buffer-name' will contain
 the log of the running jupyter server.
 
-\(fn SERVER-PATH SERVER-DIRECTORY &optional NO-LOGIN-AFTER-START-P)" t nil)
+\(fn SERVER-CMD-PATH NOTEBOOK-DIRECTORY &optional NO-LOGIN-AFTER-START-P)" t nil)
 
 (autoload 'ein:jupyter-server-stop "ein-jupyter" "\
 Stop a running jupyter notebook server.
@@ -314,6 +341,19 @@ there is no running server then no action will be taken.
 \(fn)" t nil)
 
 (if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-jupyter" '("ein:jupyter-" "*ein:" "%ein:jupyter-server-session%")))
+
+;;;***
+
+;;;### (autoloads nil "ein-jupyterhub" "ein-jupyterhub.el" (0 0 0
+;;;;;;  0))
+;;; Generated autoloads from ein-jupyterhub.el
+
+(autoload 'ein:jupyterhub-connect "ein-jupyterhub" "\
+Log on to a jupyterhub server using PAM authentication. Requires jupyterhub version 0.8 or greater.
+
+\(fn URL USER PASSWORD)" t nil)
+
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-jupyterhub" '("ein:j")))
 
 ;;;***
 
@@ -382,7 +422,7 @@ Notebook mode with multiple language fontification.
 
 (defalias 'ein:notebook-name 'ein:$notebook-notebook-name)
 
-(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-notebook" '("ein:")))
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-notebook" '(#("ein:" 0 4 (fontified nil)))))
 
 ;;;***
 
@@ -472,7 +512,16 @@ Login to IPython notebook server.
 
 \(fn URL-OR-PORT PASSWORD &optional RETRY-P)" t nil)
 
-(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-notebooklist" '("ein:" "generate-breadcrumbs")))
+(autoload 'ein:notebooklist-change-url-port "ein-notebooklist" "\
+Update the ipython/jupyter notebook server URL for all the
+notebooks currently opened from the current notebooklist buffer.
+
+This function works by calling `ein:notebook-update-url-or-port'
+on all the notebooks opened from the current notebooklist.
+
+\(fn NEW-URL-OR-PORT)" t nil)
+
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-notebooklist" '(#("ein:" 0 4 (fontified nil face font-lock-function-name-face)) #("generate-breadcrumbs" 0 18 (fontified nil face font-lock-function-name-face) 18 20 (fontified nil face font-lock-function-name-face)))))
 
 ;;;***
 
@@ -515,9 +564,9 @@ node `(org) External links' and Info node `(org) Search options'
 
 \(fn)" nil nil)
 
-(eval-after-load "org" '(progn (if (fboundp 'org-link-set-parameters) (org-link-set-parameters "ipynb" :follow #'ein:org-open) (org-add-link-type "ipynb" :follow 'ein:org-open)) (add-hook 'org-store-link-functions 'ein:org-store-link)))
+(eval-after-load "org" '(if (fboundp 'org-link-set-parameters) (org-link-set-parameters "ipynb" :follow 'ein:org-open :help-echo "Open ipython notebook." :store 'ein:org-store-link) (org-add-link-type "ipynb" :follow 'ein:org-open) (add-hook 'org-store-link-functions 'ein:org-store-link)))
 
-(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-org" '("ein:org-goto-link")))
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-org" '(#("ein:org-goto-link" 0 17 (fontified nil)))))
 
 ;;;***
 
@@ -566,7 +615,7 @@ Pseudo console mode.  Hit RET to execute code.
 ;;;### (autoloads nil "ein-query" "ein-query.el" (0 0 0 0))
 ;;; Generated autoloads from ein-query.el
 
-(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-query" '("ein:")))
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-query" '(#("ein:" 0 4 (face font-lock-function-name-face fontified nil)) #("*ein:jupyterhub-servers*" 0 24 (fontified nil face font-lock-variable-name-face)))))
 
 ;;;***
 
@@ -610,6 +659,13 @@ shared output buffer.  You can open the buffer by the command
 
 ;;;***
 
+;;;### (autoloads nil "ein-skewer" "ein-skewer.el" (0 0 0 0))
+;;; Generated autoloads from ein-skewer.el
+
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-skewer" '("ein:" "*ein:skewer-running-p*")))
+
+;;;***
+
 ;;;### (autoloads nil "ein-smartrep" "ein-smartrep.el" (0 0 0 0))
 ;;; Generated autoloads from ein-smartrep.el
 
@@ -621,7 +677,7 @@ shared output buffer.  You can open the buffer by the command
 ;;;;;;  0 0))
 ;;; Generated autoloads from ein-subpackages.el
 
-(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-subpackages" '("ein:")))
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-subpackages" '(#("ein:" 0 4 (face font-lock-function-name-face fontified t)))))
 
 ;;;***
 
@@ -647,7 +703,7 @@ Show full traceback in traceback viewer.
 ;;;### (autoloads nil "ein-websocket" "ein-websocket.el" (0 0 0 0))
 ;;; Generated autoloads from ein-websocket.el
 
-(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-websocket" '("ein:" "fix-request-netscape-cookie-parse")))
+(if (fboundp 'register-definition-prefixes) (register-definition-prefixes "ein-websocket" '("ein:websocket" "fix-request-netscape-cookie-parse")))
 
 ;;;***
 

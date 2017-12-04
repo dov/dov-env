@@ -17,7 +17,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with ein-ac.el.  If not, see <http://www.gnu.org/licenses/>.
+;; along with ein-company.el.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -51,14 +51,19 @@
                                                  cb)))))
     (candidates () (lexical-let ((kernel (ein:get-kernel-or-error))
                                  (col (current-column)))
-                     (cons :async
-                           (lambda (cb)
-                             (ein:kernel-complete kernel
-                                                  (thing-at-point 'line)
-                                                  col
-                                                  (list :complete_reply
-                                                        (cons #'ein:completer-finish-completing-company
-                                                              (list :callback cb))))))))))
+                     (unless (ein:company-backend--punctuation-check (thing-at-point 'line) col)
+                       (cons :async
+                             (lambda (cb)
+                               (ein:kernel-complete kernel
+                                                    (thing-at-point 'line)
+                                                    col
+                                                    (list :complete_reply
+                                                          (cons #'ein:completer-finish-completing-company
+                                                                (list :callback cb)))))))))))
+
+(defun ein:company-backend--punctuation-check (thing col)
+  (let ((query (ein:trim-right (subseq thing 0 col) "[\n]")))
+    (string-match "[]()\",[{}'=: ]$" query (- col 2))))
 
 (cl-defun ein:completer-finish-completing-company (packed content -metadata-not-used-)
   (ein:log 'debug "EIN:COMPANY-FINISH-COMPLETING: content=%S" content)
@@ -66,7 +71,9 @@
          (delta (- (plist-get content :cursor_end)
                    (plist-get content :cursor_start)))
          (matched-text (buffer-substring beg (- beg delta)))
-         (matches (plist-get content :matches)))
+         (matches (-filter #'(lambda (s)
+                               (s-starts-with-p matched-text s))
+                           (plist-get content :matches))))
     (ein:log 'debug "EIN:COMPANY-FINISH-COMPLETING: matches=%s" matches)
     (funcall (plist-get packed :callback) matches)))
 

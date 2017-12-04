@@ -28,32 +28,9 @@
 (eval-when-compile (require 'cl))
 (require 'websocket)
 (require 'ein-core)
+(require 'ein-classes)
 (require 'url-cookie)
 (require 'request)
-
-(defstruct ein:$websocket
-  "A wrapper object of `websocket'.
-
-`ein:$websocket-ws'               : an instance returned by `websocket-open'
-
-`ein:$websocket-onmessage'        : function called with (PACKET &rest ARGS)'
-`ein:$websocket-onclose'          : function called with (WEBSOCKET &rest ARGS)'
-`ein:$websocket-onopen'           : function called with (&rest ARGS)'
-
-`ein:$websocket-onmessage-args'   : optional arguments for onmessage callback'
-`ein:$websocket-onclose-args'     : optional arguments for onclose callback'
-`ein:$websocket-onopen-args'      : optional arguments for onopen callback'
-
-`ein:$websocket-closed-by-client' : t/nil'
-"
-  ws
-  onmessage
-  onmessage-args
-  onclose
-  onclose-args
-  onopen
-  onopen-args
-  closed-by-client)
 
 ;; Fix issues reading cookies in request when using curl backend
 (defun fix-request-netscape-cookie-parse (next-method)
@@ -88,16 +65,23 @@
 
 ;; This seems redundant, but websocket does not work otherwise.
 (defun ein:websocket--prepare-cookies (url)
-  (let* ((parsed-url (url-generic-parse-url url))
+  (let* ((jh-conn (ein:jupyterhub-url-p url))
+         (parsed-url (url-generic-parse-url url))
          (host-port (if (url-port-if-non-default parsed-url)
                         (format "%s:%s" (url-host parsed-url) (url-port parsed-url))
                       (url-host parsed-url)))
          (securep (string-match "^wss://" url))
          (http-only-cookies (request-cookie-alist (concat "#HttpOnly_" (url-host (url-generic-parse-url url))) "/" securep)) ;; Current version of Jupyter store cookies as HttpOnly)
-         (cookies (request-cookie-alist (url-host (url-generic-parse-url url)) "/" securep)))
-    (when (or cookies http-only-cookies)
+         (cookies (request-cookie-alist (url-host (url-generic-parse-url url)) "/" securep))
+         (hub-cookies (request-cookie-alist (url-host (url-generic-parse-url url)) "/hub/" securep))
+         (user-cookies (and jh-conn
+                            (request-cookie-alist
+                             (url-host (url-generic-parse-url url))
+                             (ein:$jh-user-server (ein:$jh-conn-user jh-conn))
+                             securep))))
+    (when (or cookies http-only-cookies hub-cookies user-cookies)
       (ein:log 'debug "Storing cookies in prep for opening websocket (%s)" cookies)
-      (dolist (c (append cookies http-only-cookies))
+      (dolist (c (append cookies http-only-cookies hub-cookies user-cookies))
         (url-cookie-store (car c) (cdr c) nil host-port (car (url-path-and-query parsed-url)) securep)))))
 
 

@@ -32,15 +32,15 @@
 ;;; Code:
 
 (eval-when-compile (require 'cl))
-(require 'eieio)
 (require 'ansi-color)
 (require 'comint)
-
 (require 'ein-core)
+(require 'ein-classes)
 (require 'ein-log)
 (require 'ein-node)
 (require 'ein-kernel)
 (require 'ein-output-area)
+(require 'ein-skewer)
 
 
 ;;; Faces
@@ -109,6 +109,13 @@
 
 ;;; Customization
 
+(defcustom ein:enable-dynamic-javascript nil
+    "[EXPERIMENTAL] When non-nil enable support in ein for
+executing dynamic javascript. This feature requires installation
+of the skewer package."
+    :type 'boolean
+    :group 'ein)
+
 (defcustom ein:cell-traceback-level 1
   "Number of traceback stack to show.
 Hidden tracebacks are not discarded.  You can always view them
@@ -147,12 +154,12 @@ See also: https://github.com/tkf/emacs-ipython-notebook/issues/94"
 ;;; EIEIO related utils
 
 (defmacro ein:oset-if-empty (obj slot value)
-  `(unless (and (slot-boundp ,obj ,slot) (oref ,obj ,slot))
-     (oset ,obj ,slot ,value)))
+  `(unless (and (slot-boundp ,obj ,slot) (slot-value ,obj ,slot))
+     (setf (slot-value ,obj, slot) ,value)))
 
 (defmacro ein:oref-safe (obj slot)
   `(when (slot-boundp ,obj ,slot)
-     (oref ,obj ,slot)))
+     (slot-value ,obj ,slot)))
 
 
 ;;; Utils
@@ -167,75 +174,6 @@ See also: https://github.com/tkf/emacs-ipython-notebook/issues/94"
             (when (listp ein:slice-image) ein:slice-image)
           (insert-sliced-image img "." nil (or rows 20) cols))
       (insert-image img "."))))
-
-
-;;; Cell classes
-
-(defclass ein:basecell ()
-  ((cell-type :initarg :cell-type :type string)
-   (read-only :initarg :read-only :initform nil :type boolean)
-   (ewoc :initarg :ewoc :type ewoc :accessor ein:basecell--ewoc)
-   (element :initarg :element :initform nil :type list
-    :documentation "ewoc nodes")
-   (element-names :initarg :element-names)
-   (input :initarg :input :type string
-    :documentation "Place to hold data until it is rendered via `ewoc'.")
-   (outputs :initarg :outputs :initform nil :type list)
-   (metadata :initarg :metadata :initform nil :type list) ;; For nbformat >= 4
-   (events :initarg :events :type ein:events)
-   (slidetype :initarg :slidetype :initform "-" :type string)
-   (cell-id :initarg :cell-id :initform (ein:utils-uuid) :type string
-            :accessor ein:cell-id))
-  "Notebook cell base class")
-
-(defclass ein:codecell (ein:basecell)
-  ((traceback :initform nil :initarg :traceback :type list)
-   (cell-type :initarg :cell-type :initform "code")
-   (kernel :initarg :kernel :type ein:$kernel)
-   (element-names :initform (:prompt :input :output :footer :slidetype))
-   (input-prompt-number :initarg :input-prompt-number
-                        :documentation "\
-Integer or \"*\" (running state).
-Implementation note:
-Typed `:input-prompt-number' becomes a problem when reading a
-notebook that saved "*".  So don't add `:type'!")
-   (collapsed :initarg :collapsed :initform nil :type boolean)
-   (running :initarg :running :initform nil :type boolean)
-   (dynamic :initarg :dynamic :initform nil :type boolean
-            :documentation "\
-Whether cell output is evaluated dynamically or not.
-
-Only Emacs lisp type output data will be affected by this
-slot (Javascript will not be evaluated).  This value must be set
-to `t' when executing cell.  See `ein:notebook-execute-cell'.
-In the implantation of IPython web client it is passed around via
-argument, but since it is difficult to pass argument to EWOC
-pretty printer, `ein:codecell' instance holds this setting in a
-slot.")
-   (autoexec :initarg :autoexec :initform nil :type boolean
-             :documentation "Auto-execution flag.
-
-This cell is executed when the connected buffer is saved,
-provided that (1) this flag is `t' and (2) corresponding
-auto-execution mode flag in the connected buffer is `t'.")))
-
-
-(defclass ein:textcell (ein:basecell)
-  ((cell-type :initarg :cell-type :initform "text")
-   (element-names :initform (:prompt :input :footer :slidetype))))
-
-(defclass ein:htmlcell (ein:textcell)
-  ((cell-type :initarg :cell-type :initform "html")))
-
-(defclass ein:markdowncell (ein:textcell)
-  ((cell-type :initarg :cell-type :initform "markdown")))
-
-(defclass ein:rawcell (ein:textcell)
-  ((cell-type :initarg :cell-type :initform "raw")))
-
-(defclass ein:headingcell (ein:textcell)
-  ((cell-type :initarg :cell-type :initform "heading")
-   (level :initarg :level :initform 1)))
 
 
 ;;; Cell factory
@@ -255,7 +193,7 @@ auto-execution mode flag in the connected buffer is `t'.")))
 (defun ein:get-slide-show (cell)
   (let ((slide-type (slot-value cell 'slidetype))
         (ss-table (make-hash-table)))
-    (setf (gethash 'slide-type ss-table) slide-type)
+    (setf (gethash 'slide_type ss-table) slide-type)
     ss-table))
 
 (defun ein:preprocess-nb4-cell (cell-data)
@@ -273,28 +211,28 @@ auto-execution mode flag in the connected buffer is `t'.")))
   (apply (ein:cell-class-from-type type) "Cell" args))
 
 (defun ein:cell-from-json (data &rest args)
-  (setq data (ein:preprocess-nb4-cell data))
-  (setq cell (ein:cell-init (apply #'ein:cell-from-type
-					 (plist-get data :cell_type) args)
-				  data))
-  (when (plist-get data :metadata)
-    (ein:oset-if-empty cell :metadata (plist-get data :metadata))
-    (ein:aif (plist-get (slot-value cell 'metadata) :slideshow)
-        (let ((slide_type (nth 0 (cdr it))))
-          (setf (slot-value cell 'slidetype) slide_type)
-          (message "read slidetype %s" (slot-value cell 'slidetype))
-          (message "reconstructed slideshow %s" (ein:get-slide-show cell)))))
-  cell)
+  (let ((data (ein:preprocess-nb4-cell data))
+        (cell (ein:cell-init (apply #'ein:cell-from-type
+					                          (plist-get data :cell_type) args)
+				                     data)))
+    (when (plist-get data :metadata)
+      (ein:oset-if-empty cell 'metadata (plist-get data :metadata))
+      (ein:aif (plist-get (slot-value cell 'metadata) :slideshow)
+          (let ((slide-type (nth 0 (cdr it))))
+            (setf (slot-value cell 'slidetype) slide-type)
+            (message "read slidetype %s" (slot-value cell 'slidetype))
+            (message "reconstructed slideshow %s" (ein:get-slide-show cell)))))
+    cell))
 
 (defmethod ein:cell-init ((cell ein:codecell) data)
-  (ein:oset-if-empty cell :outputs (plist-get data :outputs))
-  (ein:oset-if-empty cell :input (or (plist-get data :input)
+  (ein:oset-if-empty cell 'outputs (plist-get data :outputs))
+  (ein:oset-if-empty cell 'input (or (plist-get data :input)
                                      (plist-get data :source)))
   (ein:aif (plist-get data :prompt_number)
-      (ein:oset-if-empty cell :input-prompt-number it)
+      (ein:oset-if-empty cell 'input-prompt-number it)
     (ein:aif (plist-get data :execution_count)
-        (ein:oset-if-empty cell :input-prompt-number it)))
-  (ein:oset-if-empty cell :collapsed
+        (ein:oset-if-empty cell 'input-prompt-number it)))
+  (ein:oset-if-empty cell 'collapsed
                      (let ((v (or (plist-get data :collapsed)
                                   (plist-get (slot-value cell 'metadata)
                                              :collapsed))))
@@ -303,57 +241,57 @@ auto-execution mode flag in the connected buffer is `t'.")))
 
 (defmethod ein:cell-init ((cell ein:textcell) data)
   (ein:aif (plist-get data :source)
-      (oset cell :input it))
+      (setf (slot-value cell 'input) it))
   cell)
 
-(defmethod ein:cell-init ((cell ein:headingcell) data)
+(defmethod ein:cell-init ((cell ein:headingcell) data) ;; FIXME: Was :after method
   (call-next-method)
   (ein:aif (plist-get data :level)
-      (oset cell :level it))
+      (setf (slot-value cell 'level) it))
   cell)
 
 (defmethod ein:cell-convert ((cell ein:basecell) type)
   (let ((new (ein:cell-from-type type)))
     ;; copy attributes
     (loop for k in '(:read-only :ewoc)
-          do (set-slot-value new k (slot-value cell k)))
+          do (setf (slot-value new k) (slot-value cell k)))
     ;; copy input
-    (oset new :input (if (ein:cell-active-p cell)
-                         (ein:cell-get-text cell)
-                       (oref cell :input)))
+    (setf (slot-value new 'input) (if (ein:cell-active-p cell)
+                                      (ein:cell-get-text cell)
+                                    (slot-value cell 'input)))
     ;; copy slidetype
-    (oset new :slidetype (oref cell :slidetype))
+    (setf (slot-value new 'slidetype) (slot-value cell 'slidetype))
     ;; copy output when the new cell has it
-    (when (memq :output (oref new :element-names))
-      (oset new :outputs (mapcar 'identity (oref cell :outputs))))
+    (when (memq :output (slot-value new 'element-names))
+      (setf (slot-value new 'outputs) (mapcar 'identity (slot-value cell 'outputs))))
     new))
 
 (defmethod ein:cell-convert ((cell ein:codecell) type)
   (let ((new (call-next-method)))
     (when (and (ein:codecell-child-p new)
                (slot-boundp cell :kernel))
-      (oset new :kernel (oref cell :kernel)))
+      (setf (slot-value new 'kernel) (slot-value cell 'kernel)))
     new))
 
 (defmethod ein:cell-convert ((cell ein:headingcell) type)
   (let ((new (call-next-method)))
     (when (ein:headingcell-p new)
-      (oset new :level (oref cell :level)))
+      (setf (slot-value new 'level) (slot-value cell 'level)))
     new))
 
 (defmethod ein:cell-copy ((cell ein:basecell))
-  (ein:cell-convert cell (oref cell :cell-type)))
+  (ein:cell-convert cell (slot-value cell 'cell-type)))
 
 (defmethod ein:cell-convert-inplace ((cell ein:basecell) type)
   "Convert CELL to TYPE and redraw corresponding ewoc nodes."
   (let ((new (ein:cell-convert cell type)))
     ;; copy element attribute
-    (loop for k in (oref new :element-names)
-          with old-element = (oref cell :element)
+    (loop for k in (slot-value new 'element-names)
+          with old-element = (slot-value cell 'element)
           do (progn
-	       (oset new :element
-                   (plist-put (oref new :element) k
-                              (plist-get old-element k)))
+               (setf (slot-value new 'element)
+                     (plist-put (slot-value new 'element) k
+                                (plist-get old-element k)))
 	       )
 	  )
     ;; setting ewoc nodes
@@ -364,15 +302,15 @@ auto-execution mode flag in the connected buffer is `t'.")))
           (buffer-undo-list t))         ; disable undo recording
       ;; delete ewoc nodes that is not copied
       (apply
-       #'ewoc-delete (oref new :ewoc)
+       #'ewoc-delete (slot-value new 'ewoc)
        (apply
         #'append
-        (loop for name in (oref cell :element-names)
-              unless (memq name (oref new :element-names))
+        (loop for name in (slot-value cell 'element-names)
+              unless (memq name (slot-value new 'element-names))
               collect (let ((ens (ein:cell-element-get cell name)))
                         (if (listp ens) ens (list ens))))))
       ;; draw ewoc node
-      (loop with ewoc = (oref new :ewoc)
+      (loop with ewoc = (slot-value new 'ewoc)
             for en in (ein:cell-all-element new)
             do (ewoc-invalidate ewoc en)))
     new))
@@ -381,9 +319,9 @@ auto-execution mode flag in the connected buffer is `t'.")))
   (assert (integerp level))
   (let ((inhibit-read-only t)
         (buffer-undo-list t))         ; disable undo recording
-    (oset cell :level level)
+    (setf (slot-value cell 'level) level)
     ;; draw ewoc node
-    (loop with ewoc = (oref cell :ewoc)
+    (loop with ewoc = (slot-value cell 'ewoc)
           for en in (ein:cell-all-element cell)
           do (ewoc-invalidate ewoc en))))
 
@@ -391,7 +329,7 @@ auto-execution mode flag in the connected buffer is `t'.")))
 ;;; Getter/setter
 
 (defmethod ein:cell-num-outputs ((cell ein:codecell))
-  (length (oref cell :outputs)))
+  (length (slot-value cell 'outputs)))
 
 (defmethod ein:cell-num-outputs ((cell ein:textcell))
   0)
@@ -400,12 +338,12 @@ auto-execution mode flag in the connected buffer is `t'.")))
   "Return ewoc node named PROP in CELL.
 If PROP is `:output' a list of ewoc nodes is returned.
 A specific node can be specified using optional ARGS."
-  (if (memq prop (oref cell :element-names))
-      (plist-get (oref cell :element) prop)
+  (if (memq prop (slot-value cell 'element-names))
+      (plist-get (slot-value cell 'element) prop)
     (error "PROP %s is not supported." prop)))
 
 (defmethod ein:cell-element-get ((cell ein:codecell) prop &optional index)
-  (let ((element (oref cell :element)))
+  (let ((element (slot-value cell 'element)))
     (if index
         (progn
           (assert (eql prop :output))
@@ -425,7 +363,7 @@ A specific node can be specified using optional ARGS."
         (t (call-next-method))))))
 
 (defmethod ein:cell-element-get ((cell ein:textcell) prop)
-  (let ((element (oref cell :element)))
+  (let ((element (slot-value cell 'element)))
     (case prop
       (:after-input (plist-get element :footer))
       (:before-input (plist-get element :prompt))
@@ -436,7 +374,7 @@ A specific node can be specified using optional ARGS."
         (ein:cell-element-get cell :input)
         (ein:cell-element-get cell :footer)))
 
-(defmethod ein:cell-all-element ((cell ein:codecell))
+(defmethod ein:cell-all-element  ((cell ein:codecell))
   (append (call-next-method)
           (ein:cell-element-get cell :output)))
 
@@ -464,7 +402,7 @@ Return language name as a string or `nil' when not defined.
      :footer (funcall make-node 'footer))))
 
 (defmethod ein:cell-enter-last ((cell ein:basecell))
-  (let* ((ewoc (oref cell :ewoc))
+  (let* ((ewoc (slot-value cell 'ewoc))
          ;; Use `cell' as data for ewoc.  Use the whole cell data even
          ;; if it is not used, to access it from the notebook buffer.
          ;; It is equivalent to `this.element.data("cell", this)' in
@@ -474,11 +412,11 @@ Return language name as a string or `nil' when not defined.
             (ewoc-enter-last ewoc (ein:node-new `(cell ,@path) cell))))
          (element (ein:cell-make-element make-node
                                          (ein:cell-num-outputs cell))))
-    (oset cell :element element)
+    (setf (slot-value cell 'element) element)
     cell))
 
 (defmethod ein:cell-enter-first ((cell ein:basecell))
-  (let* ((ewoc (oref cell :ewoc))
+  (let* ((ewoc (slot-value cell 'ewoc))
          (node nil)
          (make-node
           (lambda (&rest path)
@@ -489,11 +427,11 @@ Return language name as a string or `nil' when not defined.
                       (ewoc-enter-first ewoc ewoc-data))))))
          (element (ein:cell-make-element make-node
                                          (ein:cell-num-outputs cell))))
-    (oset cell :element element)
+    (setf (slot-value cell 'element) element)
     cell))
 
 (defmethod ein:cell-insert-below ((base-cell ein:basecell) other-cell)
-  (let* ((ewoc (oref base-cell :ewoc))
+  (let* ((ewoc (slot-value base-cell 'ewoc))
          (node (ein:cell-element-get base-cell :footer))
          (make-node
           (lambda (&rest path)
@@ -501,7 +439,7 @@ Return language name as a string or `nil' when not defined.
                         ewoc node (ein:node-new `(cell ,@path) other-cell)))))
          (element (ein:cell-make-element make-node
                                          (ein:cell-num-outputs other-cell))))
-    (oset other-cell :element element)
+    (setf (slot-value other-cell 'element) element)
     other-cell))
 
 (defun ein:cell-pp (path data)
@@ -513,7 +451,7 @@ Return language name as a string or `nil' when not defined.
 
 (defun ein:maybe-show-slideshow-data (cell)
   (when (ein:worksheet--show-slide-data-p ein:%worksheet%)
-    (format " - Slide [%s]:" (or (ein:oref-safe cell :slidetype)  " "))))
+    (format " - Slide [%s]:" (or (ein:oref-safe cell 'slidetype)  " "))))
 
 (defmethod ein:cell-insert-prompt ((cell ein:codecell))
   "Insert prompt of the CELL in the buffer.
@@ -521,22 +459,22 @@ Called from ewoc pretty printer via `ein:cell-pp'."
   ;; Newline is inserted in `ein:cell-insert-input'.
   (ein:insert-read-only
    (concat
-    (format "In [%s]" (or (ein:oref-safe cell :input-prompt-number)  " "))
+    (format "In [%s]" (or (ein:oref-safe cell 'input-prompt-number)  " "))
     (ein:maybe-show-slideshow-data cell)
-    (when (oref cell :autoexec) " %s" ein:cell-autoexec-prompt))
+    (when (slot-value cell 'autoexec) " %s" ein:cell-autoexec-prompt))
    'font-lock-face 'ein:cell-input-prompt))
 
 (defmethod ein:cell-insert-prompt ((cell ein:textcell))
   (ein:insert-read-only
    (concat
-    (format "%s:" (oref cell :cell-type))
+    (format "%s:" (slot-value cell 'cell-type))
     (ein:maybe-show-slideshow-data cell))
    'font-lock-face 'ein:cell-input-prompt))
 
 (defmethod ein:cell-insert-prompt ((cell ein:headingcell))
   (ein:insert-read-only
    (concat
-    (format "h%s:" (oref cell :level))
+    (format "h%s:" (slot-value cell 'level))
     (ein:maybe-show-slideshow-data cell))
    'font-lock-face 'ein:cell-input-prompt))
 
@@ -546,7 +484,7 @@ Called from ewoc pretty printer via `ein:cell-pp'."
   (let ((start (1+ (point))))
     ;; Newlines must allow insertion before/after its position.
     (insert (propertize "\n" 'read-only t 'rear-nonsticky t)
-            (or (ein:oref-safe cell :input) "")
+            (or (ein:oref-safe cell 'input) "")
             (propertize "\n" 'read-only t))
     ;; Highlight background using overlay.
     (let ((ol (make-overlay start (point))))
@@ -559,29 +497,29 @@ Called from ewoc pretty printer via `ein:cell-pp'."
   'ein:cell-input-area)
 
 (defmethod ein:cell-get-input-area-face ((cell ein:headingcell))
-  (intern (format "ein:cell-heading-%d" (oref cell :level))))
+  (intern (format "ein:cell-heading-%d" (slot-value cell 'level))))
 
 (defun ein:cell-insert-output (index cell)
   "Insert INDEX-th output of the CELL in the buffer.
 Called from ewoc pretty printer via `ein:cell-pp'."
-  (if (or (oref cell :collapsed)
+  (if (or (slot-value cell 'collapsed)
           (and ein:cell-max-num-outputs
                (>= index ein:cell-max-num-outputs)))
       (progn
-        (when (and (not (oref cell :collapsed))
+        (when (and (not (slot-value cell 'collapsed))
                    (= index ein:cell-max-num-outputs)
                    (> (point) (point-at-bol)))
           ;; The first output which exceeds `ein:cell-max-num-outputs'.
           (ein:insert-read-only "\n"))
         (ein:insert-read-only "."))
-    (let ((out (nth index (oref cell :outputs))))
+    (let ((out (nth index (slot-value cell 'outputs))))
       ;; Handle newline for previous stream output.
       ;; In IPython JS, it is handled in `append_stream' because JS
       ;; does not need to care about newline (DOM does it for JS).
       ;; FIXME: Maybe I should abstract ewoc in some way and get rid
       ;;        of this.
       (let ((last-out (and (> index 0)
-                           (nth (1- index) (oref cell :outputs)))))
+                           (nth (1- index) (slot-value cell 'outputs)))))
         ;; If previous output is stream type, consider adding newline
         (when (and last-out
                    (equal (plist-get last-out :output_type) "stream"))
@@ -605,16 +543,15 @@ Called from ewoc pretty printer via `ein:cell-pp'."
 Called from ewoc pretty printer via `ein:cell-pp'."
   (ein:insert-read-only "\n"))
 
-(defmethod ein:cell-insert-footer ((cell ein:codecell))
-  (if (or (oref cell :collapsed)
+(defmethod ein:cell-insert-footer :before ((cell ein:codecell))
+  (if (or (slot-value cell 'collapsed)
           (and ein:cell-max-num-outputs
                (> (ein:cell-num-outputs cell) ein:cell-max-num-outputs)))
       ;; Add a newline after the last ".".
       (ein:insert-read-only "\n")
-    (let ((last-out (car (last (oref cell :outputs)))))
+    (let ((last-out (car (last (slot-value cell 'outputs)))))
       (when (equal (plist-get last-out :output_type) "stream")
-        (ein:cell-append-stream-text-fontified "\n" last-out))))
-  (call-next-method))
+        (ein:cell-append-stream-text-fontified "\n" last-out)))))
 
 
 (defun ein:cell-node-p (node &optional element-name)
@@ -640,7 +577,7 @@ If the input area of the CELL does not exist, return `nil'"
 (defmethod ein:cell-input-pos-max ((cell ein:basecell))
   "Return editable maximum point in the input area of the CELL.
 If the input area of the CELL does not exist, return `nil'"
-  (let* ((ewoc (oref cell :ewoc))
+  (let* ((ewoc (slot-value cell 'ewoc))
          (input-node (ein:cell-element-get cell :input)))
     ;; 1- for skipping newline
     (when input-node (1- (ewoc-location (ewoc-next ewoc input-node))))))
@@ -651,11 +588,11 @@ If the input area of the CELL does not exist, return `nil'"
       (let* ((beg (ein:cell-input-pos-min cell))
              (end (ein:cell-input-pos-max cell)))
         (buffer-substring beg end))
-    (oref cell :input)))
+    (slot-value cell 'input)))
 
 (defmethod ein:cell-set-text ((cell ein:basecell) text)
   (let* ((input-node (ein:cell-element-get cell :input))
-         (ewoc (oref cell :ewoc))
+         (ewoc (slot-value cell 'ewoc))
            ;; 1+/1- is for skipping newline
          (beg (1+ (ewoc-location input-node)))
          (end (1- (ewoc-location (ewoc-next ewoc input-node)))))
@@ -666,25 +603,25 @@ If the input area of the CELL does not exist, return `nil'"
       (insert text))))
 
 (defmethod ein:cell-save-text ((cell ein:basecell))
-  (oset cell :input (ein:cell-get-text cell)))
+  (setf (slot-value cell 'input) (ein:cell-get-text cell)))
 
 (defmethod ein:cell-deactivate ((cell ein:basecell))
-  (oset cell :element nil)
+  (setf (slot-value cell 'element) nil)
   cell)
 
 (defmethod ein:cell-active-p ((cell ein:basecell))
-  (oref cell :element))
+  (slot-value cell 'element))
 
 (defmethod ein:cell-running-set ((cell ein:codecell) running)
   ;; FIXME: change the appearance of the cell
-  (oset cell :running running))
+  (setf (slot-value cell 'running) running))
 
 (defmethod ein:cell-set-collapsed ((cell ein:codecell) collapsed)
   "Set `:collapsed' slot of CELL and invalidate output ewoc nodes."
-  (unless (eq (oref cell :collapsed) collapsed)
-    (oset cell :collapsed collapsed)
+  (unless (eq (slot-value cell 'collapsed) collapsed)
+    (setf (slot-value cell 'collapsed) collapsed)
     (apply #'ewoc-invalidate
-           (oref cell :ewoc)
+           (slot-value cell 'ewoc)
            (ein:cell-element-get cell :output))))
 
 (defmethod ein:cell-collapse ((cell ein:codecell))
@@ -695,22 +632,22 @@ If the input area of the CELL does not exist, return `nil'"
 
 (defmethod ein:cell-toggle-output ((cell ein:codecell))
   "Toggle `:collapsed' slot of CELL and invalidate output ewoc nodes."
-  (ein:cell-set-collapsed cell (not (oref cell :collapsed))))
+  (ein:cell-set-collapsed cell (not (slot-value cell 'collapsed))))
 
 (defmethod ein:cell-invalidate-prompt ((cell ein:codecell))
   (let ((inhibit-read-only t)
         (buffer-undo-list t))           ; disable undo recording
-    (ewoc-invalidate (oref cell :ewoc)
+    (ewoc-invalidate (slot-value cell 'ewoc)
                      (ein:cell-element-get cell :prompt))))
 
 (defmethod ein:cell-set-input-prompt ((cell ein:codecell) &optional number)
-  (oset cell :input-prompt-number number)
+  (setf (slot-value cell 'input-prompt-number) number)
   (ein:cell-invalidate-prompt cell))
 
 (defmethod ein:cell-set-autoexec ((cell ein:codecell) bool)
   "Set auto-execution flag of CELL to BOOL and invalidate the
 prompt EWOC node."
-  (oset cell :autoexec bool)
+  (setf (slot-value cell 'autoexec) bool)
   (ein:cell-invalidate-prompt cell))
 
 (defmethod ein:cell-autoexec-p ((cell ein:basecell))
@@ -719,7 +656,7 @@ Return `nil' always for non-code cells."
   nil)
 
 (defmethod ein:cell-autoexec-p ((cell ein:codecell))
-  (oref cell :autoexec))
+  (slot-value cell 'autoexec))
 
 (defmethod ein:cell-toggle-autoexec ((cell ein:codecell))
   "Toggle auto-execution flag of CELL to BOOL and invalidate the
@@ -734,8 +671,7 @@ PROP is a name of cell element.  Default is `:input'.
 \(fn cell relpos prop)"
   (unless relpos (setq relpos 0))
   (unless prop (setq prop :input))
-  (let ((goal-column nil))
-    (ewoc-goto-node (oref cell :ewoc) (ein:cell-element-get cell prop)))
+  (ewoc-goto-node (slot-value cell 'ewoc) (ein:cell-element-get cell prop))
   (let ((offset (case prop
                   ((:input :before-output) 1)
                   (:after-input -1)
@@ -751,7 +687,7 @@ PROP is a name of cell element.  Default is `:input'.
   (unless inputline (setq inputline 1))
   (unless prop (setq prop :input))
   (let ((goal-column nil))
-    (ewoc-goto-node (oref cell :ewoc) (ein:cell-element-get cell prop)))
+    (ewoc-goto-node (slot-value cell 'ewoc) (ein:cell-element-get cell prop)))
   (let ((offset (case prop
                   ((:input :before-output) 1)
                   (:after-input -1)
@@ -773,7 +709,7 @@ understands.  Note that you can't use `:output' since it returns
 a list.  Use `:after-input' instead.
 If END is non-`nil', return the location of next element."
   (unless elm (setq elm :prompt))
-  (let ((element (oref cell :element)))
+  (let ((element (slot-value cell 'element)))
     (when end
       (setq elm (case elm
                   (:prompt :input)
@@ -789,7 +725,7 @@ If END is non-`nil', return the location of next element."
 
 (defmethod ein:cell-buffer ((cell ein:basecell))
   "Return a buffer associated by CELL (if any)."
-  (ein:aand (ein:oref-safe cell :ewoc) (ewoc-buffer it)))
+  (ein:aand (ein:oref-safe cell 'ewoc) (ewoc-buffer it)))
 
 
 ;; Data manipulation
@@ -800,8 +736,8 @@ If END is non-`nil', return the location of next element."
   ;; instantaneously for now.
   (ein:log 'debug "cell-clear-output stdout=%s stderr=%s other=%s"
            stdout stderr other)
-  (oset cell :traceback nil)
-  (let ((ewoc (oref cell :ewoc))
+  (setf (slot-value cell 'traceback) nil)
+  (let ((ewoc (slot-value cell 'ewoc))
         (output-nodes (ein:cell-element-get cell :output)))
     (if (and stdout stderr other)
         (progn
@@ -809,8 +745,8 @@ If END is non-`nil', return the location of next element."
           (let ((inhibit-read-only t)
                 (buffer-undo-list t))   ; disable undo recording
             (apply #'ewoc-delete ewoc output-nodes))
-          (plist-put (oref cell :element) :output nil)
-          (oset cell :outputs nil))
+          (plist-put (slot-value cell 'element) :output nil)
+          (setf (slot-value cell 'outputs) nil))
       (let* ((ewoc-node-list
               (append
                (when stdout (ein:node-filter output-nodes :is 'output-stdout))
@@ -827,13 +763,13 @@ If END is non-`nil', return the location of next element."
               (buffer-undo-list t))   ; disable undo recording
           (apply #'ewoc-delete ewoc ewoc-node-list))
         ;; remove from `:element'
-        (let* ((element (oref cell :element))
+        (let* ((element (slot-value cell 'element))
                (old-output (plist-get element :output))
                (new-ouptut (ein:remove-by-index old-output indices)))
           (plist-put element :output new-ouptut))
         ;; remove cleared outputs from internal data
-        (oset cell :outputs
-              (ein:remove-by-index (oref cell :outputs) indices))))
+        (setf (slot-value cell 'outputs)
+              (ein:remove-by-index (slot-value cell 'outputs) indices))))
     ;; Footer may have extra (possibly colored) newline due to the
     ;; last output type.  So invalidate it here.
     ;; See `ein:cell-insert-footer' (for codecell).
@@ -861,30 +797,30 @@ If END is non-`nil', return the location of next element."
   ;; channel.  As a workaround, we remember the cell's traceback and ignore
   ;; traceback outputs that are identical to the one we already have.
   (let ((new-tb (plist-get json :traceback))
-        (old-tb (oref cell :traceback)))
+        (old-tb (slot-value cell 'traceback)))
     (when (or
            (null old-tb)
            (null new-tb)
            (not (equalp new-tb old-tb)))
       (ein:cell-actually-append-output cell json dynamic))
-    (oset cell :traceback new-tb)))
+    (setf (slot-value cell 'traceback) new-tb)))
 
 (defmethod ein:cell-actually-append-output ((cell ein:codecell) json dynamic)
   (ein:cell-expand cell)
   ;; (ein:flush-clear-timeout)
-  (oset cell :outputs
-        (append (oref cell :outputs) (list json)))
+  (setf (slot-value cell 'outputs)
+        (append (slot-value cell 'outputs) (list json)))
   ;; enter last output element
   (let* ((inhibit-read-only t)
          (buffer-undo-list t)           ; disable undo recording
-         (ewoc (oref cell :ewoc))
+         (ewoc (slot-value cell 'ewoc))
          (index (1- (ein:cell-num-outputs cell)))
          (path `(cell output ,index))
          (class (ein:cell-output-json-to-class json))
          (data (ein:node-new path cell class))
          (last-node (ein:cell-element-get cell :last-output))
          (ewoc-node (ewoc-enter-after ewoc last-node data))
-         (element (oref cell :element)))
+         (element (slot-value cell 'element)))
     (plist-put element :output
                (append (plist-get element :output) (list ewoc-node)))
     (ewoc-invalidate ewoc (ein:cell-element-get cell :footer))))
@@ -896,7 +832,7 @@ Called from ewoc pretty printer via `ein:cell-insert-output'."
                                 (or (plist-get json :prompt_number) " "))
                         'font-lock-face 'ein:cell-output-prompt)
   (ein:insert-read-only "\n")
-  (ein:cell-append-mime-type json (oref cell :dynamic))
+  (ein:cell-append-mime-type json (slot-value cell 'dynamic))
   (ein:insert-read-only "\n"))
 
 (defmethod ein:cell-append-pyerr ((cell ein:codecell) json)
@@ -942,8 +878,12 @@ Called from ewoc pretty printer via `ein:cell-insert-output'."
 (defmethod ein:cell-append-display-data ((cell ein:codecell) json)
   "Insert display-data type output in the buffer.
 Called from ewoc pretty printer via `ein:cell-insert-output'."
-  (ein:cell-append-mime-type json (oref cell :dynamic))
-  (ein:insert-read-only "\n"))
+  (if (and (plist-get json :javascript)
+           (slot-value cell 'dynamic) ein:enable-dynamic-javascript)
+      (ein:execute-javascript cell json)
+    (progn
+      (ein:cell-append-mime-type json (slot-value cell 'dynamic))
+      (ein:insert-read-only "\n"))))
 
 (defcustom ein:output-type-preference
   (if (and (fboundp 'shr-insert-document)
@@ -1033,11 +973,11 @@ prettified text thus be used instead of HTML type."
   "Return json-ready alist."
   `((input . ,(ein:cell-get-text cell))
     (cell_type . "code")
-    ,@(ein:aif (ein:oref-safe cell :input-prompt-number)
+    ,@(ein:aif (ein:oref-safe cell 'input-prompt-number)
           `((prompt_number . ,it)))
-    (outputs . ,(if discard-output [] (apply #'vector (oref cell :outputs))))
+    (outputs . ,(if discard-output [] (apply #'vector (slot-value cell 'outputs))))
     (language . "python")
-    (collapsed . ,(if (oref cell :collapsed) t json-false))))
+    (collapsed . ,(if (slot-value cell 'collapsed) t json-false))))
 
 (defvar ein:output-type-map
   '((:svg . :image/svg) (:png . :image/png) (:jpeg . :image/jpeg)
@@ -1053,7 +993,7 @@ prettified text thus be used instead of HTML type."
          (outputs (if discard-output []
                     (slot-value cell 'outputs)))
          (renamed-outputs '())
-         (execute-count (ein:aif (ein:oref-safe cell :input-prompt-number)
+         (execute-count (ein:aif (ein:oref-safe cell 'input-prompt-number)
                             (and (numberp it) it))))
     (setq metadata (plist-put metadata :collapsed (if (slot-value cell 'collapsed) t json-false)))
     (setq metadata (plist-put metadata :autoscroll json-false))
@@ -1067,46 +1007,54 @@ prettified text thus be used instead of HTML type."
                        (equal otype "execute_result"))
                    (null (plist-get output :metadata)))
               (plist-put output :metadata (make-hash-table)))
-          (push (let ((ocopy (copy-list output))
-                      (new-output '()))
-                  (loop while ocopy
-                        do (let ((prop (pop ocopy))
-                                 (value (pop ocopy)))
-                             (ein:log 'debug "Checking property %s for output type '%s'"
-                                      prop otype)
-                             (cond
-                              ((equal prop :stream) (progn (push value new-output)
-                                                           (push :name new-output)))
+          (setq renamed-outputs
+                (append renamed-outputs
+                        (list (let ((ocopy (copy-list output))
+                                    (new-output '()))
+                                (loop while ocopy
+                                      do (let ((prop (pop ocopy))
+                                               (value (pop ocopy)))
+                                           (ein:log 'debug "Checking property %s for output type '%s'"
+                                                    prop otype)
+                                           (cond
+                                            ((equal prop :stream) (progn (push value new-output)
+                                                                         (push :name new-output)))
 
-                              ((and (equal otype "display_data")
-                                    (ein:output-property-p prop))
-                               (let ((new-prop (cdr (ein:output-property-p prop))))
-                                 (push (list new-prop (list value)) new-output)
-                                 (push :data new-output)))
+                                            ((and (equal otype "display_data")
+                                                  (ein:output-property-p prop))
+                                             (let ((new-prop (cdr (ein:output-property-p prop))))
+                                               (if (plist-member new-output :data)
+                                                   (setq new-output (plist-put new-output :data
+                                                                               (append (plist-get new-output :data)
+                                                                                       (list new-prop (list value))
+                                                                                       )))
+                                                 (push (list new-prop (list value)) new-output)
+                                                 (push :data new-output))
+                                               ))
 
-                              ((and (equal otype "display_data")
-                                    (equal prop :text))
-                               (ein:log 'debug "SAVE-NOTEBOOK: Skipping unnecessary :text data."))
+                                            ((and (equal otype "display_data")
+                                                  (equal prop :text))
+                                             (ein:log 'debug "SAVE-NOTEBOOK: Skipping unnecessary :text data."))
 
-                              ((and (equal otype "execute_result")
-                                    (or (equal prop :text)
-                                        (equal prop :html)
-					                              (equal prop :latex)))
-                               (ein:log 'debug "Fixing execute_result (%s?)." otype)
-                               (let ((new-prop (cdr (ein:output-property-p prop))))
-                                 (push (list new-prop (list value)) new-output)
-                                 (push :data new-output)))
+                                            ((and (equal otype "execute_result")
+                                                  (or (equal prop :text)
+                                                      (equal prop :html)
+                                                      (equal prop :latex)))
+                                             (ein:log 'debug "Fixing execute_result (%s?)." otype)
+                                             (let ((new-prop (cdr (ein:output-property-p prop))))
+                                               (push (list new-prop (list value)) new-output)
+                                               (push :data new-output)))
 
 
-                              ((and (equal otype "execute_result")
-                                    (equal prop :prompt_number))
-                               (ein:log 'debug "SAVE-NOTEBOOK: Fixing prompt_number property.")
-                               (push value new-output)
-                               (push :execution_count new-output))
+                                            ((and (equal otype "execute_result")
+                                                  (equal prop :prompt_number))
+                                             (ein:log 'debug "SAVE-NOTEBOOK: Fixing prompt_number property.")
+                                             (push value new-output)
+                                             (push :execution_count new-output))
 
-                              (t (progn (push value new-output) (push prop new-output)))))
-                        finally return new-output))
-                renamed-outputs))))
+                                            (t (progn (push value new-output) (push prop new-output)))))
+                                      finally return new-output))))
+                ))))
     `((source . ,(ein:cell-get-text cell))
       (cell_type . "code")
       ,@(if execute-count
@@ -1117,7 +1065,7 @@ prettified text thus be used instead of HTML type."
 
 
 (defmethod ein:cell-to-json ((cell ein:textcell) &optional discard-output)
-  `((cell_type . ,(oref cell :cell-type))
+  `((cell_type . ,(slot-value cell 'cell-type))
     (source    . ,(ein:cell-get-text cell))))
 
 (defmethod ein:cell-to-nb4-json ((cell ein:textcell) wsidx &optional discard-output)
@@ -1132,7 +1080,7 @@ prettified text thus be used instead of HTML type."
 (defmethod ein:cell-to-nb4-json ((cell ein:headingcell) wsidx &optional discard-output)
   (let ((metadata (slot-value cell 'metadata))
         (ss-table (ein:get-slide-show cell))
-        (header (make-string (oref cell :level) ?#)))
+        (header (make-string (slot-value cell 'level) ?#)))
     (setq metadata (plist-put metadata :ein.tags (format "worksheet-%s" wsidx)))
     (setq metadata (plist-put metadata :slideshow ss-table))
     `((cell_type . "markdown")
@@ -1141,11 +1089,11 @@ prettified text thus be used instead of HTML type."
 
 (defmethod ein:cell-to-json ((cell ein:headingcell) &optional discard-output)
   (let ((json (call-next-method)))
-    (append json `((level . ,(oref cell :level))))))
+    (append json `((level . ,(slot-value cell 'level))))))
 
 (defmethod ein:cell-next ((cell ein:basecell))
   "Return next cell of the given CELL or nil if CELL is the last one."
-  (ein:aif (ewoc-next (oref cell :ewoc)
+  (ein:aif (ewoc-next (slot-value cell 'ewoc)
                       (ein:cell-element-get cell :footer))
       (let ((cell (ein:$node-data (ewoc-data it))))
         (when (ein:basecell-child-p cell)
@@ -1153,7 +1101,7 @@ prettified text thus be used instead of HTML type."
 
 (defmethod ein:cell-prev ((cell ein:basecell))
   "Return previous cell of the given CELL or nil if CELL is the first one."
-  (ein:aif (ewoc-prev (oref cell :ewoc)
+  (ein:aif (ewoc-prev (slot-value cell 'ewoc)
                       (ein:cell-element-get cell :prompt))
       (let ((cell (ein:$node-data (ewoc-data it))))
         (when (ein:basecell-child-p cell)
@@ -1163,12 +1111,12 @@ prettified text thus be used instead of HTML type."
 ;;; Kernel related calls.
 
 (defmethod ein:cell-set-kernel ((cell ein:codecell) kernel)
-  (oset cell :kernel kernel))
+  (setf (slot-value cell 'kernel) kernel))
 
 
 (defmethod ein:cell-execute ((cell ein:codecell))
   (ein:cell-execute-internal cell
-                             (oref cell :kernel)
+                             (slot-value cell 'kernel)
                              (ein:cell-get-text cell)
                              :silent nil))
 
@@ -1177,7 +1125,7 @@ prettified text thus be used instead of HTML type."
   (ein:cell-clear-output cell t t t)
   (ein:cell-set-input-prompt cell "*")
   (ein:cell-running-set cell t)
-  (oset cell :dynamic t)
+  (setf (slot-value cell 'dynamic) t)
   (apply #'ein:kernel-execute kernel code (ein:cell-make-callbacks cell) args))
 
 (defmethod ein:cell-make-callbacks ((cell ein:codecell))
@@ -1193,12 +1141,12 @@ prettified text thus be used instead of HTML type."
   (ein:cell-running-set cell nil)
   (if (equal (plist-get content :status) "error")
       (ein:cell--handle-output cell "error" content -metadata-not-used-)
-    (let ((events (oref cell :events)))
+    (let ((events (slot-value cell 'events)))
       (ein:events-trigger events 'set_dirty.Worksheet (list :value t :cell cell))
       (ein:events-trigger events 'maybe_reset_undo.Worksheet cell))))
 
 (defmethod ein:cell--handle-set-next-input ((cell ein:codecell) text)
-  (let ((events (oref cell :events)))
+  (let ((events (slot-value cell 'events)))
     (ein:events-trigger events 'set_next_input.Worksheet
                         (list :cell cell :text text))
     (ein:events-trigger events 'maybe_reset_undo.Worksheet cell)))
@@ -1231,8 +1179,8 @@ prettified text thus be used instead of HTML type."
        (plist-put json :evalue (plist-get content :evalue))
        (plist-put json :traceback (plist-get content :traceback))))
     (ein:cell-append-output cell json t)
-    ;; (oset cell :dirty t)
-    (ein:events-trigger (oref cell :events) 'maybe_reset_undo.Worksheet cell)))
+    ;; (setf (slot-value cell 'dirty) t)
+    (ein:events-trigger (slot-value cell 'events) 'maybe_reset_undo.Worksheet cell)))
 
 
 (defun ein:output-area-convert-mime-types (json data)
@@ -1258,14 +1206,14 @@ prettified text thus be used instead of HTML type."
                          t ;;(plist-get content :stderr)
                          t ;;(plist-get content :other)
                          )
-  (ein:events-trigger (oref cell :events) 'maybe_reset_undo.Worksheet cell))
+  (ein:events-trigger (slot-value cell 'events) 'maybe_reset_undo.Worksheet cell))
 
 
 ;;; Misc.
 
 (defmethod ein:cell-has-image-ouput-p ((cell ein:codecell))
   "Return `t' if given cell has image output, `nil' otherwise."
-  (loop for out in (oref cell :outputs)
+  (loop for out in (slot-value cell 'outputs)
         when (or (plist-member out :svg)
                  (plist-member out :image/svg)
                  (plist-member out :png)
@@ -1278,7 +1226,7 @@ prettified text thus be used instead of HTML type."
   nil)
 
 (defmethod ein:cell-get-tb-data ((cell ein:codecell))
-  (loop for out in (oref cell :outputs)
+  (loop for out in (slot-value cell 'outputs)
         when (and
               (not (null (plist-get out :traceback)))
               (member (plist-get out :output_type) '("pyerr" "error")))

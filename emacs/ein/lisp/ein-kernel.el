@@ -29,40 +29,13 @@
 (require 'ansi-color)
 
 (require 'ein-core)
+(require 'ein-classes)
 (require 'ein-log)
 ;; FIXME: use websocket.el directly once v1.0 is released.
 (require 'ein-websocket)
 (require 'ein-events)
 (require 'ein-query)
 (require 'ein-ipdb)
-
-;; FIXME: Rewrite `ein:$kernel' using `defclass'.  It should ease
-;;        testing since I can mock I/O using method overriding.
-(defstruct ein:$kernel
-  "Hold kernel variables.
-
-`ein:$kernel-url-or-port'
-  URL or port of IPython server.
-"
-  url-or-port
-  events
-  api-version
-  session-id
-  kernel-id
-  shell-channel
-  iopub-channel
-  channels                              ; For IPython 3.x+
-  base-url                              ; /api/kernels/
-  kernel-url                            ; /api/kernels/<KERNEL-ID>
-  ws-url                                ; ws://<URL>[:<PORT>]
-  stdin-activep
-  running
-  username
-  msg-callbacks
-  ;; FIXME: Use event instead of hook.
-  after-start-hook
-  after-execute-hook)
-
 ;; "Public" getters.  Use them outside of this package.
 
 (defun ein:$kernel-session-url (kernel)
@@ -230,7 +203,9 @@
 (defun ein:kernel--ws-url (url-or-port &optional securep)
   "Use `ein:$kernel-url-or-port' if BASE_URL is an empty string.
 See: https://github.com/ipython/ipython/pull/3307"
-  (let ((protocol (if (or securep
+  (let* ((base-url url-or-port)
+         (url-or-port (ein:jupyterhub-correct-query-url-maybe url-or-port))
+         (protocol (if (or securep
                           (and (stringp url-or-port)
                                (string-match "^https://" url-or-port)))
                       "wss"
@@ -241,7 +216,14 @@ See: https://github.com/ipython/ipython/pull/3307"
                       url-or-port
                     (format "http://%s" url-or-port)))
              (parsed-url (url-generic-parse-url url)))
-        (format "%s://%s:%s" protocol (url-host parsed-url) (url-port parsed-url))))))
+        (if (ein:jupyterhub-url-p base-url)
+            (ein:trim-right (format "%s://%s:%s%s"
+                                    protocol
+                                    (url-host parsed-url)
+                                    (url-port parsed-url)
+                                    (url-filename parsed-url))
+                            "/")
+          (format "%s://%s:%s" protocol (url-host parsed-url) (url-port parsed-url)))))))
 
 
 (defun ein:kernel--websocket-closed (kernel ws-url early)
@@ -552,7 +534,7 @@ http://ipython.org/ipython-doc/dev/development/messaging.html#complete
 "
   (assert (ein:kernel-live-p kernel) nil "complete_reply: Kernel is not active.")
   (let* ((content (list
-                   :text ""
+                   ;; :text ""
                    :line line
                    :cursor_pos cursor-pos))
          (msg (ein:kernel--get-msg kernel "complete_request" content))

@@ -29,15 +29,8 @@
 (require 'eieio)
 
 (require 'ein-core)
+(require 'ein-classes)
 (require 'ein-log)
-
-
-;;; Events handling class
-
-(defclass ein:events ()
-  ((callbacks :initarg :callbacks :type hash-table
-              :initform (make-hash-table :test 'eq)))
-  "Event handler class.")
 
 (defun ein:events-new ()
   "Return a new event handler instance."
@@ -46,7 +39,7 @@
 (defun ein:events-trigger (events event-type &optional data)
   "Trigger EVENT-TYPE and let event handler EVENTS handle that event."
   (ein:log 'debug "Event: %S" event-type)
-  (ein:aif (gethash event-type (oref events :callbacks))
+  (ein:aif (gethash event-type (slot-value events 'callbacks))
       (mapc (lambda (cb-arg) (ein:funcall-packed cb-arg data)) it)
     (ein:log 'info "Unknown event: %S" event-type)))
 
@@ -60,7 +53,7 @@ CALLBACK is called.  CALLBACK must take two arguments:
 ARG as the first argument and DATA, which is passed via
 `ein:events-trigger', as the second."
   (assert (symbolp event-type))
-  (let* ((table (oref events :callbacks))
+  (let* ((table (slot-value events 'callbacks))
          (cbs (gethash event-type table)))
     (push (cons callback arg) cbs)
     (puthash event-type cbs table)))

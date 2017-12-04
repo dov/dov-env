@@ -38,6 +38,7 @@
 (eval-when-compile (require 'auto-complete nil t))
 
 (require 'ein-core)
+(require 'ein-classes)
 (require 'ein-log)
 (require 'ein-node)
 (require 'ein-contents-api)
@@ -58,6 +59,7 @@
 (require 'ein-pytools)
 (require 'ein-traceback)
 (require 'ein-inspector)
+
 
 ;;; Configuration
 
@@ -181,80 +183,6 @@ Current buffer for these functions is set to the notebook buffer.")
 (defvar ein:notebook-save-retry-max 1
   "Maximum retries for notebook saving.")
 
-(defstruct ein:$notebook
-  "Hold notebook variables.
-
-`ein:$notebook-url-or-port'
-  URL or port of IPython server.
-
-`ein:$notebook-notebook-id' : string
-  uuid string (as of ipython 2.0 this is the same is notebook-name).
-
-`ein:$notebook-notebook-path' : string
-  Path to notebook.
-
-`ein:$notebook-kernel' : `ein:$kernel'
-  `ein:$kernel' instance.
-
-`ein:$notebook-kernelspec' : `ein:$kernelspec'
-  Jupyter kernel specification for the notebook.
-
-`ein:$notebook-kernelinfo' : `ein:kernelinfo'
-  `ein:kernelinfo' instance.
-
-`ein:$notebook-pager'
-  Variable for `ein:pager-*' functions. See ein-pager.el.
-
-`ein:$notebook-dirty' : boolean
-  Set to `t' if notebook has unsaved changes.  Otherwise `nil'.
-
-`ein:$notebook-metadata' : plist
-  Notebook meta data (e.g., notebook name).
-
-`ein:$notebook-name' : string
-  Notebook name.
-
-`ein:$notebook-nbformat' : integer
-  Notebook file format version.
-
-`ein:$notebook-nbformat-minor' : integer
-  Notebook file format version.
-
-`ein:$notebook-events' : `ein:$events'
-  Event handler instance.
-
-`ein:$notebook-worksheets' : list of `ein:worksheet'
-  List of worksheets.
-
-`ein:$notebook-scratchsheets' : list of `ein:worksheet'
-  List of scratch worksheets.
-
-`ein:$notebook-api-version' : integer
-   Major version of the IPython notebook server we are talking to.
-
-`ein:$notebook-checkpoints'
-  Names auto-saved checkpoints for content. Stored as a list
-  of (<id> . <last_modified>) pairs.
-"
-  url-or-port
-  notebook-id ;; In IPython-2.0 this is "[:path]/[:name].ipynb"
-  notebook-path
-  kernel
-  kernelinfo
-  kernelspec
-  pager
-  dirty
-  metadata
-  notebook-name
-  nbformat
-  nbformat-minor
-  events
-  worksheets
-  scratchsheets
-  api-version
-  autosave-timer
-  checkpoints)
-
 (ein:deflocal ein:%notebook% nil
   "Buffer local variable to store an instance of `ein:$notebook'.")
 (define-obsolete-variable-alias 'ein:notebook 'ein:%notebook% "0.1.2")
@@ -300,17 +228,25 @@ call notebook destructor `ein:notebook-del'."
 ;;; Notebook utility functions
 
 (defun ein:notebook-update-url-or-port (new-url-or-port notebook)
-  "Change the url-or-port the notebook is saved under. Calling
+  "Change the url and port the notebook is saved to. Calling
 this will propagate the change to the kernel, trying to restart
 the kernel in the process. Use case for this command is when
-the jupyter server dies and restarted on a different port."
+the jupyter server dies and restarted on a different port.
+
+If you have enabled token or password security on server running
+at the new url/port, then please be aware that this new url-port
+combo must match exactly these url/port you used format
+`ein:notebooklist-login'. For example, as far as Emacs and
+jupyter are concerned, 'localhost:8888' and '127.0.0.1:8888' are
+*not* the same URL."
   (interactive (list
                 (ein:notebooklist-ask-url-or-port)
                 (ein:get-notebook-or-error)))
-  (setf (ein:$notebook-url-or-port notebook) new-url-or-port
-        (ein:$kernel-url-or-port (ein:$notebook-kernel notebook)) new-url-or-port)
-  (ein:kernel-restart (ein:$notebook-kernel notebook))
+  (message "Updating server info and restarting kernel for notebooklist %s"
+           (ein:$notebook-notebook-name notebook))
+  (setf (ein:$notebook-url-or-port notebook) new-url-or-port)
   (with-current-buffer (ein:notebook-buffer notebook)
+    (ein:notebook-start-kernel notebook)
     (rename-buffer (format ein:notebook-buffer-name-template
                            (ein:$notebook-url-or-port notebook)
                            (ein:$notebook-notebook-name notebook)))))
@@ -524,30 +460,6 @@ of minor mode."
 
 ;;; Kernel related things
 
-(defstruct ein:$kernelspec
-  "Kernel specification as return by the Jupyter notebook server.
-
-`ein:$kernelspec-name' : string
-  Name used to identify the kernel (like python2, or python3).
-
-`ein:$kernelspec-display-name' : string
-  Name used to display kernel to user.
-
-`ein:$kernelspec-language' : string
-  Programming language supported by kernel, like 'python'.
-
-`ein:$kernelspec-resources' : plist
-  Resources, if any, used by the kernel.
-
-`ein:$kernelspec-spec' : plist
-  How to start the kernel from the command line. Not used by ein (yet).
-"
-  name
-  display-name
-  resources
-  spec
-  language)
-
 (defvar ein:available-kernelspecs (make-hash-table :test #'equal))
 
 (defun ein:kernelspec-for-nb-metadata (kernelspec)
@@ -664,9 +576,11 @@ notebook buffer then the user will be prompted to select an opened notebook."
 (defun ein:notebook-complete-dot ()
   "Insert dot and request completion."
   (interactive)
-  (if (and ein:%notebook% (ein:codecell-p (ein:get-cell-at-point)))
-      (ein:completer-dot-complete)
-    (insert ".")))
+  (unless (or (eql ein:completion-backend 'ein:use-company-backend)
+              (eql ein:completion-backend 'ein:use-company-jedi-backend))
+    (if (and ein:%notebook% (ein:codecell-p (ein:get-cell-at-point)))
+        (ein:completer-dot-complete)
+      (insert "."))))
 
 (defun ein:notebook-kernel-interrupt-command ()
   "Interrupt the kernel.
@@ -1594,6 +1508,7 @@ This hook is run regardless the actual major mode used."
       ("Kernel"
        ,@(ein:generate-menu
           '(("Restart kernel" ein:notebook-restart-kernel-command)
+            ("Reconnect kernel" ein:notebook-reconnect-kernel)
             ("Switch kernel" ein:notebook-switch-kernel)
             ("Interrupt kernel" ein:notebook-kernel-interrupt-command))))
       ("Worksheets [Experimental]"
@@ -1645,8 +1560,16 @@ This hook is run regardless the actual major mode used."
 
 (defun ein:notebook-mode ()
   (funcall (ein:notebook-choose-mode))
-  (ein:complete-on-dot-install
-   ein:notebook-mode-map 'ein:notebook-complete-dot)
+  (case ein:completion-backend
+    (ein:use-ac-backend (ein:complete-on-dot-install ein:notebook-mode-map 'ein:notebook-complete-dot)
+                        (auto-complete-mode +1))
+    (ein:use-ac-jedi-backend (ein:jedi-complete-on-dot-install ein:notebook-mode-map)
+                             (auto-complete-mode +1))
+    (ein:use-company-backend (company-mode +1))
+    (ein:use-company-jedi-backend (warn "Support for jedi+company currently not implemented. Defaulting to just company-mode")
+                                  (company-mode +1))
+
+    (t (warn "No autocompletion backend has been selected - see `ein:completion-backend'.")))
   (ein:aif ein:helm-kernel-history-search-key
       (define-key ein:notebook-mode-map it 'helm-ein-kernel-history))
   (ein:aif ein:anything-kernel-history-search-key
