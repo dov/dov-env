@@ -93,6 +93,7 @@
                   (concat emacs-git "/org-mode/lisp")
                   (concat emacs-git "/org-mode/contrib/lisp")
                   (concat emacs-git "/magit")
+                  (concat emacs-git "/skewer-mode")
                   emacs-git
                   )
                  load-path))
@@ -129,6 +130,7 @@
 (load "gdb-libtool")
 (autoload 'gtk-lookup-symbol "gtk-look" nil t)
 (autoload 'icicle-apropos-complete "icicles" nil t)
+(autoload 'icicle-prefix-complete "icicles" nil t)
 (autoload 'ps-mode "ps-mode" nil t)
 ;(icy-mode)
 ;(load "icicles-xmas")
@@ -161,6 +163,7 @@
 (setq git-commit-summary-max-length 80)
 (autoload 'magit-blame "magit-blame" nil t)
 (autoload 'markdown-mode "markdown-mode" nil t)
+(setq markdown-command "MultiMarkdown.pl")
 (setq magit-diff-options '("-w"))
 (autoload 'mo-git-blame "mo-git-blame" nil t)
 (autoload 'xmsi-mode "xmsi-math-symbols-input" "Load xmsi minor mode for inputting math (Unicode) symbols." t)
@@ -324,6 +327,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (global-set-key "\C-ci" nil)
 (global-set-key "\C-cii" 'magit-status)
 (global-set-key "\C-cif" 'magit-file-popup)
+(global-set-key "\C-cib" 'magit-diff-buffer-file-popup)
+(global-set-key "\C-ciB" 'magit-blame-popup)
+(global-set-key "\C-cid" 'magit-diff-popup)
 (global-set-key "\C-c\C-b" 'magit-blame-mode)
 (global-set-key "\C-c\C-o" 'org-open-at-point)
 
@@ -355,7 +361,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 
 (autoload 'octave-help "octave-hlp" nil t)
-(autoload 'python-mode "python-mode" nil t)
+(autoload 'python-mode "python" nil t)
 (autoload 'mediawiki-mode "mediawiki" nil t)
 ;(load "dired+")
 (load "dired-details")
@@ -1079,7 +1085,13 @@ With numeric ARG, display the images if and only if ARG is positive."
   (interactive)
   (setq web-mode-markup-indent-offset 2)
   (setq web-mode-code-indent-offset 2)
-  (local-set-key [(control c) (control v)] 'browse-current-file))
+  (setq web-mode-enable-current-element-highlight t)
+  (local-set-key [(control c) (control v)] 'browse-current-file)
+  (setq web-mode-extra-snippets
+      '((nil . (("jquery" . "<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js\"></script>")))
+        ))
+  (web-mode-on-engine-setted)  ; Needed to rebuild web-mode-extra-snippets
+  )
 
 (add-hook 'web-mode-hook 'my-web-mode)
 

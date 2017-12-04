@@ -9,8 +9,7 @@ XTerm*VT100*translations:       #override \
 	Ctrl<Key>Left: string("0x1b") string("[b") \n\
 	Ctrl<Key>Up: string("0x1b") string("[d") \n\
 	Ctrl<Key>Down: string("0x1b") string("[e") \n\
-	Ctrl<Key>BackSpace: string("0x1b") string("[c")
-
+	Ctrl<Key>BackSpace: string("0x1b") string("[7;5~")
 
 XTerm*VT100*font: LucidaSansTypewriter-Bold-14
 XTerm*VT100*scrollBar: true
