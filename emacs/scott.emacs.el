@@ -2166,44 +2166,6 @@ if something is selected, change that."
 ;(setq c-mode-common-hook 'c-mode-common-hook)
 
 
-; ----------- misc mode tweaks ----------------------------
-; my extension-to-mode mappings (minimal for now)
-(setq auto-mode-alist '(
-  ("\\.el\\'"    . emacs-lisp-mode)
-  ("\\.emacs\\'" . emacs-lisp-mode)
-  ("\\.c\\'"     . c++-mode)    ; use c++ even for c!
-  ("\\.cc\\'"    . c++-mode)
-  ("\\.cpp\\'"   . c++-mode)
-  ("\\.C\\'"     . c++-mode)
-  ("\\.h\\'"     . c++-mode)
-  ("\\.hpp\\'"   . c++-mode)
-  ("\\.y\\'"     . c++-mode)      ; bison
-  ("\\.ast\\'"   . c++-mode)      ; astgen
-  ("\\.lex\\'"   . c++-mode)      ; flex
-  ("\\.gr\\'"    . c++-mode)      ; my grammar files
-  ("\\.tex\\'"   . LaTeX-mode)
-  ("\\.texi"     . texinfo-mode)
-  ("\\.pl\\'"    . perl-mode)
-  ("\\.pm\\'"    . perl-mode)
-  ("\\.java\\'"  . java-mode)
-  ("\\.spec\\'"  . java-mode)     ; escjava spec files
-  ("\\.mk\\'"    . makefile-mode)
-  ("Makefile*"   . makefile-mode)
-  ("makefile*"   . makefile-mode)
-  ("\\.ml\\'"    . caml-mode)
-  ("\\.mli\\'"   . caml-mode)
-  ("\\.m3\\'"    . caml-mode)
-  ("\\.i3\\'"    . caml-mode)
-  ("\\.html\\'"  . html-mode)
-  ("\\.sx\\'"    . lisp-mode)
-  ("\\.thy\\'"   . lisp-mode)
-  ("\\.v$"       . coq-mode)
-  ("\\.vc$"      . c++-mode)
-  ("\\.vml$"     . c++-mode)
-  ("\\.model$"   . c++-mode)
-  ("\\.gdbinit\\'" . sh-mode)
-))
-
 
 (defun my-help-mode-hook ()
   "Tweaks to help mode."

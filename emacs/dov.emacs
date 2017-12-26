@@ -65,14 +65,43 @@
       (set-face-font 'default "fontset-default"))
     (setq load-path (append (list
                              "/usr/local/share/emacs/site-lisp/vm"
+                             "/usr/local/share/emacs/site-lisp/rtags/"
                              ) load-path))
 ;    (load "vm")
+
     (if (and (getenv "HOSTNAME") (string-match "orbotech.com" (getenv "HOSTNAME")))
         (setq add-log-mailing-address "dov@orbotech.com")
       (setq add-log-mailing-address "dov.grobgeld@gmail.com"))
   
-    (require 'smtpmail))
-  )
+    (require 'smtpmail)
+
+    ;; only run this if rtags is installed
+    (when this 'rtags nil :noerror)
+      ;; make sure you have company-mode installed
+      (require 'company)
+      (define-key c-mode-base-map (kbd "M-.")
+        (function rtags-find-symbol-at-point))
+      (define-key c-mode-base-map (kbd "M-,")
+        (function rtags-find-references-at-point))
+      ;; disable prelude's use of C-c r, as this is the rtags keyboard prefix
+;      (define-key prelude-mode-map (kbd "C-c r") nil)
+      ;; install standard rtags keybindings. Do M-. on the symbol below to
+      ;; jump to definition and see the keybindings.
+      (rtags-enable-standard-keybindings)
+      ;; comment this out if you don't have or don't use helm
+      (setq rtags-use-helm t)
+      ;; company completion setup
+      (setq rtags-autostart-diagnostics t)
+      (rtags-diagnostics)
+      (setq rtags-completions-enabled t)
+      (push 'company-rtags company-backends)
+      (global-company-mode)
+      (define-key c-mode-base-map (kbd "<C-tab>") (function company-complete))
+      ;; use rtags flycheck mode -- clang warnings shown inline
+      (require 'flycheck-rtags)
+      ;; c-mode-common-hook is also called by c++-mode
+      (add-hook 'c-mode-common-hook #'setup-flycheck-rtags))
+    ))
 
 ;; Font for all frames
 (set-frame-font my-default-font)
@@ -92,7 +121,11 @@
                   (concat emacs-git "/ein/lisp")
                   (concat emacs-git "/org-mode/lisp")
                   (concat emacs-git "/org-mode/contrib/lisp")
+                  (concat emacs-git "/org-mode/contrib/lisp")
                   (concat emacs-git "/magit")
+                  (concat emacs-git "/company")
+                  (concat emacs-git "/flycheck")
+                  (concat emacs-git "/multiple-cursors")
                   emacs-git
                   )
                  load-path))
@@ -118,6 +151,7 @@
     (global-set-key "\M-[" 'find-matching-keyword))
     
 (defconst inhibit-startup-message t)
+(prefer-coding-system 'utf-8)
 
 (menu-bar-mode 't)
 (tool-bar-mode 'nil)
@@ -129,6 +163,7 @@
 (load "gdb-libtool")
 (autoload 'gtk-lookup-symbol "gtk-look" nil t)
 (autoload 'icicle-apropos-complete "icicles" nil t)
+(autoload 'icicle-prefix-complete "icicles" nil t)
 (autoload 'ps-mode "ps-mode" nil t)
 ;(icy-mode)
 ;(load "icicles-xmas")
@@ -138,6 +173,8 @@
 ;(load "scott.emacs")
 (autoload 'find-matching-keyword "scott.emacs.el" nil t)
 (autoload 'sgml-mode "sgml-mode" nil t)
+(autoload 'nsis-mode "nsis-mode" nil t)
+(autoload 'qt-pro-mode "qt-pro-mode" nil t)
 (autoload 'doc-mode "doc-mode" nil t)
 ;(load "csharp-mode-0.4.0")
 (autoload 'octave-mode "octave-mod" nil t)
@@ -162,7 +199,8 @@
 (autoload 'magit-blame "magit-blame" nil t)
 (autoload 'markdown-mode "markdown-mode" nil t)
 (setq magit-diff-options '("-w"))
-(autoload 'mo-git-blame "mo-git-blame" nil t)
+(autoload 'mo-git-blame-file "mo-git-blame" nil t)
+(autoload 'mo-git-blame-current "mo-git-blame" nil t)
 (autoload 'xmsi-mode "xmsi-math-symbols-input" "Load xmsi minor mode for inputting math (Unicode) symbols." t)
 ;(load "xml-rpc")
 (global-set-key [?\C-c ?j] 'ein:notebooklist-open)  ; j for jupyter
@@ -173,6 +211,16 @@
 (require 'pretty-mode)
 (require 'browse-kill-ring)
 (global-set-key "\M-y" 'browse-kill-ring)
+
+(require 'multiple-cursors)
+(global-set-key (kbd "C-S-c C-S-c") 'mc/edit-lines)
+
+;; When you want to add multiple cursors not based on continuous lines, but based on
+;; keywords in the buffer, use:
+
+(global-set-key (kbd "C->") 'mc/mark-next-like-this)
+(global-set-key (kbd "C-<") 'mc/mark-previous-like-this)
+(global-set-key (kbd "C-c C-<") 'mc/mark-all-like-this)
 
 ;(require 'subword)
 ;(add-hook 'python-mode-hook #'pretty-mode 1)
@@ -357,6 +405,16 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'octave-help "octave-hlp" nil t)
 (autoload 'python-mode "python-mode" nil t)
 (autoload 'mediawiki-mode "mediawiki" nil t)
+(autoload 'mediawiki-open "mediawiki" nil t)
+(autoload 'mediawiki-site "mediawiki" nil t)
+
+;(require 'mediawiki)
+
+;; Emacs users care more for WikEmacs than Wikipedia :-). 
+;; In any case, do not forget the slash at the end of the URL.
+(setq mediawiki-site-default "xjet")
+
+
 ;(load "dired+")
 (load "dired-details")
 (load "dired-details+")
@@ -391,7 +449,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
     (cons '("^pdf$" "." "evince  %o ") TeX-output-view-style))
      (set-default 'preview-default-document-pt 12)
      (set-default 'preview-scale-function 1.2)
-     (setq preview-required-option-list 
+     (setq and thisd-option-list 
     (quote ("active" "tightpage" "auctex" "pdftex" (preview-preserve-counters "counters"))))
      (setq preview-default-option-list 
     (quote ("displaymath" "floats" "graphics" "textmath" "showlabels" "sections" )))
@@ -494,8 +552,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
   "Redefined to do kill-line as I believe that lines breaks are for display only!"
   (interactive)
   (kill-line))
-(autoload 'org-man-open "org-man.el" nil t)
 (require 'ox-mediawiki)
+(require 'ox-reveal)
 (require 'load-theme-buffer-local)
 
 (defun org-show-all ()
@@ -528,6 +586,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (load "org-bullets.el")
   (load "ox-slidy.el")
   (load "screenshot.el")
+  (load "org-man.el")
+
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
   (local-set-key "\M-R" 'refresh-iimages)
@@ -581,10 +641,24 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (require 'org-table)
 
   ;; Customize colors
-  (require 'cl)   ; for delete*
-  (setq org-emphasis-alist
-        (cons '("+" '(:strike-through t :foreground "gray30"))
-              (delete* "+" org-emphasis-alist :key 'car :test 'equal)))
+;  (require 'cl)   ; for delete*
+;  (setq org-emphasis-alist
+;        (cons '("+" '(:strike-through t :foreground "gray30"))
+;              (delete* "+" org-emphasis-alist :key 'car :test 'equal))))
+  (custom-set-variables
+   ;; custom-set-variables was added by Custom.
+   ;; If you edit it by hand, you could mess it up, so be careful.
+   ;; Your init file should contain only one such instance.
+   ;; If there is more than one, they won't work right.
+   '(org-emphasis-alist
+     (quote
+      (("*" bold)
+       ("/" italic)
+       ("_" underline)
+       ("=" org-verbatim verbatim)
+       ("~" org-code verbatim)
+       ("+" (:strike-through t :foreground "gray30"))
+       ("!" (:foreground "red"))))))
   )
 
 
@@ -909,6 +983,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'sather-mode "sather.el" "Sather mode" t nil)
 (autoload 'cweb-mode "cweb.el" "CWeb mode" t nil)
 (autoload 'rust-mode "rust-mode.el" "Rust mode" t nil)
+(autoload 'lua-mode "lua-mode.el" "Rust mode" t nil)
 (autoload 'csv-mode "csv-mode.el" "CSV mode" t nil)
 (autoload 'octave-mode "octave-mod.el" "Octave mode" t nil)
 ;(autoload 'sgml-mode "sgml-mode.el" "SGML mode" t nil)
@@ -966,6 +1041,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.lua$" 'lua-mode)) 
        (list (cons "\\.rs$" 'rust-mode)) 
        (list (cons "\\.html$" 'web-mode)) 
+       (list (cons "\\.nsi\\(s\\)?$" 'nsis-mode)) 
+       (list (cons "\\.pr[io]$" 'qt-pro-mode))
        auto-mode-alist))
 
 ;; macros for nxc code
@@ -991,6 +1068,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
    (octave . t)
    (R . t)
    (C . t)
+   (lua . t)
    )) 
 (setq org-plantuml-jar-path
       (concat emacs-git "/org-mode/scripts/plantuml.jar"))
@@ -1022,6 +1100,15 @@ Operate on selected region on whole buffer."
   (ansi-color-apply-on-region (point-min) (point-max))
   (toggle-read-only))
 (add-hook 'compilation-filter-hook 'colorize-compilation-buffer)
+
+;; Colorize the output in the shell command
+(defadvice display-message-or-buffer (before ansi-color activate)
+  "Process ANSI color codes in shell output."
+  (let ((buf (ad-get-arg 0)))
+    (and (bufferp buf)
+         (string= (buffer-name buf) "*Shell Command Output*")
+         (with-current-buffer buf
+           (ansi-color-apply-on-region (point-min) (point-max))))))
 
 ;; Got the follownig from: http://eschulte.github.com/babel-dev/DONE-In-buffer-graphical-results.html
 (defun my-iimage-mode-buffer (arg &optional refresh)
@@ -1079,7 +1166,12 @@ With numeric ARG, display the images if and only if ARG is positive."
   (interactive)
   (setq web-mode-markup-indent-offset 2)
   (setq web-mode-code-indent-offset 2)
-  (local-set-key [(control c) (control v)] 'browse-current-file))
+  (local-set-key [(control c) (control v)] 'browse-current-file)
+  (setq web-mode-extra-snippets
+      '((nil . (("jquery" . "<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js\"></script>")))
+        ))
+  (web-mode-on-engine-setted)  ; Needed for accepting web-mode-extra-snippets change
+  )
 
 (add-hook 'web-mode-hook 'my-web-mode)
 
@@ -1118,6 +1210,7 @@ With numeric ARG, display the images if and only if ARG is positive."
         ("dot" . fundamental)
         ("perl" . cperl)
         ("python" . python)
+        ("lua" . lua)
         ))
 
 (setq org-latex-packages-alist
@@ -1897,7 +1990,9 @@ With numeric ARG, display the images if and only if ARG is positive."
                            ))
 (add-hook 'mediawiki-mode-hook
           '(lambda() 
-             (define-key mediawiki-mode-map [(control x) (control s)] 'save-buffer)
+             (local-set-key [(control x) (control s)] 'mediawiki-save)
+             (local-set-key [(control up)] 'scroll-up-line)
+             (local-set-key [(control down)] 'scroll-down-line)
              ))
 
 (add-hook 'change-log-mode-hook '(lambda() 
@@ -2124,6 +2219,8 @@ Does not delete the prompt."
      '(font-lock-comment-face ((t (:foreground "#4040ff" :family "InconsolataDov"))))
      '(font-lock-keyword-face ((t (:foreground "Orange" :family "InconsolataDov"))))
      '(font-lock-string-face ((t (:foreground "white" :family "InconsolataDov"))))
+     '(font-lock-type-face ((t (:foreground "maroon2" :family "InconsolataDov"))))
+     '(font-lock-builtin-face ((t (:foreground "Orange" :family "InconsolataDov"))))
 
      '(py-builtins-face ((t (:foreground "#f84" :family "InconsolataDov"))) t)
      '(minibuffer-prompt ((t (:foreground "green"))))

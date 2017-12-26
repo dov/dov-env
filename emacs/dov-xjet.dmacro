@@ -423,7 +423,7 @@ return fn
 #######
 
 #######
-pythonmasthead	expand	comment block for the top of a python file
+masthead	expand	comment block for the top of a python file
 #@Description: ~@
 #@Author: Dov Grobgeld
 #@Date: ~(datestring)
@@ -431,3 +431,6 @@ pythonmasthead	expand	comment block for the top of a python file
 from PrintEngine import *
 #
 
+pe	expand	comment block for the top of a python file
+from PrintEngine import *
+#
