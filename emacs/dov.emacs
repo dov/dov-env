@@ -66,8 +66,12 @@
     (setq load-path (append (list
                              "/usr/local/share/emacs/site-lisp/vm"
                              "/usr/local/share/emacs/site-lisp/rtags/"
+			     emacs-git
+                             (concat emacs-git "/company")
+                             (concat emacs-git "/flycheck")
                              ) load-path))
 ;    (load "vm")
+    (load "dash")
 
     (if (and (getenv "HOSTNAME") (string-match "orbotech.com" (getenv "HOSTNAME")))
         (setq add-log-mailing-address "dov@orbotech.com")
@@ -76,7 +80,7 @@
     (require 'smtpmail)
 
     ;; only run this if rtags is installed
-    (when this 'rtags nil :noerror)
+    (when (require 'rtags nil :noerror)
       ;; make sure you have company-mode installed
       (require 'company)
       (define-key c-mode-base-map (kbd "M-.")
