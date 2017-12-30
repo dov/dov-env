@@ -135,6 +135,18 @@
                   )
                  load-path))
 
+;; packages - tbd as much as possible there!
+(require 'package)
+(setq package-user-dir (concat emacs-git "packages"))
+(let* ((no-ssl (and (memq system-type '(windows-nt ms-dos))
+                    (not (gnutls-available-p))))
+       (url (concat (if no-ssl "http" "https") "://melpa.org/packages/")))
+  (add-to-list 'package-archives (cons "melpa" url) t))
+(package-initialize)
+
+(require 'init-multiple-cursors)
+(require 'init-helm)
+
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
   ; Hebrew support
@@ -217,9 +229,6 @@
 (require 'pretty-mode)
 (require 'browse-kill-ring)
 (global-set-key "\M-y" 'browse-kill-ring)
-
-(require 'multiple-cursors)
-(global-set-key (kbd "C-S-c C-S-c") 'mc/edit-lines)
 
 ;; When you want to add multiple cursors not based on continuous lines, but based on
 ;; keywords in the buffer, use:
