@@ -43,7 +43,7 @@
 ido is used for the completing read if available."
   (if (and (boundp 'ido-mode) ido-mode)
       (ido-completing-read prompt names nil t)
-    (completing-read prompt names nil t)))
+    (helm-comp-read prompt names)))
 
 (defun last-component (str sep)
   (car (last (split-string str sep t))))
