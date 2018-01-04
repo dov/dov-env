@@ -81,8 +81,17 @@
 
     ;; only run this if rtags is installed
     (when (require 'rtags nil :noerror)
+      (defun setup-flycheck-rtags ()
+        (interactive)
+        (flycheck-select-checker 'rtags)
+        ;; RTags creates more accurate overlays.
+        (setq-local flycheck-highlighting-mode nil)
+        (setq-local flycheck-check-syntax-automatically nil))
+
       ;; make sure you have company-mode installed
       (require 'company)
+      (require 'company-rtags)
+      (require 'flycheck-rtags)
       (define-key c-mode-base-map (kbd "M-.")
         (function rtags-find-symbol-at-point))
       (define-key c-mode-base-map (kbd "M-,")
