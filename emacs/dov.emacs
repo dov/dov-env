@@ -2231,7 +2231,7 @@ Does not delete the prompt."
 
 (add-hook 'after-init-hook
   (lambda ()
-    (if (string= window-system "x")
+    (if (or (string= window-system "x") (string= window-system "w32"))
         (custom-set-faces
          '(font-lock-constant-face ((((class color) (min-colors 88) (background light)) (:foreground "MidnightBlue"))))
          '(font-lock-string-face ((((class color) (min-colors 88) (background light)) (:foreground "green4"))))
