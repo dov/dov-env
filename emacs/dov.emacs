@@ -96,6 +96,8 @@
         (function rtags-find-symbol-at-point))
       (define-key c-mode-base-map (kbd "M-,")
         (function rtags-find-references-at-point))
+      (add-hook 'rtags-find-symbol-at-point 'rtags-start-process-unless-running)
+      (add-hook 'rtags-find-references-at-point 'rtags-start-process-unless-running)
       ;; disable prelude's use of C-c r, as this is the rtags keyboard prefix
 ;      (define-key prelude-mode-map (kbd "C-c r") nil)
       ;; install standard rtags keybindings. Do M-. on the symbol below to
@@ -666,6 +668,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
     ("ell" "\\ell" t "&#2113;" "[ell]" "indf" "ℓ")
     ))
   (require 'org-table)
+
+  ; Don't use company mode in "text" buffers
+  (company-mode -1)
 
   ;; Customize colors
 ;  (require 'cl)   ; for delete*
@@ -1660,7 +1665,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(alt meta m)] 'find-most-recent-magit-buffer)
 (global-set-key [(alt meta y)] 'find-most-recent-python-buffer)
 (global-set-key [(alt meta n)] '(lambda () (interactive) 
-  (switch-to-buffer "notes.org")))
+  (switch-to-buffer (find-most-recent-pattern-buffer "notes.*\\.org"))))
 (global-set-key [(alt meta h)] '(lambda () (interactive) 
   (switch-to-buffer (find-most-recent-pattern-buffer "\\*shell"))
   ; prepare for user input
