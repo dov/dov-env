@@ -11,6 +11,11 @@
 ;;  (setenv "PATH" (concat (getenv "PATH") ";D:\\DevTools\\git\\bin"))
 ;;  (setenv "SJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
 ;;  
+;;   Other customization (for windows):
+;;      ;; Set initial frame size 
+;;      (set-frame-size (selected-frame) 1500 1110 1)
+;;      ;; turn off bell
+;;      (setq visible-bell t)
 ;;----------------------------------------------------------------------
 
 (if (or (string-match "mingw-nt" system-configuration)
