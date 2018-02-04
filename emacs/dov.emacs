@@ -615,6 +615,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (require 'org-crypt)
 (defun my-org-hook ()
   (load "org-git-hyperlink.el")
+  (load "org-comeet-hyperlink.el")
   (load "org-pydoc-hyperlink.el")
   (load "org-wp.el")
   (load "org-bullets.el")

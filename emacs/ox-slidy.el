@@ -35,6 +35,22 @@
   :group 'org-export-slidy
   :type 'string)
 
+(defcustom org-slidy-title-slide-template
+  "<h1>%t</h1>
+<h2>%s</h2>
+<h2>%a</h2>
+<h3>%e</h3>
+<h4>%d</h4>"
+  "Format template to specify title page section.
+See `org-html-postamble-format' for the valid elements which
+can be included.
+
+It will be wrapped in the element defined in the :html-container
+property, and defaults to the value of `org-html-container-element',
+and have the id \"title-slide\"."
+  :group 'org-export-slidy
+  :type 'string)
+
 (defun org-slidy-template (contents info)
   "Return complete document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
@@ -73,7 +89,7 @@ holding export options."
       ;; title page
       (format "<%s id='title-slide' class='slide cover'>"
 	      (plist-get info :html-container))
-      (format-spec org-s5-title-slide-template (org-html-format-spec info))
+      (format-spec org-slidy-title-slide-template (org-html-format-spec info))
       (format "</%s>" (plist-get info :html-container))
       ;; table of contents.
       (let ((depth (plist-get info :with-toc)))
