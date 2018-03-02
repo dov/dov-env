@@ -192,6 +192,7 @@
 ;; Get newer private versions of standard libraries
 ;(load "cmake-mode")
 (autoload 'cc-mode "cc-mode" nil t)
+(autoload 'robot-mode "robot-mode" nil t)
 ;(load "vc")
 (load "gdb-libtool")
 (autoload 'gtk-lookup-symbol "gtk-look" nil t)
@@ -205,6 +206,7 @@
 (autoload 'js2-mode "js2-mode.el" nil t)
 ;(load "scott.emacs")
 (autoload 'find-matching-keyword "scott.emacs.el" nil t)
+(autoload 'basename "scott.emacs.el" nil t)
 (autoload 'sgml-mode "sgml-mode" nil t)
 (autoload 'nsis-mode "nsis-mode" nil t)
 (autoload 'qt-pro-mode "qt-pro-mode" nil t)
@@ -540,7 +542,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (aset buffer-display-table ?\^M []))
 
 ;; Delayed loading of dmacro
-(autoload 'insert-dmacro "dmacro" "dmacro.el" nil t)
+;(autoload 'insert-dmacro "dmacro" "dmacro.el" nil t)
 
 (with-eval-after-load "dmacro"
   ;(load "dired")  ;; Since I am using a dired function below
@@ -561,6 +563,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
       "                               ")
      0 20)))
 
+(require 'dmacro)
 (global-set-key "\C-cm" 'insert-dmacro)
 
 (setq auto-dmacro-alist '())
@@ -1715,7 +1718,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [UE002] 'kill-buffer)
 (global-set-key [(meta prior)] 'unbury-buffer)
 (global-set-key [(meta next)] 'bury-buffer)
-(global-set-key [(meta delete)] 'delete-window)
+;(global-set-key [(meta delete)] 'delete-window)
 (global-set-key [(meta f27)] 'split-window-vertically)
 (global-set-key [(meta f33)] 'delete-window)
 (global-set-key [(meta f29)] 'split-window-horizontally)
@@ -2237,6 +2240,7 @@ Does not delete the prompt."
 
 ;; Change the region color
 (set-face-attribute 'region nil :background "#e0e8ff")
+(set-background-color "#f8f8f8")
 
 ;; Emacs customization - this might be overwritten in the .emacs file
 
