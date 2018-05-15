@@ -162,6 +162,7 @@
 
 (require 'init-multiple-cursors)
 (require 'init-helm)
+(require 'sticky-w)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -199,6 +200,7 @@
 (autoload 'icicle-apropos-complete "icicles" nil t)
 (autoload 'icicle-prefix-complete "icicles" nil t)
 (autoload 'ps-mode "ps-mode" nil t)
+(autoload 'meson-mode "meson-mode" nil t)
 ;(icy-mode)
 ;(load "icicles-xmas")
 ;(load "icicles-menu-xmas")
@@ -1078,6 +1080,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.nxc$" 'c++-mode)) 
        (list (cons "\\.mw" 'mediawiki-mode)) 
        (list (cons "\\.ps" 'ps-mode)) 
+       (list (cons "meson.build" 'meson-mode)) 
        (list (cons "\\.el\\.gz" 'emacs-lisp-mode))
        (list (cons "\\.lua$" 'lua-mode)) 
        (list (cons "\\.rs$" 'rust-mode)) 
@@ -1545,6 +1548,37 @@ With numeric ARG, display the images if and only if ARG is positive."
                    (not (memq (vc-dir-fileinfo->state file) states))))))
 (eval-after-load "vc-dir"
   '(define-key vc-dir-mode-map "H" 'my-vc-dir-hide-some))
+
+(defun py-jump-exception-line ()
+  "This function parses the python exception stack and jumps to the line pointed at"
+  (interactive)
+  (save-selected-window
+    (let ((file nil)
+          (line nil)
+          (buffer (current-buffer)))
+      (beginning-of-line)
+      (forward-word)
+      (forward-char)
+      (forward-char)
+      (set-mark-command nil)
+      (search-forward "\"")
+      (backward-char)
+      (exchange-point-and-mark)
+      (setq file (buffer-substring-no-properties (point) (mark)))
+      (exchange-point-and-mark)
+      (forward-word)
+      (forward-word)
+      (backward-word)
+      (set-mark-command nil)
+      (forward-word)
+      (exchange-point-and-mark)
+      (setq line (buffer-substring-no-properties (point) (mark)))
+      (deactivate-mark)
+      (beginning-of-line)
+      (find-file-other-window file)
+      (goto-line (string-to-number line))
+      )))
+(global-set-key (kbd "C-`") 'py-jump-exception-line)
 
 (global-set-key "\M-]" 'c-beginning-of-defun)
 (global-set-key [(control ?') ?'] 'find-matching-keyword)
