@@ -659,6 +659,7 @@
   (puthash "->" "→" xmsi-abrvs) (puthash "rightarrow" "→" xmsi-abrvs)
   (puthash "<--" "←" xmsi-abrvs)
   (puthash "-->" "→" xmsi-abrvs)
+  (puthash "<->" "↔" xmsi-abrvs)
 
   (puthash "<=2" "⇐" xmsi-abrvs)
   (puthash "=>" "⇒" xmsi-abrvs)
