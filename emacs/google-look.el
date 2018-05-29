@@ -1,4 +1,4 @@
-;;; google-look.el --- lookup Gtk and Gnome documentation.
+;;; google-look.el --- lookup any string in google
 
 ;; Copyright 2013, Dov Grobgeld
 ;;
@@ -26,18 +26,17 @@
 (defun google-lookup ()
   "Search google"
   (interactive)
-  (let* ((info-lookup-mode 'lisp-mode)  
-         (default (info-lookup-guess-default 'symbol info-lookup-mode))
+  (let* ((default (thing-at-point 'symbol))
          (name (read-string "Google: " default 'google-lookup-history 0 nil)))
     (browse-url (concat google-search name))))
 
 (defvar python-lookup-history '())
 (defvar python-search "http://docs.python.org/release/2.7/search.html?q=")
+;(setq python-search "https://docs.python.org/release/3.6.4/search.html?q=")
 (defun python-lookup ()
   "Search the python documentation"
   (interactive)
-  (let* ((info-lookup-mode 'c-mode)
-         (default (info-lookup-guess-default 'symbol info-lookup-mode))
+  (let* ((default (thing-at-point 'symbol))
          (name (read-string "Python doc search: " default 'python-lookup-history 0 nil)))
     (browse-url (concat python-search name))))
 
