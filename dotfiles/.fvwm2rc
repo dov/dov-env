@@ -199,6 +199,7 @@ Key F11		A	4	Recapture
 Key UE032       A       A       Exec prompt-xterm &
 Key UE068       A	A	Iconify
 Key A           A	4	RaiseLower
+Key B           A	4	Menu Window-Ops Nop
 Key C           A	4	Close
 Key D           A	4	WindowShade
 Key E           A	4	WindowShade
@@ -217,8 +218,8 @@ Key X           A	4	exec xterm  -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c
 Key X           A	S4	exec xterm  -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12 &
 Key R           A	4	Restart fvwm2
 Key S           A	4	exec xscreensaver-command -activate
-Key V           A	4	Menu RootMenu Nop
-Key W           A	4	WindowList
+Key V           A	4	Menu RootMenu Root c c CurrentPage
+Key W           A	4	WindowList Root c c CurrentPage, NoGeometry, CurrentAtEnd 
 Key semicolon   A	4	Stick
 Key Left	A	4	Scroll -100 +0
 Key Right	A	4	Scroll +100 +0
@@ -231,8 +232,10 @@ Key Right       A       S4      Move w+1 w+0
 Key Left        A       S4      Move w-1 w+0
 Key Up          A       S4      Move w+0 w-1
 Key Down        A       S4      Move w+0 w+1
-Key Space       A       4       WindowList Root c c CurrentPage, NoGeometry
+Key Space       A       4       WindowList Root c c CurrentPage, NoGeometry, CurrentAtEnd 
 Key Escape      A       4       exec systemctl suspend -i
+Key Tab         A       M WindowList Root c c "Prev SwitchToWindow"
+
 
 # Gray keys 
 Key UE067       A	A	Recapture
@@ -240,6 +243,12 @@ Key UE010	A	A	Scroll -100 +0
 Key UE053	A	A	Scroll +100 +0
 Key UE024	A	A	Scroll +0   -100
 Key UE022	A	A	Scroll +0   +100
+
+Key XF86Launch0 A       A       exec /home/dov/scripts/keyboard_backlight down
+Key XF86Launch1 A       A       exec /home/dov/scripts/keyboard_backlight up
+
+# TBD Create a script for doing this increamentally
+# xrandr --output eDP-1 --brightness 0.5
 
 
 ############################################################################
@@ -293,12 +302,12 @@ AddToFunc InitFunction 	  "I" Module FvwmPager *
 +                         "I" exec xcompmgr -c &
 +                         "I" exec xrdb /home/dov/.Xdefaults
 +                         "I" exec mate-panel --sm-disable &
++			  "I" exec telegram-desktop &
 +                         "I" exec xset s 300 s blank dpms 300
 +                         "I" exec xset r rate 200 30
 +                         "I" exec xset fp+ /home/dov/git/dov-env/lib/X11fonts
 +                         "I" exec xset b 100 10000 10
 +                         "I" exec xkbcomp /home/dov/.xkbmap $DISPLAY
-+                         "I" exec swteam:/home/dov /home/dov/swteam
 +                         "I" exec feh --bg-tile /home/dov/git/dov-env/lib/tiles/Sister-Bluebird-1.png 
 +                         "I" exec cairo-clock &
 +                         "I" exec env PULSE_LATENCY_MSEC=30 skype &
@@ -307,20 +316,20 @@ AddToFunc RestartFunction "I" Module FvwmPager
 +                         "I" exec feh --bg-tile /home/dov/git/dov-env/lib/tiles/Sister-Bluebird-1.png 
 +                         "I" exec xset s 300 s blank dpms 300
 +                         "I" exec xset r rate 200 30
++                         "I" exec xkbcomp /home/dov/.xkbmap $DISPLAY
 
 ########################Menus ########################################
 AddToMenu RootMenu	"RootMenu"	Title 	
-+			"Xterm"%mini.xterm.xpm%		exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8&
-+			"xv"%mini.xv.xpm%		Exec exec csh -c "(cd /home/dov/light/log-book-images; xv)&" 
++			"Xterm"%mini-xterm.xpm%		exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8&
++			"Tmux Xterm"%mini-xterm.xpm%		exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -e tmux&
++			"firefox"%/usr/share/icons/hicolor/16x16/apps/firefox.png%	Exec  exec firefox  &
++			"google-chrome"%/usr/share/icons/hicolor/16x16/apps/google-chrome.png%	Exec  exec google-chrome &
++			"emacs"%/usr/share/icons/hicolor/16x16/apps/emacs.png%	        Exec  exec env -u XMODIFIERS ssh-agent emacs &
++                        ""
++			"skype"%/usr/share/icons/hicolor/16x16/apps/skypeforlinux.png%	        Exec  exec skypeforlinux &
 +			"gimp"%mini.gimp.xpm%		Exec  exec gimp &
-+			"firefox"	Exec  exec firefox  &
-+			"google-chrome"	Exec  exec google-chrome &
-+                       "gthumb"        Exec gthumb &
-+			"skype"	        Exec  exec /opt/skype-4.3.0.37/skype  --resources=/opt/skype-4.3.0.37 &
-+			"emacs-24"	        Exec  exec env -u XMODIFIERS ssh-agent emacs &
-#+			"VirtualBox"%mini-win2000.xpm%	Exec  exec VirtualBox --startvm WinXPE &
-+			"WebCam"	Exec  exec  gst-launch v4l2src device=/dev/video0 ! 'video/x-raw-yuv,width=320,height=240,framerate=10/1' ! xvimagesink &
-+			"VirtualBox"%mini-win2000.xpm%	Exec  exec VirtualBox &
++			"inkscape"%/usr/share/icons/hicolor/16x16/apps/inkscape.png%		Exec  exec gimp &
++			"VirtualBox"%/usr/share/icons/hicolor/16x16/apps/virtualbox.png%	Exec  exec VirtualBox &
 +			""		Nop
 +			"Modules"	Popup Module-Popup
 +			""		Nop		

@@ -123,6 +123,10 @@
       (add-hook 'c-mode-common-hook #'setup-flycheck-rtags))
     ))
 
+(setq Info-default-directory-list
+      (append (list (concat emacs-git "info"))
+              Info-default-directory-list))
+
 ;; Font for all frames
 (set-frame-font my-default-font)
 (set-default-font my-default-font)
@@ -217,7 +221,11 @@
 (autoload 'octave-mode "octave-mod" nil t)
 (autoload 'vc-ediff "vc-ediff" nil t)
 (setq with-editor-file-name-history-exclude 'nil)
-(autoload 'magit-status "magit" "Open a Magit status buffer […]" t nil)
+;(autoload 'magit-status "magit" "Open a Magit status buffer […]" t nil)
+(load "with-editor")
+(load "magit-popup")
+(load "ghub")
+(load "magit")
 (autoload 'with-editor-file-name-history-exclude "with-editor" "with-editor" t nil)
 
 ; magit-diff-file was written by me, but requsted to be merged into magit.
@@ -638,6 +646,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (local-set-key "\C-c\C-pp" 'org-toggle-pretty-entities)
   (local-set-key "\C-c\C-pi" 'org-toggle-iimage-in-org)
   (local-set-key "\C-c\C-pl" 'org-toggle-link-display)
+  (local-set-key (kbd "C-M-=") 'calc-eval-region)
 
   ;; variable pitch mode makes emacs rescale!
   (variable-pitch-mode t)
@@ -1590,7 +1599,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control h) (control j)] 'gtk-lookup-symbol)
 (global-set-key [(control h) (control q)] 'qtdoc-lookup)
 (global-set-key [(control h) (control g)] 'google-lookup)
-(global-set-key [(control h) (control p)] 'pydoc)
+(global-set-key [(control h) (control p)] 'python-lookup)
 (global-set-key [(control h) (control c)] 'cpp-lookup)
 (global-set-key [(f2)] 'perl-pe-region)
 (global-set-key [(control f27)] 'move-to-first-window-line)
@@ -1937,6 +1946,11 @@ With numeric ARG, display the images if and only if ARG is positive."
   (setq py-indent-offset 2)
   )
 
+(defun standard-python-indent ()
+  """Setup standard python indentation"""
+  (interactive)
+  (setq py-indent-offset 4))
+
 (defun gnu-indent-mode ()
   "Set indent tabs to 2 as is standard by gnome."
   (interactive)
@@ -2123,6 +2137,26 @@ Does not delete the prompt."
         (backward-word)
         )
     ))
+
+(defun calc-eval-region (&optional insert)
+  "Send the selection to calc-eval and insert the result. Also turns asterisks (*) into times(×) signs."
+  (interactive)
+  (if (not (use-region-p))
+      (error "Need region!"))
+  (let ((res (calc-eval (buffer-substring-no-properties (region-beginning) (region-end)))))
+    ;; Turn * into ×
+    (save-restriction
+      (narrow-to-region (region-beginning) (region-end))
+      (beginning-of-buffer) ; since we are narrowing!
+      (while (search-forward "*" nil t) (replace-match "×" 'literal))
+      ; Uncomment if you like division signs as well
+;      (beginning-of-buffer)
+;      (while (search-forward "/" nil t) (replace-match "÷" 'literal))
+      (end-of-buffer))
+    (deactivate-mark t)
+    (insert "=")
+    (insert res)
+    (message res)))
 
 (defun toggle-backslash-line ()
   "Toggle all forward slashes to backslashes for the current line."
