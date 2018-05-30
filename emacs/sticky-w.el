@@ -1,6 +1,6 @@
 ;; From: https://gist.github.com/rmuslimov/646aa0e761628dbf0c0fab510a4e4ed6
 
-(defun toggle-window-dedicated ()
+(defun toggle-window-sticky ()
   "Control whether or not Emacs is allowed to display another
 buffer in current window."
   (interactive)
@@ -39,7 +39,7 @@ with `sticky-window-keep-window-visible'."
 				(delete-window window)))
 		  (cdr (window-list))))
 
-(global-set-key (kbd "C-c t") 'toggle-window-dedicated)
+(global-set-key (kbd "C-c t") 'toggle-window-sticky)
 (global-set-key (kbd "C-x 1") 'sticky-window-delete-other-windows)
 
 (provide 'sticky-w)
