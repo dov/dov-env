@@ -234,8 +234,10 @@ Key Up          A       S4      Move w+0 w-1
 Key Down        A       S4      Move w+0 w+1
 Key Space       A       4       WindowList Root c c CurrentPage, NoGeometry, CurrentAtEnd 
 Key Escape      A       4       exec systemctl suspend -i
-Key Tab         A       M WindowList Root c c "Prev SwitchToWindow"
-
+Key E           A       S4      Next ("Emacs") WarpToWindow 99 90
+Key F           A       S4      Next ("Firefox") WarpToWindow 99 90
+Key T           A       S4      Next ("Alacritty") WarpToWindow 99 90
+Key G           A       4       Exec telegram-desktop
 
 # Gray keys 
 Key UE067       A	A	Recapture

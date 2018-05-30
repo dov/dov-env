@@ -125,6 +125,11 @@
       (require 'flycheck-rtags)
       ;; c-mode-common-hook is also called by c++-mode
       (add-hook 'c-mode-common-hook #'setup-flycheck-rtags))
+
+    ; See: https://github.com/Andersbakken/rtags/issues/1131
+    (defun rtags-diagnostics (&optional restart nodirty)
+      (interactive "P")
+      (message "rtags-diagnostics has scalability issues and has been disabled."))
     ))
 
 (setq Info-default-directory-list
@@ -201,6 +206,7 @@
 ;; Get newer private versions of standard libraries
 ;(load "cmake-mode")
 (autoload 'cc-mode "cc-mode" nil t)
+(autoload 'rec-mode "rec-mode" nil t)
 (autoload 'robot-mode "robot-mode" nil t)
 ;(load "vc")
 (load "gdb-libtool")
@@ -371,6 +377,14 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (interactive)
   (kill-region (subword-backward-fnc) (point)))
 
+(defun end-of-buffer-beginning-of-line ()
+  "Move to the beginning of the line of the last line in the file"
+  (interactive)
+  (move-bottom)
+  (move-to-column 1)
+  (move-beginning-of-line nil)
+  )
+(global-set-key (kbd "C-M->") 'end-of-buffer-beginning-of-line)
 ;(add-hook 'python-mode-hook #'pretty-mode 1)
 
 ;(global-set-key [?\C-c ?g ?c] 'mo-git-blame-current)
@@ -1103,6 +1117,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.html$" 'web-mode)) 
        (list (cons "\\.nsi\\(s\\)?$" 'nsis-mode)) 
        (list (cons "\\.pr[io]$" 'qt-pro-mode))
+       (list (cons "\\.rec$" 'rec-mode))
        auto-mode-alist))
 
 ;; macros for nxc code
@@ -1815,7 +1830,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(meta prior)] '(lambda () (interactive) (scroll-other-window-down nil)))
 (global-set-key [(meta next)] '(lambda () (interactive) (scroll-other-window nil)))
 (global-set-key [f5] 'open-notes-file)
-
+(global-set-key "\C-cT" 'toggle-truncate-lines)
 (define-key global-map " " 'space-or-undo)
 (define-key global-map "\C-x\C-m" 'save-buffers-dont-ask)
 (define-key c++-mode-map [(control c) (control e)] 'compile)
@@ -2265,8 +2280,13 @@ Does not delete the prompt."
 (defun xjet-python-buffer ()
   "Send the current (python) buffer to be evaluated in the MetalJet Application"
   (interactive)
-  (write-region (point-min) (point-max) "/tmp/buffer.py")
-  (shell-command "/home/dov/scripts/xjet-python /tmp/buffer.py"))
+  (if (buffer-modified-p)
+      (progn
+        (write-region (point-min) (point-max) "/tmp/buffer.py")
+        (setq filename "/tmp/buffer.py"))
+    (setq filename (buffer-file-name)))
+    
+  (shell-command (concat "/home/dov/scripts/xjet-python " filename)))
 
 ;;(swedish-keys global-map)
 ;(swedish-keys mail-mode-map)
