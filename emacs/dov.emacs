@@ -1,15 +1,19 @@
-; -*- Encoding: utf-8 -*-
+; -*- Encoding: utf-8; mode:emacs-lisp -*-
 ;;======================================================================
 ;;   emacs (not Xemacs) mode
 ;;
-;; To use this file, add lines similar to the following to ~/.emacs.d/init.el:
+;; To use this file, add lines similar to the following to ~/.emacs on
+;; windows:
 ;;
 ;;  (setq emacs-git "d:/git/dov/dov-env/emacs")
 ;;  (setq my-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
 ;;  (setq default-notes-file "w:/users/Dov/git/xjet-git/notes/notes.org")
-;;  (load (concat emacs-git "/dov.emacs"))
+;;  (setq tramp-default-method "plink")
+;;  (setenv "GIT_SSH" "c:/Program Files/PuTTY/plink.exe") ; For remote access
 ;;  (setenv "PATH" (concat (getenv "PATH") ";D:\\DevTools\\git\\bin"))
 ;;  (setenv "SJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
+;;  (load (concat emacs-git "/dov.emacs"))
+;;
 ;;  
 ;;   Other customization (for windows):
 ;;      ;; Set initial frame size 
@@ -529,7 +533,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 ;; Tramp
 (require 'tramp)
-(setq tramp-default-method "ssh")
 (setq password-cache-expiry nil)
 (add-hook 'font-lock-mode-hook 'my-doxymacs-font-lock-hook)
 (add-hook 'c-mode-common-hook 'doxymacs-mode)
@@ -1035,7 +1038,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'sather-mode "sather.el" "Sather mode" t nil)
 (autoload 'cweb-mode "cweb.el" "CWeb mode" t nil)
 (autoload 'rust-mode "rust-mode.el" "Rust mode" t nil)
-(autoload 'lua-mode "lua-mode.el" "Rust mode" t nil)
+(autoload 'lua-mode "lua-mode.el" "Lua mode" t nil)
 (autoload 'csv-mode "csv-mode.el" "CSV mode" t nil)
 (autoload 'octave-mode "octave-mod.el" "Octave mode" t nil)
 ;(autoload 'sgml-mode "sgml-mode.el" "SGML mode" t nil)
@@ -1045,8 +1048,12 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'elisp-mode "elisp-mode.el" "ELisp" t nil)
 (autoload 'python-mode "python-mode.el" "python mode" t nil)
 
-;; Set some auto mode
+(add-hook 'lua-mode-hook
+          (lambda ()
+            (setq lua-indent-level 2)
+            (define-key lua-mode-map [(return)] 'newline-and-indent)))
 
+;; Set some auto mode
 (setq auto-mode-alist
       (append
        (list (cons "\\.sa$" 'sather-mode))
