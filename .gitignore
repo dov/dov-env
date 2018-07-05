@@ -5,4 +5,5 @@
 zsh/oh-my-zsh/
 *.bak
 *.old
+*.txt
 
