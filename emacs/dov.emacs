@@ -242,7 +242,7 @@
 (load "ghub")
 (load "magit")
 (autoload 'with-editor-file-name-history-exclude "with-editor" "with-editor" t nil)
-(require 'xjet-remote-client)
+(autoload 'xjet-remote-python-file "xjet-remote-client" nil t)
 
 ; magit-diff-file was written by me, but requsted to be merged into magit.
 ; See: https://github.com/magit/magit/issues/2553
@@ -2306,8 +2306,8 @@ Does not delete the prompt."
   (interactive)
   (if (buffer-modified-p)
       (progn
-        (write-region (point-min) (point-max) "/tmp/buffer.py")
-        (setq filename "/tmp/buffer.py"))
+        (setq filename (concat temporary-file-directory "/buffer.py"))
+        (write-region (point-min) (point-max) filename))
     (setq filename (buffer-file-name)))
     
   (xjet-remote-python-file filename))
