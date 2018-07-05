@@ -203,6 +203,11 @@
 (menu-bar-mode 't)
 (tool-bar-mode 'nil)
 
+;; See if this helps with timeout issue when editing the notes on
+;; on a CIFS.
+
+(setq backup-by-copying t)
+
 ;; Get newer private versions of standard libraries
 ;(load "cmake-mode")
 (autoload 'cc-mode "cc-mode" nil t)
@@ -237,6 +242,7 @@
 (load "ghub")
 (load "magit")
 (autoload 'with-editor-file-name-history-exclude "with-editor" "with-editor" t nil)
+(require 'xjet-remote-client)
 
 ; magit-diff-file was written by me, but requsted to be merged into magit.
 ; See: https://github.com/magit/magit/issues/2553
@@ -1552,6 +1558,12 @@ With numeric ARG, display the images if and only if ARG is positive."
   (kill-new buffer-file-name)
   (message "%s" buffer-file-name))
 
+(defun current-buffername-to-clip-buffer ()
+  "Copy the current buffer file name to the clip buffer"
+  (interactive)
+  (kill-new (buffer-name))
+  (message "%s" (buffer-name)))
+
 ;; Hide unregistered files from vc-buffer.
 ;; Copied from: http://groups.google.com/group/gnu.emacs.bug/msg/4a58d078b4aae650
 (defun my-vc-dir-hide-some (states)
@@ -1650,6 +1662,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key "\C-x\C-k" 'kill-compilation)
 (global-set-key [(alt d)] 'goto-end-of-gud-buffer)
 (global-set-key (kbd "A-C-f") 'current-filename-to-clip-buffer)
+(global-set-key (kbd "A-C-b") 'current-buffername-to-clip-buffer)
 (global-set-key [(control insert)] 'clipboard-kill-ring-save)
 (global-set-key [(shift insert)] 'clipboard-yank)
 ;; Use shift as a subword indicator
@@ -2277,7 +2290,7 @@ Does not delete the prompt."
   (define-key map [(meta _)] 'let-Auml)
 ) 
 
-(defun xjet-python-buffer ()
+(defun old-xjet-python-buffer ()
   "Send the current (python) buffer to be evaluated in the MetalJet Application"
   (interactive)
   (if (buffer-modified-p)
@@ -2287,6 +2300,17 @@ Does not delete the prompt."
     (setq filename (buffer-file-name)))
     
   (shell-command (concat "/home/dov/scripts/xjet-python " filename)))
+
+(defun xjet-python-buffer ()
+  "Send the current (python) buffer to be evaluated in the MetalJet Application"
+  (interactive)
+  (if (buffer-modified-p)
+      (progn
+        (write-region (point-min) (point-max) "/tmp/buffer.py")
+        (setq filename "/tmp/buffer.py"))
+    (setq filename (buffer-file-name)))
+    
+  (xjet-remote-python-file filename))
 
 ;;(swedish-keys global-map)
 ;(swedish-keys mail-mode-map)
