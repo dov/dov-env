@@ -1,4 +1,8 @@
 *~
 *.pyc
 *.elc
-*.elc
+*.orig
+zsh/oh-my-zsh/
+*.bak
+*.old
+

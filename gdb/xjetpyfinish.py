@@ -36,6 +36,7 @@ class PyXJetFinish (gdb.Command):
 
     n = len(lines)-2  # Get rid of last empty line
     
+    print('lines[n]=',lines[n])
     assert re.match('0x0+$',lines[n].split()[1]),'Last line should be 0x0000'
 
     # Now find first place that does not have () args.
