@@ -2118,7 +2118,7 @@ With numeric ARG, display the images if and only if ARG is positive."
      (local-set-key [(control c) (control c)] 'shell-python-on-buffer)
      (local-set-key [(control c) (control j)] 'xjet-python-buffer)
      ;; I don't like interactive shell for python commands by default
-     (setq py-fast-process-p t)
+     (setq py-fast-process-p nil)
      ;; restore backward erase word
      (local-set-key [(control backspace)] 'backward-kill-word)
      ))
