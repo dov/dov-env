@@ -2324,9 +2324,12 @@ Does not delete the prompt."
         (setq cmd-filename (concat temp-dir "/buffer." extension))
         (write-region (point-min) (point-max) cmd-filename))
     (setq cmd-filename (buffer-file-name)))
-  (shell-command
-   (concat command " " cmd-filename)
-   (concat "*" (capitalize command) " Output*")))
+  (setq cmd-buffer-name (concat "*" (capitalize command) " Output*"))
+  (shell-command (concat command " " cmd-filename) cmd-buffer-name)
+  ;; The following makes it easy to go to the resulting output buffer
+  (setq my-buffer (current-buffer))
+  (switch-to-buffer cmd-buffer-name)
+  (switch-to-buffer my-buffer))
 
 (defvar my-python-interpreter "python")
 
