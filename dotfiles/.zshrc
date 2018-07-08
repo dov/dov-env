@@ -404,6 +404,8 @@ setenv PILOTPORT /etc/udev/devices/ttyUSB1
 setenv GS_LIB /usr/share/ghostscript/fonts
 setenv PGPLOT_DIR /usr/local/pgplot
 setenv PGPLOT_DEV      /xwindow
+export PYTHONIOENCODING=utf-8
+
 gtk-head-env() {
     export PKG_CONFIG_PATH=/opt/gtk-head/lib/pkgconfig:$PKG_CONFIG_PATH 
     export LD_LIBRARY_PATH=/opt/gtk-head/lib

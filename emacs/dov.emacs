@@ -28,6 +28,7 @@
     (progn
       (if (not (boundp 'emacs-git))
           (setq emacs-git "c:/users/dov/emacs"))
+      (setq temp-dir "c:/Temp/")
       (if (not (boundp 'emacs-persistance-dir))
           (setq emacs-persistance-dir "c:/Document and Settings/dovg"))
 ;      (set-default-font "-*-Lucida Console-*-*-*-*-15-*-*-*-*-*-*")
@@ -43,6 +44,7 @@
   (progn
 ;    (setq my-default-family "Liberation Mono")
     (setq my-default-family "InconsolataDov")
+    (setq temp-dir "/tmp/")
     (setq explicit-shell-file-name "/bin/zsh")
     (setq browse-url-generic-program "firefox")
     (if (not (boundp 'emacs-git))
@@ -272,6 +274,7 @@
 (require 'wgrep)
 (require 'pretty-mode)
 (require 'browse-kill-ring)
+(require 'pydoc)
 (global-set-key "\M-y" 'browse-kill-ring)
 
 ;; When you want to add multiple cursors not based on continuous lines, but based on
@@ -1027,12 +1030,12 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;;; Why can't I get this to run automatically in the perl-mode hook
 (defun my-perl-mode-hook ()
   (interactive)
-  (define-key cperl-mode-map [(control c) (control r)] 'compile-dwim-run)
-  (define-key cperl-mode-map [(control c) (control s)] 'compile-dwim-compile)
-  (define-key cperl-mode-map [(control c) (control c)] 'mode-compile)
+  (define-key cperl-mode-map [(control c) (control c)] 'shell-perl-on-buffer)
   (define-key cperl-mode-map ";" 'self-insert-command)
   (define-key cperl-mode-map " " 'self-insert-command)
   (define-key cperl-mode-map "{" 'self-insert-command)
+  (define-key cperl-mode-map [return] 'newline-and-indent)
+
   (setq-default abbrev-mode nil)
   (setq cperl-auto-newline nil)
   (setq-default cperl-auto-newline nil)
@@ -1042,6 +1045,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (setq cperl-electric-linefeed nil)
   (setq cperl-electric-keywords nil)
   (setq cperl-hairy nil)
+  (setq cperl-invalid-face nil) ; Don't show trailing white space!
   (setq cperl-mode-abbrev-table nil)
   (setq cperl-highlight-variables-indiscriminately t)
   
@@ -1881,6 +1885,11 @@ With numeric ARG, display the images if and only if ARG is positive."
 (autoload 'cperl-mode "cperl-mode" nil t)
 (setq interpreter-mode-alist (append interpreter-mode-alist
 				     '(("miniperl" . perl-mode))))
+
+(setq interpreter-mode-alist (rassq-delete-all 'perl-mode interpreter-mode-alist))
+(add-to-list 'interpreter-mode-alist '("perl" . cperl-mode))
+(add-to-list 'interpreter-mode-alist '("perl5" . cperl-mode))
+(add-to-list 'interpreter-mode-alist '("miniperl" . cperl-mode))
 ; (load "perl-mode")   ; old mode
 
 ; This currently doesn't work!
@@ -2045,10 +2054,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;  (auto-complete-mode 0)   ; I don't believe in autocomplete mode for C/C++
   )
 
-(defun my-perlmode-stuff () ""
-  (define-key perl-mode-map [return] 'newline-and-indent)
-)
-
 (defun do-return-indent (map) ""
   (define-key map [return] 'newline-and-indent)
   (setq indent-tabs-mode nil))
@@ -2062,7 +2067,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key (kbd "<C-mouse-4>") 'zoom-out)
 
 (add-hook 'c-mode-hook   (lambda() (my-cmode-stuff c-mode-map)))
-(add-hook 'perl-mode-hook (lambda() (my-perlmode-stuff)))
 (add-hook 'c++-mode-hook (lambda() (my-cmode-stuff c++-mode-map)))
 (add-hook 'tcl-mode-hook (lambda() (do-return-indent tcl-mode-map)))
 
@@ -2096,17 +2100,23 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;(add-hook 'py-mode-hook '(lambda() 
 ;                           (define-key py-mode-map [(control m)] 'py-newline-and-indent)
 ;                           ))
-(add-hook 'python-mode-hook '(lambda() 
-                               (local-set-key (kbd "RET") 'py-newline-and-indent)
-                               (remove-dos-eol)
-                               (setq py-indent-offset my-indent)
-                               (setq python-indent my-indent)
-                               (remove-dos-eol)
-                               (local-set-key [(alt ? )] 'gud-break)
-                               (local-set-key [(alt ?b)] 'left-word)
-                               (local-set-key [(alt ?f)] 'right-word)
-                               (define-key py-mode-map [(control c) (control j)] 'xjet-python-buffer)
-                               ))
+(add-hook 'python-mode-hook
+  '(lambda() 
+     (local-set-key (kbd "RET") 'py-newline-and-indent)
+     (remove-dos-eol)
+     (setq py-indent-offset my-indent)
+     (setq python-indent my-indent)
+     (remove-dos-eol)
+     (local-set-key [(alt ? )] 'gud-break)
+     (local-set-key [(alt ?b)] 'left-word)
+     (local-set-key [(alt ?f)] 'right-word)
+     (local-set-key [(control c) (control c)] 'shell-python-on-buffer)
+     (local-set-key [(control c) (control j)] 'xjet-python-buffer)
+     ;; I don't like interactive shell for python commands by default
+     (setq py-fast-process-p t)
+     ;; restore backward erase word
+     (local-set-key [(control backspace)] 'backward-kill-word)
+     ))
 (add-hook 'diff-mode-hook '(lambda() 
                              (remove-dos-eol)))
 (add-hook 'csv-mode-hook '(lambda() 
@@ -2300,6 +2310,30 @@ Does not delete the prompt."
     (setq filename (buffer-file-name)))
     
   (shell-command (concat "/home/dov/scripts/xjet-python " filename)))
+
+(defun shell-command-on-buffer (command extension)
+  "Send the current buffer to a shell command"
+  (interactive)
+  (if (buffer-modified-p)
+      (progn
+        (setq cmd-filename (concat temp-dir "/buffer." extension))
+        (write-region (point-min) (point-max) cmd-filename))
+    (setq cmd-filename (buffer-file-name)))
+  (shell-command
+   (concat command " " cmd-filename)
+   (concat "*" (capitalize command) " Output*")))
+
+(defvar my-python-interpreter "python")
+
+(defun shell-python-on-buffer ()
+  "Send the current (python) buffer to be evaluated by the python shell"
+  (interactive)
+  (shell-command-on-buffer my-python-interpreter "py"))
+
+(defun shell-perl-on-buffer ()
+  "Send the current (python) buffer to be evaluated by the python shell"
+  (interactive)
+  (shell-command-on-buffer "perl" "pl"))
 
 (defun xjet-python-buffer ()
   "Send the current (python) buffer to be evaluated in the MetalJet Application"
