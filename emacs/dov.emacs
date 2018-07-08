@@ -739,6 +739,12 @@ Optional argument ARG is the same as for `backward-kill-word'."
        ("!" (:foreground "red"))))))
   )
 
+;; Don't ever make Return accept a competion as that may insert
+;; something different than what you are typing!
+(with-eval-after-load 'company
+  (define-key company-active-map (kbd "RET") nil)
+  (define-key company-active-map (kbd "<return>") nil)
+  (define-key company-active-map (kbd "<C-return>") 'company-complete-selection))
 
 (eval-after-load 'org-export-latex
   '(progn
@@ -1822,7 +1828,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;(global-set-key [(control j)] 'isearch-forward)
 (global-set-key "\C-xw" 'write-region)
 (global-set-key "\C-x\C-r" 'revert-buffer)
-(global-set-key [(control return)] 'call-last-kbd-macro)
 (global-set-key [(alt tab)] 'indent-relative)
 (global-set-key [(hyper tab)] 'indent-relative)
 (global-set-key [(hyper tab)] 'indent-relative)
