@@ -1,11 +1,11 @@
 ;;; ob-exp.el --- Exportation of Babel Source Blocks -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
 
 ;; Authors: Eric Schulte
 ;;	Dan Davison
 ;; Keywords: literate programming, reproducible research
-;; Homepage: http://orgmode.org
+;; Homepage: https://orgmode.org
 
 ;; This file is part of GNU Emacs.
 
@@ -20,7 +20,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Code:
 (require 'ob-core)
@@ -33,7 +33,6 @@
 (declare-function org-escape-code-in-string "org-src" (s))
 (declare-function org-export-copy-buffer "ox" ())
 (declare-function org-fill-template "org" (template alist))
-(declare-function org-get-indentation "org" (&optional line))
 (declare-function org-in-commented-heading-p "org" (&optional no-inheritance))
 
 (defvar org-src-preserve-indentation)
@@ -41,14 +40,12 @@
 (defcustom org-export-use-babel t
   "Switch controlling code evaluation and header processing during export.
 When set to nil no code will be evaluated as part of the export
-process and no header arguments will be obeyed.  When set to
-`inline-only', only inline code blocks will be executed.  Users
-who wish to avoid evaluating code on export should use the header
-argument `:eval never-export'."
+process and no header arguments will be obeyed.  Users who wish
+to avoid evaluating code on export should use the header argument
+`:eval never-export'."
   :group 'org-babel
   :version "24.1"
   :type '(choice (const :tag "Never" nil)
-		 (const :tag "Only inline code" inline-only)
 		 (const :tag "Always" t))
   :safe #'null)
 
@@ -60,9 +57,13 @@ returned is the value of the last form in BODY.  Assume that
 point is at the beginning of the Babel block."
   (declare (indent 1) (debug body))
   `(let ((source (get-text-property (point) 'org-reference)))
-     (with-current-buffer org-babel-exp-reference-buffer
+     ;; Source blocks created during export process (e.g., by other
+     ;; source blocks) are not referenced.  In this case, do not move
+     ;; point at all.
+     (with-current-buffer (if source org-babel-exp-reference-buffer
+			    (current-buffer))
        (org-with-wide-buffer
-	(goto-char source)
+	(when source (goto-char source))
 	,@body))))
 
 (defun org-babel-exp-src-block ()
@@ -83,7 +84,7 @@ none ---- do not display either code or results upon export
 Assume point is at block opening line."
   (interactive)
   (save-excursion
-    (let* ((info (org-babel-get-src-block-info 'light))
+    (let* ((info (org-babel-get-src-block-info))
 	   (lang (nth 0 info))
 	   (raw-params (nth 2 info))
 	   hash)
@@ -106,7 +107,7 @@ Assume point is at block opening line."
 				   (symbol-value lang-headers))
 			      (append (org-babel-params-from-properties lang)
 				      (list raw-params)))))))
-	  (setf hash (org-babel-sha1-hash info)))
+	  (setf hash (org-babel-sha1-hash info :export)))
 	(org-babel-exp-do-export info 'block hash)))))
 
 (defcustom org-babel-exp-call-line-template
@@ -132,9 +133,7 @@ this template."
   (when org-export-use-babel
     (save-window-excursion
       (let ((case-fold-search t)
-	    (regexp (if (eq org-export-use-babel 'inline-only)
-			"\\(call\\|src\\)_"
-		      "\\(call\\|src\\)_\\|^[ \t]*#\\+\\(BEGIN_SRC\\|CALL:\\)"))
+	    (regexp "\\(call\\|src\\)_\\|^[ \t]*#\\+\\(BEGIN_SRC\\|CALL:\\)")
 	    ;; Get a pristine copy of current buffer so Babel
 	    ;; references are properly resolved and source block
 	    ;; context is preserved.
@@ -160,8 +159,24 @@ this template."
 	      (goto-char (point-min))
 	      (while (re-search-forward regexp nil t)
 		(unless (save-match-data (org-in-commented-heading-p))
-		  (let* ((element (save-match-data (org-element-context)))
-			 (type (org-element-type element))
+		  (let* ((object? (match-end 1))
+			 (element (save-match-data
+				    (if object? (org-element-context)
+				      ;; No deep inspection if we're
+				      ;; just looking for an element.
+				      (org-element-at-point))))
+			 (type
+			  (pcase (org-element-type element)
+			    ;; Discard block elements if we're looking
+			    ;; for inline objects.  False results
+			    ;; happen when, e.g., "call_" syntax is
+			    ;; located within affiliated keywords:
+			    ;;
+			    ;; #+name: call_src
+			    ;; #+begin_src ...
+			    ((and (or `babel-call `src-block) (guard object?))
+			     nil)
+			    (type type)))
 			 (begin
 			  (copy-marker (org-element-property :begin element)))
 			 (end
@@ -228,7 +243,7 @@ this template."
 			   (insert rep))))
 		      (`src-block
 		       (let ((match-start (copy-marker (match-beginning 0)))
-			     (ind (org-get-indentation)))
+			     (ind (current-indentation)))
 			 ;; Take care of matched block: compute
 			 ;; replacement string.  In particular, a nil
 			 ;; REPLACEMENT means the block is left as-is
@@ -324,7 +339,7 @@ defined for the code block may be used as a key and will be
 replaced with its value."
   :group 'org-babel
   :type 'string
-  :version "25.2"
+  :version "26.1"
   :package-version '(Org . "8.3"))
 
 (defun org-babel-exp-code (info type)
@@ -361,7 +376,7 @@ block will be evaluated.  Optional argument SILENT can be used to
 inhibit insertion of results into the buffer."
   (unless (and hash (equal hash (org-babel-current-result-hash)))
     (let ((lang (nth 0 info))
-	  (body (if (org-babel-noweb-p (nth 2 info) :eval)
+	  (body (if (org-babel-noweb-p (nth 2 info) :export)
 		    (org-babel-expand-noweb-references
 		     info org-babel-exp-reference-buffer)
 		  (nth 1 info)))

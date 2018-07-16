@@ -1,11 +1,11 @@
 ;;; ob-C.el --- Babel Functions for C and Similar Languages -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2010-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2018 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;;      Thierry Banel
 ;; Keywords: literate programming, reproducible research
-;; Homepage: http://orgmode.org
+;; Homepage: https://orgmode.org
 
 ;; This file is part of GNU Emacs.
 
@@ -20,7 +20,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -34,17 +34,28 @@
 
 (require 'cc-mode)
 (require 'ob)
-
+(require 'org-macs)
 
 (declare-function org-entry-get "org" (pom property &optional inherit literal-nil))
-(declare-function org-remove-indentation "org" (code &optional n))
-(declare-function org-trim "org" (s &optional keep-lead))
 
 (defvar org-babel-tangle-lang-exts)
 (add-to-list 'org-babel-tangle-lang-exts '("C++" . "cpp"))
 (add-to-list 'org-babel-tangle-lang-exts '("D" . "d"))
 
 (defvar org-babel-default-header-args:C '())
+
+(defconst org-babel-header-args:C '((includes . :any)
+				    (defines . :any)
+				    (main    . :any)
+				    (flags   . :any)
+				    (cmdline . :any)
+				    (libs    . :any))
+  "C/C++-specific header arguments.")
+
+(defconst org-babel-header-args:C++
+  (append '((namespaces . :any))
+	  org-babel-header-args:C)
+  "C++-specific header arguments.")
 
 (defcustom org-babel-C-compiler "gcc"
   "Command used to compile a C source code file into an executable.
@@ -125,7 +136,8 @@ or `org-babel-execute:C++' or `org-babel-execute:D'."
 			(pcase org-babel-c-variant
 			  (`c ".c") (`cpp ".cpp") (`d ".d"))))
 	 (tmp-bin-file			;not used for D
-	  (org-babel-temp-file "C-bin-" org-babel-exeext))
+	  (org-babel-process-file-name
+	   (org-babel-temp-file "C-bin-" org-babel-exeext)))
 	 (cmdline (cdr (assq :cmdline params)))
 	 (cmdline (if cmdline (concat " " cmdline) ""))
 	 (flags (cdr (assq :flags params)))
@@ -151,7 +163,7 @@ or `org-babel-execute:C++' or `org-babel-execute:D'."
 		(pcase org-babel-c-variant
 		  (`c org-babel-C-compiler)
 		  (`cpp org-babel-C++-compiler))
-		(org-babel-process-file-name tmp-bin-file)
+		tmp-bin-file
 		flags
 		(org-babel-process-file-name tmp-src-file)
 		libs)
@@ -195,15 +207,18 @@ its header arguments."
 	(colnames (cdr (assq :colname-names params)))
 	(main-p (not (string= (cdr (assq :main params)) "no")))
 	(includes (org-babel-read
-		   (or (cdr (assq :includes params))
-		       (org-entry-get nil "includes" t))
+		   (cdr (assq :includes params))
 		   nil))
 	(defines (org-babel-read
-		  (or (cdr (assq :defines params))
-		      (org-entry-get nil "defines" t))
-		  nil)))
+		  (cdr (assq :defines params))
+		  nil))
+	(namespaces (org-babel-read
+		     (cdr (assq :namespaces params))
+		     nil)))
     (when (stringp includes)
       (setq includes (split-string includes)))
+    (when (stringp namespaces)
+      (setq namespaces (split-string namespaces)))
     (when (stringp defines)
       (let ((y nil)
 	    (result (list t)))
@@ -223,6 +238,11 @@ its header arguments."
 		(mapconcat
 		 (lambda (inc) (format "#define %s" inc))
 		 (if (listp defines) defines (list defines)) "\n")
+		;; namespaces
+		(mapconcat
+		 (lambda (inc) (format "using namespace %s;" inc))
+		 namespaces
+		 "\n")
 		;; variables
 		(mapconcat 'org-babel-C-var-to-C vars "\n")
 		;; table sizes
@@ -278,12 +298,12 @@ its header arguments."
 (defun org-babel-prep-session:C (_session _params)
   "This function does nothing as C is a compiled language with no
 support for sessions"
-  (error "C is a compiled languages -- no support for sessions"))
+  (error "C is a compiled language -- no support for sessions"))
 
 (defun org-babel-load-session:C (_session _body _params)
   "This function does nothing as C is a compiled language with no
 support for sessions"
-  (error "C is a compiled languages -- no support for sessions"))
+  (error "C is a compiled language -- no support for sessions"))
 
 ;; helper functions
 
@@ -353,8 +373,8 @@ FORMAT can be either a format string or a function which is called with VAL."
 	      (pcase (org-babel-C-val-to-base-type v)
 		(`stringp (setq type 'stringp))
 		(`floatp
-		 (if (or (not type) (eq type 'integerp))
-		     (setq type 'floatp)))
+		 (when (or (not type) (eq type 'integerp))
+		   (setq type 'floatp)))
 		(`integerp
 		 (unless type (setq type 'integerp)))))
 	    val)

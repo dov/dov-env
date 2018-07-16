@@ -1,10 +1,10 @@
 ;;; org-info.el --- Support for Links to Info Nodes -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
-;; Homepage: http://orgmode.org
+;; Homepage: https://orgmode.org
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -19,7 +19,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Commentary:
@@ -66,7 +66,7 @@
 
 (defun org-info-follow-link (name)
   "Follow an Info file and node link specified by NAME."
-  (if (or (string-match "\\(.*\\)[#:]:?\\(.*\\)" name)
+  (if (or (string-match "\\(.*\\)\\(?:#\\|::\\)\\(.*\\)" name)
           (string-match "\\(.*\\)" name))
       (let ((filename (match-string 1 name))
 	    (nodename-or-index (or (match-string 2 name) "Top")))
@@ -92,11 +92,11 @@
     "smtpmail" "speedbar" "srecode" "todo-mode" "tramp" "url" "vip" "viper"
     "widget" "wisent" "woman")
   "List of emacs documents available.
-Taken from <http://www.gnu.org/software/emacs/manual/html_mono/.>")
+Taken from <https://www.gnu.org/software/emacs/manual/html_mono/.>")
 
 (defconst org-info-other-documents
-  '(("libc" . "http://www.gnu.org/software/libc/manual/html_mono/libc.html")
-    ("make" . "http://www.gnu.org/software/make/manual/make.html"))
+  '(("libc" . "https://www.gnu.org/software/libc/manual/html_mono/libc.html")
+    ("make" . "https://www.gnu.org/software/make/manual/make.html"))
   "Alist of documents generated from Texinfo source.
 When converting info links to HTML, links to any one of these manuals are
 converted to use these URL.")
@@ -108,7 +108,7 @@ the official page for that document, e.g., use \"gnu.org\" for all Emacs
 related documents.  Otherwise, append \".html\" extension to FILENAME.
 See `org-info-emacs-documents' and `org-info-other-documents' for details."
   (cond ((member filename org-info-emacs-documents)
-	 (format "http://www.gnu.org/software/emacs/manual/html_mono/%s.html"
+	 (format "https://www.gnu.org/software/emacs/manual/html_mono/%s.html"
 		 filename))
 	((cdr (assoc filename org-info-other-documents)))
 	(t (concat filename ".html"))))
@@ -129,7 +129,7 @@ See `org-info-emacs-documents' and `org-info-other-documents' for details."
 (defun org-info-export (path desc format)
   "Export an info link.
 See `org-link-parameters' for details about PATH, DESC and FORMAT."
-  (let* ((parts (split-string path "[#:]:?"))
+  (let* ((parts (split-string path "#\\|::"))
 	 (manual (car parts))
 	 (node (or (nth 1 parts) "Top")))
     (pcase format

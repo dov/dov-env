@@ -1,10 +1,10 @@
 ;;; org-id.el --- Global identifiers for Org entries -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2008-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2018 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
-;; Homepage: http://orgmode.org
+;; Homepage: https://orgmode.org
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -19,7 +19,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Commentary:
@@ -73,6 +73,7 @@
 (require 'org)
 
 (declare-function message-make-fqdn "message" ())
+(declare-function org-goto-location "org-goto" (&optional _buf help))
 
 ;;; Customization
 
@@ -276,9 +277,9 @@ If necessary, the ID is created."
 ;;;###autoload
 (defun org-id-get-with-outline-drilling ()
   "Use an outline-cycling interface to retrieve the ID of an entry.
-This only finds entries in the current buffer, using `org-get-location'.
+This only finds entries in the current buffer, using `org-goto-location'.
 It returns the ID of the entry.  If necessary, the ID is created."
-  (let* ((spos (org-get-location (current-buffer) org-goto-help))
+  (let* ((spos (org-goto-location))
 	 (pom (and spos (move-marker (make-marker) (car spos)))))
     (prog1 (org-id-get pom 'create)
       (move-marker pom nil))))
@@ -539,8 +540,7 @@ When FILES is given, scan these files instead."
     (with-temp-buffer
       (condition-case nil
 	  (progn
-	    (insert-file-contents-literally org-id-locations-file)
-	    (goto-char (point-min))
+	    (insert-file-contents org-id-locations-file)
 	    (setq org-id-locations (read (current-buffer))))
 	(error
 	 (message "Could not read org-id-values from %s.  Setting it to nil."

@@ -1,10 +1,10 @@
 ;;; ob-tangle.el --- Extract Source Code From Org Files -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
-;; Homepage: http://orgmode.org
+;; Homepage: https://orgmode.org
 
 ;; This file is part of GNU Emacs.
 
@@ -19,7 +19,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -40,14 +40,12 @@
 (declare-function org-element-type "org-element" (element))
 (declare-function org-fill-template "org" (template alist))
 (declare-function org-heading-components "org" ())
+(declare-function org-id-find "org-id" (id &optional markerp))
 (declare-function org-in-commented-heading-p "org" (&optional no-inheritance))
 (declare-function org-link-escape "org" (text &optional table merge))
 (declare-function org-open-link-from-string "org" (s &optional arg reference-buffer))
-(declare-function org-remove-indentation "org" (code &optional n))
-(declare-function org-store-link "org" (arg))
-(declare-function org-trim "org" (s &optional keep-lead))
+(declare-function org-store-link "org" (arg &optional interactive?))
 (declare-function outline-previous-heading "outline" ())
-(declare-function org-id-find "org-id" (id &optional markerp))
 
 (defvar org-link-types-re)
 
@@ -196,6 +194,7 @@ Return a list whose CAR is the tangled file name."
   "Tangle FILENAME and place the results in PUB-DIR."
   (unless (file-exists-p pub-dir)
     (make-directory pub-dir t))
+  (setq pub-dir (file-name-as-directory pub-dir))
   (mapc (lambda (el) (copy-file el pub-dir t)) (org-babel-tangle-file filename)))
 
 ;;;###autoload
@@ -493,10 +492,9 @@ non-nil, return the full association list to be used by
 		  link)
 		source-name
 		params
-		(org-unescape-code-in-string
-		 (if org-src-preserve-indentation
-		     (org-trim body t)
-		   (org-trim (org-remove-indentation body))))
+		(if org-src-preserve-indentation
+		    (org-trim body t)
+		  (org-trim (org-remove-indentation body)))
 		comment)))
     (if only-this-block
 	(list (cons src-lang (list result)))
@@ -583,10 +581,12 @@ which enable the original code blocks to be found."
 		  (t (org-babel-next-src-block (1- n)))))
         (org-babel-goto-named-src-block block-name))
       (goto-char (org-babel-where-is-src-block-head))
-      ;; Preserve location of point within the source code in tangled
-      ;; code file.
       (forward-line 1)
-      (forward-char (- mid body-start))
+      ;; Try to preserve location of point within the source code in
+      ;; tangled code file.
+      (let ((offset (- mid body-start)))
+	(when (> end (+ offset (point)))
+	  (forward-char offset)))
       (setq target-char (point)))
     (org-src-switch-to-buffer target-buffer t)
     (goto-char target-char)

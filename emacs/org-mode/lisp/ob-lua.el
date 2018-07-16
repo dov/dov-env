@@ -1,10 +1,10 @@
 ;;; ob-lua.el --- Org Babel functions for Lua evaluation -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2014, 2016, 2017 Free Software Foundation, Inc.
+;; Copyright (C) 2014, 2016-2018 Free Software Foundation, Inc.
 
 ;; Authors: Dieter Schoen
 ;; Keywords: literate programming, reproducible research
-;; Homepage: http://orgmode.org
+;; Homepage: https://orgmode.org
 
 ;; This file is part of GNU Emacs.
 
@@ -19,13 +19,13 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;; Requirements:
 ;; for session support, lua-mode is needed.
 ;; lua-mode is not part of GNU Emacs/orgmode, but can be obtained
 ;; from marmalade or melpa.
-;; The source respository is here:
+;; The source repository is here:
 ;; https://github.com/immerrr/lua-mode
 
 ;; However, sessions are not yet working.
@@ -34,10 +34,9 @@
 
 ;;; Code:
 (require 'ob)
+(require 'org-macs)
 (require 'cl-lib)
 
-(declare-function org-remove-indentation "org" (code &optional n))
-(declare-function org-trim "org" (s &optional keep-lead))
 (declare-function lua-shell "ext:lua-mode" (&optional argprompt))
 (declare-function lua-toggle-shells "ext:lua-mode" (arg))
 (declare-function run-lua "ext:lua" (cmd &optional dedicated show))
@@ -49,7 +48,7 @@
 
 (defcustom org-babel-lua-command "lua"
   "Name of the command for executing Lua code."
-  :version "24.5"
+  :version "26.1"
   :package-version '(Org . "8.3")
   :group 'org-babel
   :type 'string)
@@ -58,21 +57,21 @@
   "Preferred lua mode for use in running lua interactively.
 This will typically be 'lua-mode."
   :group 'org-babel
-  :version "24.5"
+  :version "26.1"
   :package-version '(Org . "8.3")
   :type 'symbol)
 
 (defcustom org-babel-lua-hline-to "None"
   "Replace hlines in incoming tables with this when translating to lua."
   :group 'org-babel
-  :version "24.5"
+  :version "26.1"
   :package-version '(Org . "8.3")
   :type 'string)
 
 (defcustom org-babel-lua-None-to 'hline
   "Replace 'None' in lua tables with this before returning."
   :group 'org-babel
-  :version "24.5"
+  :version "26.1"
   :package-version '(Org . "8.3")
   :type 'symbol)
 
@@ -291,13 +290,13 @@ last statement in BODY, as elisp."
   (let ((raw
          (pcase result-type
            (`output (org-babel-eval org-babel-lua-command
-				    (concat (if preamble (concat preamble "\n"))
+				    (concat preamble (and preamble "\n")
 					    body)))
            (`value (let ((tmp-file (org-babel-temp-file "lua-")))
 		     (org-babel-eval
 		      org-babel-lua-command
 		      (concat
-		       (if preamble (concat preamble "\n") "")
+		       preamble (and preamble "\n")
 		       (format
 			(if (member "pp" result-params)
 			    org-babel-lua-pp-wrapper-method

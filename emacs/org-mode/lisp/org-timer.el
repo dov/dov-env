@@ -1,10 +1,10 @@
 ;;; org-timer.el --- Timer code for Org mode         -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2008-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2018 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
-;; Homepage: http://orgmode.org
+;; Homepage: https://orgmode.org
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -19,7 +19,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Commentary:
@@ -69,7 +69,7 @@ the value of the timer."
   "The default timer when a timer is set, in minutes or hh:mm:ss format.
 When 0, the user is prompted for a value."
   :group 'org-time
-  :version "25.2"
+  :version "26.1"
   :package-version '(Org . "8.3")
   :type 'string)
 
@@ -143,7 +143,7 @@ the region 0:00:00."
 	      (seconds-to-time
 	       ;; Pass `current-time' result to `float-time' (instead
 	       ;; of calling without arguments) so that only
-	       ;; `current-time' has to be overriden in tests.
+	       ;; `current-time' has to be overridden in tests.
 	       (- (float-time (current-time)) delta))))
       (setq org-timer-pause-time nil)
       (org-timer-set-mode-line 'on)
@@ -152,6 +152,7 @@ the region 0:00:00."
 	       (org-timer-secs-to-hms (or delta 0)))
       (run-hooks 'org-timer-start-hook)))))
 
+;;;###autoload
 (defun org-timer-pause-or-continue (&optional stop)
   "Pause or continue the relative or countdown timer.
 With prefix arg STOP, stop it entirely."
@@ -172,7 +173,7 @@ With prefix arg STOP, stop it entirely."
 	(setq org-timer-start-time
 	      ;; Pass `current-time' result to `float-time' (instead
 	      ;; of calling without arguments) so that only
-	      ;; `current-time' has to be overriden in tests.
+	      ;; `current-time' has to be overridden in tests.
 	      (seconds-to-time (- (float-time (current-time))
 				  (- pause-secs start-secs)))))
       (setq org-timer-pause-time nil)
@@ -189,6 +190,7 @@ With prefix arg STOP, stop it entirely."
     (org-timer-set-mode-line 'paused)
     (message "Timer paused at %s" (org-timer-value-string)))))
 
+;;;###autoload
 (defun org-timer-stop ()
   "Stop the relative or countdown timer."
   (interactive)
@@ -235,7 +237,7 @@ it in the buffer."
 (defun org-timer-seconds ()
   ;; Pass `current-time' result to `float-time' (instead of calling
   ;; without arguments) so that only `current-time' has to be
-  ;; overriden in tests.
+  ;; overridden in tests.
   (if org-timer-countdown-timer
       (- (float-time org-timer-start-time)
 	 (float-time (or org-timer-pause-time (current-time))))
@@ -436,7 +438,7 @@ using three `C-u' prefix arguments."
 	   (if (numberp org-timer-default-timer)
 	       (number-to-string org-timer-default-timer)
 	     org-timer-default-timer))
-	 (effort-minutes (ignore-errors (org-get-at-eol 'effort-minutes 1)))
+	 (effort-minutes (ignore-errors (floor (org-get-at-eol 'effort-minutes 1))))
 	 (minutes (or (and (numberp opt) (number-to-string opt))
 		      (and (not (equal opt '(64)))
 			   effort-minutes

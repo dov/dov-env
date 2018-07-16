@@ -1,6 +1,6 @@
 ;;; ox.el --- Export Framework for Org Mode          -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2018 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou at gmail dot com>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -18,7 +18,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 ;;
@@ -66,7 +66,7 @@
 ;; Eventually, a dispatcher (`org-export-dispatch') is provided in the
 ;; last one.
 ;;
-;; See <http://orgmode.org/worg/dev/org-export-reference.html> for
+;; See <https://orgmode.org/worg/dev/org-export-reference.html> for
 ;; more information.
 
 ;;; Code:
@@ -375,7 +375,7 @@ see.
 This option can also be set with the OPTIONS keyword, e.g.,
 \"creator:t\"."
   :group 'org-export-general
-  :version "25.2"
+  :version "26.1"
   :package-version '(Org . "8.3")
   :type 'boolean
   :safe #'booleanp)
@@ -437,11 +437,7 @@ e.g. \"d:nil\"."
 		(repeat :tag "Specify names of drawers to ignore during export"
 			:inline t
 			(string :tag "Drawer name"))))
-  :safe (lambda (x) (or (booleanp x)
-			(and (listp x)
-			     (or (cl-every #'stringp x)
-				 (and (eq (nth 0 x) 'not)
-				      (cl-every #'stringp (cdr x))))))))
+  :safe (lambda (x) (or (booleanp x) (consp x))))
 
 (defcustom org-export-with-email nil
   "Non-nil means insert author email into the exported file.
@@ -598,7 +594,7 @@ properties to export, as strings.
 This option can also be set with the OPTIONS keyword,
 e.g. \"prop:t\"."
   :group 'org-export-general
-  :version "24.4"
+  :version "26.1"
   :package-version '(Org . "8.3")
   :type '(choice
 	  (const :tag "All properties" t)
@@ -718,12 +714,15 @@ frequently in plain text."
 (defcustom org-export-with-toc t
   "Non-nil means create a table of contents in exported files.
 
-The TOC contains headlines with levels up
-to`org-export-headline-levels'.  When an integer, include levels
-up to N in the toc, this may then be different from
-`org-export-headline-levels', but it will not be allowed to be
-larger than the number of headline levels.  When nil, no table of
-contents is made.
+The table of contents contains headlines with levels up to
+`org-export-headline-levels'.
+
+When this variable is set to an integer N, include levels up to
+N in the table of contents.  Although it may then be different
+from `org-export-headline-levels', it is cannot be larger than
+the number of headline levels.
+
+When nil, no table of contents is created.
 
 This option can also be set with the OPTIONS keyword,
 e.g. \"toc:nil\" or \"toc:3\"."
@@ -732,8 +731,9 @@ e.g. \"toc:nil\" or \"toc:3\"."
 	  (const :tag "No Table of Contents" nil)
 	  (const :tag "Full Table of Contents" t)
 	  (integer :tag "TOC to level"))
-  :safe (lambda (x) (or (booleanp x)
-			(integerp x))))
+  :safe (lambda (x)
+	  (or (booleanp x)
+	      (integerp x))))
 
 (defcustom org-export-with-tables t
   "Non-nil means export tables.
@@ -790,7 +790,7 @@ e.g. \"tasks:nil\"."
 This option can also be set with the OPTIONS keyword,
 e.g. \"title:nil\"."
   :group 'org-export-general
-  :version "25.2"
+  :version "26.1"
   :package-version '(Org . "8.3")
   :type 'boolean
   :safe #'booleanp)
@@ -856,7 +856,7 @@ where PATH is the un-resolvable reference.
 This option can also be set with the OPTIONS keyword, e.g.,
 \"broken-links:mark\"."
   :group 'org-export-general
-  :version "25.2"
+  :version "26.1"
   :package-version '(Org . "9.0")
   :type '(choice
 	  (const :tag "Ignore broken links" t)
@@ -900,7 +900,7 @@ macro's arguments.  Moreover, if the template starts with
 \"(eval\", it will be parsed as an Elisp expression and evaluated
 accordingly."
   :group 'org-export-general
-  :version "25.2"
+  :version "26.1"
   :package-version '(Org . "9.1")
   :type '(repeat
 	  (cons (string :tag "Name")
@@ -917,7 +917,7 @@ accordingly."
   "Non-nil means pushing export output to the kill ring.
 This variable is ignored during asynchronous export."
   :group 'org-export-general
-  :version "25.2"
+  :version "26.1"
   :package-version '(Org . "8.3")
   :type '(choice
 	  (const :tag "Always" t)
@@ -1092,7 +1092,9 @@ BACKEND is an export back-end, as return by, e.g,,
 for the shape of the return value.
 
 Unlike to `org-export-backend-options', this function also
-returns options inherited from parent back-ends, if any."
+returns options inherited from parent back-ends, if any.
+
+Return nil if BACKEND is unknown."
   (when (symbolp backend) (setq backend (org-export-get-backend backend)))
   (when backend
     (let ((options (org-export-backend-options backend))
@@ -1396,7 +1398,7 @@ specific items to read, if any."
 		   alist))
 	   alist))
 	;; Priority is given to back-end specific options.
-	(all (append (and backend (org-export-get-all-options backend))
+	(all (append (org-export-get-all-options backend)
 		     org-export-options-alist))
 	(plist))
     (when line
@@ -1433,7 +1435,7 @@ for export.  Return options as a plist."
 			     (match-string-no-properties 4))))))
 	 ;; Look for both general keywords and back-end specific
 	 ;; options, with priority given to the latter.
-	 (options (append (and backend (org-export-get-all-options backend))
+	 (options (append (org-export-get-all-options backend)
 			  org-export-options-alist)))
      ;; Handle other keywords.  Then return PLIST.
      (dolist (option options plist)
@@ -1454,7 +1456,7 @@ for export.  Return options as a plist."
 				  (parse
 				   (org-element-parse-secondary-string
 				    value (org-element-restriction 'keyword)))
-				  (split (org-split-string value))
+				  (split (split-string value))
 				  (t value))))))))))))
 
 (defun org-export--get-inbuffer-options (&optional backend)
@@ -1469,7 +1471,7 @@ Assume buffer is in Org mode.  Narrowing, if any, is ignored."
   (let* ((case-fold-search t)
 	 (options (append
 		   ;; Priority is given to back-end specific options.
-		   (and backend (org-export-get-all-options backend))
+		   (org-export-get-all-options backend)
 		   org-export-options-alist))
 	 (regexp (format "^[ \t]*#\\+%s:"
 			 (regexp-opt (nconc (delq nil (mapcar #'cadr options))
@@ -1497,17 +1499,20 @@ Assume buffer is in Org mode.  Narrowing, if any, is ignored."
 			 (cond
 			  ;; Options in `org-export-special-keywords'.
 			  ((equal key "SETUPFILE")
-			   (let ((file
-				  (expand-file-name
-				   (org-unbracket-string "\"" "\"" (org-trim val)))))
+			   (let* ((uri (org-unbracket-string "\"" "\"" (org-trim val)))
+				  (uri-is-url (org-file-url-p uri))
+				  (uri (if uri-is-url
+					   uri
+					 (expand-file-name uri))))
 			     ;; Avoid circular dependencies.
-			     (unless (member file files)
+			     (unless (member uri files)
 			       (with-temp-buffer
-				 (setq default-directory
-				   (file-name-directory file))
-				 (insert (org-file-contents file 'noerror))
+				 (unless uri-is-url
+				   (setq default-directory
+					 (file-name-directory uri)))
+				 (insert (org-file-contents uri 'noerror))
 				 (let ((org-inhibit-startup t)) (org-mode))
-				 (funcall get-options (cons file files))))))
+				 (funcall get-options (cons uri files))))))
 			  ((equal key "OPTIONS")
 			   (setq plist
 				 (org-combine-plists
@@ -1559,7 +1564,7 @@ Assume buffer is in Org mode.  Narrowing, if any, is ignored."
 					   "\n"
 					   (org-trim val))))
 				 (split `(,@(plist-get plist property)
-					  ,@(org-split-string val)))
+					  ,@(split-string val)))
 				 ((t) val)
 				 (otherwise
 				  (if (not (plist-member plist property)) val
@@ -1606,7 +1611,7 @@ which back-end specific export options should also be read in the
 process."
   (let (plist
 	;; Priority is given to back-end specific options.
-	(all (append (and backend (org-export-get-all-options backend))
+	(all (append (org-export-get-all-options backend)
 		     org-export-options-alist)))
     (dolist (cell all plist)
       (let ((prop (car cell)))
@@ -1645,17 +1650,22 @@ an alist where associations are (VARIABLE-NAME VALUE)."
 				      "BIND")
 			       (push (read (format "(%s)" val)) alist)
 			     ;; Enter setup file.
-			     (let ((file (expand-file-name
-					  (org-unbracket-string "\"" "\"" val))))
-			       (unless (member file files)
+			     (let* ((uri (org-unbracket-string "\"" "\"" val))
+				    (uri-is-url (org-file-url-p uri))
+				    (uri (if uri-is-url
+					     uri
+					   (expand-file-name uri))))
+			       ;; Avoid circular dependencies.
+			       (unless (member uri files)
 				 (with-temp-buffer
-				   (setq default-directory
-					 (file-name-directory file))
+				   (unless uri-is-url
+				     (setq default-directory
+					   (file-name-directory uri)))
 				   (let ((org-inhibit-startup t)) (org-mode))
-				   (insert (org-file-contents file 'noerror))
+				   (insert (org-file-contents uri 'noerror))
 				   (setq alist
 					 (funcall collect-bind
-						  (cons file files)
+						  (cons uri files)
 						  alist))))))))))
 		   alist)))))
       ;; Return value in appropriate order of appearance.
@@ -1771,7 +1781,8 @@ for a footnotes section."
   "List headlines and inlinetasks with a select tag in their tree.
 DATA is parsed data as returned by `org-element-parse-buffer'.
 INFO is a plist holding export options."
-  (let ((select (plist-get info :select-tags)))
+  (let ((select (cl-mapcan (lambda (tag) (org-tags-expand tag t))
+			   (plist-get info :select-tags))))
     (if (cl-some (lambda (tag) (member tag select)) (plist-get info :filetags))
 	;; If FILETAGS contains a select tag, every headline or
 	;; inlinetask is returned.
@@ -1805,11 +1816,13 @@ INFO is a plist holding export options."
 	(funcall walk-data data nil)
 	selected-trees))))
 
-(defun org-export--skip-p (datum options selected)
+(defun org-export--skip-p (datum options selected excluded)
   "Non-nil when element or object DATUM should be skipped during export.
 OPTIONS is the plist holding export options.  SELECTED, when
 non-nil, is a list of headlines or inlinetasks belonging to
-a tree with a select tag."
+a tree with a select tag.  EXCLUDED is a list of tags, as
+strings.  Any headline or inlinetask marked with one of those is
+not exported."
   (cl-case (org-element-type datum)
     ((comment comment-block)
      ;; Skip all comments and comment blocks.  Make to keep maximum
@@ -1848,8 +1861,7 @@ a tree with a select tag."
 	(and (eq (org-element-type datum) 'inlinetask)
 	     (not (plist-get options :with-inlinetasks)))
 	;; Ignore subtrees with an exclude tag.
-	(cl-loop for k in (plist-get options :exclude-tags)
-		 thereis (member k tags))
+	(cl-some (lambda (tag) (member tag excluded)) tags)
 	;; When a select tag is present in the buffer, ignore any tree
 	;; without it.
 	(and selected (not (memq datum selected)))
@@ -1995,17 +2007,18 @@ Return a string."
 				  ;; normalized first.
 				  (org-element-normalize-contents
 				   data
-				   ;; When normalizing contents of the
-				   ;; first paragraph in an item or
-				   ;; a footnote definition, ignore
-				   ;; first line's indentation: there is
-				   ;; none and it might be misleading.
-				   (when (eq type 'paragraph)
-				     (and
-				      (eq (car (org-element-contents parent))
-					  data)
-				      (memq (org-element-type parent)
-					    '(footnote-definition item)))))))
+				   ;; When normalizing first paragraph
+				   ;; of an item or
+				   ;; a footnote-definition, ignore
+				   ;; first line's indentation.
+				   (and
+				    (eq type 'paragraph)
+				    (memq (org-element-type parent)
+					  '(footnote-definition item))
+				    (eq (car (org-element-contents parent))
+					data)
+				    (eq (org-element-property :pre-blank parent)
+					0)))))
 			       "")))
 			(broken-link-handler
 			 (funcall transcoder data
@@ -2703,6 +2716,9 @@ from tree."
   (letrec ((ignore nil)
 	   ;; First find trees containing a select tag, if any.
 	   (selected (org-export--selected-trees data info))
+	   ;; List tags that prevent export of headlines.
+	   (excluded (cl-mapcan (lambda (tag) (org-tags-expand tag t))
+				(plist-get info :exclude-tags)))
 	   (walk-data
 	    (lambda (data)
 	      ;; Prune non-exportable elements and objects from tree.
@@ -2711,7 +2727,7 @@ from tree."
 	      ;; accessed during export.
 	      (when data
 		(let ((type (org-element-type data)))
-		  (if (org-export--skip-p data info selected)
+		  (if (org-export--skip-p data info selected excluded)
 		      (if (memq type '(table-cell table-row)) (push data ignore)
 			(org-element-extract-element data))
 		    (if (and (eq type 'headline)
@@ -2733,14 +2749,11 @@ from tree."
 	     (org-element-map data '(footnote-definition footnote-reference)
 	       (lambda (f)
 		 (cond
-		  ((eq (org-element-type f) 'footnote-definition) f)
-		  ((eq (org-element-property :type f) 'standard) nil)
-		  (t (let ((label (org-element-property :label f)))
-		       (when label	;Skip anonymous references.
-			 (apply
-			  #'org-element-create
-			  'footnote-definition `(:label ,label :post-blank 1)
-			  (org-element-contents f))))))))))
+		  ((eq 'footnote-definition (org-element-type f)) f)
+		  ((and (eq 'inline (org-element-property :type f))
+			(org-element-property :label f))
+		   f)
+		  (t nil))))))
     ;; If a select tag is active, also ignore the section before the
     ;; first headline, if any.
     (when selected
@@ -2865,7 +2878,8 @@ containing their first reference."
      (org-element-create 'headline
 			 (list :footnote-section-p t
 			       :level 1
-			       :title org-footnote-section)
+			       :title org-footnote-section
+			       :raw-value org-footnote-section)
 			 (apply #'org-element-create
 				'section
 				nil
@@ -2901,83 +2915,67 @@ containing their first reference."
 
 (defun org-export--remove-uninterpreted-data (data info)
   "Change uninterpreted elements back into Org syntax.
-DATA is the parse tree.  INFO is a plist containing export
-options.  Each uninterpreted element or object is changed back
-into a string.  Contents, if any, are not modified.  The parse
-tree is modified by side effect."
-  (org-export--remove-uninterpreted-data-1 data info)
-  (dolist (entry org-export-options-alist)
-    (when (eq (nth 4 entry) 'parse)
-      (let ((p (car entry)))
-	(plist-put info
-		   p
-		   (org-export--remove-uninterpreted-data-1
-		    (plist-get info p)
-		    info))))))
-
-(defun org-export--remove-uninterpreted-data-1 (data info)
-  "Change uninterpreted elements back into Org syntax.
 DATA is a parse tree or a secondary string.  INFO is a plist
 containing export options.  It is modified by side effect and
 returned by the function."
   (org-element-map data
       '(entity bold italic latex-environment latex-fragment strike-through
 	       subscript superscript underline)
-    (lambda (blob)
+    (lambda (datum)
       (let ((new
-	     (cl-case (org-element-type blob)
+	     (cl-case (org-element-type datum)
 	       ;; ... entities...
 	       (entity
 		(and (not (plist-get info :with-entities))
 		     (list (concat
-			    (org-export-expand blob nil)
+			    (org-export-expand datum nil)
 			    (make-string
-			     (or (org-element-property :post-blank blob) 0)
+			     (or (org-element-property :post-blank datum) 0)
 			     ?\s)))))
 	       ;; ... emphasis...
 	       ((bold italic strike-through underline)
 		(and (not (plist-get info :with-emphasize))
-		     (let ((marker (cl-case (org-element-type blob)
+		     (let ((marker (cl-case (org-element-type datum)
 				     (bold "*")
 				     (italic "/")
 				     (strike-through "+")
 				     (underline "_"))))
 		       (append
 			(list marker)
-			(org-element-contents blob)
+			(org-element-contents datum)
 			(list (concat
 			       marker
 			       (make-string
-				(or (org-element-property :post-blank blob)
+				(or (org-element-property :post-blank datum)
 				    0)
 				?\s)))))))
 	       ;; ... LaTeX environments and fragments...
 	       ((latex-environment latex-fragment)
 		(and (eq (plist-get info :with-latex) 'verbatim)
-		     (list (org-export-expand blob nil))))
+		     (list (org-export-expand datum nil))))
 	       ;; ... sub/superscripts...
 	       ((subscript superscript)
 		(let ((sub/super-p (plist-get info :with-sub-superscript))
-		      (bracketp (org-element-property :use-brackets-p blob)))
+		      (bracketp (org-element-property :use-brackets-p datum)))
 		  (and (or (not sub/super-p)
 			   (and (eq sub/super-p '{}) (not bracketp)))
 		       (append
 			(list (concat
-			       (if (eq (org-element-type blob) 'subscript)
+			       (if (eq (org-element-type datum) 'subscript)
 				   "_"
 				 "^")
 			       (and bracketp "{")))
-			(org-element-contents blob)
+			(org-element-contents datum)
 			(list (concat
 			       (and bracketp "}")
-			       (and (org-element-property :post-blank blob)
+			       (and (org-element-property :post-blank datum)
 				    (make-string
-				     (org-element-property :post-blank blob)
+				     (org-element-property :post-blank datum)
 				     ?\s)))))))))))
 	(when new
-	  ;; Splice NEW at BLOB location in parse tree.
-	  (dolist (e new (org-element-extract-element blob))
-	    (unless (equal e "") (org-element-insert-before e blob))))))
+	  ;; Splice NEW at DATUM location in parse tree.
+	  (dolist (e new (org-element-extract-element datum))
+	    (unless (equal e "") (org-element-insert-before e datum))))))
     info nil nil t)
   ;; Return modified parse tree.
   data)
@@ -3045,20 +3043,23 @@ Return code as a string."
 	 ;; Run first hook with current back-end's name as argument.
 	 (run-hook-with-args 'org-export-before-processing-hook
 			     (org-export-backend-name backend))
-	 ;; Include files, delete comments and expand macros.
 	 (org-export-expand-include-keyword)
 	 (org-export--delete-comment-trees)
 	 (org-macro-initialize-templates)
-	 (org-macro-replace-all
-	  (append org-macro-templates org-export-global-macros)
-	  nil parsed-keywords)
-	 ;; Refresh buffer properties and radio targets after
-	 ;; potentially invasive previous changes.  Likewise, do it
-	 ;; again after executing Babel code.
+	 (org-macro-replace-all (append org-macro-templates
+					org-export-global-macros)
+				parsed-keywords)
+	 ;; Refresh buffer properties and radio targets after previous
+	 ;; potentially invasive changes.
 	 (org-set-regexps-and-options)
 	 (org-update-radio-target-regexp)
+	 ;;  Possibly execute Babel code.  Re-run a macro expansion
+	 ;;  specifically for {{{results}}} since inline source blocks
+	 ;;  may have generated some more.  Refresh buffer properties
+	 ;;  and radio targets another time.
 	 (when org-export-use-babel
 	   (org-babel-exp-process-buffer)
+	   (org-macro-replace-all '(("results" . "$1")) parsed-keywords)
 	   (org-set-regexps-and-options)
 	   (org-update-radio-target-regexp))
 	 ;; Run last hook with current back-end's name as argument.
@@ -3070,12 +3071,22 @@ Return code as a string."
 			       (org-export-backend-name backend)))
 	 (org-set-regexps-and-options)
 	 (org-update-radio-target-regexp)
-	 ;; Update communication channel with environment.  Also
-	 ;; install user's and developer's filters.
+	 ;; Update communication channel with environment.
 	 (setq info
-	       (org-export-install-filters
-		(org-combine-plists
-		 info (org-export-get-environment backend subtreep ext-plist))))
+	       (org-combine-plists
+		info (org-export-get-environment backend subtreep ext-plist)))
+	 ;; De-activate uninterpreted data from parsed keywords.
+	 (dolist (entry (append (org-export-get-all-options backend)
+				org-export-options-alist))
+	   (pcase entry
+	     (`(,p ,_ ,_ ,_ parse)
+	      (let ((value (plist-get info p)))
+		(plist-put info
+			   p
+			   (org-export--remove-uninterpreted-data value info))))
+	     (_ nil)))
+	 ;; Install user's and developer's filters.
+	 (setq info (org-export-install-filters info))
 	 ;; Call options filters and update export options.  We do not
 	 ;; use `org-export-filter-apply-functions' here since the
 	 ;; arity of such filters is different.
@@ -3083,29 +3094,6 @@ Return code as a string."
 	   (dolist (filter (plist-get info :filter-options))
 	     (let ((result (funcall filter info backend-name)))
 	       (when result (setq info result)))))
-	 ;; Expand export-specific set of macros: {{{author}}},
-	 ;; {{{date(FORMAT)}}}, {{{email}}} and {{{title}}}.  It must
-	 ;; be done once regular macros have been expanded, since
-	 ;; parsed keywords may contain one of them.
-	 (org-macro-replace-all
-	  (list
-	   (cons "author" (org-element-interpret-data (plist-get info :author)))
-	   (cons "date"
-		 (let* ((date (plist-get info :date))
-			(value (or (org-element-interpret-data date) "")))
-		   (if (and (consp date)
-			    (not (cdr date))
-			    (eq (org-element-type (car date)) 'timestamp))
-		       (format "(eval (if (org-string-nw-p \"$1\") %s %S))"
-			       (format "(org-timestamp-format '%S \"$1\")"
-				       (org-element-copy (car date)))
-			       value)
-		     value)))
-	   (cons "email" (org-element-interpret-data (plist-get info :email)))
-	   (cons "title" (org-element-interpret-data (plist-get info :title)))
-	   (cons "results" "$1"))
-	  'finalize
-	  parsed-keywords)
 	 ;; Parse buffer.
 	 (setq tree (org-element-parse-buffer nil visible-only))
 	 ;; Prune tree from non-exported elements and transform
@@ -3268,7 +3256,8 @@ avoid infinite recursion.  Optional argument DIR is the current
 working directory.  It is used to properly resolve relative
 paths.  Optional argument FOOTNOTES is a hash-table used for
 storing and resolving footnotes.  It is created automatically."
-  (let ((case-fold-search t)
+  (let ((includer-file (buffer-file-name (buffer-base-buffer)))
+	(case-fold-search t)
 	(file-prefix (make-hash-table :test #'equal))
 	(current-prefix 0)
 	(footnotes (or footnotes (make-hash-table :test #'equal)))
@@ -3285,116 +3274,121 @@ storing and resolving footnotes.  It is created automatically."
     ;; Expand INCLUDE keywords.
     (goto-char (point-min))
     (while (re-search-forward include-re nil t)
-      (let ((element (save-match-data (org-element-at-point))))
-	(when (eq (org-element-type element) 'keyword)
-	  (beginning-of-line)
-	  ;; Extract arguments from keyword's value.
-	  (let* ((value (org-element-property :value element))
-		 (ind (org-get-indentation))
-		 location
-		 (file
-		  (and (string-match
-			"^\\(\".+?\"\\|\\S-+\\)\\(?:\\s-+\\|$\\)" value)
-		       (prog1
-			   (save-match-data
-			     (let ((matched (match-string 1 value)))
-			       (when (string-match "\\(::\\(.*?\\)\\)\"?\\'"
-						   matched)
-				 (setq location (match-string 2 matched))
-				 (setq matched
-				       (replace-match "" nil nil matched 1)))
-			       (expand-file-name
-				(org-unbracket-string "\"" "\"" matched)
-				dir)))
-			 (setq value (replace-match "" nil nil value)))))
-		 (only-contents
-		  (and (string-match ":only-contents *\\([^: \r\t\n]\\S-*\\)?"
-				     value)
-		       (prog1 (org-not-nil (match-string 1 value))
-			 (setq value (replace-match "" nil nil value)))))
-		 (lines
-		  (and (string-match
-			":lines +\"\\(\\(?:[0-9]+\\)?-\\(?:[0-9]+\\)?\\)\""
-			value)
-		       (prog1 (match-string 1 value)
-			 (setq value (replace-match "" nil nil value)))))
-		 (env (cond
-		       ((string-match "\\<example\\>" value) 'literal)
-		       ((string-match "\\<export\\(?: +\\(.*\\)\\)?" value)
-			'literal)
-		       ((string-match "\\<src\\(?: +\\(.*\\)\\)?" value)
-			'literal)))
-		 ;; Minimal level of included file defaults to the child
-		 ;; level of the current headline, if any, or one.  It
-		 ;; only applies is the file is meant to be included as
-		 ;; an Org one.
-		 (minlevel
-		  (and (not env)
-		       (if (string-match ":minlevel +\\([0-9]+\\)" value)
-			   (prog1 (string-to-number (match-string 1 value))
-			     (setq value (replace-match "" nil nil value)))
-			 (get-text-property (point)
-					    :org-include-induced-level))))
-		 (args (and (eq env 'literal) (match-string 1 value)))
-		 (block (and (string-match "\\<\\(\\S-+\\)\\>" value)
-			     (match-string 1 value))))
-	    ;; Remove keyword.
-	    (delete-region (point) (line-beginning-position 2))
-	    (cond
-	     ((not file) nil)
-	     ((not (file-readable-p file))
-	      (error "Cannot include file %s" file))
-	     ;; Check if files has already been parsed.  Look after
-	     ;; inclusion lines too, as different parts of the same file
-	     ;; can be included too.
-	     ((member (list file lines) included)
-	      (error "Recursive file inclusion: %s" file))
-	     (t
+      (unless (org-in-commented-heading-p)
+	(let ((element (save-match-data (org-element-at-point))))
+	  (when (eq (org-element-type element) 'keyword)
+	    (beginning-of-line)
+	    ;; Extract arguments from keyword's value.
+	    (let* ((value (org-element-property :value element))
+		   (ind (current-indentation))
+		   location
+		   (file
+		    (and (string-match
+			  "^\\(\".+?\"\\|\\S-+\\)\\(?:\\s-+\\|$\\)" value)
+			 (prog1
+			     (save-match-data
+			       (let ((matched (match-string 1 value)))
+				 (when (string-match "\\(::\\(.*?\\)\\)\"?\\'"
+						     matched)
+				   (setq location (match-string 2 matched))
+				   (setq matched
+					 (replace-match "" nil nil matched 1)))
+				 (expand-file-name
+				  (org-unbracket-string "\"" "\"" matched)
+				  dir)))
+			   (setq value (replace-match "" nil nil value)))))
+		   (only-contents
+		    (and (string-match ":only-contents *\\([^: \r\t\n]\\S-*\\)?"
+				       value)
+			 (prog1 (org-not-nil (match-string 1 value))
+			   (setq value (replace-match "" nil nil value)))))
+		   (lines
+		    (and (string-match
+			  ":lines +\"\\(\\(?:[0-9]+\\)?-\\(?:[0-9]+\\)?\\)\""
+			  value)
+			 (prog1 (match-string 1 value)
+			   (setq value (replace-match "" nil nil value)))))
+		   (env (cond
+			 ((string-match "\\<example\\>" value) 'literal)
+			 ((string-match "\\<export\\(?: +\\(.*\\)\\)?" value)
+			  'literal)
+			 ((string-match "\\<src\\(?: +\\(.*\\)\\)?" value)
+			  'literal)))
+		   ;; Minimal level of included file defaults to the
+		   ;; child level of the current headline, if any, or
+		   ;; one.  It only applies is the file is meant to be
+		   ;; included as an Org one.
+		   (minlevel
+		    (and (not env)
+			 (if (string-match ":minlevel +\\([0-9]+\\)" value)
+			     (prog1 (string-to-number (match-string 1 value))
+			       (setq value (replace-match "" nil nil value)))
+			   (get-text-property (point)
+					      :org-include-induced-level))))
+		   (args (and (eq env 'literal) (match-string 1 value)))
+		   (block (and (string-match "\\<\\(\\S-+\\)\\>" value)
+			       (match-string 1 value))))
+	      ;; Remove keyword.
+	      (delete-region (point) (line-beginning-position 2))
 	      (cond
-	       ((eq env 'literal)
-		(insert
-		 (let ((ind-str (make-string ind ?\s))
-		       (arg-str (if (stringp args) (format " %s" args) ""))
-		       (contents
-			(org-escape-code-in-string
-			 (org-export--prepare-file-contents file lines))))
-		   (format "%s#+BEGIN_%s%s\n%s%s#+END_%s\n"
-			   ind-str block arg-str contents ind-str block))))
-	       ((stringp block)
-		(insert
-		 (let ((ind-str (make-string ind ?\s))
-		       (contents
-			(org-export--prepare-file-contents file lines)))
-		   (format "%s#+BEGIN_%s\n%s%s#+END_%s\n"
-			   ind-str block contents ind-str block))))
+	       ((not file) nil)
+	       ((not (file-readable-p file))
+		(error "Cannot include file %s" file))
+	       ;; Check if files has already been parsed.  Look after
+	       ;; inclusion lines too, as different parts of the same
+	       ;; file can be included too.
+	       ((member (list file lines) included)
+		(error "Recursive file inclusion: %s" file))
 	       (t
-		(insert
-		 (with-temp-buffer
-		   (let ((org-inhibit-startup t)
-			 (lines
-			  (if location
-			      (org-export--inclusion-absolute-lines
-			       file location only-contents lines)
-			    lines)))
-		     (org-mode)
-                     (insert
-		      (org-export--prepare-file-contents
-		       file lines ind minlevel
-		       (or (gethash file file-prefix)
-			   (puthash file (cl-incf current-prefix) file-prefix))
-		       footnotes)))
-		   (org-export-expand-include-keyword
-		    (cons (list file lines) included)
-		    (file-name-directory file)
-		    footnotes)
-		   (buffer-string)))))
-	      ;; Expand footnotes after all files have been included.
-	      ;; Footnotes are stored at end of buffer.
-	      (unless included
-		(org-with-wide-buffer
-		 (goto-char (point-max))
-		 (maphash (lambda (k v) (insert (format "\n[fn:%s] %s\n" k v)))
-			  footnotes)))))))))))
+		(cond
+		 ((eq env 'literal)
+		  (insert
+		   (let ((ind-str (make-string ind ?\s))
+			 (arg-str (if (stringp args) (format " %s" args) ""))
+			 (contents
+			  (org-escape-code-in-string
+			   (org-export--prepare-file-contents file lines))))
+		     (format "%s#+BEGIN_%s%s\n%s%s#+END_%s\n"
+			     ind-str block arg-str contents ind-str block))))
+		 ((stringp block)
+		  (insert
+		   (let ((ind-str (make-string ind ?\s))
+			 (contents
+			  (org-export--prepare-file-contents file lines)))
+		     (format "%s#+BEGIN_%s\n%s%s#+END_%s\n"
+			     ind-str block contents ind-str block))))
+		 (t
+		  (insert
+		   (with-temp-buffer
+		     (let ((org-inhibit-startup t)
+			   (lines
+			    (if location
+				(org-export--inclusion-absolute-lines
+				 file location only-contents lines)
+			      lines)))
+		       (org-mode)
+		       (insert
+			(org-export--prepare-file-contents
+			 file lines ind minlevel
+			 (or (gethash file file-prefix)
+			     (puthash file
+				      (cl-incf current-prefix)
+				      file-prefix))
+			 footnotes
+			 includer-file)))
+		     (org-export-expand-include-keyword
+		      (cons (list file lines) included)
+		      (file-name-directory file)
+		      footnotes)
+		     (buffer-string)))))
+		;; Expand footnotes after all files have been
+		;; included.  Footnotes are stored at end of buffer.
+		(unless included
+		  (org-with-wide-buffer
+		   (goto-char (point-max))
+		   (maphash (lambda (k v)
+			      (insert (format "\n[fn:%s] %s\n" k v)))
+			    footnotes))))))))))))
 
 (defun org-export--inclusion-absolute-lines (file location only-contents lines)
   "Resolve absolute lines for an included file with file-link.
@@ -3459,7 +3453,7 @@ Return a string of lines to be included in the format expected by
 		       counter))))))))
 
 (defun org-export--prepare-file-contents
-    (file &optional lines ind minlevel id footnotes)
+    (file &optional lines ind minlevel id footnotes includer)
   "Prepare contents of FILE for inclusion and return it as a string.
 
 When optional argument LINES is a string specifying a range of
@@ -3481,7 +3475,10 @@ This is useful to avoid conflicts when more than one Org file
 with footnotes is included in a document.
 
 Optional argument FOOTNOTES is a hash-table to store footnotes in
-the included document."
+the included document.
+
+Optional argument INCLUDER is the file name where the inclusion
+is to happen."
   (with-temp-buffer
     (insert-file-contents file)
     (when lines
@@ -3497,6 +3494,37 @@ the included document."
 		    (forward-line (1- lend))
 		    (point))))
 	(narrow-to-region beg end)))
+    ;; Adapt all file links within the included document that contain
+    ;; relative paths in order to make these paths relative to the
+    ;; base document, or absolute.
+    (when includer
+      (let ((file-dir (file-name-directory file))
+	    (includer-dir (file-name-directory includer)))
+	(unless (file-equal-p file-dir includer-dir)
+	  (goto-char (point-min))
+	  (unless (eq major-mode 'org-mode)
+	    (let ((org-inhibit-startup t)) (org-mode)))	;set regexps
+	  (while (re-search-forward org-any-link-re nil t)
+	    (let ((link (save-excursion (backward-char) (org-element-context))))
+	      (when (and (eq 'link (org-element-type link))
+			 (string= "file" (org-element-property :type link)))
+		(let ((old-path (org-element-property :path link)))
+		  (unless (or (file-remote-p old-path)
+			      (file-name-absolute-p old-path))
+		    (let ((new-path (file-relative-name
+				     (expand-file-name old-path file-dir)
+				     includer-dir)))
+		      (insert
+		       (let ((new (org-element-copy link)))
+			 (org-element-put-property new :path new-path)
+			 (when (org-element-property :contents-begin link)
+			   (org-element-adopt-elements new
+			     (buffer-substring
+			      (org-element-property :contents-begin link)
+			      (org-element-property :contents-end link))))
+			 (delete-region (org-element-property :begin link)
+					(org-element-property :end link))
+			 (org-element-interpret-data new))))))))))))
     ;; Remove blank lines at beginning and end of contents.  The logic
     ;; behind that removal is that blank lines around include keyword
     ;; override blank lines in included file.
@@ -3698,7 +3726,9 @@ the communication channel used for export, as a plist."
 		    :translate-alist all-transcoders
 		    :exported-data (make-hash-table :test #'eq :size 401)))))
 	;; `:internal-references' are shared across back-ends.
-	(prog1 (funcall transcoder data contents new-info)
+	(prog1 (if (eq type 'plain-text)
+		   (funcall transcoder data new-info)
+		 (funcall transcoder data contents new-info))
 	  (plist-put info :internal-references
 		     (plist-get new-info :internal-references)))))))
 
@@ -3953,9 +3983,7 @@ INFO is a plist holding contextual information."
 (defun org-export-numbered-headline-p (headline info)
   "Return a non-nil value if HEADLINE element should be numbered.
 INFO is a plist used as a communication channel."
-  (unless (cl-some
-	   (lambda (head) (org-not-nil (org-element-property :UNNUMBERED head)))
-	   (org-element-lineage headline nil t))
+  (unless (org-not-nil (org-export-get-node-property :UNNUMBERED headline t))
     (let ((sec-num (plist-get info :section-numbers))
 	  (level (org-export-get-relative-level headline info)))
       (if (wholenump sec-num) (<= level sec-num) sec-num))))
@@ -4054,11 +4082,15 @@ used as a communication channel."
   (memq (org-element-type (org-export-get-previous-element blob info))
 	'(nil section)))
 
-(defun org-export-last-sibling-p (blob info)
-  "Non-nil when BLOB is the last sibling in its parent.
-BLOB is an element or an object.  INFO is a plist used as
+(defun org-export-last-sibling-p (datum info)
+  "Non-nil when DATUM is the last sibling in its parent.
+DATUM is an element or an object.  INFO is a plist used as
 a communication channel."
-  (not (org-export-get-next-element blob info)))
+  (let ((next (org-export-get-next-element datum info)))
+    (or (not next)
+	(and (eq 'headline (org-element-type datum))
+	     (> (org-element-property :level datum)
+		(org-element-property :level next))))))
 
 
 ;;;; For Keywords
@@ -4259,7 +4291,7 @@ A search cell follows the pattern (TYPE . SEARCH) where
     - target's or radio-target's name as a list of strings if
       TYPE is `target'.
 
-    - NAME affiliated keyword is TYPE is `other'.
+    - NAME affiliated keyword if TYPE is `other'.
 
 A search cell is the internal representation of a fuzzy link.  It
 ignores white spaces and statistics cookies, if applicable."
@@ -4390,11 +4422,13 @@ has type \"radio\"."
 
 (defun org-export-file-uri (filename)
   "Return file URI associated to FILENAME."
-  (cond ((string-match-p "\\`//" filename) (concat "file:" filename))
+  (cond ((string-prefix-p "//" filename) (concat "file:" filename))
 	((not (file-name-absolute-p filename)) filename)
-	((org-file-remote-p filename) (concat "file:/" filename))
-	(t (concat "file://" (expand-file-name filename)))))
-
+	((file-remote-p filename) (concat "file:/" filename))
+	(t
+	 (let ((fullname (expand-file-name filename)))
+	   (concat (if (string-prefix-p "/" fullname) "file://" "file:///")
+		   fullname)))))
 
 ;;;; For References
 ;;
@@ -4433,9 +4467,19 @@ REFERENCE is a number representing a reference, as returned by
 DATUM is either an element or an object.  INFO is the current
 export state, as a plist.
 
-This function checks `:crossrefs' property in INFO for search
-cells matching DATUM before creating a new reference.  Returned
-reference consists of alphanumeric characters only."
+References for the current document are stored in
+`:internal-references' property.  Its value is an alist with
+associations of the following types:
+
+  (REFERENCE . DATUM) and (SEARCH-CELL . ID)
+
+REFERENCE is the reference string to be used for object or
+element DATUM.  SEARCH-CELL is a search cell, as returned by
+`org-export-search-cells'.  ID is a number or a string uniquely
+identifying DATUM within the document.
+
+This function also checks `:crossrefs' property for search cells
+matching DATUM before creating a new reference."
   (let ((cache (plist-get info :internal-references)))
     (or (car (rassq datum cache))
 	(let* ((crossrefs (plist-get info :crossrefs))
@@ -4572,7 +4616,7 @@ ELEMENT doesn't allow line numbering."
 	     (let ((linum (org-element-property :number-lines el)))
 	       (when linum
 		 (let ((lines (org-count-lines
-			       (org-trim (org-element-property :value el)))))
+			       (org-element-property :value el))))
 		   ;; Accumulate locs or reset them.
 		   (pcase linum
 		     (`(new . ,n) (setq loc (+ n lines)))
@@ -4591,30 +4635,28 @@ an alist between relative line number (integer) and name of code
 reference on that line (string)."
   (let* ((line 0) refs
 	 (value (org-element-property :value element))
-	 ;; Get code and clean it.  Remove blank lines at its
-	 ;; beginning and end.
+	 ;; Remove global indentation from code, if necessary.  Also
+	 ;; remove final newline character, since it doesn't belongs
+	 ;; to the code proper.
 	 (code (replace-regexp-in-string
-		"\\`\\([ \t]*\n\\)+" ""
-		(replace-regexp-in-string
-		 "\\([ \t]*\n\\)*[ \t]*\\'" "\n"
-		 (if (or org-src-preserve-indentation
-			 (org-element-property :preserve-indent element))
-		     value
-		   (org-remove-indentation value)))))
+		"\n\\'" ""
+		(if (or org-src-preserve-indentation
+			(org-element-property :preserve-indent element))
+		    value
+		  (org-remove-indentation value))))
 	 ;; Build a regexp matching a loc with a reference.
 	 (ref-re (org-src-coderef-regexp (org-src-coderef-format element))))
     ;; Return value.
     (cons
      ;; Code with references removed.
-     (org-element-normalize-string
-      (mapconcat
-       (lambda (loc)
-	 (cl-incf line)
-	 (if (not (string-match ref-re loc)) loc
-	   ;; Ref line: remove ref, and signal its position in REFS.
-	   (push (cons line (match-string 3 loc)) refs)
-	   (replace-match "" nil nil loc 1)))
-       (org-split-string code "\n") "\n"))
+     (mapconcat
+      (lambda (loc)
+	(cl-incf line)
+	(if (not (string-match ref-re loc)) loc
+	  ;; Ref line: remove ref, and add its position in REFS.
+	  (push (cons line (match-string 3 loc)) refs)
+	  (replace-match "" nil nil loc 1)))
+      (split-string code "\n") "\n")
      ;; Reference alist.
      refs)))
 
@@ -4637,15 +4679,16 @@ number (i.e. ignoring NUM-LINES) and the name of the code
 reference on it.  If it is nil, FUN's third argument will always
 be nil.  It can be obtained through the use of
 `org-export-unravel-code' function."
-  (let ((--locs (org-split-string code "\n"))
+  (let ((--locs (split-string code "\n"))
 	(--line 0))
-    (org-element-normalize-string
+    (concat
      (mapconcat
       (lambda (--loc)
 	(cl-incf --line)
 	(let ((--ref (cdr (assq --line ref-alist))))
 	  (funcall fun --loc (and num-lines (+ num-lines --line)) --ref)))
-      --locs "\n"))))
+      --locs "\n")
+     "\n")))
 
 (defun org-export-format-code-default (element info)
   "Return source code from ELEMENT, formatted in a standard way.
@@ -4662,7 +4705,7 @@ code."
   ;; Extract code and references.
   (let* ((code-info (org-export-unravel-code element))
          (code (car code-info))
-	 (code-lines (org-split-string code "\n")))
+	 (code-lines (split-string code "\n")))
     (if (null code-lines) ""
       (let* ((refs (and (org-element-property :retain-labels element)
 			(cdr code-info)))
@@ -4687,9 +4730,9 @@ code."
 	      number-str
 	      loc
 	      (and ref
-		   (concat (make-string
-			    (- (+ 6 max-width)
-			       (+ (length loc) (length number-str))) ? )
+		   (concat (make-string (- (+ 6 max-width)
+					   (+ (length loc) (length number-str)))
+					?\s)
 			   (format "(%s)" ref))))))
 	 num-start refs)))))
 
@@ -5174,7 +5217,7 @@ return nil."
       info 'first-match)))
 
 
-;;;; For Tables Of Contents
+;;;; For Tables of Contents
 ;;
 ;; `org-export-collect-headlines' builds a list of all exportable
 ;; headline elements, maybe limited to a certain depth.  One can then
@@ -5184,6 +5227,9 @@ return nil."
 ;; Once the generic function `org-export-collect-elements' is defined,
 ;; `org-export-collect-tables', `org-export-collect-figures' and
 ;; `org-export-collect-listings' can be derived from it.
+;;
+;; `org-export-toc-entry-backend' builds a special anonymous back-end
+;; useful to export table of contents' entries.
 
 (defun org-export-collect-headlines (info &optional n scope)
   "Collect headlines in order to build a table of contents.
@@ -5213,10 +5259,12 @@ Footnote sections are ignored."
 		     (+ (org-export-get-relative-level scope info) n))
 		   limit))))
     (org-element-map (org-element-contents scope) 'headline
-      (lambda (headline)
-	(unless (org-element-property :footnote-section-p headline)
-	  (let ((level (org-export-get-relative-level headline info)))
-	    (and (<= level n) headline))))
+      (lambda (h)
+	(and (not (org-element-property :footnote-section-p h))
+	     (not (equal "notoc"
+			 (org-export-get-node-property :UNNUMBERED h t)))
+	     (>= n (org-export-get-relative-level h info))
+	     h))
       info)))
 
 (defun org-export-collect-elements (type info &optional predicate)
@@ -5268,6 +5316,46 @@ INFO is a plist used as a communication channel.
 
 Return a list of src-block elements with a caption."
   (org-export-collect-elements 'src-block info))
+
+(defun org-export-excluded-from-toc-p (headline info)
+  "Non-nil if HEADLINE should be excluded from tables of contents.
+
+INFO is a plist used as a communication channel.
+
+Note that such headlines are already excluded from
+`org-export-collect-headlines'.  Therefore, this function is not
+necessary if you only need to list headlines in the table of
+contents.  However, it is useful if some additional processing is
+required on headlines excluded from table of contents."
+  (or (org-element-property :footnote-section-p headline)
+      (org-export-low-level-p headline info)
+      (equal "notoc" (org-export-get-node-property :UNNUMBERED headline t))))
+
+(defun org-export-toc-entry-backend (parent &rest transcoders)
+  "Return an export back-end appropriate for table of contents entries.
+
+PARENT is an export back-end the returned back-end should inherit
+from.
+
+By default, the back-end removes footnote references and targets.
+It also changes links and radio targets into regular text.
+TRANSCODERS optional argument, when non-nil, specifies additional
+transcoders.  A transcoder follows the pattern (TYPE . FUNCTION)
+where type is an element or object type and FUNCTION the function
+transcoding it."
+  (declare (indent 1))
+  (org-export-create-backend
+   :parent parent
+   :transcoders
+   (append transcoders
+	   `((footnote-reference . ,#'ignore)
+	     (link . ,(lambda (l c i)
+			(or c
+			    (org-export-data
+			     (org-element-property :raw-link l)
+			     i))))
+	     (radio-target . ,(lambda (_r c _) c))
+	     (target . ,#'ignore)))))
 
 
 ;;;; Smart Quotes
@@ -5399,8 +5487,19 @@ Return a list of src-block elements with a caption."
      (secondary-closing
       :utf-8 "“" :html "&ldquo;" :latex "\\grqq{}" :texinfo "@quotedblleft{}")
      (apostrophe :utf-8 "’" :html: "&#39;"))
+    ("sl"
+     ;; Based on https://sl.wikipedia.org/wiki/Narekovaj
+     (primary-opening :utf-8 "«" :html "&laquo;" :latex "{}<<"
+		      :texinfo "@guillemetleft{}")
+     (primary-closing :utf-8 "»" :html "&raquo;" :latex ">>{}"
+		      :texinfo "@guillemetright{}")
+     (secondary-opening
+      :utf-8 "„" :html "&bdquo;" :latex "\\glqq{}" :texinfo "@quotedblbase{}")
+     (secondary-closing
+      :utf-8 "“" :html "&ldquo;" :latex "\\grqq{}" :texinfo "@quotedblleft{}")
+     (apostrophe :utf-8 "’" :html "&rsquo;"))
     ("sv"
-     ;; based on https://sv.wikipedia.org/wiki/Citattecken
+     ;; Based on https://sv.wikipedia.org/wiki/Citattecken
      (primary-opening :utf-8 "”" :html "&rdquo;" :latex "’’" :texinfo "’’")
      (primary-closing :utf-8 "”" :html "&rdquo;" :latex "’’" :texinfo "’’")
      (secondary-opening :utf-8 "’" :html "&rsquo;" :latex "’" :texinfo "`")
@@ -5637,12 +5736,14 @@ them."
      ("pl" :default "Autor")
      ("pt_BR" :default "Autor")
      ("ru" :html "&#1040;&#1074;&#1090;&#1086;&#1088;" :utf-8 "Автор")
+     ("sl" :default "Avtor")
      ("sv" :html "F&ouml;rfattare")
      ("uk" :html "&#1040;&#1074;&#1090;&#1086;&#1088;" :utf-8 "Автор")
      ("zh-CN" :html "&#20316;&#32773;" :utf-8 "作者")
      ("zh-TW" :html "&#20316;&#32773;" :utf-8 "作者"))
     ("Continued from previous page"
      ("ar" :default "تتمة الصفحة السابقة")
+     ("cs" :default "Pokračování z předchozí strany")
      ("de" :default "Fortsetzung von vorheriger Seite")
      ("es" :html "Contin&uacute;a de la p&aacute;gina anterior" :ascii "Continua de la pagina anterior" :default "Continúa de la página anterior")
      ("fr" :default "Suite de la page précédente")
@@ -5651,9 +5752,11 @@ them."
      ("nl" :default "Vervolg van vorige pagina")
      ("pt" :default "Continuação da página anterior")
      ("ru" :html "(&#1055;&#1088;&#1086;&#1076;&#1086;&#1083;&#1078;&#1077;&#1085;&#1080;&#1077;)"
-      :utf-8 "(Продолжение)"))
+      :utf-8 "(Продолжение)")
+     ("sl" :default "Nadaljevanje s prejšnje strani"))
     ("Continued on next page"
      ("ar" :default "التتمة في الصفحة التالية")
+     ("cs" :default "Pokračuje na další stránce")
      ("de" :default "Fortsetzung nächste Seite")
      ("es" :html "Contin&uacute;a en la siguiente p&aacute;gina" :ascii "Continua en la siguiente pagina" :default "Continúa en la siguiente página")
      ("fr" :default "Suite page suivante")
@@ -5662,7 +5765,11 @@ them."
      ("nl" :default "Vervolg op volgende pagina")
      ("pt" :default "Continua na página seguinte")
      ("ru" :html "(&#1055;&#1088;&#1086;&#1076;&#1086;&#1083;&#1078;&#1077;&#1085;&#1080;&#1077; &#1089;&#1083;&#1077;&#1076;&#1091;&#1077;&#1090;)"
-      :utf-8 "(Продолжение следует)"))
+      :utf-8 "(Продолжение следует)")
+     ("sl" :default "Nadaljevanje na naslednji strani"))
+    ("Created"
+     ("cs" :default "Vytvořeno")
+     ("sl" :default "Ustvarjeno"))
     ("Date"
      ("ar" :default "بتاريخ")
      ("ca" :default "Data")
@@ -5684,12 +5791,14 @@ them."
      ("pl" :default "Data")
      ("pt_BR" :default "Data")
      ("ru" :html "&#1044;&#1072;&#1090;&#1072;" :utf-8 "Дата")
+     ("sl" :default "Datum")
      ("sv" :default "Datum")
      ("uk" :html "&#1044;&#1072;&#1090;&#1072;" :utf-8 "Дата")
      ("zh-CN" :html "&#26085;&#26399;" :utf-8 "日期")
      ("zh-TW" :html "&#26085;&#26399;" :utf-8 "日期"))
     ("Equation"
      ("ar" :default "معادلة")
+     ("cs" :default "Rovnice")
      ("da" :default "Ligning")
      ("de" :default "Gleichung")
      ("es" :ascii "Ecuacion" :html "Ecuaci&oacute;n" :default "Ecuación")
@@ -5703,15 +5812,18 @@ them."
      ("pt_BR" :html "Equa&ccedil;&atilde;o" :default "Equação" :ascii "Equacao")
      ("ru" :html "&#1059;&#1088;&#1072;&#1074;&#1085;&#1077;&#1085;&#1080;&#1077;"
       :utf-8 "Уравнение")
+     ("sl" :default "Enačba")
      ("sv" :default "Ekvation")
      ("zh-CN" :html "&#26041;&#31243;" :utf-8 "方程"))
     ("Figure"
      ("ar" :default "شكل")
+     ("cs" :default "Obrázek")
      ("da" :default "Figur")
      ("de" :default "Abbildung")
      ("es" :default "Figura")
      ("et" :default "Joonis")
      ("is" :default "Mynd")
+     ("it" :default "Figura")
      ("ja" :default "図" :html "&#22259;")
      ("no" :default "Illustrasjon")
      ("nb" :default "Illustrasjon")
@@ -5722,6 +5834,7 @@ them."
      ("zh-CN" :html "&#22270;" :utf-8 "图"))
     ("Figure %d:"
      ("ar" :default "شكل %d:")
+     ("cs" :default "Obrázek %d:")
      ("da" :default "Figur %d")
      ("de" :default "Abbildung %d:")
      ("es" :default "Figura %d:")
@@ -5734,12 +5847,13 @@ them."
      ("nn" :default "Illustrasjon %d")
      ("pt_BR" :default "Figura %d:")
      ("ru" :html "&#1056;&#1080;&#1089;. %d.:" :utf-8 "Рис. %d.:")
+     ("sl" :default "Slika %d")
      ("sv" :default "Illustration %d")
      ("zh-CN" :html "&#22270;%d&nbsp;" :utf-8 "图%d "))
     ("Footnotes"
      ("ar" :default "الهوامش")
      ("ca" :html "Peus de p&agrave;gina")
-     ("cs" :default "Pozn\xe1mky pod carou")
+     ("cs" :default "Poznámky pod čarou")
      ("da" :default "Fodnoter")
      ("de" :html "Fu&szlig;noten" :default "Fußnoten")
      ("eo" :default "Piednotoj")
@@ -5758,6 +5872,7 @@ them."
      ("pl" :default "Przypis")
      ("pt_BR" :html "Notas de Rodap&eacute;" :default "Notas de Rodapé" :ascii "Notas de Rodape")
      ("ru" :html "&#1057;&#1085;&#1086;&#1089;&#1082;&#1080;" :utf-8 "Сноски")
+     ("sl" :default "Opombe")
      ("sv" :default "Fotnoter")
      ("uk" :html "&#1055;&#1088;&#1080;&#1084;&#1110;&#1090;&#1082;&#1080;"
       :utf-8 "Примітки")
@@ -5765,6 +5880,7 @@ them."
      ("zh-TW" :html "&#33139;&#35387;" :utf-8 "腳註"))
     ("List of Listings"
      ("ar" :default "قائمة بالبرامج")
+     ("cs" :default "Seznam programů")
      ("da" :default "Programmer")
      ("de" :default "Programmauflistungsverzeichnis")
      ("es" :ascii "Indice de Listados de programas" :html "&Iacute;ndice de Listados de programas" :default "Índice de Listados de programas")
@@ -5775,9 +5891,11 @@ them."
      ("nb" :default "Dataprogrammer")
      ("ru" :html "&#1057;&#1087;&#1080;&#1089;&#1086;&#1082; &#1088;&#1072;&#1089;&#1087;&#1077;&#1095;&#1072;&#1090;&#1086;&#1082;"
       :utf-8 "Список распечаток")
+     ("sl" :default "Seznam programskih izpisov")
      ("zh-CN" :html "&#20195;&#30721;&#30446;&#24405;" :utf-8 "代码目录"))
     ("List of Tables"
      ("ar" :default "قائمة بالجداول")
+     ("cs" :default "Seznam tabulek")
      ("da" :default "Tabeller")
      ("de" :default "Tabellenverzeichnis")
      ("es" :ascii "Indice de tablas" :html "&Iacute;ndice de tablas" :default "Índice de tablas")
@@ -5791,10 +5909,12 @@ them."
      ("pt_BR" :default "Índice de Tabelas" :ascii "Indice de Tabelas")
      ("ru" :html "&#1057;&#1087;&#1080;&#1089;&#1086;&#1082; &#1090;&#1072;&#1073;&#1083;&#1080;&#1094;"
       :utf-8 "Список таблиц")
+     ("sl" :default "Seznam tabel")
      ("sv" :default "Tabeller")
      ("zh-CN" :html "&#34920;&#26684;&#30446;&#24405;" :utf-8 "表格目录"))
     ("Listing"
      ("ar" :default "برنامج")
+     ("cs" :default "Program")
      ("da" :default "Program")
      ("de" :default "Programmlisting")
      ("es" :default "Listado de programa")
@@ -5806,9 +5926,11 @@ them."
      ("pt_BR" :default "Listagem")
      ("ru" :html "&#1056;&#1072;&#1089;&#1087;&#1077;&#1095;&#1072;&#1090;&#1082;&#1072;"
       :utf-8 "Распечатка")
+     ("sl" :default "Izpis programa")
      ("zh-CN" :html "&#20195;&#30721;" :utf-8 "代码"))
     ("Listing %d:"
      ("ar" :default "برنامج %d:")
+     ("cs" :default "Program %d:")
      ("da" :default "Program %d")
      ("de" :default "Programmlisting %d")
      ("es" :default "Listado de programa %d")
@@ -5820,20 +5942,28 @@ them."
      ("pt_BR" :default "Listagem %d")
      ("ru" :html "&#1056;&#1072;&#1089;&#1087;&#1077;&#1095;&#1072;&#1090;&#1082;&#1072; %d.:"
       :utf-8 "Распечатка %d.:")
+     ("sl" :default "Izpis programa %d")
      ("zh-CN" :html "&#20195;&#30721;%d&nbsp;" :utf-8 "代码%d "))
     ("References"
      ("ar" :default "المراجع")
+     ("cs" :default "Reference")
      ("fr" :ascii "References" :default "Références")
      ("de" :default "Quellen")
-     ("es" :default "Referencias"))
+     ("es" :default "Referencias")
+     ("sl" :default "Reference"))
     ("See figure %s"
+     ("cs" :default "Viz obrázek %s")
      ("fr" :default "cf. figure %s"
-      :html "cf.&nbsp;figure&nbsp;%s" :latex "cf.~figure~%s"))
+      :html "cf.&nbsp;figure&nbsp;%s" :latex "cf.~figure~%s")
+     ("sl" :default "Glej sliko %s"))
     ("See listing %s"
+     ("cs" :default "Viz program %s")
      ("fr" :default "cf. programme %s"
-      :html "cf.&nbsp;programme&nbsp;%s" :latex "cf.~programme~%s"))
+      :html "cf.&nbsp;programme&nbsp;%s" :latex "cf.~programme~%s")
+     ("sl" :default "Glej izpis programa %s"))
     ("See section %s"
      ("ar" :default "انظر قسم %s")
+     ("cs" :default "Viz sekce %s")
      ("da" :default "jævnfør afsnit %s")
      ("de" :default "siehe Abschnitt %s")
      ("es" :ascii "Vea seccion %s" :html "Vea secci&oacute;n %s" :default "Vea sección %s")
@@ -5844,12 +5974,16 @@ them."
       :ascii "Veja a secao %s")
      ("ru" :html "&#1057;&#1084;. &#1088;&#1072;&#1079;&#1076;&#1077;&#1083; %s"
       :utf-8 "См. раздел %s")
+     ("sl" :default "Glej poglavje %d")
      ("zh-CN" :html "&#21442;&#35265;&#31532;%s&#33410;" :utf-8 "参见第%s节"))
     ("See table %s"
+     ("cs" :default "Viz tabulka %s")
      ("fr" :default "cf. tableau %s"
-      :html "cf.&nbsp;tableau&nbsp;%s" :latex "cf.~tableau~%s"))
+      :html "cf.&nbsp;tableau&nbsp;%s" :latex "cf.~tableau~%s")
+     ("sl" :default "Glej tabelo %s"))
     ("Table"
      ("ar" :default "جدول")
+     ("cs" :default "Tabulka")
      ("de" :default "Tabelle")
      ("es" :default "Tabla")
      ("et" :default "Tabel")
@@ -5862,6 +5996,7 @@ them."
      ("zh-CN" :html "&#34920;" :utf-8 "表"))
     ("Table %d:"
      ("ar" :default "جدول %d:")
+     ("cs" :default "Tabulka %d:")
      ("da" :default "Tabel %d")
      ("de" :default "Tabelle %d")
      ("es" :default "Tabla %d")
@@ -5875,6 +6010,7 @@ them."
      ("pt_BR" :default "Tabela %d")
      ("ru" :html "&#1058;&#1072;&#1073;&#1083;&#1080;&#1094;&#1072; %d.:"
       :utf-8 "Таблица %d.:")
+     ("sl" :default "Tabela %d")
      ("sv" :default "Tabell %d")
      ("zh-CN" :html "&#34920;%d&nbsp;" :utf-8 "表%d "))
     ("Table of Contents"
@@ -5900,6 +6036,7 @@ them."
      ("pt_BR" :html "&Iacute;ndice" :utf8 "Índice" :ascii "Indice")
      ("ru" :html "&#1057;&#1086;&#1076;&#1077;&#1088;&#1078;&#1072;&#1085;&#1080;&#1077;"
       :utf-8 "Содержание")
+     ("sl" :default "Kazalo")
      ("sv" :html "Inneh&aring;ll")
      ("uk" :html "&#1047;&#1084;&#1110;&#1089;&#1090;" :utf-8 "Зміст")
      ("zh-CN" :html "&#30446;&#24405;" :utf-8 "目录")
@@ -5916,6 +6053,7 @@ them."
       :ascii "Referencia desconhecida")
      ("ru" :html "&#1053;&#1077;&#1080;&#1079;&#1074;&#1077;&#1089;&#1090;&#1085;&#1072;&#1103; &#1089;&#1089;&#1099;&#1083;&#1082;&#1072;"
       :utf-8 "Неизвестная ссылка")
+     ("sl" :default "Neznana referenca")
      ("zh-CN" :html "&#26410;&#30693;&#24341;&#29992;" :utf-8 "未知引用")))
   "Dictionary for export engine.
 
