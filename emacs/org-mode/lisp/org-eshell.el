@@ -1,6 +1,6 @@
 ;;; org-eshell.el - Support for Links to Working Directories in Eshell -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2018 Free Software Foundation, Inc.
 
 ;; Author: Konrad Hinsen <konrad.hinsen AT fastmail.net>
 
@@ -17,7 +17,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -32,7 +32,7 @@
 			 :store #'org-eshell-store-link)
 
 (defun org-eshell-open (link)
-  "Switch to am eshell buffer and execute a command line.
+  "Switch to an eshell buffer and execute a command line.
    The link can be just a command line (executed in the default
    eshell buffer) or a command line prefixed by a buffer name
    followed by a colon."

@@ -1,9 +1,9 @@
 ;;; org-mobile.el --- Code for Asymmetric Sync With a Mobile Device -*- lexical-binding: t; -*-
-;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
-;; Homepage: http://orgmode.org
+;; Homepage: https://orgmode.org
 ;;
 ;; This file is part of GNU Emacs.
 ;;
@@ -18,7 +18,7 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -311,6 +311,11 @@ create all custom agenda views, for upload to the mobile phone."
   (let ((org-agenda-buffer-name "*SUMO*")
 	(org-agenda-tag-filter org-agenda-tag-filter)
 	(org-agenda-redo-command org-agenda-redo-command))
+    ;; Offer to save agenda-related buffers before pushing, preventing
+    ;; "Non-existent agenda file" prompt for lock files (see #19448).
+    (let ((agenda-buffers (org-buffer-list 'agenda)))
+      (save-some-buffers nil
+			 (lambda () (memq (current-buffer) agenda-buffers))))
     (save-excursion
       (save-restriction
 	(save-window-excursion
@@ -467,7 +472,7 @@ agenda view showing the flagged items."
 	  (make-directory target-dir 'parents))
 	(if org-mobile-use-encryption
 	    (org-mobile-encrypt-and-move file target-path)
-	  (copy-file file target-path 'ok-if-exists))
+	  (copy-file file target-path 'ok-if-already-exists))
 	(setq check (shell-command-to-string
 		     (concat (shell-quote-argument org-mobile-checksum-binary)
 			     " "
@@ -648,7 +653,7 @@ The table of checksums is written to the file mobile-checksums."
   (org-with-point-at pom
     (concat "olp:"
 	    (org-mobile-escape-olp (file-name-nondirectory buffer-file-name))
-	    "/"
+	    ":"
 	    (mapconcat 'org-mobile-escape-olp
 		       (org-get-outline-path)
 		       "/")
@@ -687,13 +692,13 @@ encryption program does not understand them."
   (let ((encfile (concat infile "_enc")))
     (org-mobile-encrypt-file infile encfile)
     (when outfile
-      (copy-file encfile outfile 'ok-if-exists)
+      (copy-file encfile outfile 'ok-if-already-exists)
       (delete-file encfile))))
 
 (defun org-mobile-encrypt-file (infile outfile)
   "Encrypt INFILE to OUTFILE, using `org-mobile-encryption-password'."
   (shell-command
-   (format "openssl enc -aes-256-cbc -salt -pass %s -in %s -out %s"
+   (format "openssl enc -md md5 -aes-256-cbc -salt -pass %s -in %s -out %s"
 	   (shell-quote-argument (concat "pass:"
 					 (org-mobile-encryption-password)))
 	   (shell-quote-argument (expand-file-name infile))
@@ -702,7 +707,7 @@ encryption program does not understand them."
 (defun org-mobile-decrypt-file (infile outfile)
   "Decrypt INFILE to OUTFILE, using `org-mobile-encryption-password'."
   (shell-command
-   (format "openssl enc -d -aes-256-cbc -salt -pass %s -in %s -out %s"
+   (format "openssl enc -md md5 -d -aes-256-cbc -salt -pass %s -in %s -out %s"
 	   (shell-quote-argument (concat "pass:"
 					 (org-mobile-encryption-password)))
 	   (shell-quote-argument (expand-file-name infile))
@@ -869,7 +874,7 @@ If BEG and END are given, only do this in that region."
 		(funcall cmd data old new)
 		(unless (member data '("delete" "archive" "archive-sibling"
 				       "addheading"))
-		  (when (member "FLAGGED" (org-get-tags))
+		  (when (member "FLAGGED" (org-get-tags nil t))
 		    (add-to-list 'org-mobile-last-flagged-files
 				 (buffer-file-name)))))
 	    (error (setq org-mobile-error msg)))
@@ -994,7 +999,7 @@ be returned that indicates what went wrong."
 		 old current))))
 
      ((eq what 'tags)
-      (setq current (org-get-tags)
+      (setq current (org-get-tags nil t)
 	    new1 (and new (org-split-string new ":+"))
 	    old1 (and old (org-split-string old ":+")))
       (cond
@@ -1002,7 +1007,7 @@ be returned that indicates what went wrong."
        ((or (org-mobile-tags-same-p current old1)
 	    (eq org-mobile-force-mobile-change t)
 	    (memq 'tags org-mobile-force-mobile-change))
-	(org-set-tags-to new1) t)
+	(org-set-tags new1) t)
        (t (error "Tags before change were expected as \"%s\", but are \"%s\""
 		 (or old "") (or current "")))))
 
@@ -1031,7 +1036,7 @@ be returned that indicates what went wrong."
 	      (goto-char (match-beginning 4))
 	      (insert new)
 	      (delete-region (point) (+ (point) (length current)))
-	      (org-set-tags nil 'align))
+	      (org-align-tags))
 	     (t (error "Heading changed in MobileOrg and on the computer")))))))
 
      ((eq what 'addheading)

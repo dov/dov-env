@@ -1,6 +1,6 @@
 ;;; org-bibtex.el --- Org links to BibTeX entries    -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2007-2017 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2018 Free Software Foundation, Inc.
 ;;
 ;; Authors: Bastien Guerry <bzg@gnu.org>
 ;;       Carsten Dominik <carsten dot dominik at gmail dot com>
@@ -20,7 +20,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 ;;
 ;;; Commentary:
 ;;
@@ -244,7 +244,7 @@ It should take a single argument, the bibtex entry (an alist as
 returned by `org-bibtex-read').  The default value simply returns
 the entry title."
   :group 'org-bibtex
-  :version "25.2"
+  :version "26.1"
   :package-version '(Org . "9.1")
   :type 'function)
 
@@ -301,10 +301,10 @@ is non-nil."
 (defcustom org-bibtex-inherit-tags nil
   "Controls whether inherited tags are converted to bibtex keywords.
 It is relevant only if `org-bibtex-tags-are-keywords' is non-nil.
-Tag inheritence itself is controlled by `org-use-tag-inheritence'
-and `org-exclude-tags-from-inheritence'."
+Tag inheritance itself is controlled by `org-use-tag-inheritance'
+and `org-exclude-tags-from-inheritance'."
   :group 'org-bibtex
-  :version "25.2"
+  :version "26.1"
   :package-version '(Org . "8.3")
   :type 'boolean)
 
@@ -354,9 +354,8 @@ and `org-exclude-tags-from-inheritence'."
 					    (append org-bibtex-tags
 						    org-bibtex-no-export-tags))
 			      tag))
-			  (if org-bibtex-inherit-tags
-			      (org-get-tags-at)
-			    (org-get-local-tags-at)))))))
+			  (if org-bibtex-inherit-tags (org-get-tags)
+			    (org-get-tags nil t)))))))
     (when type
       (let ((entry (format
 		    "@%s{%s,\n%s\n}\n" type id
