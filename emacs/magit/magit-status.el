@@ -91,13 +91,6 @@ all."
   :group 'magit-status
   :type 'hook)
 
-(defcustom magit-status-expand-stashes t
-  "OBSOLETE.  Whether the list of stashes is expanded initially.
-Use `magit-section-visibility-alist' instead."
-  :package-version '(magit . "2.3.0")
-  :group 'magit-status
-  :type 'boolean)
-
 (defcustom magit-status-show-hashes-in-headers nil
   "Whether headers in the status buffer show hashes.
 The functions which respect this option are
@@ -152,7 +145,7 @@ Non-interactively DIRECTORY is (re-)initialized unconditionally."
    (let ((directory (file-name-as-directory
                      (expand-file-name
                       (read-directory-name "Create repository in: ")))))
-     (-when-let (toplevel (magit-toplevel directory))
+     (when-let ((toplevel (magit-toplevel directory)))
        (setq toplevel (expand-file-name toplevel))
        (unless (y-or-n-p (if (file-equal-p toplevel directory)
                              (format "Reinitialize existing repository %s? "
@@ -216,10 +209,10 @@ also contains other useful hints.")
 (defvar magit--remotes-using-recent-git nil)
 
 (defun magit--tramp-asserts (directory)
-  (-when-let (remote (file-remote-p directory))
+  (when-let ((remote (file-remote-p directory)))
     (unless (member remote magit--remotes-using-recent-git)
-      (-if-let (version (let ((default-directory directory))
-                          (magit-git-version)))
+      (if-let ((version (let ((default-directory directory))
+                          (magit-git-version))))
           (if (version<= magit--minimal-git version)
               (push version magit--remotes-using-recent-git)
             (display-warning 'magit (format "\
@@ -302,8 +295,7 @@ Type \\[magit-commit-popup] to create a commit.
 (defun magit-status-refresh-buffer ()
   (magit-git-exit-code "update-index" "--refresh")
   (magit-insert-section (status)
-    (magit-run-section-hook 'magit-status-sections-hook))
-  (run-hooks 'magit-status-refresh-hook))
+    (magit-run-section-hook 'magit-status-sections-hook)))
 
 (defun magit-status-maybe-update-revision-buffer (&optional _)
   "When moving in the status buffer, update the revision buffer.
@@ -346,7 +338,7 @@ the status buffer causes this section to disappear again."
       (insert (propertize (format "%-10s" "GitError! ")
                           'face 'magit-section-heading))
       (insert (propertize magit-this-error 'face 'font-lock-warning-face))
-      (-when-let (key (car (where-is-internal 'magit-process-buffer)))
+      (when-let ((key (car (where-is-internal 'magit-process-buffer))))
         (insert (format "  [Type `%s' for details]" (key-description key))))
       (insert ?\n))
     (setq magit-this-error nil)))
@@ -476,10 +468,10 @@ detached `HEAD'."
 If no remote is configured for the current branch, then fall back
 showing the \"origin\" remote, or if that does not exist the first
 remote in alphabetic order."
-  (-when-let* ((name (magit-get-some-remote))
-               ;; Under certain configurations it's possible for url
-               ;; to be nil, when name is not, see #2858.
-               (url (magit-get "remote" name "url")))
+  (when-let ((name (magit-get-some-remote))
+             ;; Under certain configurations it's possible for url
+             ;; to be nil, when name is not, see #2858.
+             (url (magit-get "remote" name "url")))
     (magit-insert-section (remote name)
       (insert (format "%-10s" "Remote: "))
       (insert (propertize name 'face 'magit-branch-remote) ?\s)
@@ -512,16 +504,15 @@ value of that variable can be set using \"D = f DIRECTORY RET g\"."
          (base (and base (file-directory-p base) base)))
     (unless (equal show "no")
       (if (equal show "all")
-          (-when-let (files (magit-untracked-files nil base))
+          (when-let ((files (magit-untracked-files nil base)))
             (magit-insert-section (untracked)
               (magit-insert-heading "Untracked files:")
               (magit-insert-files files base)
               (insert ?\n)))
-        (-when-let
-            (files (--mapcat (and (eq (aref it 0) ??)
-                                  (list (substring it 3)))
-                             (magit-git-items "status" "-z" "--porcelain"
-                                              "--" base)))
+        (when-let ((files (--mapcat (and (eq (aref it 0) ??)
+                                         (list (substring it 3)))
+                                    (magit-git-items "status" "-z" "--porcelain"
+                                                     "--" base))))
           (magit-insert-section (untracked)
             (magit-insert-heading "Untracked files:")
             (dolist (file files)
@@ -537,7 +528,7 @@ value of that variable can be set using \"D = f DIRECTORY RET g\"."
 If the first element of `magit-diff-section-arguments' is a
 directory, then limit the list to files below that.  The value
 value of that variable can be set using \"D = f DIRECTORY RET g\"."
-  (-when-let (files (magit-list-files))
+  (when-let ((files (magit-list-files)))
     (let* ((base (car magit-diff-section-file-args))
            (base (and base (file-directory-p base) base)))
       (magit-insert-section (tracked nil t)
@@ -550,8 +541,8 @@ value of that variable can be set using \"D = f DIRECTORY RET g\"."
 
 If the first element of `magit-diff-section-arguments' is a
 directory, then limit the list to files below that.  The value
-value of that variable can be set using \"D = f DIRECTORY RET g\"."
-  (-when-let (files (magit-ignored-files))
+of that variable can be set using \"D = f DIRECTORY RET g\"."
+  (when-let ((files (magit-ignored-files)))
     (let* ((base (car magit-diff-section-file-args))
            (base (and base (file-directory-p base) base)))
       (magit-insert-section (tracked nil t)

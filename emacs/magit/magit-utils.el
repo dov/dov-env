@@ -40,6 +40,7 @@
 
 (require 'cl-lib)
 (require 'dash)
+(require 'subr-x)
 
 (require 'crm)
 
@@ -68,32 +69,16 @@ less well behaved than the former, more modern alternatives.
 
 If you would like to use Ivy or Helm completion with Magit but
 not enable the respective modes globally, then customize this
-option to use `ivy-completing-read'
-or `helm--completing-read-default'."
+option to use `ivy-completing-read' or
+`helm--completing-read-default'.  If you choose to use
+`ivy-completing-read', note that the items may always be shown in
+alphabetical order, depending on your version of Ivy."
   :group 'magit-essentials
   :type '(radio (function-item magit-builtin-completing-read)
                 (function-item magit-ido-completing-read)
                 (function-item ivy-completing-read)
                 (function-item helm--completing-read-default)
                 (function :tag "Other function")))
-
-(defvar magit-no-confirm-default nil
-  "A list of commands which should just use the default choice.
-
-Many commands let the user choose the target they act on offering
-a sensible default as default choice.  If you think that that
-default is so sensible that it should always be used without even
-offering other choices, then add that command here.
-
-Only the following commands support this option:
-  `magit-branch'
-  `magit-branch-and-checkout'
-  `magit-branch-orphan'
-  `magit-worktree-branch'
-    For these four commands `magit-branch-read-upstream-first'
-    must be non-nil, or adding them here has no effect.
-  `magit-branch-rename'
-  `magit-tag'")
 
 (defcustom magit-dwim-selection
   '((magit-stash-apply        nil t)
@@ -334,9 +319,10 @@ and in process buffers to elide `magit-git-global-arguments'."
 (defcustom magit-update-other-window-delay 0.2
   "Delay before automatically updating the other window.
 
-When moving around in certain buffers certain other buffers,
-which are being displayed in another window, may optionally be
-updated to display information about the section at point.
+When moving around in certain buffers, then certain other
+buffers, which are being displayed in another window, may
+optionally be updated to display information about the
+section at point.
 
 When holding down a key to move by more than just one section,
 then that would update that buffer for each section on the way.
@@ -366,6 +352,9 @@ and delay of your graphical environment or operating system."
                  (const :tag "view manpage using `woman'" woman)))
 
 ;;; User Input
+
+(defvar helm-completion-in-region-default-sort-fn)
+(defvar ivy-sort-functions-alist)
 
 (defvar magit-completing-read--silent-default nil)
 
@@ -413,15 +402,12 @@ acts similarly to `completing-read', except for the following:
   `magit-completing-read-function' is set to its default value of
   `magit-builtin-completing-read'."
   (setq magit-completing-read--silent-default nil)
-  (-if-let (dwim (and def
-                      (or (nth 2 (-first (lambda (arg)
-                                           (pcase-let ((`(,cmd ,re ,_) arg))
-                                             (and (eq this-command cmd)
-                                                  (or (not re)
-                                                      (string-match-p re prompt)))))
-                                         magit-dwim-selection))
-                          (memq this-command
-                                (with-no-warnings magit-no-confirm-default)))))
+  (if-let ((dwim (and def
+                      (nth 2 (-first (pcase-lambda (`(,cmd ,re ,_))
+                                       (and (eq this-command cmd)
+                                            (or (not re)
+                                                (string-match-p re prompt))))
+                                     magit-dwim-selection)))))
       (if (eq dwim 'ask)
           (if (y-or-n-p (format "%s %s? " prompt def))
               def
@@ -449,20 +435,21 @@ acts similarly to `completing-read', except for the following:
         '(metadata (display-sort-function . identity))
       (complete-with-action action collection string pred))))
 
+(defvar ivy-sort-functions-alist)
+
 (defun magit-builtin-completing-read
   (prompt choices &optional predicate require-match initial-input hist def)
   "Magit wrapper for standard `completing-read' function."
+  (unless (or (bound-and-true-p helm-mode)
+              (bound-and-true-p ivy-mode))
+    (setq prompt (magit-prompt-with-default prompt def))
+    (setq choices (magit--completion-table choices)))
   (cl-letf (((symbol-function 'completion-pcm--all-completions)
              #'magit-completion-pcm--all-completions))
-    (completing-read (if (or (bound-and-true-p helm-mode)
-                             (bound-and-true-p ivy-mode))
-                         prompt
-                       (magit-prompt-with-default prompt def))
-                     (magit--completion-table choices)
-                     predicate require-match
-                     initial-input hist def)))
-
-(defvar helm-completion-in-region-default-sort-fn)
+    (let ((ivy-sort-functions-alist nil))
+      (completing-read prompt choices
+                       predicate require-match
+                       initial-input hist def))))
 
 (defun magit-completing-read-multiple
   (prompt choices &optional sep default hist keymap)
@@ -613,13 +600,12 @@ ACTION is a member of option `magit-slow-confirm'."
   (or (cond ((and (not (eq action t))
                   (or (eq magit-no-confirm t)
                       (memq action magit-no-confirm)
-                      (cl-member-if (lambda (elt)
-                                      (pcase-let ((`(,key ,var . ,sub) elt))
-                                        (and (memq key magit-no-confirm)
-                                             (memq action sub)
-                                             (or (not var)
-                                                 (and (boundp var)
-                                                      (symbol-value var))))))
+                      (cl-member-if (pcase-lambda (`(,key ,var . ,sub))
+                                      (and (memq key magit-no-confirm)
+                                           (memq action sub)
+                                           (or (not var)
+                                               (and (boundp var)
+                                                    (symbol-value var)))))
                                     magit--no-confirm-alist)))
              (or (not sitems) items))
             ((not sitems)
@@ -765,31 +751,31 @@ that it will align with the text area."
       (cond
        ;; Quoted percent sign.
        ((eq (char-after) ?%)
-	(delete-char 1))
+        (delete-char 1))
        ;; Valid format spec.
        ((looking-at "\\([-0-9.]*\\)\\([a-zA-Z]\\)")
-	(let* ((num (match-string 1))
-	       (spec (string-to-char (match-string 2)))
-	       (val (assq spec specification)))
-	  (unless val
-	    (error "Invalid format character: `%%%c'" spec))
-	  (setq val (cdr val))
-	  ;; Pad result to desired length.
-	  (let ((text (format (concat "%" num "s") val)))
-	    ;; Insert first, to preserve text properties.
+        (let* ((num (match-string 1))
+               (spec (string-to-char (match-string 2)))
+               (val (assq spec specification)))
+          (unless val
+            (error "Invalid format character: `%%%c'" spec))
+          (setq val (cdr val))
+          ;; Pad result to desired length.
+          (let ((text (format (concat "%" num "s") val)))
+            ;; Insert first, to preserve text properties.
             (if (next-property-change 0 (concat " " text))
                 ;; If the inserted text has properties, then preserve those.
-	        (insert text)
+                (insert text)
               ;; Otherwise preserve FORMAT's properties, like `format-spec'.
-	      (insert-and-inherit text))
-	    ;; Delete the specifier body.
+              (insert-and-inherit text))
+            ;; Delete the specifier body.
             (delete-region (+ (match-beginning 0) (length text))
                            (+ (match-end 0) (length text)))
             ;; Delete the percent sign.
             (delete-region (1- (match-beginning 0)) (match-beginning 0)))))
        ;; Signal an error on bogus format strings.
        (t
-	(error "Invalid format string"))))
+        (error "Invalid format string"))))
     (buffer-string)))
 
 ;;; Missing from Emacs

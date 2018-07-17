@@ -114,7 +114,7 @@ instead of every time Ido is invoked, so now you can modify it
 like pretty much every other keymap:
 
   (define-key ido-common-completion-map
-    (kbd \"C-x g\") 'ido-enter-magit-status)"
+    (kbd \"C-x g\") \\='ido-enter-magit-status)"
   (interactive)
   (with-no-warnings ; FIXME these are internal variables
     (setq ido-exit 'fallback fallback 'magit-status))
@@ -126,18 +126,17 @@ like pretty much every other keymap:
 With a prefix argument, visit in another window.  If there
 is no file at point, then instead visit `default-directory'."
   (interactive "P")
-  (dired-jump other-window (-if-let (file (magit-file-at-point))
-                               (progn (setq file (expand-file-name file))
-                                      (if (file-directory-p file)
-                                          (concat file "/.")
-                                        file))
-                             (concat default-directory "/."))))
+  (dired-jump other-window
+              (when-let ((file (magit-file-at-point)))
+                (expand-file-name (if (file-directory-p file)
+                                      (file-name-as-directory file)
+                                    file)))))
 
 ;;;###autoload
 (defun magit-dired-log (&optional follow)
   "Show log for all marked files, or the current file."
   (interactive "P")
-  (-if-let (topdir (magit-toplevel default-directory))
+  (if-let ((topdir (magit-toplevel default-directory)))
       (let ((args (car (magit-log-arguments)))
             (files (dired-get-marked-files nil nil #'magit-file-tracked-p)))
         (unless files
@@ -241,6 +240,14 @@ with two prefix arguments remove ignored files only.
 
 ;;; Gitignore
 
+;;;###autoload (autoload 'magit-ignore-popup "extras" nil t)
+(magit-define-popup magit-gitignore-popup
+  "Popup console for gitignore commands."
+  :man-page "gitignore"
+  :actions '((?l "ignore locally"  magit-gitignore-locally)
+             (?g "ignore globally" magit-gitignore))
+  :max-action-columns 1)
+
 ;;;###autoload
 (defun magit-gitignore (file-or-pattern &optional local)
   "Instruct Git to ignore FILE-OR-PATTERN.
@@ -277,7 +284,7 @@ With a prefix argument only ignore locally."
           (delete-dups
            (--mapcat
             (cons (concat "/" it)
-                  (-when-let (ext (file-name-extension it))
+                  (when-let ((ext (file-name-extension it)))
                     (list (concat "/" (file-name-directory "foo") "*." ext)
                           (concat "*." ext))))
             (magit-untracked-files)))))
@@ -548,7 +555,8 @@ the minibuffer too."
      (push (caar magit-revision-stack) magit-revision-history)
      (pop magit-revision-stack)))
   (if rev
-      (-let [(pnt-format eob-format idx-format) magit-pop-revision-stack-format]
+      (pcase-let ((`(,pnt-format ,eob-format ,idx-format)
+                   magit-pop-revision-stack-format))
         (let ((default-directory toplevel)
               (idx (and idx-format
                         (save-excursion
@@ -610,8 +618,8 @@ above."
   (interactive)
   (if (use-region-p)
       (copy-region-as-kill nil nil 'region)
-    (-when-let* ((section (magit-current-section))
-                 (value (oref section value)))
+    (when-let ((section (magit-current-section))
+               (value (oref section value)))
       (magit-section-case
         ((branch commit module-commit tag)
          (let ((default-directory default-directory) ref)
@@ -654,7 +662,7 @@ above."
   (interactive)
   (if (use-region-p)
       (copy-region-as-kill nil nil 'region)
-    (-when-let (rev (cond ((memq major-mode '(magit-cherry-mode
+    (when-let ((rev (cond ((memq major-mode '(magit-cherry-mode
                                               magit-log-select-mode
                                               magit-reflog-mode
                                               magit-refs-mode
@@ -668,7 +676,7 @@ above."
                              (if (string-match "\\.\\.\\.?\\(.+\\)" r)
                                  (match-string 1 r)
                                r)))
-                          ((eq major-mode 'magit-status-mode) "HEAD")))
+                          ((eq major-mode 'magit-status-mode) "HEAD"))))
       (when (magit-rev-verify-commit rev)
         (setq rev (magit-rev-parse rev))
         (push (list rev default-directory) magit-revision-stack)

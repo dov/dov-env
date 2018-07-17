@@ -495,7 +495,7 @@ This discards all changes made since the sequence started."
 If that variable is unset, then rebase onto `remote.pushDefault'."
   (interactive (list (magit-rebase-arguments)))
   (--if-let (magit-get-current-branch)
-      (-if-let (remote (magit-get-push-remote it))
+      (if-let ((remote (magit-get-push-remote it)))
           (if (member remote (magit-list-remotes))
               (magit-git-rebase (concat remote "/" it) args)
             (user-error "Remote `%s' doesn't exist" remote))
@@ -507,7 +507,7 @@ If that variable is unset, then rebase onto `remote.pushDefault'."
   "Rebase the current branch onto its upstream branch."
   (interactive (list (magit-rebase-arguments)))
   (--if-let (magit-get-current-branch)
-      (-if-let (target (magit-get-upstream-branch it))
+      (if-let ((target (magit-get-upstream-branch it)))
           (magit-git-rebase target args)
         (user-error "No upstream is configured for %s" it))
     (user-error "No branch is checked out")))
@@ -595,7 +595,8 @@ START has to be selected from a list of recent commits."
             (m2 ".\nDo you really want to modify them"))
         (magit-confirm (or magit--rebase-published-symbol 'rebase-published)
           (concat m1 "%s" m2)
-          (concat m1 "%i public branches" m2)))
+          (concat m1 "%i public branches" m2)
+          nil branches))
       (push (magit-toplevel) magit--rebase-public-edit-confirmed)))
   (if (magit-git-lines "rev-list" "--merges" (concat since "..HEAD"))
       (magit-read-char-case "Proceed despite merge in rebase range?  " nil
@@ -619,7 +620,7 @@ START has to be selected from a list of recent commits."
   (interactive (list (magit-rebase-arguments)))
   (magit-rebase-interactive-1 :merge-base (cons "--autosquash" args)
     "Type %p on a commit to squash into it and then rebase as necessary,"
-    "true"))
+    "true" nil t))
 
 ;;;###autoload
 (defun magit-rebase-edit-commit (commit args)
@@ -713,9 +714,11 @@ If no such sequence is in progress, do nothing."
     (when (or picking (magit-revert-in-progress-p))
       (magit-insert-section (sequence)
         (magit-insert-heading (if picking "Cherry Picking" "Reverting"))
-        (-when-let (lines (cdr (magit-file-lines (magit-git-dir "sequencer/todo"))))
+        (when-let ((lines
+                    (cdr (magit-file-lines (magit-git-dir "sequencer/todo")))))
           (dolist (line (nreverse lines))
-            (when (string-match "^\\(pick\\|revert\\) \\([^ ]+\\) \\(.*\\)$" line)
+            (when (string-match
+                   "^\\(pick\\|revert\\) \\([^ ]+\\) \\(.*\\)$" line)
               (magit-bind-match-strings (cmd hash msg) line
                 (magit-insert-section (commit hash)
                   (insert (propertize cmd 'face 'magit-sequence-pick)

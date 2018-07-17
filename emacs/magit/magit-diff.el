@@ -44,8 +44,7 @@
 ;; For `magit-show-commit' and `magit-diff-show-or-scroll'
 (declare-function magit-current-blame-chunk "magit-blame" ())
 (eval-when-compile
-  (when (boundp 'eieio--known-slot-names)
-    (add-to-list 'eieio--known-slot-names 'orig-rev)))
+  (cl-pushnew 'orig-rev eieio--known-slot-names))
 (declare-function magit-blame-mode "magit-blame" (&optional arg))
 (defvar magit-blame-mode)
 (defvar git-rebase-line)
@@ -111,14 +110,6 @@ member of `magit-section-highlight-hook', which see."
   :group 'magit-diff
   :type 'boolean)
 
-(defcustom magit-diff-show-lines-boundary t
-  "This option is obsolete.
-If you have set this to nil, then remove that customization, and
-instead customize `magit-diff-highlight-hunk-region-functions'."
-  :package-version '(magit . "2.1.0")
-  :group 'magit-diff
-  :type 'boolean)
-
 (defcustom magit-diff-highlight-hunk-region-functions
   '(magit-diff-highlight-hunk-region-dim-outside
     magit-diff-highlight-hunk-region-using-overlays)
@@ -132,9 +123,9 @@ This function should not be removed from the value of this option.
 `magit-diff-highlight-hunk-region-using-overlays' and
 `magit-diff-highlight-hunk-region-using-underline' emphasize the
 region by placing delimiting horizonal lines before and after it.
-Both of these functions have glitches which cannot be fixed due
-to limitations of Emacs' display engine.  For more information
-see https://github.com/magit/magit/issues/2758 ff.
+The underline variant was implemented because Eli said that is
+how we should do it.  However the overlay variant actually works
+better.  Also see https://github.com/magit/magit/issues/2758.
 
 Instead of, or in addition to, using delimiting horizontal lines,
 to emphasize the boundaries, you may which to emphasize the text
@@ -727,10 +718,10 @@ This is a variant of `magit-diff-popup' which shows the same popup
 but which limits the diff to the file being visited in the current
 buffer."
   (interactive)
-  (-if-let (file (magit-file-relative-name))
+  (if-let ((file (magit-file-relative-name)))
       (let ((magit-diff-arguments
              (magit-popup-import-file-args
-              (-if-let (buffer (magit-mode-get-buffer 'magit-diff-mode))
+              (if-let ((buffer (magit-mode-get-buffer 'magit-diff-mode)))
                   (with-current-buffer buffer
                     (nth 3 magit-refresh-args))
                 (default-value 'magit-diff-arguments))
@@ -973,7 +964,7 @@ be committed."
   "Show diff for the blob or file visited in the current buffer."
   (interactive)
   (require 'magit)
-  (-if-let (file (magit-file-relative-name))
+  (if-let ((file (magit-file-relative-name)))
       (magit-mode-setup-internal #'magit-diff-mode
                                  (list (or magit-buffer-refname
                                            (magit-get-current-branch)
@@ -998,7 +989,7 @@ be committed."
 (defvar-local magit-buffer-revision-hash nil)
 
 (defun magit-show-commit--arguments ()
-  (-let [(args diff-files) (magit-diff-arguments)]
+  (pcase-let ((`(,args ,diff-files) (magit-diff-arguments)))
     (list args (if (derived-mode-p 'magit-log-mode)
                    (and (not (member "--follow" (nth 1 magit-refresh-args)))
                         (nth 2 magit-refresh-args))
@@ -1206,8 +1197,8 @@ the prefix argument can be inverted or further modified using the
 option `magit-display-file-buffer-function'.
 
 Non-interactively the optional OTHER-WINDOW argument is taken
-literally, and DISPLAY-FN can be used to override that specify a
-function explicitly.
+literally.  DISPLAY-FN can be used to specify the display
+function explicitly, in which case OTHER-WINDOW is ignored.
 
 The optional FORCE-WORKTREE means to force visiting the worktree
 version of the file.  To do this interactively use the command
@@ -1357,7 +1348,7 @@ or `HEAD'."
            rev))))
 
 (defun magit-diff-visit--hunk ()
-  (-when-let (scope (magit-diff-scope))
+  (when-let ((scope (magit-diff-scope)))
     (let ((section (magit-current-section)))
       (cl-case scope
         ((file files)
@@ -1627,6 +1618,7 @@ is set in `magit-mode-setup'."
     (define-key map "u" 'magit-unstage)
     (define-key map "&" 'magit-do-async-shell-command)
     (define-key map "\C-c\C-t" 'magit-diff-trace-definition)
+    (define-key map "\C-c\C-e" 'magit-diff-edit-hunk-commit)
     map)
   "Keymap for `file' sections.")
 
@@ -1644,6 +1636,7 @@ is set in `magit-mode-setup'."
     (define-key map "u" 'magit-unstage)
     (define-key map "&" 'magit-do-async-shell-command)
     (define-key map "\C-c\C-t" 'magit-diff-trace-definition)
+    (define-key map "\C-c\C-e" 'magit-diff-edit-hunk-commit)
     map)
   "Keymap for `hunk' sections.")
 
@@ -2105,7 +2098,7 @@ or a ref which is not a branch, then it inserts nothing."
               (insert "Parent:     ")
               (insert (propertize hash 'face 'magit-hash))
               (insert " " msg "\n")))))
-      (-when-let (merged (magit-list-merged-branches rev))
+      (when-let ((merged (magit-list-merged-branches rev)))
         (insert "Merged:    ")
         (let (branch)
           (while (and (< (+ (- (point) (line-beginning-position))
@@ -2118,7 +2111,7 @@ or a ref which is not a branch, then it inserts nothing."
         (when merged
           (insert (format " (%s more)" (length merged))))
         (insert ?\n))
-      (-when-let (containing (magit-list-containing-branches rev))
+      (when-let ((containing (magit-list-containing-branches rev)))
         (insert "Containing:")
         (let (branch)
           (while (and (< (+ (- (point) (line-beginning-position))
@@ -2131,7 +2124,7 @@ or a ref which is not a branch, then it inserts nothing."
         (when containing
           (insert (format " (%s more)" (length containing))))
         (insert ?\n))
-      (-when-let (follows (magit-get-current-tag rev t))
+      (when-let ((follows (magit-get-current-tag rev t)))
         (let ((tag (car  follows))
               (cnt (cadr follows)))
           (magit-insert-section (tag tag)
@@ -2139,7 +2132,7 @@ or a ref which is not a branch, then it inserts nothing."
                             (propertize tag 'face 'magit-tag)
                             (propertize (number-to-string cnt)
                                         'face 'magit-branch-local))))))
-      (-when-let (precedes (magit-get-next-tag rev t))
+      (when-let ((precedes (magit-get-next-tag rev t)))
         (let ((tag (car  precedes))
               (cnt (cadr precedes)))
           (magit-insert-section (tag tag)
@@ -2176,7 +2169,7 @@ or a ref which is not a branch, then it inserts nothing."
 
 (defun magit-insert-revision-gravatar-cb (image rev marker align-to column)
   (unless (eq image 'error)
-    (-when-let (buffer (marker-buffer marker))
+    (when-let ((buffer (marker-buffer marker)))
       (with-current-buffer buffer
         (save-excursion
           (goto-char marker)
@@ -2385,7 +2378,7 @@ are highlighted."
                    (magit-diff-highlight-list section selection))
                (magit-diff-highlight-list section))
              t)
-    (-when-let (scope (magit-diff-scope section t))
+    (when-let ((scope (magit-diff-scope section t)))
       (cond ((eq scope 'region)
              (magit-diff-paint-hunk section selection t))
             (selection
@@ -2594,8 +2587,8 @@ are highlighted."
     (cl-labels ((recurse (section)
                          (if (magit-section-match 'hunk section)
                              (magit-diff-update-hunk-refinement section)
-                           (--each (oref section children)
-                             (recurse it)))))
+                           (dolist (child (oref section children))
+                             (recurse child)))))
       (recurse magit-root-section))))
 
 
@@ -2650,10 +2643,7 @@ face."
 
 (defun magit-diff-highlight-hunk-region-using-overlays (section)
   "Emphasize the hunk-internal region using delimiting horizontal lines.
-This is implemented as single-pixel newlines places inside overlays.
-Although creating overlays containing newlines is discouraged,
-this version turns out to be less glitchy on Emacs 24 than the
-other method."
+This is implemented as single-pixel newlines places inside overlays."
   (if (window-system)
       (let ((beg (magit-diff-hunk-region-beginning))
             (end (magit-diff-hunk-region-end))
@@ -2668,10 +2658,7 @@ other method."
 (defun magit-diff-highlight-hunk-region-using-underline (section)
   "Emphasize the hunk-internal region using delimiting horizontal lines.
 This is implemented by overlining and underlining the first and
-last (visual) lines of the region.  In Emacs 24, using this
-method causes `move-end-of-line' to jump to the next line, so
-we only use it in Emacs 25 where that glitch was fixed (see
-https://github.com/magit/magit/pull/2293 for more details)."
+last (visual) lines of the region."
   (if (window-system)
       (let* ((beg (magit-diff-hunk-region-beginning))
              (end (magit-diff-hunk-region-end))
