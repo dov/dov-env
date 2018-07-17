@@ -436,7 +436,7 @@ call function WASHER with ARGS as its sole argument."
 
 (defmacro magit--with-safe-default-directory (file &rest body)
   (declare (indent 1) (debug (form body)))
-  `(-when-let (default-directory (magit--safe-default-directory ,file))
+  `(when-let ((default-directory (magit--safe-default-directory ,file)))
      ,@body))
 
 (defun magit-git-dir (&optional path)
@@ -447,7 +447,7 @@ it has to be a path relative to the control directory and its
 absolute path is returned."
   (magit--with-refresh-cache (list default-directory 'magit-git-dir path)
     (magit--with-safe-default-directory nil
-      (-when-let (dir (magit-rev-parse-safe "--git-dir"))
+      (when-let ((dir (magit-rev-parse-safe "--git-dir")))
         (setq dir (file-name-as-directory (magit-expand-git-file-name dir)))
         (unless (file-remote-p dir)
           (setq dir (concat (file-remote-p default-directory) dir)))
@@ -490,7 +490,7 @@ returning the truename."
   (magit--with-refresh-cache
       (cons (or directory default-directory) 'magit-toplevel)
     (magit--with-safe-default-directory directory
-      (-if-let (topdir (magit-rev-parse-safe "--show-toplevel"))
+      (if-let ((topdir (magit-rev-parse-safe "--show-toplevel")))
           (let (updir)
             (setq topdir (magit-expand-git-file-name topdir))
             (if (and
@@ -520,7 +520,7 @@ returning the truename."
                 updir
               (concat (file-remote-p default-directory)
                       (file-name-as-directory topdir))))
-        (-when-let (gitdir (magit-rev-parse-safe "--git-dir"))
+        (when-let ((gitdir (magit-rev-parse-safe "--git-dir")))
           (setq gitdir (file-name-as-directory
                         (if (file-name-absolute-p gitdir)
                             ;; We might have followed a symlink.
@@ -742,7 +742,7 @@ range.  Otherwise, it can be any revision or range accepted by
                                  (car (process-lines
                                        magit-git-executable "--exec-path"))))
                            (ignore-errors (process-lines "mount")))))
-             #'> :key (-lambda ((cyg . _win)) (length cyg))))
+             #'> :key (pcase-lambda (`(,cyg . ,_win)) (length cyg))))
   "Alist of (CYGWIN . WIN32) directory names.
 Sorted from longest to shortest CYGWIN name."
   :package-version '(magit . "2.3.0")
@@ -1074,15 +1074,24 @@ to, or to some other symbolic-ref that points to the same ref."
 Return nil if no branch is currently checked out."
   (magit-git-string "symbolic-ref" "--short" "HEAD"))
 
+(defvar magit-get-previous-branch-timeout 0.5
+  "Maximum time to spend in `magit-get-previous-branch'.
+Given as a number of seconds.")
+
 (defun magit-get-previous-branch ()
   "Return the refname of the previously checked out branch.
 Return nil if no branch can be found in the `HEAD' reflog
-which is different from the current branch and still exists."
-  (let ((current (magit-get-current-branch))
+which is different from the current branch and still exists.
+The amount of time spent searching is limited by
+`magit-get-previous-branch-timeout'."
+  (let ((t0 (float-time))
+        (current (magit-get-current-branch))
         (i 1) prev)
-    (while (and (setq prev (magit-rev-verify (format "@{-%i}" i)))
-                (or (not (setq prev (magit-rev-branch prev)))
-                    (equal prev current)))
+    (while (if (> (- (float-time) t0) magit-get-previous-branch-timeout)
+               (setq prev nil) ;; Timed out.
+             (and (setq prev (magit-rev-verify (format "@{-%i}" i)))
+                  (or (not (setq prev (magit-rev-branch prev)))
+                      (equal prev current))))
       (cl-incf i))
     prev))
 
@@ -1097,8 +1106,8 @@ which is different from the current branch and still exists."
 
 (defun magit-get-upstream-branch (&optional branch verify)
   (and (or branch (setq branch (magit-get-current-branch)))
-       (-when-let* ((remote (magit-get "branch" branch "remote"))
-                    (merge  (magit-get "branch" branch "merge")))
+       (when-let ((remote (magit-get "branch" branch "remote"))
+                  (merge  (magit-get "branch" branch "merge")))
          (and (string-prefix-p "refs/heads/" merge)
               (let* ((upstream (substring merge 11))
                      (upstream
@@ -1144,8 +1153,8 @@ which is different from the current branch and still exists."
 
 (defun magit-get-push-branch (&optional branch verify)
   (and (or branch (setq branch (magit-get-current-branch)))
-       (-when-let* ((remote (magit-get-push-remote branch))
-                    (push-branch (concat remote "/" branch)))
+       (when-let ((remote (magit-get-push-remote branch))
+                  (push-branch (concat remote "/" branch)))
          (and (or (not verify)
                   (magit-rev-verify push-branch))
               push-branch))))
@@ -1295,7 +1304,7 @@ SORTBY is a key or list of keys to pass to the `--sort' flag of
   (magit-list-related-branches "--no-merged" commit arg))
 
 (defun magit-list-unmerged-to-upstream-branches ()
-  (--filter (-when-let (upstream (magit-get-upstream-branch it))
+  (--filter (when-let ((upstream (magit-get-upstream-branch it)))
               (member it (magit-list-unmerged-branches upstream)))
             (magit-list-local-branch-names)))
 
@@ -1465,13 +1474,13 @@ Return a list of two integers: (A>B B>A)."
   (magit-rev-parse (magit-abbrev-arg "short") rev))
 
 (defun magit-commit-children (commit &optional args)
-  (-map #'car
-        (--filter (member commit (cdr it))
-                  (--map (split-string it " ")
-                         (magit-git-lines
-                          "log" "--format=%H %P"
-                          (or args (list "--branches" "--tags" "--remotes"))
-                          "--not" commit)))))
+  (mapcar #'car
+          (--filter (member commit (cdr it))
+                    (--map (split-string it " ")
+                           (magit-git-lines
+                            "log" "--format=%H %P"
+                            (or args (list "--branches" "--tags" "--remotes"))
+                            "--not" commit)))))
 
 (defun magit-commit-parents (commit)
   (--when-let (magit-git-string "rev-list" "-1" "--parents" commit)
@@ -1513,6 +1522,7 @@ Return a list of two integers: (A>B B>A)."
     ("\\`refs/bisect/\\(good.*\\)" . magit-bisect-good)
     ("\\`refs/stash$"              . magit-refname-stash)
     ("\\`refs/wip/\\(.+\\)"        . magit-refname-wip)
+    ("\\`refs/pullreqs/\\(.+\\)"   . magit-refname-pullreq)
     ("\\`\\(bad\\):"               . magit-bisect-bad)
     ("\\`\\(skip\\):"              . magit-bisect-skip)
     ("\\`\\(good\\):"              . magit-bisect-good)
@@ -2017,14 +2027,14 @@ the reference is used.  The first regexp submatch becomes the
 (defun magit--format-popup-variable:value (variable width &optional global)
   (concat variable
           (make-string (max 1 (- width 3 (length variable))) ?\s)
-          (-if-let (value (magit-get (and global "--global") variable))
+          (if-let ((value (magit-get (and global "--global") variable)))
               (propertize value 'face 'magit-popup-option-value)
             (propertize "unset" 'face 'magit-popup-disabled-argument))))
 
 (defun magit--format-popup-variable:values (variable width &optional global)
   (concat variable
           (make-string (max 1 (- width 3 (length variable))) ?\s)
-          (-if-let (values (magit-get-all (and global "--global") variable))
+          (if-let ((values (magit-get-all (and global "--global") variable)))
               (concat
                (propertize (car values) 'face 'magit-popup-option-value)
                (mapconcat

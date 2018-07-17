@@ -249,7 +249,8 @@ directory, while reading the FILENAME."
                    (with-current-buffer magit-pre-popup-buffer
                      (and (not buffer-file-name)
                           (propertize "...reverse" 'face 'default))))
-                 magit-blame-reverse))
+                 magit-blame-reverse)
+             nil)
   :max-action-columns 5)
 
 (defvar magit-file-mode-lighter "")
@@ -326,8 +327,8 @@ Currently this only adds the following key bindings.
 (defun magit-blob-previous ()
   "Visit the previous blob which modified the current file."
   (interactive)
-  (-if-let (file (or magit-buffer-file-name
-                     (buffer-file-name (buffer-base-buffer))))
+  (if-let ((file (or magit-buffer-file-name
+                     (buffer-file-name (buffer-base-buffer)))))
       (--if-let (magit-blob-ancestor magit-buffer-revision file)
           (magit-blob-visit it (line-number-at-pos))
         (user-error "You have reached the beginning of time"))
@@ -336,7 +337,7 @@ Currently this only adds the following key bindings.
 (defun magit-blob-visit (blob-or-file line)
   (if (stringp blob-or-file)
       (find-file blob-or-file)
-    (-let [(rev file) blob-or-file]
+    (pcase-let ((`(,rev ,file) blob-or-file))
       (magit-find-file rev file)
       (apply #'message "%s (%s %s ago)"
              (magit-rev-format "%s" rev)
@@ -367,7 +368,8 @@ Currently this only adds the following key bindings.
 If FILE isn't tracked in Git, fallback to using `rename-file'."
   (interactive
    (let* ((file (magit-read-file "Rename file"))
-          (newname (read-file-name (format "Rename %s to file: " file))))
+          (newname (read-file-name (format "Rename %s to file: " file)
+                                   (expand-file-name (file-name-directory file)))))
      (list (expand-file-name file (magit-toplevel))
            (expand-file-name newname))))
   (if (magit-file-tracked-p (magit-convert-filename-for-git file))
@@ -526,7 +528,7 @@ If the value is the symbol `buffer', then use the same arguments
 as the buffer.  With a prefix argument use no arguments.
 
 If the value is a list beginning with the symbol `exclude', then
-use the arguments as the buffer except for those matched by
+use the same arguments as the buffer except for those matched by
 entries in the cdr of the list.  The comparison is done using
 `string-prefix-p'.  With a prefix argument use the same arguments
 as the buffer.

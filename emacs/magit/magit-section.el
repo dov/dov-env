@@ -176,16 +176,16 @@ but in the future it will also be used set the defaults."
 ;;; Core
 
 (defclass magit-section ()
-  ((type     :initform nil :accessor magit-section-type     :initarg :type)
-   (value    :initform nil :accessor magit-section-value    :initarg :value)
-   (start    :initform nil :accessor magit-section-start    :initarg :start)
-   (content  :initform nil :accessor magit-section-content)
-   (end      :initform nil :accessor magit-section-end)
-   (hidden   :initform nil :accessor magit-section-hidden)
-   (washer   :initform nil :accessor magit-section-washer)
+  ((type     :initform nil :initarg :type)
+   (value    :initform nil :initarg :value)
+   (start    :initform nil :initarg :start)
+   (content  :initform nil)
+   (end      :initform nil)
+   (hidden   :initform nil)
+   (washer   :initform nil)
    (process  :initform nil)
-   (parent   :initform nil :accessor magit-section-parent   :initarg :parent)
-   (children :initform nil :accessor magit-section-children)))
+   (parent   :initform nil :initarg :parent)
+   (children :initform nil)))
 
 (defclass magit-file-section (magit-section)
   ((source   :initform nil)
@@ -380,7 +380,7 @@ With a prefix argument also expand it." heading)
   "Show the body of the current section."
   (interactive (list (magit-current-section)))
   (oset section hidden nil)
-  (-when-let (washer (oref section washer))
+  (when-let ((washer (oref section washer)))
     (oset section washer nil)
     (let ((inhibit-read-only t)
           (magit-insert-section--parent section)
@@ -393,7 +393,7 @@ With a prefix argument also expand it." heading)
           (funcall washer)
           (oset section end (point-marker)))))
     (magit-section-update-highlight))
-  (-when-let (beg (oref section content))
+  (when-let ((beg (oref section content)))
     (remove-overlays beg (oref section end) 'invisible t))
   (magit-section-maybe-cache-visibility section)
   (dolist (child (oref section children))
@@ -407,7 +407,7 @@ With a prefix argument also expand it." heading)
   (if (eq section magit-root-section)
       (user-error "Cannot hide root section")
     (oset section hidden t)
-    (-when-let (beg (oref section content))
+    (when-let ((beg (oref section content)))
       (let ((end (oref section end)))
         (remove-overlays beg end 'invisible t)
         (let ((o (make-overlay beg end)))
@@ -444,13 +444,13 @@ children."
   (magit-section-show section))
 
 (defun magit-section-show-children-1 (section &optional depth)
-  (--each (oref section children)
-    (oset it hidden nil)
+  (dolist (child (oref section children))
+    (oset child hidden nil)
     (if depth
         (if (> depth 0)
-            (magit-section-show-children-1 it (1- depth))
-          (magit-section-hide it))
-      (magit-section-show-children-1 it))))
+            (magit-section-show-children-1 child (1- depth))
+          (magit-section-hide child))
+      (magit-section-show-children-1 child))))
 
 (defun magit-section-hide-children (section)
   "Recursively hide the bodies of children of the current section."
@@ -466,11 +466,11 @@ hidden."
   (magit-section-show section))
 
 (defun magit-section-show-headings-1 (section)
-  (--each (oref section children)
-    (oset it hidden nil)
-    (when (or (oref it children)
-              (not (oref it content)))
-      (magit-section-show-headings-1 it))))
+  (dolist (child (oref section children))
+    (oset child hidden nil)
+    (when (or (oref child children)
+              (not (oref child content)))
+      (magit-section-show-headings-1 child))))
 
 (defun magit-section-cycle (section)
   "Cycle visibility of current section and its children."
@@ -503,7 +503,7 @@ hidden."
 (defun magit-section-cycle-diffs ()
   "Cycle visibility of diff-related sections in the current buffer."
   (interactive)
-  (-when-let (sections
+  (when-let ((sections
               (cond ((derived-mode-p 'magit-status-mode)
                      (--mapcat
                       (when it
@@ -514,7 +514,7 @@ hidden."
                             (magit-get-section '((unstaged) (status))))))
                     ((derived-mode-p 'magit-diff-mode)
                      (-filter #'magit-file-section-p
-                              (oref magit-root-section children)))))
+                              (oref magit-root-section children))))))
     (if (--any-p (oref it hidden) sections)
         (dolist (s sections)
           (magit-section-show s)
@@ -710,9 +710,9 @@ at point."
 (defun magit-section-match-assoc (section alist)
   "Return the value associated with SECTION's type or lineage in ALIST."
   (let ((ident (mapcar #'car (magit-section-ident section))))
-    (--some (pcase-let ((`(,key . ,val) it))
-              (and (magit-section-match-1 key ident) val))
-            alist)))
+    (-some (pcase-lambda (`(,key . ,val))
+             (and (magit-section-match-1 key ident) val))
+           alist)))
 
 ;;; Create
 
@@ -777,22 +777,21 @@ anything this time around.
                            (`file 'magit-file-section)
                            (`hunk 'magit-hunk-section)
                            (_     'magit-section))
-                         ""
                          :type ,tp
                          :value ,(nth 1 (car args))
                          :start (point-marker)
                          :parent magit-insert-section--parent)))
        (oset ,s hidden
-             (-if-let (value (run-hook-with-args-until-success
-                              'magit-section-set-visibility-hook ,s))
+             (if-let ((value (run-hook-with-args-until-success
+                              'magit-section-set-visibility-hook ,s)))
                  (eq value 'hide)
-               (-if-let (incarnation (and magit-insert-section--oldroot
+               (if-let ((incarnation (and magit-insert-section--oldroot
                                           (magit-get-section
                                            (magit-section-ident ,s)
-                                           magit-insert-section--oldroot)))
+                                           magit-insert-section--oldroot))))
                    (oref incarnation hidden)
-                 (-if-let (value (magit-section-match-assoc
-                                  ,s magit-section-initial-visibility-alist))
+                 (if-let ((value (magit-section-match-assoc
+                                  ,s magit-section-initial-visibility-alist)))
                      (progn
                        (when (functionp value)
                          (setq value (funcall value ,s)))
@@ -956,9 +955,9 @@ evaluated its BODY.  Admittedly that's a bit of a hack."
         (unless (eq section magit-root-section)
           (run-hook-with-args-until-success
            'magit-section-highlight-hook section selection))
-        (--each magit-section-unhighlight-sections
+        (dolist (s magit-section-unhighlight-sections)
           (run-hook-with-args-until-success
-           'magit-section-unhighlight-hook it selection))
+           'magit-section-unhighlight-hook s selection))
         (restore-buffer-modified-p nil)
         (unless (eq magit-section-highlighted-section section)
           (setq magit-section-highlighted-section
@@ -998,10 +997,10 @@ part of the hook variable, then such a region would be
 invisible."
   (when (and selection
              (not (and (eq this-command 'mouse-drag-region))))
-    (--each selection
-      (magit-section-make-overlay (oref it start)
-                                  (or (oref it content)
-                                      (oref it end))
+    (dolist (section selection)
+      (magit-section-make-overlay (oref section start)
+                                  (or (oref section content)
+                                      (oref section end))
                                   'magit-section-heading-selection))
     t))
 
@@ -1031,9 +1030,9 @@ invisible."
             (unless (eq (magit-current-section) it)
               (goto-char start))))
       (or (and (magit-hunk-section-p section)
-               (-when-let (parent (magit-get-section
+               (when-let ((parent (magit-get-section
                                    (magit-section-ident
-                                    (oref section parent))))
+                                    (oref section parent)))))
                  (let* ((children (oref parent children))
                         (siblings (magit-section-siblings section 'prev))
                         (previous (nth (length siblings) children)))
@@ -1084,7 +1083,7 @@ invisible."
 
 (cl-defun magit-section-cache-visibility
     (&optional (section magit-insert-section--current))
-  ;; Emacs 24 doesn't have `alist-get'.
+  ;; Emacs 25's `alist-get' lacks TESTFN.
   (let* ((id  (magit-section-ident section))
          (elt (assoc id magit-section-visibility-cache))
          (val (if (oref section hidden) 'hide 'show)))
@@ -1122,7 +1121,7 @@ invisible."
               (magit-section-selected-p it selection)))))
 
 (defun magit-section-parent-value (section)
-  (-when-let (parent (oref section parent))
+  (when-let ((parent (oref section parent)))
     (oref parent value)))
 
 (defun magit-section-siblings (section &optional direction)
@@ -1132,7 +1131,7 @@ If optional DIRECTION is `prev', then return siblings that come
 before SECTION.  If it is `next', then return siblings that come
 after SECTION.  For all other values, return all siblings
 excluding SECTION itself."
-  (-when-let (parent (oref section parent))
+  (when-let ((parent (oref section parent)))
     (let ((siblings (oref parent children)))
       (pcase direction
         (`prev  (cdr (member section (reverse siblings))))

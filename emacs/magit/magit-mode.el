@@ -360,8 +360,7 @@ starts complicating other things, then it will be removed."
            (define-key map (kbd   "p") 'magit-push-popup)
            (define-key map (kbd   ",") 'magit-delete-thing)
            (define-key map (kbd   ";") 'magit-file-untrack)
-           (define-key map (kbd "C-c C-i") 'magit-gitignore)
-           (define-key map (kbd "C-c i")   'magit-gitignore-locally))
+           (define-key map (kbd "C-c C-i") 'magit-gitignore-popup))
           (t
            (define-key map [C-return]  'magit-visit-thing)
            (define-key map (kbd "C-m") 'magit-visit-thing)
@@ -380,7 +379,7 @@ starts complicating other things, then it will be removed."
            (define-key map (kbd   "k") 'magit-delete-thing)
            (define-key map (kbd   "K") 'magit-file-untrack)
            (define-key map (kbd   "i") 'magit-gitignore)
-           (define-key map (kbd   "I") 'magit-gitignore-locally)))
+           (define-key map (kbd   "I") 'magit-gitignore-popup)))
     (define-key map (kbd "SPC") 'magit-diff-show-or-scroll-up)
     (define-key map (kbd "DEL") 'magit-diff-show-or-scroll-down)
     (define-key map "+"         'magit-diff-more-context)
@@ -546,6 +545,9 @@ Magit is documented in info node `(magit)'."
   (when (and (fboundp 'nlinum-mode)
              (bound-and-true-p global-nlinum-mode))
     (nlinum-mode -1))
+  (when (and (fboundp 'display-line-numbers-mode)
+             (bound-and-true-p global-display-line-numbers-mode))
+    (display-line-numbers-mode -1))
   (add-hook 'kill-buffer-hook 'magit-preserve-section-visibility-cache))
 
 (defvar-local magit-region-overlays nil)
@@ -647,10 +649,10 @@ other buffers in the selected window."
             '(display-buffer-same-window))))
 
 (defun magit--display-buffer-fullframe (buffer alist)
-  (-when-let (window (or (display-buffer-reuse-window buffer alist)
+  (when-let ((window (or (display-buffer-reuse-window buffer alist)
                          (display-buffer-same-window buffer alist)
                          (display-buffer-pop-up-window buffer alist)
-                         (display-buffer-use-some-window buffer alist)))
+                         (display-buffer-use-some-window buffer alist))))
     (delete-other-windows window)
     window))
 
@@ -664,7 +666,7 @@ Otherwise, behave like `magit-display-buffer-traditional'."
 
 (defun magit--display-buffer-topleft (buffer alist)
   (or (display-buffer-reuse-window buffer alist)
-      (-when-let (window2 (display-buffer-pop-up-window buffer alist))
+      (when-let ((window2 (display-buffer-pop-up-window buffer alist)))
         (let ((window1 (get-buffer-window))
               (buffer1 (current-buffer))
               (buffer2 (window-buffer window2))
@@ -706,9 +708,9 @@ split is made vertically or horizontally is determined by
           '(display-buffer-same-window)))))
 
 (defun magit--display-buffer-fullcolumn (buffer alist)
-  (-when-let (window (or (display-buffer-reuse-window buffer alist)
+  (when-let ((window (or (display-buffer-reuse-window buffer alist)
                          (display-buffer-same-window buffer alist)
-                         (display-buffer-below-selected buffer alist)))
+                         (display-buffer-below-selected buffer alist))))
     (delete-other-windows-vertically window)
     window))
 
@@ -765,7 +767,7 @@ thinking a buffer belongs to a repo that it doesn't.")
 (put 'magit-buffer-locked-p 'permanent-local t)
 
 (defun magit-mode-get-buffer (mode &optional create frame value)
-  (-if-let (topdir (magit-toplevel))
+  (if-let ((topdir (magit-toplevel)))
       (or (--first (with-current-buffer it
                      (and (eq major-mode mode)
                           (equal magit--default-directory topdir)
@@ -774,8 +776,8 @@ thinking a buffer belongs to a repo that it doesn't.")
                                    (equal (magit-buffer-lock-value) value))
                             (not magit-buffer-locked-p))))
                    (if frame
-                       (-map #'window-buffer
-                             (window-list (unless (eq frame t) frame)))
+                       (mapcar #'window-buffer
+                               (window-list (unless (eq frame t) frame)))
                      (buffer-list)))
           (and create
                (let ((default-directory topdir))
@@ -841,15 +843,15 @@ repository, then the former buffer is instead deleted and the
 latter is displayed in its place."
   (interactive)
   (if magit-buffer-locked-p
-      (-if-let (unlocked (magit-mode-get-buffer major-mode))
+      (if-let ((unlocked (magit-mode-get-buffer major-mode)))
           (let ((locked (current-buffer)))
             (switch-to-buffer unlocked nil t)
             (kill-buffer locked))
         (setq magit-buffer-locked-p nil)
         (rename-buffer (funcall magit-generate-buffer-name-function
                                 major-mode)))
-    (-if-let (value (magit-buffer-lock-value))
-        (-if-let (locked (magit-mode-get-buffer major-mode nil nil value))
+    (if-let ((value (magit-buffer-lock-value)))
+        (if-let ((locked (magit-mode-get-buffer major-mode nil nil value)))
             (let ((unlocked (current-buffer)))
               (switch-to-buffer locked nil t)
               (kill-buffer unlocked))
@@ -888,10 +890,10 @@ See also `magit-toggle-buffer-lock'.")
 See also `magit-buffer-lock-functions'."
   (cl-case mode
     (magit-cherry-mode
-     (-let [(upstream head) args]
+     (pcase-let ((`(,upstream ,head) args))
        (concat head ".." upstream)))
     (magit-diff-mode
-     (-let [(rev-or-range const _args files) args]
+     (pcase-let ((`(,rev-or-range ,const ,_args ,files) args))
        (nconc (cons (or rev-or-range
                         (if (member "--cached" const)
                             (progn (setq const (delete "--cached" const))
@@ -900,15 +902,15 @@ See also `magit-buffer-lock-functions'."
                     const)
               (and files (cons "--" files)))))
     (magit-log-mode
-     (-let [(revs _args files) args]
+     (pcase-let ((`(,revs ,_args ,files) args))
        (if (and revs files)
            (append revs (cons "--" files))
          (append revs files))))
     (magit-refs-mode
-     (-let [(ref args) args]
+     (pcase-let ((`(,ref ,args) args))
        (cons (or ref "HEAD") args)))
     (magit-revision-mode
-     (-let [(rev __const _args files) args]
+     (pcase-let ((`(,rev ,_const ,_args ,files) args))
        (if files (cons rev files) (list rev))))
     ((magit-reflog-mode   ; (ref ~args)
       magit-stash-mode    ; (stash _const _args _files)
@@ -1015,7 +1017,7 @@ Run hooks `magit-pre-refresh-hook' and `magit-post-refresh-hook'."
              (windows
               (--mapcat (with-selected-window it
                           (with-current-buffer buffer
-                            (-when-let (section (magit-current-section))
+                            (when-let ((section (magit-current-section)))
                               (list
                                (nconc (list it section)
                                       (magit-refresh-get-relative-position))))))
@@ -1044,7 +1046,7 @@ Run hooks `magit-pre-refresh-hook' and `magit-post-refresh-hook'."
                                             magit-refresh-start-time)))))))
 
 (defun magit-refresh-get-relative-position ()
-  (-when-let (section (magit-current-section))
+  (when-let ((section (magit-current-section)))
     (let ((start (oref section start)))
       (list (count-lines start (point))
             (- (point) (line-beginning-position))
@@ -1129,7 +1131,7 @@ is saved without asking, the user is asked about each modified
 buffer which visits a file in the current repository.  Optional
 argument (the prefix) non-nil means save all with no questions."
   (interactive "P")
-  (-when-let (topdir (magit-rev-parse-safe "--show-toplevel"))
+  (when-let ((topdir (magit-rev-parse-safe "--show-toplevel")))
     (let ((remote (file-remote-p topdir))
           (save-some-buffers-action-alist
            `((?Y (lambda (buffer)

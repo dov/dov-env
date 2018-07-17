@@ -19,7 +19,7 @@
 ;; Keywords: git tools vc
 ;; Homepage: https://github.com/magit/magit
 
-;; Magit requires at least GNU Emacs 24.4 and Git 1.9.4.
+;; Magit requires at least GNU Emacs 25.1 and Git 1.9.4.
 
 ;; Magit is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
@@ -62,7 +62,7 @@
 (require 'package nil t) ; used in `magit-version'
 
 (defconst magit--minimal-git "1.9.4")
-(defconst magit--minimal-emacs "24.4")
+(defconst magit--minimal-emacs "25.1")
 
 ;;; Faces
 
@@ -135,7 +135,7 @@ own faces for the `header-line', or for parts of the
 
 (defface magit-refname-stash
   '((t :inherit magit-refname))
-  "Face for wip refnames."
+  "Face for stash refnames."
   :group 'magit-faces)
 
 (defface magit-refname-wip
@@ -143,9 +143,19 @@ own faces for the `header-line', or for parts of the
   "Face for wip refnames."
   :group 'magit-faces)
 
+(defface magit-refname-pullreq
+  '((t :inherit magit-refname))
+  "Face for pullreq refnames."
+  :group 'magit-faces)
+
 (defface magit-keyword
   '((t :inherit font-lock-string-face))
   "Face for parts of commit messages inside brackets."
+  :group 'magit-faces)
+
+(defface magit-keyword-squash
+  '((t :inherit font-lock-warning-face))
+  "Face for squash! and fixup! keywords in commit messages."
   :group 'magit-faces)
 
 (defface magit-signature-good

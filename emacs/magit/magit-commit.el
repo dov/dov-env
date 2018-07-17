@@ -43,7 +43,7 @@
   :type '(repeat (string :tag "Argument")))
 
 (defcustom magit-commit-ask-to-stage 'verbose
-  "Whether to ask to stage everything when committing and nothing is staged."
+  "Whether to ask to stage all unstaged changes when committing and nothing is staged."
   :package-version '(magit . "2.3.0")
   :group 'magit-commands
   :type '(choice (const :tag "Ask showing diff" verbose)
@@ -126,8 +126,8 @@ an error while using those is harder to recover from."
   (require 'epa)
   (let ((keys (--map (concat (epg-sub-key-id (car (epg-key-sub-key-list it)))
                              " "
-                             (-when-let (id-obj (car (epg-key-user-id-list it)))
-                               (let    ((id-str (epg-user-id-string id-obj)))
+                             (when-let ((id-obj (car (epg-key-user-id-list it))))
+                               (let ((id-str (epg-user-id-string id-obj)))
                                  (if (stringp id-str)
                                      id-str
                                    (epg-decode-dn id-obj)))))
@@ -257,7 +257,7 @@ depending on the value of option `magit-commit-squash-confirm'."
 
 (defun magit-commit-squash-internal
     (option commit &optional args rebase edit confirmed)
-  (-when-let (args (magit-commit-assert args t))
+  (when-let ((args (magit-commit-assert args t)))
     (when commit
       (when (and rebase (not (magit-rev-ancestor-p commit "HEAD")))
         (magit-read-char-case
@@ -334,7 +334,7 @@ depending on the value of option `magit-commit-squash-confirm'."
    (magit-commit-ask-to-stage
     (when (eq magit-commit-ask-to-stage 'verbose)
       (magit-diff-unstaged))
-    (prog1 (when (y-or-n-p "Nothing staged.  Stage and commit everything? ")
+    (prog1 (when (y-or-n-p "Nothing staged.  Stage and commit all unstaged changes? ")
              (magit-run-git "add" "-u" ".")
              (or args (list "--")))
       (when (and (eq magit-commit-ask-to-stage 'verbose)
@@ -374,7 +374,7 @@ history element."
 
 (defun magit-commit-diff ()
   (when (and git-commit-mode magit-commit-show-diff)
-    (-when-let (diff-buffer (magit-mode-get-buffer 'magit-diff-mode))
+    (when-let ((diff-buffer (magit-mode-get-buffer 'magit-diff-mode)))
       ;; This window just started displaying the commit message
       ;; buffer.  Without this that buffer would immediately be
       ;; replaced with the diff buffer.  See #2632.
@@ -385,7 +385,7 @@ history element."
               (magit-display-buffer-noselect t)
               (inhibit-quit nil))
           (message "Diffing changes to be committed (C-g to abort diffing)")
-          (-if-let (fn (cl-case last-command
+          (if-let ((fn (cl-case last-command
                          (magit-commit
                           (apply-partially 'magit-diff-staged nil))
                          (magit-commit-all
@@ -393,7 +393,7 @@ history element."
                          ((magit-commit-amend
                            magit-commit-reword
                            magit-rebase-reword-commit)
-                          'magit-diff-while-amending)))
+                          'magit-diff-while-amending))))
               (funcall fn args)
             (if (magit-anything-staged-p)
                 (magit-diff-staged nil args)
@@ -450,34 +450,36 @@ actually insert the entry."
     (undo-boundary)
     (goto-char (point-max))
     (while (re-search-backward (concat "^" comment-start) nil t))
-    (cond ((re-search-backward (format "* %s\\(?: (\\([^)]+\\))\\)?: " file)
-                               nil t)
-           (when (equal (match-string 1) defun)
-             (setq defun nil))
-           (re-search-forward ": "))
-          (t
-           (when (re-search-backward "^[\\*(].+\n" nil t)
-             (goto-char (match-end 0)))
-           (while (re-search-forward "^[^\\*#\n].*\n" nil t))
-           (if defun
-               (progn (insert (format "* %s (%s): \n" file defun))
-                      (setq defun nil))
-             (insert (format "* %s: \n" file)))
-           (backward-char)
-           (unless (looking-at "\n[\n\\']")
-             (insert ?\n)
-             (backward-char))))
-    (when defun
-      (forward-line)
-      (let ((limit (save-excursion
-                     (and (re-search-forward "^\\*" nil t)
-                          (point)))))
-        (unless (or (looking-back (format "(%s): " defun)
-                                  (line-beginning-position))
-                    (re-search-forward (format "^(%s): " defun) limit t))
-          (while (re-search-forward "^[^\\*#\n].*\n" limit t))
-          (insert (format "(%s): \n" defun))
-          (backward-char))))))
+    (save-restriction
+      (narrow-to-region (point-min) (point))
+      (cond ((re-search-backward (format "* %s\\(?: (\\([^)]+\\))\\)?: " file)
+                                 nil t)
+             (when (equal (match-string 1) defun)
+               (setq defun nil))
+             (re-search-forward ": "))
+            (t
+             (when (re-search-backward "^[\\*(].+\n" nil t)
+               (goto-char (match-end 0)))
+             (while (re-search-forward "^[^\\*\n].*\n" nil t))
+             (if defun
+                 (progn (insert (format "* %s (%s): \n" file defun))
+                        (setq defun nil))
+               (insert (format "* %s: \n" file)))
+             (backward-char)
+             (unless (looking-at "\n[\n\\']")
+               (insert ?\n)
+               (backward-char))))
+      (when defun
+        (forward-line)
+        (let ((limit (save-excursion
+                       (and (re-search-forward "^\\*" nil t)
+                            (point)))))
+          (unless (or (looking-back (format "(%s): " defun)
+                                    (line-beginning-position))
+                      (re-search-forward (format "^(%s): " defun) limit t))
+            (while (re-search-forward "^[^\\*\n].*\n" limit t))
+            (insert (format "(%s): \n" defun))
+            (backward-char)))))))
 
 (provide 'magit-commit)
 ;;; magit-commit.el ends here

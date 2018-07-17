@@ -27,9 +27,6 @@
 
 ;;; Code:
 
-(eval-when-compile
-  '(require 'pcase)) ; `pcase-dolist' isn't autoloaded by v24.4
-
 (require 'magit)
 
 ;;; Commands
@@ -152,7 +149,7 @@ If there is only one worktree, then insert nothing."
       (magit-insert-section (worktrees)
         (magit-insert-heading "Worktrees:")
         (let* ((cols
-                (mapcar (-lambda ((path barep commit branch))
+                (mapcar (pcase-lambda (`(,path ,barep ,commit ,branch))
                           (cons (cond
                                  (branch (propertize branch
                                                      'face 'magit-branch-local))
