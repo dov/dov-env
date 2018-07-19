@@ -1131,6 +1131,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.lua$" 'lua-mode)) 
        (list (cons "\\.rs$" 'rust-mode)) 
        (list (cons "\\.html$" 'web-mode)) 
+       (list (cons "\\.vue$" 'web-mode)) 
        (list (cons "\\.nsi\\(s\\)?$" 'nsis-mode)) 
        (list (cons "\\.pr[io]$" 'qt-pro-mode))
        (list (cons "\\.rec$" 'rec-mode))
@@ -2100,6 +2101,8 @@ With numeric ARG, display the images if and only if ARG is positive."
             (define-key js2-mode-map "\C-c\C-d" 'js-doc-insert-function-doc)
             (define-key js2-mode-map "@" 'js-doc-insert-tag)
             (define-key js2-mode-map "\C-c\C-c" 'rhino-js-eval-region-or-buffer)
+            (setq js2-strict-trailing-comma-warning nil)
+            (setq js2-strict-missing-semi-warning nil)
             ))
 
 ;(add-hook 'py-mode-hook '(lambda() 
@@ -2207,6 +2210,23 @@ Does not delete the prompt."
     (insert "=")
     (insert res)
     (message res)))
+
+(defun hm2dec (hm)
+  "Convert a hour minute string to a decimal string"
+  (save-match-data ; is usually a good idea
+    (and (string-match "\\`\\([0-9]+\\):\\([0-9]+\\)\\'" hm)
+         (setq hour (string-to-number (match-string 1 hm))
+               min (string-to-number (match-string 2 hm) ) ))
+    (+ hour (/ min 60.0))))
+
+(defun region-hm2dec (&optional insert)
+  "Convert the selected area from hour:min to decimal"
+  (interactive)
+  (if (not (use-region-p))
+      (error "Need region!"))
+  (let ((res (format "%.2f" (hm2dec (buffer-substring-no-properties (region-beginning) (region-end))))))
+    (kill-region (region-beginning) (region-end))
+    (insert res)))
 
 (defun toggle-backslash-line ()
   "Toggle all forward slashes to backslashes for the current line."
