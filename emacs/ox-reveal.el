@@ -5,7 +5,7 @@
 ;; Author: Yujie Wen <yjwen.ty at gmail dot com>
 ;; Created: 2013-04-27
 ;; Version: 1.0
-;; Package-Requires: ((org "20150330"))
+;; Package-Requires: ((org "8.3"))
 ;; Keywords: outlines, hypermedia, slideshow, presentation
 
 ;; This file is not part of GNU Emacs.
@@ -371,6 +371,21 @@ BEFORE the plugins that depend on them."
   :group 'org-export-reveal
   :type 'string)
 
+(defcustom org-reveal-klipsify-src nil
+  "Set to non-nil if you would like to make source code blocks editable in exported presentation."
+  :group 'org-export-reveal
+  :type 'boolean)
+
+(defcustom org-reveal-klipse-css "https://storage.googleapis.com/app.klipse.tech/css/codemirror.css"
+  "Location of the codemirror css file for use with klipse."
+  :group 'org-export-reveal
+  :type 'string)
+
+(defcustom org-reveal-klipse-js "https://storage.googleapis.com/app.klipse.tech/plugin_prod/js/klipse_plugin.min.js"
+  "location of the klipse js source code."
+  :group 'org-export-reveal
+  :type 'string)
+
 (defvar org-reveal--last-slide-section-tag ""
   "Variable to cache the section tag from the last slide. ")
 
@@ -420,8 +435,11 @@ holding contextual information."
         (org-html-headline headline contents info)
       ;; Standard headline.  Export it as a slide
       (let* ((level (org-export-get-relative-level headline info))
+	     (section-number (mapconcat #'number-to-string
+					(org-export-get-headline-number headline info)
+					"-"))
 	     (preferred-id (or (org-element-property :CUSTOM_ID headline)
-			       (org-export-get-reference headline info)
+			       section-number
 			       (org-element-property :ID headline)))
 	     (hlevel (org-reveal--get-hlevel info))
 	     (header (plist-get info :reveal-slide-header))
@@ -437,7 +455,7 @@ holding contextual information."
              (default-slide-background-transition (plist-get info :reveal-default-slide-background-transition))
              (slide-section-tag (format "<section %s%s>\n"
                                         (org-html--make-attribute-string
-                                         `(:id ,(format "slide-%s" preferred-id)
+                                         `(:id ,(format "slide-sec-%s" preferred-id)
                                            :data-transition ,(org-element-property :REVEAL_DATA_TRANSITION headline)
                                            :data-state ,(org-element-property :REVEAL_DATA_STATE headline)
                                            :data-background ,(or (org-element-property :REVEAL_BACKGROUND headline)
@@ -937,13 +955,12 @@ Extract and set `attr_html' to plain-list tag attributes."
                (unordered "ul")
                (descriptive "dl")))
         (attrs (org-export-read-attribute :attr_html plain-list)))
-    (format "%s<%s%s>\n%s\n</%s>%s"
-            (if (string= org-html-checkbox-type 'html) "<form>" "")
+    (format "<%s%s>\n%s\n</%s>"
             tag
             (if attrs (concat " " (org-html--make-attribute-string attrs)) "")
             contents
             tag
-            (if (string= org-html-checkbox-type 'html) "</form>" ""))))
+            )))
 
 (defun org-reveal--build-pre/postamble (type info)
   "Return document preamble or postamble as a string, or nil."
@@ -993,25 +1010,61 @@ contextual information."
 			 :attr_reveal src-block :code_attribs) ""))
            (label (let ((lbl (org-element-property :name src-block)))
                     (if (not lbl) ""
-                      (format " id=\"%s\"" lbl)))))
+                      (format " id=\"%s\"" lbl))))
+           (klipsify  (and  org-reveal-klipsify-src 
+                           (member lang '("javascript" "js" "ruby" "scheme" "clojure" "php" "html"))))
+           (langselector (cond ((or (string= lang "js") (string= lang "javascript")) "selector_eval_js")
+                               ((string= lang "clojure") "selector")
+                               ((string= lang "python") "selector_eval_python_client")
+                               ((string= lang "scheme") "selector_eval_scheme")
+                               ((string= lang "ruby") "selector_eval_ruby")
+                               ((string= lang "html") "selector_eval_html"))
+                         )
+)
       (if (not lang)
           (format "<pre %s%s>\n%s</pre>"
                   (or (frag-class frag info) " class=\"example\"")
                   label
                   code)
-        (format
-         "<div class=\"org-src-container\">\n%s%s\n</div>"
-         (if (not caption) ""
-           (format "<label class=\"org-src-name\">%s</label>"
-                   (org-export-data caption info)))
-         (if use-highlight
-             (format "\n<pre%s%s><code class=\"%s\" %s>%s</code></pre>"
-                     (or (frag-class frag info) "")
-                     label lang code-attribs code)
-           (format "\n<pre %s%s>%s</pre>"
-                   (or (frag-class frag info)
-                       (format " class=\"src src-%s\"" lang))
-                   label code)))))))
+        (if klipsify
+            (concat
+             "<iframe style=\"background-color:white;\" height=\"500px\" width= \"100%\" srcdoc='<html><body><pre><code "
+             (if (string= lang "html" )"data-editor-type=\"html\"  "  "") "class=\"klipse\" "code-attribs ">
+" (if (string= lang "html")
+      (replace-regexp-in-string "'" "&#39;"
+                                (replace-regexp-in-string "&" "&amp;"
+                                                          (replace-regexp-in-string "<" "&lt;"
+                                                                                    (replace-regexp-in-string ">" "&gt;"
+                                                                                                              (cl-letf (((symbol-function 'org-html-htmlize-region-for-paste)
+                                                                                                                         #'buffer-substring))
+                                                                                                                (org-html-format-code src-block info))))))
+    (replace-regexp-in-string "'" "&#39;"
+                              code))  "
+</code></pre>
+<link rel= \"stylesheet\" type= \"text/css\" href=\"" org-reveal-klipse-css "\">
+<style>
+.CodeMirror { font-size: 2em; }
+</style>
+<script>
+window.klipse_settings = { " langselector  ": \".klipse\" };
+</script>
+<script src= \"" org-reveal-klipse-js "\"></script></body></html>
+'>
+</iframe>")
+          (format
+            "<div class=\"org-src-container\">\n%s%s\n</div>"
+            (if (not caption) ""
+              (format "<label class=\"org-src-name\">%s</label>"
+                      (org-export-data caption info)))
+            (if use-highlight
+                (format "\n<pre%s%s><code class=\"%s\" %s>%s</code></pre>"
+                        (or (frag-class frag info) "")
+                        label lang code-attribs code)
+              (format "\n<pre %s%s>%s</pre>"
+                      (or (frag-class frag info)
+                          (format " class=\"src src-%s\"" lang))
+                      label code)
+              )))))))
 
 (defun org-reveal-quote-block (quote-block contents info)
   "Transcode a QUOTE-BLOCK element from Org to Reveal.
@@ -1046,8 +1099,7 @@ contextual information."
        (concat "<p class=\"date\">"
                (org-html--translate "Created" info)
                ": "
-               (format-time-string
-                (plist-get info :html-metadata-timestamp-format))
+               (format-time-string org-html-metadata-timestamp-format)
                "</p>")))))
 
 (defun org-reveal-template (contents info)
@@ -1159,17 +1211,17 @@ transformed fragment attribute to ELEM's attr_html plist."
                                                  s))
                                              frag-list)
                                    frag-list))
-                      (items (org-element-contents elem)))
+                      (items (org-element-contents elem))
+		      (default-style-list
+                            (mapcar (lambda (a) default-style)
+                                    (number-sequence 1 (length items)))))
                  (if frag-index
                      (mapcar* 'org-reveal--update-attr-html
-                              items frag-list default-style (car (read-from-string frag-index)))
+                              items frag-list default-style-list (car (read-from-string frag-index)))
                    (let* ((last-frag (car (last frag-list)))
                           (tail-list (mapcar (lambda (a) last-frag)
                                              (number-sequence (+ (length frag-list) 1)
-                                                              (length items))))
-                          (default-style-list
-                            (mapcar (lambda (a) default-style)
-                                    (number-sequence 1 (length items)))))
+                                                              (length items)))))
                      (nconc frag-list tail-list)
                      (mapcar* 'org-reveal--update-attr-html items frag-list default-style-list)))))
               (t (org-reveal--update-attr-html elem frag default-style frag-index)))
@@ -1228,7 +1280,9 @@ Return output file name."
 ;; Register auto-completion for speaker notes.
 (when org-reveal-note-key-char
   (add-to-list 'org-structure-template-alist
-               (list org-reveal-note-key-char "#+BEGIN_NOTES\n\?\n#+END_NOTES")))
+ ;               (list org-reveal-note-key-char "#+BEGIN_NOTES\n\?\n#+END_NOTES"))
+                (cons org-reveal-note-key-char "notes"))
+               )
 
 (provide 'ox-reveal)
 
