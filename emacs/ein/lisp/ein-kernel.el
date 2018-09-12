@@ -47,6 +47,18 @@
 ;;;###autoload
 (defalias 'ein:kernel-id 'ein:$kernel-kernel-id)
 
+(defcustom ein:pre-kernel-execute-functions nil
+  "List of functions to call before sending a message to the kernel for execution. Each function is called with the message (see `ein:kernel--get-msg') about to be sent."
+  :type 'list
+  :group 'ein)
+
+(defcustom ein:on-shell-reply-functions nil
+  "List of functions to call when the kernel responds on the shell channel.
+  Each function should have the call signature: msg-id header content metadata"
+  :type 'list
+  :group 'ein)
+
+
 
 ;;; Initialization and connection.
 
@@ -78,7 +90,7 @@
             :msg_id (ein:utils-uuid)
             :username (ein:$kernel-username kernel)
             :session (ein:$kernel-session-id kernel)
-            ;; version?
+            :version "5.0"
             :date (format-time-string "%Y-%m-%dT%T" (current-time)) ; ISO 8601 timestamp
             :msg_type msg-type)
    :metadata (make-hash-table)
@@ -119,6 +131,7 @@
                            ,@(if kernelspec
                                  `(("kernel" .
                                     (("name" . ,(ein:$kernelspec-name kernelspec))))))))))
+         :sync ein:force-sync
          :parser #'ein:json-read
          :success (apply-partially #'ein:kernel--kernel-started kernel)
          :error (apply-partially #'ein:kernel--start-failed kernel notebook))))))
@@ -412,9 +425,16 @@ http://ipython.org/ipython-doc/dev/development/messaging.html#object-information
   (when objname
     (if (= (ein:$kernel-api-version kernel) 2)
         (ein:legacy-kernel-object-info-request kernel objname callbacks))
-    (let* ((content (list :oname (format "%s" objname)
-                          :cursor_pos (or cursor-pos 0)
-                          :detail_level (or detail-level 0)))
+    (let* ((content (if (< (ein:$kernel-api-version kernel) 5)
+                        (list
+                         ;; :text ""
+                         :oname (format "%s" objname)
+                         :cursor_pos (or cursor-pos 0)
+                         :detail_level (or detail-level 0))
+                      (list
+                       :code (format "%s" objname)
+                       :cursor_pos (or cursor-pos 0)
+                       :detail_level (or detail-level 0))))
            (msg (ein:kernel--get-msg kernel "inspect_request"
                                      (append content (list :detail_level 1))))
            (msg-id (plist-get (plist-get msg :header) :msg_id)))
@@ -431,9 +451,10 @@ http://ipython.org/ipython-doc/dev/development/messaging.html#object-information
 (defun* ein:kernel-execute (kernel code &optional callbacks
                                    &key
                                    (silent t)
-                                   (user-variables [])
+                                   (store-history t)
                                    (user-expressions (make-hash-table))
-                                   (allow-stdin t))
+                                   (allow-stdin t)
+                                   (stop-on-error nil))
   "Execute CODE on KERNEL.
 
 When calling this method pass a CALLBACKS structure of the form:
@@ -498,11 +519,13 @@ Sample implementations
     (let* ((content (list
                      :code code
                      :silent (or silent json-false)
-                     :user_variables user-variables
+                     :store_history (or store-history json-false)
                      :user_expressions user-expressions
-                     :allow_stdin allow-stdin))
+                     :allow_stdin allow-stdin
+                     :stop_on_error (or stop-on-error json-false)))
            (msg (ein:kernel--get-msg kernel "execute_request" content))
            (msg-id (plist-get (plist-get msg :header) :msg_id)))
+      (run-hook-with-args 'ein:pre-kernel-execute-functions msg)
       (ein:websocket-send-shell-channel kernel msg)
       (unless (plist-get callbacks :execute_reply)
         (ein:log 'debug "code: %s" code))
@@ -533,10 +556,14 @@ CONTENT and METADATA are given by `complete_reply' message.
 http://ipython.org/ipython-doc/dev/development/messaging.html#complete
 "
   (assert (ein:kernel-live-p kernel) nil "complete_reply: Kernel is not active.")
-  (let* ((content (list
-                   ;; :text ""
-                   :line line
-                   :cursor_pos cursor-pos))
+  (let* ((content (if (< (ein:$kernel-api-version kernel) 5)
+                      (list
+                       ;; :text ""
+                       :line line
+                       :cursor_pos cursor-pos)
+                    (list
+                     :code line
+                     :cursor_pos cursor-pos)))
          (msg (ein:kernel--get-msg kernel "complete_request" content))
          (msg-id (plist-get (plist-get msg :header) :msg_id)))
     (ein:websocket-send-shell-channel kernel msg)
@@ -644,6 +671,7 @@ Example::
    '(:kernel_info_reply (message . \"CONTENT: %S\\nMETADATA: %S\")))
 "
   (assert (ein:kernel-live-p kernel) nil "kernel_info_reply: Kernel is not active.")
+  (ein:log 'debug "EIN:KERNEL-KERNEL-INFO-REQUEST: Sending request.")
   (let* ((msg (ein:kernel--get-msg kernel "kernel_info_request" nil))
          (msg-id (plist-get (plist-get msg :header) :msg_id)))
     (ein:websocket-send-shell-channel kernel msg)
@@ -716,7 +744,12 @@ Example::
                    (ein:websocket-send-stdin-channel kernel msg)
                    (setf (ein:$kernel-stdin-activep kernel) nil))
                (cond ((string-match "ipdb>" (plist-get content :prompt)) (ein:run-ipdb-session kernel "ipdb> "))
-                     ((string-match "(Pdb)" (plist-get content :prompt)) (ein:run-ipdb-session kernel "(Pdb) ")))))))))
+                     ((string-match "(Pdb)" (plist-get content :prompt)) (ein:run-ipdb-session kernel "(Pdb) "))
+                     (t (let* ((in (read-string (plist-get content :prompt)))
+                               (content (list :value in))
+                               (msg (ein:kernel--get-msg kernel "input_reply" content)))
+                          (ein:websocket-send-stdin-channel kernel msg)
+                          (setf (ein:$kernel-stdin-activep kernel) nil))))))))))
 
 (defun ein:kernel--handle-shell-reply (kernel packet)
   (ein:log 'debug "KERNEL--HANDLE-SHELL-REPLY")
@@ -727,6 +760,7 @@ Example::
            (msg-id (plist-get parent_header :msg_id))
            (callbacks (ein:kernel-get-callbacks-for-msg kernel msg-id))
            (cb (plist-get callbacks (intern (format ":%s" msg-type)))))
+      (run-hook-with-args 'ein:on-shell-reply-functions msg-type header content metadata)
       (ein:log 'debug "KERNEL--HANDLE-SHELL-REPLY: msg_type = %s" msg-type)
       (if cb
           (ein:funcall-packed cb content metadata)

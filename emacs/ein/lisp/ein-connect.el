@@ -31,7 +31,7 @@
 ;;; Code:
 
 (require 'eieio)
-(eval-when-compile (require 'auto-complete nil t))
+(eval-when-compile (require 'auto-complete))
 
 (require 'ein-notebook)
 
@@ -221,8 +221,13 @@ notebooks."
   "Evaluate the whole buffer.  Note that this will run the code
 inside the ``if __name__ == \"__main__\":`` block."
   (interactive)
-  (ein:shared-output-eval-string (buffer-string) nil nil nil :silent t)
-  (ein:connect-execute-autoexec-cells)
+  (deferred:$
+    (deferred:next
+      (lambda ()
+        (ein:shared-output-eval-string (buffer-string) nil nil nil :silent t)))
+    (deferred:nextc it
+      (lambda ()
+        (ein:connect-execute-autoexec-cells))))
   (ein:log 'info "Whole buffer is sent to the kernel."))
 
 (defun ein:connect-run-buffer (&optional ask-command)
@@ -235,7 +240,7 @@ Variable `ein:connect-run-command' sets the default command."
              (command (if ask-command
                           (read-from-minibuffer "Command: " default-command)
                         default-command))
-             (cmd (format "%s %s" command it)))
+             (cmd (format "%s \"%s\"" command it)))
         (if (ein:maybe-save-buffer ein:connect-save-before-run)
             (progn
               (ein:shared-output-eval-string cmd nil nil nil :silent t)
@@ -398,9 +403,10 @@ notebook."
                         (auto-complete-mode +1))
     (ein:use-ac-jedi-backend (ein:jedi-complete-on-dot-install ein:connect-mode-map)
                              (auto-complete-mode +1))
-    (ein:use-company-backend (company-mode +1))
-    (ein:use-company-jedi-backend (warn "Support for jedi+company currently not implemented. Defaulting to just company-mode")
-                                  (company-mode +1))
+    (ein:use-company-backend (company-mode +1)
+                             (add-to-list 'company-backends 'ein:company-backend))
+    (ein:use-company-jedi-backend (company-mode +1)
+                                  (add-to-list 'company-backends 'ein:company-backend))
 
     (t (warn "No autocompletion backend has been selected - see `ein:completion-backend'."))))
 

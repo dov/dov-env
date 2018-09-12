@@ -1,3 +1,4 @@
+;; -*- lexical-binding: t -*-
 ;;; ein-shared-output.el --- Output buffer for ein-connect.el
 
 ;; Copyright (C) 2012- Takafumi Arakaki
@@ -74,7 +75,7 @@ Called from ewoc pretty printer via `ein:cell-pp'."
   (apply #'ein:cell-execute-internal cell kernel code args))
 
 (defmethod ein:cell--handle-output ((cell ein:shared-output-cell)
-                                    msg-type content -metadata-not-used-)
+                                    msg-type content _metadata-not-used-)
   ;; Show short message
   (ein:case-equal msg-type
     (("pyout")
@@ -127,14 +128,13 @@ Called from ewoc pretty printer via `ein:cell-pp'."
                                     (ein:propertize-read-only "\n")
                                     nil t))
              (events (ein:events-new))
-             (cell (ein:shared-output-cell "SharedOutputCell"
-                                           :ewoc ewoc
+             (cell (ein:shared-output-cell :ewoc ewoc
                                            :events events)))
         (erase-buffer)
         (ein:shared-output-bind-events events)
         (setq ein:%shared-output%
-              (ein:shared-output "SharedOutput" :ewoc ewoc :cell cell
-                                  :events events))
+              (ein:shared-output :ewoc ewoc :cell cell
+                                 :events events))
         (ein:cell-enter-last cell))
       (setq buffer-read-only t)
       (ein:shared-output-mode)
@@ -216,9 +216,19 @@ shared output buffer.  You can open the buffer by the command
      (list code nil t kernel)))
   (unless kernel (setq kernel (ein:get-kernel-or-error)))
   (let ((cell (ein:shared-output-get-cell)))
-    (apply #'ein:cell-execute cell kernel (ein:trim-indent code) popup args))
-  (when verbose
-    (ein:log 'info "Code \"%s\" is sent to the kernel." code)))
+    ;; If cell is already running, wait until it is finished
+    ;; before executing more code.
+    (deferred:$
+      (deferred:next
+        (deferred:lambda ()
+          (if (not (null (slot-value cell 'running)))
+              (deferred:nextc (deferred:wait 50) self))))
+      (deferred:nextc it
+        (lambda ()
+          (deferred:wait 100) ;; Give everyone a few milliseconds to breath.
+          (apply #'ein:cell-execute cell kernel (ein:trim-indent code) popup args)
+          (when verbose
+            (ein:log 'info "Code \"%s\" is sent to the kernel." code)))))))
 
 
 ;;; Generic getter

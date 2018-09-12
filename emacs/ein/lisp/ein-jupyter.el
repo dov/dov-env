@@ -89,19 +89,19 @@ session, along with the login token."
   (assert (processp %ein:jupyter-server-session%) t "Jupyter server has not started!")
   (condition-case err
       (with-current-buffer (process-buffer %ein:jupyter-server-session%) ;;ein:jupyter-server-buffer-name
-        (goto-char (point-min))
-        (re-search-forward "\\(https?://.*:[0-9]+\\)/\\?token=\\(.*\\)" nil)
+        (goto-char (point-max))
+        (re-search-backward "\\(https?://.*:[0-9]+\\)/\\?token=\\([[:alnum:]]*\\)" nil)
         (let ((url-or-port (match-string 1))
               (token (match-string 2)))
           (list url-or-port token)))
     (error (with-current-buffer (process-buffer %ein:jupyter-server-session%)
-             (goto-char (point-min))
-             (if (re-search-forward "\\(https?://.*:[0-9]+\\)" nil t)
+             (goto-char (point-max))
+             (if (re-search-backward "\\(https?://.*:[0-9]+\\)" nil t)
                  (list (match-string 1) nil)
                (list nil nil))))))
 
 ;;;###autoload
-(defun ein:jupyter-server-login-and-open ()
+(defun ein:jupyter-server-login-and-open (&optional no-popup)
   "Log in and open a notebooklist buffer for a running jupyter notebook server.
 
 Determine if there is a running jupyter server (started via a
@@ -116,14 +116,14 @@ via a call to `ein:notebooklist-open'."
           (progn
             (ein:notebooklist-login url-or-port token)
             (sit-for 1.0) ;; FIXME: Do better!
-            (ein:notebooklist-open url-or-port))
+            (ein:notebooklist-open url-or-port nil no-popup))
         (if url-or-port
             (ein:notebooklist-open url-or-port)
           (ein:log 'info "Could not determine port nor login info for jupyter server."))))))
 
 
 ;;;###autoload
-(defun ein:jupyter-server-start (server-cmd-path notebook-directory &optional no-login-after-start-p)
+(defun ein:jupyter-server-start (server-cmd-path notebook-directory &optional no-login-after-start-p no-popup)
   "Start the jupyter notebook server at the given path.
 
 This command opens an asynchronous process running the jupyter
@@ -166,6 +166,7 @@ the log of the running jupyter server."
                                  (ein:jupyter-server-stop t)))
   (message "Starting notebook server in directory: %s" notebook-directory)
   (lexical-let ((no-login-after-start-p no-login-after-start-p)
+                (no-popup no-popup)
                 (proc (ein:jupyter-server--run ein:jupyter-server-buffer-name
                                                *ein:last-jupyter-command*
                                                *ein:last-jupyter-directory*)))
@@ -191,7 +192,7 @@ the log of the running jupyter server."
                 (ein:jupyter-server-stop t))
             (ein:force-ipython-version-check)
             (unless no-login-p
-              (ein:jupyter-server-login-and-open))))))))
+              (ein:jupyter-server-login-and-open no-popup))))))))
 
 ;;;###autoload
 
