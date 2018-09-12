@@ -1,6 +1,6 @@
 ;;; ein-notebooklist.el --- Notebook list buffer
 
-;; Copyright (C) 2012- Takafumi Arakaki
+;; Copyright (C) 2018- John M. Miller
 
 ;; Authors: Takafumi Arakaki <aka.tkf at gmail.com>
 ;;          John M. Miller <millejoh at mac.com>
@@ -22,20 +22,36 @@
 
 ;;; Commentary:
 
-;;
+;;  The rendering is split into a function for ipython2 and one for
+;;  ipython3, ein:notebooklist-render-ipy2 and
+;;  ein:notebooklist-render.
 
 ;;; Code:
 
 (eval-when-compile (require 'cl))
 (require 'widget)
+(require 'cus-edit)
+
 
 (require 'ein-core)
 (require 'ein-notebook)
+(require 'ein-connect)
 (require 'ein-file)
 (require 'ein-contents-api)
 (require 'ein-subpackages)
 (require 'deferred)
 (require 'dash)
+
+
+(defcustom ein:notebook-list-render-order
+  '(render-header
+    render-opened-notebooks
+    render-directory-ipy3)
+  "Order of notebook list sections.
+Must contain render-header, render-opened-notebooks, and render-directory-ipy3."
+  :group 'ein
+  :type 'list
+)
 
 (defcustom ein:notebooklist-first-open-hook nil
   "Hooks to run when the notebook list is opened at first time.
@@ -71,6 +87,38 @@ is opened at first time.::
 
 (ein:deflocal ein:%notebooklist% nil
   "Buffer local variable to store an instance of `ein:$notebooklist'.")
+
+(defcustom ein:notebooklist-sort-field :name
+  "The notebook list sort field."
+  :type '(choice (const :tag "Name" :name)
+                 (const :tag "Last modified" :last_modified))
+  :group 'ein)
+(make-variable-buffer-local 'ein:notebooklist-sort-field)
+(put 'ein:notebooklist-sort-field 'permanent-local t)
+
+(defcustom ein:notebooklist-sort-order :ascending
+  "The notebook list sort order."
+  :type '(choice (const :tag "Ascending" :ascending)
+                 (const :tag "Descending" :descending))
+  :group 'ein)
+(make-variable-buffer-local 'ein:notebooklist-sort-order)
+(put 'ein:notebooklist-sort-order 'permanent-local t)
+
+(defmacro ein:make-sorting-widget (tag custom-var)
+  "Create the sorting widget."
+  ;; assume that custom-var has type `choice' of `const's.
+  `(widget-create
+    'menu-choice :tag ,tag
+    :value ,custom-var
+    :notify (lambda (widget &rest ignore)
+              (run-at-time 1 nil
+                           #'ein:notebooklist-reload
+                           ein:%notebooklist%)
+              (setq ,custom-var (widget-value widget)))
+    ,@(mapcar (lambda (const)
+                `'(item :tag ,(third const) :value ,(fourth const)))
+              (rest (custom-variable-type custom-var)))))
+
 (define-obsolete-variable-alias 'ein:notebooklist 'ein:%notebooklist% "0.1.2")
 
 (defvar ein:notebooklist-buffer-name-template "*ein:notebooklist %s*")
@@ -103,7 +151,7 @@ the notebook list buffer, the notebook is searched in the
 notebook list of the current buffer.
 
 When used in lisp, CALLBACK and CBARGS are passed to `ein:notebook-open'.
-To suppress popup, you can pass a function `ein:do-nothing' as CALLBACK."
+To suppress popup, you can pass `ignore' as CALLBACK."
   (loop with nblist = (if url-or-port
                           (ein:notebooklist-list-get url-or-port)
                         ein:%notebooklist%)
@@ -148,6 +196,8 @@ To suppress popup, you can pass a function `ein:do-nothing' as CALLBACK."
                            default)))
     (if (string-match "^[0-9]+$" url-or-port)
         (string-to-number url-or-port)
+      (unless (string-match "^https?:" url-or-port)
+        (error "EIN doesn't want to assume what protocol you are using (http or https), so could you please specify the full URL (e.g http://my.jupyter.url:8888?"))
       url-or-port)))
 
 ;;;###autoload
@@ -166,9 +216,22 @@ To suppress popup, you can pass a function `ein:do-nothing' as CALLBACK."
            (lambda (content)
              (pop-to-buffer
               (funcall #'ein:notebooklist-url-retrieve-callback content))))))
+    (ein:query-kernelspecs url-or-port)
     (ein:content-query-contents path url-or-port t success))
   ;(ein:notebooklist-get-buffer url-or-port)
   )
+
+;;;###autoload
+(defun ein:notebooklist-refresh-kernelspecs (&optional url-or-port)
+  (interactive (list (or (and ein:%notebooklist% (ein:$notebooklist-url-or-port ein:%notebooklist%))
+                         (ein:notebooklist-ask-url-or-port))))
+  (unless url-or-port
+    (if ein:%notebooklist%
+        (setq url-or-port (ein:$notebooklist-url-or-port ein:%notebooklist%))
+      (setq url-or-port (ein:default-url-or-port))))
+  (ein:query-kernelspecs url-or-port t)
+  (when ein:%notebooklist%
+    (ein:notebooklist-reload ein:%notebooklist%)))
 
 (defcustom ein:notebooklist-keepalive-refresh-time 1
   "When the notebook keepalive is enabled, the frequency, IN
@@ -182,6 +245,12 @@ refresh the notebook connection."
   `ein:notebooklist-enable-keepalive' after any call to
   `ein:notebooklist-open'."
   :type 'boolean
+  :group 'ein)
+
+(defcustom ein:notebooklist-date-format "%x"
+  "The format spec for date in notebooklist mode.
+See `ein:format-time-string'."
+  :type '(or string function)
   :group 'ein)
 
 (defvar ein:notebooklist--keepalive-timer nil)
@@ -405,7 +474,7 @@ You may find the new one in the notebook list." error)
    :success (apply-partially (lambda (path notebook-list &rest ignore)
                                (ein:log 'info
                                  "Deleting notebook %s... Done." path)
-			       (ein:notebooklist-reload notebook-list))
+                               (ein:notebooklist-reload notebook-list))
                              path ein:%notebooklist%)))
 
 ;; Because MinRK wants me to suffer (not really, I love MinRK)...
@@ -431,8 +500,44 @@ Notebook list data is passed via the buffer local variable
   (let ((inhibit-read-only t))
     (erase-buffer))
   (remove-overlays)
+
+  (render-header-ipy2)
+  (render-directory-ipy2)
+
+  (ein:notebooklist-mode)
+  (widget-setup))
+
+(defun* ein:nblist--sort-group (group by-param order)
+  (sort group #'(lambda (x y)
+                  (cond ((eql order :ascending)
+                         (string-lessp (plist-get x by-param)
+                                       (plist-get y by-param)))
+                        ((eql order :descending)
+                         (string-greaterp (plist-get x by-param)
+                                          (plist-get y by-param)))))))
+
+(defun ein:notebooklist--order-data (nblist-data sort-param sort-order)
+  "Try to sanely sort the notebooklist data for the current path."
+  (let* ((groups (-group-by #'(lambda (x) (plist-get x :type))
+                            nblist-data))
+         (dirs (ein:nblist--sort-group (cdr (assoc "directory" groups))
+                                       sort-param
+                                       sort-order))
+         (nbs (ein:nblist--sort-group (cdr (assoc "notebook" groups))
+                                      sort-param
+                                      sort-order))
+         (files (ein:nblist--sort-group (-flatten-n 1 (-map #'cdr (-group-by
+                                             #'(lambda (x) (car (last (s-split "\\." (plist-get x :name)))))
+                                             (cdr (assoc "file" groups)))))
+                                        sort-param
+                                        sort-order)))
+    (-concat dirs nbs files)))
+
+(defun render-header-ipy2 ()
+  "Render the header (for ipython2)."
   ;; Create notebook list
   (widget-insert (format "IPython %s Notebook list\n\n" (ein:$notebooklist-api-version ein:%notebooklist%)))
+
   (let ((breadcrumbs (generate-breadcrumbs (ein:$notebooklist-path ein:%notebooklist%))))
     (dolist (p breadcrumbs)
       (lexical-let ((name (car p))
@@ -445,6 +550,7 @@ Notebook list data is passed via the buffer local variable
                                          path))
          name)))
     (widget-insert " |\n\n"))
+
   (widget-create
    'link
    :notify (lambda (&rest ignore) (ein:notebooklist-new-notebook
@@ -462,94 +568,16 @@ Notebook list data is passed via the buffer local variable
              (browse-url
               (ein:url (ein:$notebooklist-url-or-port ein:%notebooklist%))))
    "Open In Browser")
-  (widget-insert "\n")
-  (let ((api-version (ein:$notebooklist-api-version ein:%notebooklist%))
-        (sessions (make-hash-table :test 'equal)))
-    (ein:content-query-sessions sessions (ein:$notebooklist-url-or-port ein:%notebooklist%) t)
-    (loop for note in (ein:$notebooklist-data ein:%notebooklist%)
-	  for urlport = (ein:$notebooklist-url-or-port ein:%notebooklist%)
-	  for name = (plist-get note :name)
-	  for path = (plist-get note :path)
-	  ;; (cond ((= 2 api-version)
-	  ;;        (plist-get note :path))
-	  ;;       ((= 3 api-version)
-	  ;;        (ein:get-actual-path (plist-get note :path))))
-	  for type = (plist-get note :type)
-	  for opened-notebook-maybe = (ein:notebook-get-opened-notebook urlport path)
-	  do (widget-insert " ")
-	  if (string= type "directory")
-	  do (progn (widget-create
-               'link
-               :notify (lexical-let ((urlport urlport)
-                                     (path name))
-                         (lambda (&rest ignore)
-                           (ein:notebooklist-open urlport
-                                                  (ein:url (ein:$notebooklist-path ein:%notebooklist%)
-                                                           path))))
-               "Dir")
-              (widget-insert " : " name)
-              (widget-insert "\n"))
-	  if (string= type "notebook")
-	  do (progn (widget-create
-		     'link
-		     :notify (lexical-let ((name name)
-					   (path path))
-			       (lambda (&rest ignore)
-				 (run-at-time 3 nil
-					      #'ein:notebooklist-reload ein:%notebooklist%) ;; TODO using deferred better?
-				 (ein:notebooklist-open-notebook
-				  ein:%notebooklist% path)))
-		     "Open")
-		    (widget-insert " ")
-		    (when (gethash path sessions)
-		      (widget-create
-		       'link
-		       :notify (lexical-let ((session (car (gethash path sessions)))
-					     (nblist ein:%notebooklist%))
-				 (lambda (&rest ignore)
-				   (run-at-time 1 nil
-						#'ein:notebooklist-reload
-						ein:%notebooklist%)
-				   (ein:kernel-kill (make-ein:$kernel :url-or-port (ein:$notebooklist-url-or-port nblist)
-								      :session-id session))))
-		       "Stop")
-		      (widget-insert " "))
-		    (widget-create
-		     'link
-		     :notify (lexical-let ((path path))
-			       (lambda (&rest ignore)
-				 (ein:notebooklist-delete-notebook-ask
-				  path)))
-		     "Delete")
-		    (widget-insert " : " name)
-		    (widget-insert "\n"))))
-  (ein:notebooklist-mode)
-  (widget-setup))
+  (widget-insert "\n"))
 
-(defun ein:notebooklist--order-data (nblist-data)
-  "Try to sanely sort the notebooklist data for the current path."
-  (let* ((groups (-group-by #'(lambda (x) (plist-get x :type))
-                            nblist-data))
-         (dirs (cdr (assoc "directory" groups)))
-         (nbs (cdr (assoc "notebook" groups)))
-         (files (-flatten-n 1 (-map #'cdr (-group-by
-                                           #'(lambda (x) (car (last (s-split "\\." (plist-get x :name)))))
-                                           (cdr (assoc "file" groups)))))))
-    (-concat dirs nbs files)))
-
-(defun ein:notebooklist-render ()
-  "Render notebook list widget.
-Notebook list data is passed via the buffer local variable
-`ein:notebooklist-data'."
-  (kill-all-local-variables)
-  (let ((inhibit-read-only t))
-    (erase-buffer))
-  (remove-overlays)
+(defun render-header ()
+  "Render the header (for ipython>=3)."
   ;; Create notebook list
   (widget-insert
    (if (< (ein:$notebooklist-api-version ein:%notebooklist%) 4)
        (format "IPython v%s Notebook list (%s)\n\n" (ein:$notebooklist-api-version ein:%notebooklist%) (ein:$notebooklist-url-or-port ein:%notebooklist%))
      (format "Jupyter v%s Notebook list (%s)\n\n" (ein:$notebooklist-api-version ein:%notebooklist%) (ein:$notebooklist-url-or-port ein:%notebooklist%))))
+
   (let ((breadcrumbs (generate-breadcrumbs (ein:$notebooklist-path ein:%notebooklist%))))
     (dolist (p breadcrumbs)
       (lexical-let ((name (car p))
@@ -557,13 +585,16 @@ Notebook list data is passed via the buffer local variable
         (widget-insert " | ")
         (widget-create
          'link
-         :notify (lambda (&rest ignore) (ein:notebooklist-open
-					 (ein:$notebooklist-url-or-port ein:%notebooklist%)
-					 path))
+         :notify (lambda (&rest ignore)
+                   (ein:notebooklist-open
+                    (ein:$notebooklist-url-or-port ein:%notebooklist%)
+                    path))
          name)))
     (widget-insert " |\n\n"))
+
   (lexical-let* ((kernels (ein:list-available-kernels (ein:$notebooklist-url-or-port ein:%notebooklist%)))
                  (default-kernel (ein:get-kernelspec (ein:$notebooklist-url-or-port ein:%notebooklist%) (first kernels))))
+
     (widget-create
      'link
      :notify (lambda (&rest ignore) (ein:notebooklist-new-notebook
@@ -578,10 +609,16 @@ Notebook list data is passed via the buffer local variable
     (widget-insert " ")
     (widget-create
      'link
+     :notify (lambda (&rest ignore) (ein:notebooklist-refresh-kernelspecs))
+     "Query Kernelspecs")
+    (widget-insert " ")
+    (widget-create
+     'link
      :notify (lambda (&rest ignore)
                (browse-url
                 (ein:url (ein:$notebooklist-url-or-port ein:%notebooklist%))))
      "Open In Browser")
+
     (widget-insert "\n\nCreate New Notebooks Using Kernel: \n")
     (let* ((radio-widget (widget-create 'radio-button-choice
                                         ;; :value (car (first kernels))
@@ -594,14 +631,64 @@ Notebook list data is passed via the buffer local variable
       (dolist (k kernels)
         (widget-radio-add-item radio-widget (list 'item :value (car k)
                                                   :format (format "%s\n" (cdr k)))))))
-  (widget-insert "\n")
+  (widget-insert "\n"))
+
+(defun render-opened-notebooks ()
+  "Render the opened notebooks section (for ipython>=3)."
+  ;; Opened Notebooks Section
+  (widget-insert "\n---------- All Opened Notebooks ----------\n\n")
+  (loop for buffer in (ein:notebook-opened-buffers)
+        do (progn (widget-create
+                   'link
+                   :notify (lexical-let ((buffer buffer))
+                             (lambda (&rest ignore)
+                               (switch-to-buffer buffer)))
+                   "Open")
+                  (widget-create
+                   'link
+                   :notify (lexical-let ((buffer buffer))
+                             (lambda (&rest ignore)
+                               (kill-buffer buffer)
+                               (run-at-time 1 nil
+                                            #'ein:notebooklist-reload
+                                            ein:%notebooklist%)))
+                   "Close")
+                  (widget-insert " : " (buffer-name buffer))
+                  (widget-insert "\n"))))
+
+
+(defun render-directory-ipy3 ()
+  "Call render-direcory with ipy-at-least-3 true."
+  (render-directory t))
+
+(defun render-directory-ipy2 ()
+  "Call render-direcory with ipy-at-least-3 false."
+  (render-directory nil))
+
+(defun ein:format-nbitem-data (name last-modified)
+  (let ((dt (date-to-time last-modified)))
+    (format "%-40s%+20s" name
+            (ein:format-time-string ein:notebooklist-date-format dt))))
+
+(defun render-directory (ipy-at-least-3)
+  "Render directory.
+IPY-AT-LEAST-3 used to keep track of version."
+  (widget-insert "\n------------------------------------------\n\n")
+  (unless ipy-at-least-3
+    (let (api-version (ein:$notebooklist-api-version ein:%notebooklist%))))
   (let ((sessions (make-hash-table :test 'equal)))
     (ein:content-query-sessions sessions (ein:$notebooklist-url-or-port ein:%notebooklist%) t)
     (sit-for 0.2) ;; FIXME: What is the optimum number here?
-    (loop for note in (ein:notebooklist--order-data (ein:$notebooklist-data ein:%notebooklist%))
+    (ein:make-sorting-widget "Sort by" ein:notebooklist-sort-field)
+    (ein:make-sorting-widget "In Order" ein:notebooklist-sort-order)
+    (widget-insert "\n")
+    (loop for note in (ein:notebooklist--order-data (ein:$notebooklist-data ein:%notebooklist%)
+                                                    ein:notebooklist-sort-field
+                                                    ein:notebooklist-sort-order)
           for urlport = (ein:$notebooklist-url-or-port ein:%notebooklist%)
           for name = (plist-get note :name)
           for path = (plist-get note :path)
+          for last-modified = (plist-get note :last_modified)
           ;; (cond ((= 2 api-version)
           ;;        (plist-get note :path))
           ;;       ((= 3 api-version)
@@ -621,7 +708,7 @@ Notebook list data is passed via the buffer local variable
                      "Dir")
                     (widget-insert " : " name)
                     (widget-insert "\n"))
-          if (string= type "file")
+          if (and (string= type "file") ipy-at-least-3)
           do (progn (widget-create
                      'link
                      :notify (lexical-let ((urlport urlport)
@@ -629,14 +716,14 @@ Notebook list data is passed via the buffer local variable
                                (lambda (&rest ignore)
                                  (ein:notebooklist-open-file urlport path)))
                      "Open")
-                    (widget-insert " ")
+                    (widget-insert " ------ ")
                     (widget-create
                      'link
                      :notify (lexical-let ((path path))
                                (lambda (&rest ignore)
                                  (message "[EIN]: NBlist delete file command. Implement me!")))
                      "Delete")
-                    (widget-insert " : " name)
+                    (widget-insert " : " (ein:format-nbitem-data name last-modified))
                     (widget-insert "\n"))
           if (string= type "notebook")
           do (progn (widget-create
@@ -650,19 +737,20 @@ Notebook list data is passed via the buffer local variable
                                   ein:%notebooklist% path)))
                      "Open")
                     (widget-insert " ")
-                    (when (gethash path sessions)
-                      (widget-create
-                       'link
-                       :notify (lexical-let ((session (car (gethash path sessions)))
-                                             (nblist ein:%notebooklist%))
-                                 (lambda (&rest ignore)
-                                   (run-at-time 1 nil
-                                                #'ein:notebooklist-reload
-                                                ein:%notebooklist%)
-                                   (ein:kernel-kill (make-ein:$kernel :url-or-port (ein:$notebooklist-url-or-port nblist)
-                                                                      :session-id session))))
-                       "Stop")
-                      (widget-insert " "))
+                    (if (gethash path sessions)
+                        (widget-create
+                         'link
+                         :notify (lexical-let ((session (car (gethash path sessions)))
+                                               (nblist ein:%notebooklist%))
+                                   (lambda (&rest ignore)
+                                     (run-at-time 1 nil
+                                                  #'ein:notebooklist-reload
+                                                  ein:%notebooklist%)
+                                     (ein:kernel-kill (make-ein:$kernel :url-or-port (ein:$notebooklist-url-or-port nblist)
+                                                                        :session-id session))))
+                         "Stop")
+                      (widget-insert "------"))
+                    (widget-insert " ")
                     (widget-create
                      'link
                      :notify (lexical-let ((path path))
@@ -670,27 +758,21 @@ Notebook list data is passed via the buffer local variable
                                  (ein:notebooklist-delete-notebook-ask
                                   path)))
                      "Delete")
-                    (widget-insert " : " name)
-                    (widget-insert "\n")))
-    (widget-insert "\n---------- All Opened Notebooks ----------\n\n")
-    (loop for buffer in (ein:notebook-opened-buffers)
-          do (progn (widget-create
-                     'link
-                     :notify (lexical-let ((buffer buffer))
-                               (lambda (&rest ignore)
-                                 (switch-to-buffer buffer)))
-                     "Open")
-                    (widget-create
-                     'link
-                     :notify (lexical-let ((buffer buffer))
-                               (lambda (&rest ignore)
-                                 (kill-buffer buffer)
-                                 (run-at-time 1 nil
-                                              #'ein:notebooklist-reload
-                                              ein:%notebooklist%)))
-                     "Close")
-                    (widget-insert " : " (buffer-name buffer))
-                    (widget-insert "\n"))))
+                    (widget-insert " : " (ein:format-nbitem-data name last-modified))
+                    (widget-insert "\n")))))
+
+
+(defun ein:notebooklist-render ()
+  "Render notebook list widget.
+Notebook list data is passed via the buffer local variable
+`ein:notebooklist-data'."
+  (kill-all-local-variables)
+  (let ((inhibit-read-only t))
+    (erase-buffer))
+  (remove-overlays)
+
+  (mapc #'funcall ein:notebook-list-render-order)
+
   (ein:notebooklist-mode)
   (widget-setup))
 
@@ -768,7 +850,7 @@ See also:
         for url-or-port = (ein:$notebooklist-url-or-port nblist)
         for ipython-version = (ein:$notebooklist-api-version nblist)
         do
-        (if (= ipython-version 3)
+        (if (>= ipython-version 3)
             (loop for note in (ein:make-content-hierarchy "" url-or-port)
                   when (equal (ein:$content-name note) name)
                   do (return-from outer
@@ -906,24 +988,25 @@ on all the notebooks opened from the current notebooklist."
 (defun ein:notebooklist-change-url-port--deferred (new-url-or-port)
   (lexical-let* ((current-nblist ein:%notebooklist%)
                  (old-url (ein:$notebooklist-url-or-port current-nblist))
-		             (new-url-or-port new-url-or-port)
-		             (open-nb (ein:notebook-opened-notebooks #'(lambda (nb)
-							                                               (equal (ein:$notebook-url-or-port nb)
-								                                                    (ein:$notebooklist-url-or-port current-nblist))))))
+                 (new-url-or-port new-url-or-port)
+                 (open-nb (ein:notebook-opened-notebooks
+                           (lambda (nb)
+                             (equal (ein:$notebook-url-or-port nb)
+                                    (ein:$notebooklist-url-or-port current-nblist))))))
     (deferred:$
       (deferred:next
-	      (lambda ()
-	        (ein:notebooklist-open new-url-or-port "/" t)
-	        (loop until (get-buffer (format ein:notebooklist-buffer-name-template new-url-or-port))
-		            do (sit-for 0.1))))
+          (lambda ()
+            (ein:notebooklist-open new-url-or-port "/" t)
+            (loop until (get-buffer (format ein:notebooklist-buffer-name-template new-url-or-port))
+              do (sit-for 0.1))))
       (deferred:nextc it
-	      (lambda ()
-	        (dolist (nb open-nb)
-	          (ein:notebook-update-url-or-port new-url-or-port nb))))
+          (lambda ()
+            (dolist (nb open-nb)
+              (ein:notebook-update-url-or-port new-url-or-port nb))))
       (deferred:nextc it
-        (lambda ()
-          (kill-buffer (ein:notebooklist-get-buffer old-url))
-          (ein:notebooklist-open new-url-or-port "/" nil))))))
+          (lambda ()
+            (kill-buffer (ein:notebooklist-get-buffer old-url))
+            (ein:notebooklist-open new-url-or-port "/" nil))))))
 
 ;;; Generic getter
 
@@ -964,7 +1047,7 @@ on all the notebooks opened from the current notebooklist."
 (define-derived-mode ein:notebooklist-mode special-mode "ein:notebooklist"
   "IPython notebook list mode.
 Commands:
-\\{ein:notebooklist-mode-map}}"
+\\{ein:notebooklist-mode-map}"
   (set (make-local-variable 'revert-buffer-function)
        'ein:notebooklist-revert-wrapper))
 

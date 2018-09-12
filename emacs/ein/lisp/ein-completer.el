@@ -1,8 +1,9 @@
+;;; -*- mode: emacs-lisp; lexical-binding: t -*-
 ;;; ein-completer.el --- Completion module
 
-;; Copyright (C) 2012- Takafumi Arakaki
+;; Copyright (C) 2018- Takafumi Arakaki / John Miller
 
-;; Author: Takafumi Arakaki <aka.tkf at gmail.com>
+;; Author: Takafumi Arakaki <aka.tkf at gmail.com> / John Miller <millejoh at mac.com>
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -35,8 +36,7 @@
 (require 'ein-kernel)
 
 (defun ein:completer-choose ()
-  (when (require 'auto-complete nil t)
-    (require 'ein-ac))
+  (require 'ein-ac)
   (cond
    ((and (or (eql ein:completion-backend 'ein:use-ac-backend)
              (eql ein:completion-backend 'ein:use-ac-jedi-backend))
@@ -50,7 +50,7 @@
   (save-excursion
     (re-search-backward (concat matched-text "\\="))))
 
-(defun ein:completer-finish-completing (args content -metadata-not-used-)
+(defun ein:completer-finish-completing (args content _metadata)
   (ein:log 'debug "COMPLETER-FINISH-COMPLETING: content=%S" content)
   (let* ((beg (point))
          (delta (- (plist-get content :cursor_end)
@@ -62,7 +62,7 @@
     (apply completer matched-text matches args)))
 
 (defun ein:completer-finish-completing-default (matched-text matches
-                                                             &rest -ignore-)
+                                                &rest _ignore)
   (let* ((end (point))
          (beg (ein:completer-beginning matched-text))
          (word (if (and beg matches)
@@ -124,6 +124,50 @@ notebook buffers and connected buffers."
                (eql ein:completion-backend 'ein:use-ac-jedi-backend)))
       (define-key map "." (or func #'ein:completer-dot-complete))
     (define-key map "." nil)))
+
+
+;;; Retrieving Python Object Info
+(defvar *ein:oinfo-cache* (make-hash-table :test #'equal))
+
+(defun ein:completions--get-oinfo (obj)
+  (let ((d (deferred:new #'identity))
+        (kernel (ein:get-kernel)))
+    (if (ein:kernel-live-p kernel)
+        (ein:kernel-execute
+         kernel
+         (format "__import__('ein').print_object_info_for(%s)" obj)
+         (list
+          :output (cons (lambda (d &rest args) (deferred:callback-post d args))
+                        d)))
+      (deferred:callback-post d (list nil nil)))
+    d))
+
+(defun ein:clear-oinfo-cache ()
+  (clrhash *ein:oinfo-cache*))
+
+(defun ein:completions--build-oinfo-cache (objs)
+  (dolist (o objs)
+    (deferred:$
+      (deferred:next
+        (lambda ()
+          (ein:completions--get-oinfo o)))
+      (deferred:nextc it
+        (lambda (output)
+          (ein:completions--prepare-oinfo output o))))))
+
+(defun ein:completions--prepare-oinfo (output obj)
+  (condition-case _
+      (destructuring-bind (msg-type content _) output
+        (ein:case-equal msg-type
+          (("stream" "display_data")
+           (let* ((oinfo (ein:json-read-from-string (plist-get content :text))))
+             (setf (gethash obj *ein:oinfo-cache*) oinfo)))))
+    (error (setf (gethash obj *ein:oinfo-cache*) ""))))
+
+;;; Support for Eldoc
+
+(defun ein:completer--get-eldoc-signature ()
+  )
 
 (provide 'ein-completer)
 

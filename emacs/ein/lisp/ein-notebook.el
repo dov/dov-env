@@ -35,10 +35,11 @@
 
 (eval-when-compile (require 'cl))
 (require 'ewoc)
-(eval-when-compile (require 'auto-complete nil t))
+(eval-when-compile (require 'auto-complete))
 
 (require 'ein-core)
 (require 'ein-classes)
+(require 'ein-console)
 (require 'ein-log)
 (require 'ein-node)
 (require 'ein-contents-api)
@@ -48,10 +49,12 @@
 (require 'ein-cell-edit)
 (require 'ein-cell-output)
 (require 'ein-worksheet)
+(require 'ein-iexec)
 (require 'ein-scratchsheet)
 (require 'ein-notification)
 (require 'ein-completer)
 (require 'ein-pager)
+(require 'ein-pseudo-console)
 (require 'ein-events)
 (require 'ein-notification)
 (require 'ein-kill-ring)
@@ -59,6 +62,7 @@
 (require 'ein-pytools)
 (require 'ein-traceback)
 (require 'ein-inspector)
+(require 'ein-shared-output)
 
 
 ;;; Configuration
@@ -225,6 +229,39 @@ call notebook destructor `ein:notebook-del'."
       (ein:notebook-del notebook))))
 
 
+;;; Support for junk notebooks
+(require 'ein-junk)
+
+;;;###autoload
+(defun ein:junk-new (name kernelspec url-or-port)
+  "Open a notebook to try random thing.
+Notebook name is determined based on
+`ein:junk-notebook-name-template'.
+
+When prefix argument is given, it asks URL or port to use."
+  (interactive (let* ((name (ein:junk-notebook-name))
+                      (url-or-port (or (ein:get-url-or-port)
+                                       (ein:default-url-or-port)))
+                      (kernelspec (completing-read
+                                   "Select kernel [default]: "
+                                   (ein:list-available-kernels url-or-port) nil t nil nil "default" nil)))
+                 (setq name (read-string "Open notebook as: " name))
+                 (when current-prefix-arg
+                   (setq url-or-port (ein:notebooklist-ask-url-or-port)))
+                 (list name url-or-port)
+                 (ein:notebooklist-new-notebook-with-name name kernelspec url-or-port))))
+
+;;;###autoload
+(defun ein:junk-rename (name)
+  "Rename the current notebook based on `ein:junk-notebook-name-template'
+and save it immediately."
+  (interactive
+   (list (read-string "Rename notebook: "
+                      (ein:junk-notebook-name))))
+  (ein:notebook-rename-command name))
+
+
+
 ;;; Notebook utility functions
 
 (defun ein:notebook-update-url-or-port (new-url-or-port notebook)
@@ -334,6 +371,7 @@ CALLBACK is called as \(apply CALLBACK notebook t CBARGS).  The second
 argument `t' indicates that the notebook is newly opened.
 See `ein:notebook-open' for more information."
   (let ((notebook (ein:notebook-new url-or-port path kernelspec)))
+    (ein:gc-prepare-operation)
     (ein:log 'debug "Opening notebook at %s" path)
     (ein:content-query-contents path url-or-port nil
                                 (apply-partially #'ein:notebook-request-open-callback-with-callback
@@ -375,10 +413,12 @@ See `ein:notebook-open' for more information."
     (ein:notebook-from-json notebook (ein:$content-raw-content content)) ; notebook buffer is created here
     (setf (ein:$notebook-kernelinfo notebook)
           (ein:kernelinfo-new (ein:$notebook-kernel notebook)
-                              (cons #'ein:notebook-buffer-list notebook)))
+                              (cons #'ein:notebook-buffer-list notebook)
+                              (ein:get-kernelspec-language (ein:$notebook-kernelspec notebook))))
     (ein:notebook-put-opened-notebook notebook)
     (ein:notebook--check-nbformat (ein:$content-raw-content content))
     (ein:notebook-enable-autosaves notebook)
+    (ein:gc-complete-operation)
     (ein:log 'info "Notebook %s is ready"
              (ein:$notebook-notebook-name notebook))))
 
@@ -468,14 +508,19 @@ of minor mode."
       (:display_name . ,(format "%s" display-name)))))
 
 (defun ein:get-kernelspec (url-or-port name)
-  (let ((kernelspecs (gethash url-or-port ein:available-kernelspecs))
-        (name (if (stringp name)
-                  (intern (format ":%s" name))
-                name)))
-    (plist-get kernelspecs name)))
+  (let* ((kernelspecs (gethash url-or-port ein:available-kernelspecs))
+         (name (if (stringp name)
+                   (intern (format ":%s" name))
+                 name))
+         (ks (plist-get kernelspecs name)))
+    (if (stringp ks)
+        (ein:get-kernelspec url-or-port ks)
+      ks)))
 
 (defun ein:get-kernelspec-language (kernelspec)
-  (plist-get (ein:$kernelspec-spec kernelspec) :language))
+  (if kernelspec
+      (plist-get (ein:$kernelspec-spec kernelspec) :language)
+    "none"))
 
 (defun ein:list-available-kernels (url-or-port)
   (let ((kernelspecs (gethash url-or-port ein:available-kernelspecs)))
@@ -484,11 +529,11 @@ of minor mode."
               collecting (cons (ein:$kernelspec-name spec)
                                (ein:$kernelspec-display-name spec))))))
 
-(defun ein:query-kernelspecs (url-or-port)
+(defun ein:query-kernelspecs (url-or-port &optional force-refresh)
   "Query jupyter server for the list of available
 kernels. Results are stored in ein:available-kernelspec, hashed
 on server url/port."
-  (unless (gethash url-or-port ein:available-kernelspecs)
+  (unless (and (not force-refresh) (gethash url-or-port ein:available-kernelspecs))
     (ein:query-singleton-ajax
      (list 'ein:qeury-kernelspecs url-or-port)
      (ein:url url-or-port "api/kernelspecs")

@@ -1,3 +1,4 @@
+;;; -*- mode: emacs-lisp; lexical-binding: t; -*-
 ;;; ein-company.el --- Support for completion using company back-end.
 
 ;; Copyright (C) 2017 - John Miller
@@ -27,18 +28,73 @@
 
 (eval-when-compile (require 'cl))
 (require 'company nil t)
-(require 'dash)
+(require 'jedi-core nil t)
+(require 'deferred)
+(require 'ein-completer)
 
-(require 'ein-core)
+;; Duplicates ein:jedi--completer-complete in ein-jedi.
+;; Let's refactor and enhance our calm!
+(defun ein:company--deferred-complete ()
+  (let ((d (deferred:new #'identity))
+        (kernel (ein:get-kernel)))
+    (if (ein:kernel-live-p kernel)
+        (ein:completer-complete
+         kernel
+         :callbacks
+         (list :complete_reply
+               (cons (lambda (d &rest args) (deferred:callback-post d args))
+                     d)))
+      ;; Pass "no match" result when kernel the request was not sent:
+      (deferred:callback-post d (list nil nil)))
+    d))
+
+(defun ein:company--complete (fetcher-callback)
+  (deferred:$
+    (deferred:next
+      (lambda ()
+        (ein:company--deferred-complete)))
+    (deferred:nextc it
+      (lambda (replies)
+        (ein:completions--prepare-matches fetcher-callback replies)))))
+
+(defun ein:company--complete-jedi (fetcher-callback)
+  (deferred:$
+    (deferred:parallel
+     (jedi:complete-request)
+     (ein:company--deferred-complete))
+    (deferred:nextc it
+      (lambda (replies)
+        (ein:completions--prepare-matches-jedi fetcher-callback replies)))))
+
+(defun ein:completions--prepare-matches-jedi (cb replies)
+  (destructuring-bind
+      (_ ((&key matches &allow-other-keys) ; :complete_reply
+          _))
+      replies
+    (ein:completions--build-oinfo-cache matches)
+    (funcall cb matches)))
+
+(defun ein:completions--prepare-matches (cb replies)
+  (destructuring-bind
+      ((&key matched_text matches &allow-other-keys) ; :complete_reply
+       _)
+      replies
+    (ein:completions--build-oinfo-cache matches)
+    (funcall cb matches)))
 
 ;;;###autoload
-(defun ein:company-backend (command &optional arg &rest ignore)
+(defun ein:company-backend (command &optional arg &rest _)
   (interactive (list 'interactive))
   (cl-case command
     (interactive (company-begin-backend 'ein:company-backend) )
-    (prefix (and (--filter (and (boundp it) (symbol-value it) (eql it 'ein:notebook-minor-mode))
+    (prefix (and (--filter (and (boundp it) (symbol-value it) (or (eql it 'ein:notebook-minor-mode)
+                                                                  (eql it 'ein:connect-mode)))
                            minor-mode-list)
                  (ein:object-at-point)))
+    (annotation (if ein:allow-company-annotations
+                    (ein:aif (gethash arg *ein:oinfo-cache*)
+                        (plist-get it :definition)
+                      "")))
     (doc-buffer (lexical-let ((arg arg))
                   (cons :async
                         (lambda (cb)
@@ -52,30 +108,36 @@
     (candidates () (lexical-let ((kernel (ein:get-kernel-or-error))
                                  (col (current-column)))
                      (unless (ein:company-backend--punctuation-check (thing-at-point 'line) col)
-                       (cons :async
-                             (lambda (cb)
-                               (ein:kernel-complete kernel
-                                                    (thing-at-point 'line)
-                                                    col
-                                                    (list :complete_reply
-                                                          (cons #'ein:completer-finish-completing-company
-                                                                (list :callback cb)))))))))))
+                       (case ein:completion-backend
+                         (ein:use-company-jedi-backend
+                          (cons :async (lambda (cb)
+                                         (ein:company--complete-jedi cb))))
+                         (t (cons :async
+                                  (lambda (cb)
+                                    (ein:company--complete cb))))))))))
+
+;; (ein:kernel-complete kernel
+;;                      (thing-at-point 'line)
+;;                      col
+;;                      (list :complete_reply
+;;                            (cons #'ein:completer-finish-completing-company
+;;                                  (list :callback cb))))
 
 (defun ein:company-backend--punctuation-check (thing col)
   (let ((query (ein:trim-right (subseq thing 0 col) "[\n]")))
     (string-match "[]()\",[{}'=: ]$" query (- col 2))))
 
-(cl-defun ein:completer-finish-completing-company (packed content -metadata-not-used-)
-  (ein:log 'debug "EIN:COMPANY-FINISH-COMPLETING: content=%S" content)
-  (let* ((beg (point))
-         (delta (- (plist-get content :cursor_end)
-                   (plist-get content :cursor_start)))
-         (matched-text (buffer-substring beg (- beg delta)))
-         (matches (-filter #'(lambda (s)
-                               (s-starts-with-p matched-text s))
-                           (plist-get content :matches))))
-    (ein:log 'debug "EIN:COMPANY-FINISH-COMPLETING: matches=%s" matches)
-    (funcall (plist-get packed :callback) matches)))
+;; (cl-defun ein:completer-finish-completing-company (packed content -metadata-not-used-)
+;;   (ein:log 'debug "EIN:COMPANY-FINISH-COMPLETING: content=%S" content)
+;;   (let* ((beg (point))
+;;          (delta (- (plist-get content :cursor_end)
+;;                    (plist-get content :cursor_start)))
+;;          (matched-text (buffer-substring beg (- beg delta)))
+;;          (matches (-filter #'(lambda (s)
+;;                                (s-starts-with-p matched-text s))
+;;                            (plist-get content :matches))))
+;;     (ein:log 'debug "EIN:COMPANY-FINISH-COMPLETING: matches=%s" matches)
+;;     (funcall (plist-get packed :callback) matches)))
 
 (defun ein:company-handle-doc-buffer-finish (packed content -metadata-not-used-)
   (when (plist-get content :found)
@@ -89,6 +151,9 @@
                                         (cons #'ein:company-handle-doc-buffer-finish
                                               (list :object object
                                                     :callback cb)))))
+
+(defun ein:company-handle-meta (object cb)
+  )
 
 (setq ein:complete-on-dot nil)
 

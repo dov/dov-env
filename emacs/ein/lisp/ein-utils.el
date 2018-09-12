@@ -110,6 +110,34 @@ Execute BODY if BUFFER is not live anyway."
     table)
   "Adapted from `python-dotty-syntax-table'.")
 
+(defun ein:beginning-of-object (&optional code-syntax-table)
+  "Move to the beginning of the dotty.word.at.point. User may
+specify a custom syntax table. If one is not supplied `ein:dotty-syntax-table' will
+be assumed."
+  (with-syntax-table (or code-syntax-table ein:dotty-syntax-table)
+    (while (re-search-backward "\\(\\sw\\|\\s_\\|\\s\\.\\|\\s\\\\|[%@|]\\)\\="
+                               (when (> (point) 2000) (- (point) 2000))
+                               t))
+    (re-search-forward "\\=#[-+.<|]" nil t)
+    (when (and (looking-at "@"))
+      (forward-char))))
+
+(defun ein:end-of-object (&optional code-syntax-table)
+  "Move to the end of the dotty.word.at.point. User may specify a
+custom syntax table. If one is not supplied
+`ein:dotty-syntax-table' will be assumed."
+  (with-syntax-table (or code-syntax-table ein:dotty-syntax-table)
+    (re-search-forward "\\=\\(\\sw\\|\\s_\\|\\s\\.\\|#:\\|[%|]\\)*")))
+
+(defun ein:object-start-pos ()
+  "Return the starting position of the symbol under point.
+The result is unspecified if there isn't a symbol under the point."
+  (save-excursion (ein:beginning-of-object) (point)))
+
+(defun ein:object-end-pos ()
+  (save-excursion (ein:end-of-object) (point)))
+
+
 (defun ein:object-at-point ()
   "Return dotty.words.at.point.
 When region is active, text in region is returned after trimmed
@@ -125,11 +153,11 @@ before previous opening parenthesis."
                 "\\s-\\|\n\\|\\.")
     (save-excursion
       (with-syntax-table ein:dotty-syntax-table
-        (ein:aif (thing-at-point 'word)
+        (ein:aif (thing-at-point 'symbol)
             it
           (unless (looking-at "(")
             (search-backward "(" (point-at-bol) t))
-          (thing-at-point 'word))))))
+          (thing-at-point 'symbol))))))
 
 (defun ein:object-at-point-or-error ()
   (or (ein:object-at-point) (error "No object found at the point")))
@@ -252,10 +280,23 @@ See: http://api.jquery.com/jQuery.ajax/"
   (apply #'propertize string 'read-only t 'front-sticky t properties))
 
 (defun ein:insert-read-only (string &rest properties)
-  (insert (apply #'ein:propertize-read-only string properties)))
+  (insert (apply #'ein:propertize-read-only
+                 (ein:maybe-truncate-string-lines string ein:truncate-long-cell-output)
+                 properties)))
 
 
 ;;; String manipulation
+
+(defun ein:maybe-truncate-string-lines (string nlines)
+  "Truncate multi-line `string' to the number of lines specified by `nlines'. If actual
+number of lines is less than `nlines' then just return the string."
+  (if nlines
+    (let ((lines (split-string string "[\n]")))
+      (if (> (length lines) nlines)
+          (ein:join-str "\n" (append (butlast lines (- (length lines) nlines))
+                                     (list "...")))
+        string))
+    string))
 
 (defun ein:trim (string &optional regexp)
   (ein:trim-left (ein:trim-right string regexp) regexp))
@@ -282,7 +323,7 @@ See: http://api.jquery.com/jQuery.ajax/"
                        for stripped = (ein:trim-left line)
                        unless (equal stripped "")
                        collect (- (length line) (length stripped)))))
-            (if lens (apply #'ein:min lens) 0)))
+            (if lens (apply #'min lens) 0)))
          (trimmed
           (loop for line in lines
                 if (> (length line) indent)
@@ -450,7 +491,7 @@ Elements are compared using the function TEST (default: `eq')."
   "Get value from obj if it is a variable or function."
   (cond
    ((not (symbolp obj)) obj)
-   ((boundp obj) (eval obj))
+   ((boundp obj) (symbol-value obj))
    ((fboundp obj) (funcall obj))))
 
 (defun ein:choose-setting (symbol value &optional single-p)
@@ -459,7 +500,7 @@ The value of SYMBOL can be string, alist or function.
 SINGLE-P is a function which takes one argument.  It must
 return t when the value of SYMBOL can be used as a setting.
 SINGLE-P is `stringp' by default."
-  (let ((setting (eval symbol)))
+  (let ((setting (symbol-value symbol)))
     (cond
      ((funcall (or single-p 'stringp) setting) setting)
      ((functionp setting) (funcall setting value))
@@ -480,7 +521,7 @@ FUNC is called as (apply FUNC ARG ARGS)."
   (apply (car func-arg) (cdr func-arg) args))
 
 (defun ein:eval-if-bound (symbol)
-  (if (boundp symbol) (eval symbol)))
+  (and (boundp symbol) (symbol-value symbol)))
 
 (defun ein:remove-by-index (list indices)
   "Remove elements from LIST if its index is in INDICES.
@@ -489,13 +530,6 @@ NOTE: This function creates new list."
         for i from 0
         when (not (memq i indices))
         collect l))
-
-(defun ein:min (x &rest xs)
-  (loop for y in xs if (< y x) do (setq x y))
-  x)
-
-(defun ein:do-nothing (&rest -ignore-)
-  "A function which can take any number of variables and do nothing.")
 
 (defun ein:ask-choice-char (prompt choices)
   "Show PROMPT and read one of acceptable key specified as CHOICES."
@@ -521,7 +555,6 @@ NOTE: This function creates new list."
       (discard-input))
     answer))
 
-
 (defun ein:truncate-lines-on ()
   "Set `truncate-lines' on (set it to `t')."
   (setq truncate-lines t))
@@ -540,6 +573,14 @@ Make TIMEOUT-SECONDS larger \(default 5) to wait longer before timeout."
                 do (sleep-for 0.05))
     (warn "Timeout"))
   (ein:log 'debug "WAIT-UNTIL end"))
+
+(defun ein:format-time-string (format time)
+  "Apply format to time.
+If `format' is a string, call `format-time-string',
+otherwise it should be a function, which is called on `time'."
+  (cl-etypecase format
+    (string (format-time-string format time))
+    (function (funcall format time))))
 
 
 ;;; Emacs utilities
@@ -581,6 +622,15 @@ Use `ein:log' for debugging and logging."
             (destructuring-bind (name callback &rest args) name-callback
               `[,name ,callback :help ,(ein:get-docstring callback) ,@args]))
           list-name-callback))
+
+(lexical-let ((current-gc-cons-threshold gc-cons-threshold))
+  (defun ein:gc-prepare-operation ()
+    (ein:log 'debug "[GC-PREPARE-OPERATION] Setting cons threshold to %s." (* current-gc-cons-threshold 10000) )
+    (setq gc-cons-threshold (* current-gc-cons-threshold 10000)))
+
+  (defun ein:gc-complete-operation ()
+    (ein:log 'debug "[GC-COMPLETE-OPERATION] Reverting cons threshold to %s." current-gc-cons-threshold)
+    (setq gc-cons-threshold current-gc-cons-threshold)))
 
 
 ;;; Git utilities
