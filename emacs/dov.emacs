@@ -9,6 +9,8 @@
 ;;  (setq my-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
 ;;  (setq default-notes-file "w:/users/Dov/git/xjet-git/notes/notes.org")
 ;;  (setq tramp-default-method "plink")
+;;  ; Point ediff to the diff path.
+;;  (setq ediff-diff-program "c:/Program Files/Git/usr/bin/diff.exe")
 ;;  (setenv "GIT_SSH" "c:/Program Files/PuTTY/plink.exe") ; For remote access
 ;;  (setenv "PATH" (concat (getenv "PATH") ";D:\\DevTools\\git\\bin"))
 ;;  (setenv "SJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
@@ -275,6 +277,8 @@
 (require 'pretty-mode)
 (require 'browse-kill-ring)
 (require 'pydoc)
+(require 'pcre2el)
+(require 'visual-regexp-steroids)
 (global-set-key "\M-y" 'browse-kill-ring)
 
 ;; When you want to add multiple cursors not based on continuous lines, but based on
@@ -477,6 +481,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 (autoload 'octave-help "octave-hlp" nil t)
 (autoload 'python-mode "python" nil t)
+(setq url-user-agent "foo")   ; Needed to prevent mediamode from crashing
 (autoload 'mediawiki-mode "mediawiki" nil t)
 (autoload 'mediawiki-open "mediawiki" nil t)
 (autoload 'mediawiki-site "mediawiki" nil t)
@@ -655,6 +660,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (defun my-org-hook ()
   (load "org-git-hyperlink.el")
   (load "org-comeet-hyperlink.el")
+  (load "org-redmine-hyperlink.el")
   (load "org-pydoc-hyperlink.el")
   (load "org-wp.el")
   (load "org-bullets.el")
@@ -945,6 +951,16 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;(setq py-python-command-args '("-pylab" "-p" "pylab" "-colors" "LightBG"))
 ;(setq py-python-command "python")
 ;(setq py-python-command-args nil)
+
+(define-derived-mode pkl-mode fundamental-mode "pkl"
+  "Major mode for viewing pkl files."
+  (delete-region (point-min) (point-max))
+  (call-process my-python-interpreter nil t t (concat emacs-git  "scripts/pkl-cat.py") buffer-file-name)
+  (set-buffer-modified-p nil)
+  (read-only-mode)
+  (toggle-truncate-lines)
+  (beginning-of-buffer))
+(add-to-list 'auto-mode-alist '("\\.pkl\\'" . pkl-mode))
 
 ; ediff options
 (setq ediff-patch-options "")
@@ -1668,6 +1684,8 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control button5)] '(lambda () (interactive) (scroll-up)))
 (global-set-key [(control button4)] '(lambda () (interactive) (scroll-down)))
 (global-set-key [(super kp-enter)] 'scroll-down-line)
+(global-set-key [(control meta ?S)] 'vr/isearch-forward)
+(global-set-key [(control meta ?%)] 'vr/query-replace)
 ;(global-set-key [(control f31)] 'move-to-middle-window-line)
 ;(global-set-key [f31] 'recenter)
 (global-set-key "\C-x\C-k" 'kill-compilation)
@@ -2125,6 +2143,7 @@ With numeric ARG, display the images if and only if ARG is positive."
      ;; restore backward erase word
      (local-set-key [(control backspace)] 'backward-kill-word)
      ))
+(setq company-global-modes '(not python-mode))
 (add-hook 'diff-mode-hook '(lambda() 
                              (remove-dos-eol)))
 (add-hook 'csv-mode-hook '(lambda() 
