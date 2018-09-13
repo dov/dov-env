@@ -2122,8 +2122,8 @@ if something is selected, change that."
   (local-unset-key "/")
   (local-unset-key "*")
   (local-unset-key ",")
-  (local-unset-key [delete])
-  (local-unset-key [DEL])    ; backspace
+  (local-unset-key [?\d])
+  (local-unset-key [?\d])    ; backspace
   (local-unset-key [tab])
   (local-unset-key [esc])
   (local-unset-key ":")
@@ -2145,7 +2145,7 @@ if something is selected, change that."
     (local-set-key "/" 'self-insert-command)
     (local-set-key "*" 'self-insert-command)
     (local-set-key "," 'self-insert-command)
-    (local-set-key [delete] 'my-delete-func)
+    (local-set-key [?\d] 'my-delete-func)
     (local-set-key [tab] 'my-insert-tab)
     ;(local-set-key [esc] 'self-insert-command)
       ; what is normal binding?? C-h c won't tell me
@@ -3986,16 +3986,16 @@ This is a wrapper around `orig-yes-or-no'."
 ;(global-unset-key [(control t)])                ; reserved
 ;(global-unset-key [insert])
 ;(global-unset-key [(control x) (control z)])   ; normally suspends or minimizes emacs (!)
-;(global-unset-key [(control ?0)])    ; <sarcasm>good to know that the "better" keybinding
-;(global-unset-key [(control ?1)])    ; syntax has its own f-ing peculiarities too</sarcasm>
-;(global-unset-key [(control ?2)])
-;(global-unset-key [(control ?3)])
-;(global-unset-key [(control ?4)])
-;(global-unset-key [(control ?5)])
-;(global-unset-key [(control ?6)])
-;(global-unset-key [(control ?7)])
-;(global-unset-key [(control ?8)])
-;(global-unset-key [(control ?9)])
+(global-unset-key [(control ?0)])    ; <sarcasm>good to know that the "better" keybinding
+(global-unset-key [(control ?1)])    ; syntax has its own f-ing peculiarities too</sarcasm>
+(global-unset-key [(control ?2)])
+(global-unset-key [(control ?3)])
+(global-unset-key [(control ?4)])
+(global-unset-key [(control ?5)])
+(global-unset-key [(control ?6)])
+(global-unset-key [(control ?7)])
+(global-unset-key [(control ?8)])
+(global-unset-key [(control ?9)])
 ;(global-set-key [(control x) (control x)] 'no-op)
 ;(global-set-key [(control /)] '(lambda () (interactive)     ; normally undo
 ;  (princ "Use Alt-Backsp or Ctl-Backsp for Undo")))
