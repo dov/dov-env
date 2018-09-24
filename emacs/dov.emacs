@@ -1685,6 +1685,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control button4)] '(lambda () (interactive) (scroll-down)))
 (global-set-key [(super kp-enter)] 'scroll-down-line)
 (global-set-key [(control meta ?S)] 'vr/isearch-forward)
+(global-set-key [(control meta ?R)] 'vr/isearch-backward)
 (global-set-key [(control meta ?%)] 'vr/query-replace)
 ;(global-set-key [(control f31)] 'move-to-middle-window-line)
 ;(global-set-key [f31] 'recenter)
@@ -2142,6 +2143,7 @@ With numeric ARG, display the images if and only if ARG is positive."
      (setq py-fast-process-p nil)
      ;; restore backward erase word
      (local-set-key [(control backspace)] 'backward-kill-word)
+     (company-mode -1)   ; Doesn't work!
      ))
 (setq company-global-modes '(not python-mode))
 (add-hook 'diff-mode-hook '(lambda() 
