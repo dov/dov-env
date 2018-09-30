@@ -16,12 +16,26 @@
 ;;  (setenv "SJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
 ;;  (load (concat emacs-git "/dov.emacs"))
 ;;
-;;  
 ;;   Other customization (for windows):
 ;;      ;; Set initial frame size 
 ;;      (set-frame-size (selected-frame) 1500 1110 1)
 ;;      ;; turn off bell
 ;;      (setq visible-bell t)
+;;
+;; On Linux the following should be enough:
+;;   (setenv "SJQT" "/home/dov/git/SolarJet/XjetApps/MetalJet/Apps/Project/qt/")
+;;   (setenv "PE_HOME" "/home/dov/git/SolarJet/")
+;;   (setq emacs-git "/home/dov/git/dov-env/emacs/")
+;;   (setq my-default-family "InconsolataDov 11")
+;;   (setq my-default-font "InconsolataDov 11")
+;;   (load-file (concat emacs-git "dov.emacs"))
+;;   (setq default-notes-file "/home/dov/org/notebooks-groovy.org")
+;;   (find-file default-notes-file)
+;;   (setq my-git-repos (make-hash-table :test 'equal))
+;;   (puthash "xjet" "~/hd/xjet/SolarJet/" my-git-repos)
+;;
+;;  More customizations (for non-standard places):
+;;    - (setenv "WORKON_HOME" "$HOME/anaconda3/envs/" t)
 ;;----------------------------------------------------------------------
 
 (if (or (string-match "mingw-nt" system-configuration)
@@ -58,6 +72,10 @@
 
     ;; Add conversion scripts to path
     (setenv "PATH" (concat emacs-git "scripts:" (getenv "PATH")))
+
+    ;; Default scripts that are the same across most of my environments
+    (if (eq (getenv "WORKON_HOME") nil)
+        (setenv "WORKON_HOME" "$HOME/anaconda3/envs" t))
 
     (condition-case err
      (set-frame-font my-default-font)
@@ -224,6 +242,9 @@
 (autoload 'icicle-prefix-complete "icicles" nil t)
 (autoload 'ps-mode "ps-mode" nil t)
 (autoload 'meson-mode "meson-mode" nil t)
+(autoload 'pyvenv-workon "pyvenv" nil t)
+
+
 ;(icy-mode)
 ;(load "icicles-xmas")
 ;(load "icicles-menu-xmas")
@@ -952,18 +973,36 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;(setq py-python-command "python")
 ;(setq py-python-command-args nil)
 
+; View pkl files by running an external executable
 (define-derived-mode pkl-mode fundamental-mode "pkl"
   "Major mode for viewing pkl files."
   (delete-region (point-min) (point-max))
-  (call-process my-python-interpreter nil t t (concat emacs-git  "scripts/pkl-cat.py") buffer-file-name)
+  (call-process "python3" nil t t (concat emacs-git  "scripts/pkl-cat.py") buffer-file-name)
   (set-buffer-modified-p nil)
   (read-only-mode)
   (toggle-truncate-lines)
+  (setq scroll-preserve-screen-position 'always)
   (beginning-of-buffer))
-(add-to-list 'auto-mode-alist '("\\.pkl\\'" . pkl-mode))
+
+(setq auto-mode-alist
+      (append
+       (list (cons "\\.pkl$" 'pkl-mode))
+       (list (cons "\\.pickle$" 'pkl-mode))))
 
 ; ediff options
 (setq ediff-patch-options "")
+
+; Add option to merge both alternatives in ediff by the "d" key.
+(defun ediff-copy-both-to-C ()
+  (interactive)
+  (ediff-copy-diff ediff-current-difference nil 'C nil
+                   (concat
+                    (ediff-get-region-contents ediff-current-difference 'A ediff-control-buffer)
+                    (ediff-get-region-contents ediff-current-difference 'B ediff-control-buffer))))
+(defun add-d-to-ediff-mode-map () (define-key ediff-mode-map "d" 'ediff-copy-both-to-C))
+(add-hook 'ediff-keymap-setup-hook 'add-d-to-ediff-mode-map)
+
+
 
 (setq mode-compile-expert-p t)
 (setq-default indent-tabs-mode nil)
