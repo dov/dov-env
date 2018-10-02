@@ -560,7 +560,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
             (define-key ein:notebook-mode-map [(control down)] 'scroll-down-line)
             (define-key ein:notebook-mode-map [(return)] 'newline-and-indent)
             (define-key ein:notebook-mode-map [(control c) ?t] 'ein:worksheet-change-cell-type)
-            ))
+            (setq ein:worksheet-enable-undo t)))
 ;(add-hook 'LaTeX-mode-hook #'my-latex-mode-hook)
 ;(defun my-latex-mode-hook ()
 ;  (add-to-list 'TeX-command-list
@@ -2410,6 +2410,27 @@ Does not delete the prompt."
   (setq my-buffer (current-buffer))
   (switch-to-buffer cmd-buffer-name)
   (switch-to-buffer my-buffer))
+
+
+;; From: https://stackoverflow.com/questions/9656311/conflict-resolution-with-emacs-ediff-how-can-i-take-the-changes-of-both-version#29757750
+(defun ediff-copy-both-to-C ()
+  (interactive)
+  (ediff-copy-diff ediff-current-difference nil 'C nil
+                   (concat
+                    (ediff-get-region-contents ediff-current-difference 'A ediff-control-buffer)
+                    (ediff-get-region-contents ediff-current-difference 'B ediff-control-buffer))))
+(defun ediff-copy-both-ba-to-C ()
+  (interactive)
+  (ediff-copy-diff ediff-current-difference nil 'C nil
+                   (concat
+                    (ediff-get-region-contents ediff-current-difference 'B ediff-control-buffer)
+                    (ediff-get-region-contents ediff-current-difference 'A ediff-control-buffer)
+                    )))
+(defun add-d-to-ediff-mode-map
+    ()
+  (define-key ediff-mode-map "d" 'ediff-copy-both-to-C)
+  (define-key ediff-mode-map "D" 'ediff-copy-both-ba-to-C))
+(add-hook 'ediff-keymap-setup-hook 'add-d-to-ediff-mode-map)
 
 (defvar my-python-interpreter "python")
 
