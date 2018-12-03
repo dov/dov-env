@@ -141,7 +141,7 @@
       (rtags-diagnostics)
       (setq rtags-completions-enabled t)
       (push 'company-rtags company-backends)
-      (global-company-mode)
+;      (global-company-mode)
       (define-key c-mode-base-map (kbd "<C-tab>") (function company-complete))
       ;; use rtags flycheck mode -- clang warnings shown inline
       (require 'flycheck-rtags)
@@ -743,7 +743,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (require 'org-table)
 
   ; Don't use company mode in "text" buffers
-  (company-mode -1)
+;  (company-mode -1)
 
   ;; Customize colors
 ;  (require 'cl)   ; for delete*
@@ -1163,6 +1163,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.c$" 'c-mode))
        (list (cons "\\.cu$" 'c++-mode))
        (list (cons "\\.cuh$" 'c++-mode))
+       (list (cons "\\.cc$" 'c++-mode))
+       (list (cons "\\.cpp$" 'c++-mode))
        (list (cons "\\.glsl$" 'c++-mode))
        (list (cons "\\.vala$" 'vala-mode))
        (list (cons "\\.json$" 'js2-mode))
@@ -2200,7 +2202,7 @@ With numeric ARG, display the images if and only if ARG is positive."
      (setq py-fast-process-p nil)
      ;; restore backward erase word
      (local-set-key [(control backspace)] 'backward-kill-word)
-     (company-mode -1)   ; Doesn't work!
+;     (company-mode -1)   ; Doesn't work!
      ))
 (setq company-global-modes '(not python-mode))
 (add-hook 'diff-mode-hook '(lambda() 
@@ -2370,7 +2372,10 @@ Does not delete the prompt."
     (make-local-variable 'kill-buffer-hook)
     (add-hook 'kill-buffer-hook 'comint-write-input-ring)
     (setenv "PYTHONPATH" nil)   ;; Solve gdb python3 problems!
-    ))
+
+    ;; Makes pdb tracking work inside gud
+    (require 'python)
+    (add-hook 'comint-output-filter-functions 'python-pdbtrack-comint-output-filter-function)))
 
 (add-hook 'matlab-shell-mode-hook
   (lambda() 
