@@ -1131,7 +1131,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'csharp-mode "csharp-mode-0.4.0.el" "CSharp mode" t nil)
 (autoload 'web-mode "web-mode.el" "WEB mode" t nil)
 (autoload 'elisp-mode "elisp-mode.el" "ELisp" t nil)
-(autoload 'python-mode "python-mode.el" "python mode" t nil)
+(load "python-mode.el")
 
 (add-hook 'lua-mode-hook
           (lambda ()
@@ -1164,7 +1164,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.cu$" 'c++-mode))
        (list (cons "\\.cuh$" 'c++-mode))
        (list (cons "\\.cc$" 'c++-mode))
-       (list (cons "\\.cpp$" 'c++-mode))
+       (list (cons "\\.[hc]pp$" 'c++-mode))
        (list (cons "\\.glsl$" 'c++-mode))
        (list (cons "\\.vala$" 'vala-mode))
        (list (cons "\\.json$" 'js2-mode))
