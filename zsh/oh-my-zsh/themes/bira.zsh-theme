@@ -19,6 +19,15 @@ else
     rvm_ruby='%{$fg[red]%}‹$(rbenv version | sed -e "s/ (set.*$//")›%{$reset_color%}'
   fi
 fi
+
+# TBD - Only for windows - quickens up the prompt considerably!
+if [[ -n "$WINDIR" ]]; then
+  function git_prompt_info() {
+    ref=$(git symbolic-ref HEAD 2> /dev/null) || return
+    echo "$ZSH_THEME_GIT_PROMPT_PREFIX${ref#refs/heads/}$ZSH_THEME_GIT_PROMPT_SUFFIX"
+  }
+fi
+
 local git_branch='$(git_prompt_info)%{$reset_color%}'
 
 PROMPT="╭─${user_host} ${current_dir} ${rvm_ruby} ${git_branch}
