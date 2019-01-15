@@ -1783,8 +1783,9 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 (defun find-first-buffer-match (buffers pattern)
   (dolist (f buffers)
-    (when (string-match pattern (buffer-name f))
-      (return f))))
+    (let ((case-fold-search nil)) ;; case-sensitive
+      (when (string-match pattern (buffer-name f))
+        (return f)))))
 
 (defun find-most-recent-pattern-buffer (pattern)
   "find the most recent code buffer in the history and switch to it"
