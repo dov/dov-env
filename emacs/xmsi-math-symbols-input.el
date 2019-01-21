@@ -690,6 +690,7 @@
   (puthash "ell" "ℓ" xmsi-abrvs)
   (puthash ":." "⋮" xmsi-abrvs)
   (puthash "vellipsis" "⋮" xmsi-abrvs)
+  (puthash "vspace" "⌴" xmsi-abrvs)
   )
 
 (defun xmsi-hash-to-list (hashtable)

@@ -266,6 +266,11 @@
 (load "magit-popup")
 (load "ghub")
 (load "magit")
+;(condition-case err
+;    (progn
+;      (require 'magit-gh-pulls)
+;      (add-hook 'magit-mode-hook 'turn-on-magit-gh-pulls))
+;  (error "magit-gh not available"))
 (autoload 'with-editor-file-name-history-exclude "with-editor" "with-editor" t nil)
 (autoload 'xjet-remote-python-file "xjet-remote-client" nil t)
 
@@ -585,6 +590,11 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (setq password-cache-expiry nil)
 (add-hook 'font-lock-mode-hook 'my-doxymacs-font-lock-hook)
 (add-hook 'c-mode-common-hook 'doxymacs-mode)
+(setq tramp-remote-path
+      (append (list
+               "/data/data/com.termux/files/usr/bin"
+               "/data/data/com.termux/files/usr/bin/applets"
+               ) tramp-remote-path))
 
 (when (>= emacs-major-version 24)
   (require 'package)
@@ -1142,6 +1152,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (setq auto-mode-alist
       (append
        (list (cons "\\.sa$" 'sather-mode))
+       (list (cons "\\.el$" 'emacs-lisp-mode))
        (list (cons "\\.cs$" 'csharp-mode))
        (list (cons "\\.css$" 'css-mode))
        (list (cons "\\.csv$" 'csv-mode))
@@ -1166,6 +1177,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.cc$" 'c++-mode))
        (list (cons "\\.[hc]pp$" 'c++-mode))
        (list (cons "\\.glsl$" 'c++-mode))
+       (list (cons "\\.cpp$" 'c++-mode))
+       (list (cons "\\.cc$" 'c++-mode))
        (list (cons "\\.vala$" 'vala-mode))
        (list (cons "\\.json$" 'js2-mode))
        (list (cons "\\.pov$"  'pov-mode))
