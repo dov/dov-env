@@ -621,6 +621,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (dmacro-load (concat emacs-git "/dov.dmacro"))
   (def-dmacro-function pwdleaf() (basename (substring (pwd) 0 -1)))
   (def-dmacro-function datestring() (format-time-string "%A %Y-%m-%d %R"))
+  (def-dmacro-function org-date-string() (format-time-string "%Y-%m-%d %a"))
   (def-dmacro-function pwdleaf-spacefill ()
     (substring
      (concat
@@ -642,6 +643,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (setq auto-dmacro-alist (append '(("\\.h$" . dot-h)
 				  ("\\.H$" . dot-h)
 				  ("\\.cpp$" . dot-cpp)
+				  ("\\.org$" . dot-org)
 				  ("SConstruct" . sconstruct)
 				  ("SConscript" . sconscript))
 				  auto-dmacro-alist))

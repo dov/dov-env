@@ -18,7 +18,7 @@
 ; switch-to-buffer → helm-buffers-list
 (global-set-key "\C-xb" 'helm-buffers-list)
 
-
 (setq helm-buffer-max-length 30)
+(setq helm-buffer-skip-remote-checking 't)
 
 (provide 'init-helm)

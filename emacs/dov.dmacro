@@ -641,6 +641,27 @@ env.Program('foo',
 
 #
 
+#######
+# MODE:	org-mode
+#######
+dot-org	expand	comment block for the top of a .org file
+~(dmacro orgmasthead)
 #
 
+####
+orgmasthead	expand	comment block for the top of an .org file
+#+STARTUP: hidestars showall 
+#+OPTIONS: toc:nil num:nil html-postamble:nil
+#+AUTHOR: Dov Grobgeld
+#+TITLE: ~(file-name)
+#+DATE: ~(org-date-string)
 
+* ~@
+#
+
+###
+org-reveal expand Insert reveal comments for reveal slide shows
+#+REVEAL_ROOT: http://cdn.jsdelivr.net/reveal.js/3.0.0
+#+comment: TBD - Add my standard css etc
+
+#
