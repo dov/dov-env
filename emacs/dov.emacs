@@ -2543,6 +2543,9 @@ Does not delete the prompt."
 (set-face-attribute 'region nil :background "#e0e8ff")
 (set-background-color "#f8f8f8")
 
+;; eww - Use google search by default
+(setq eww-search-prefix "https://google.com/search?q=")
+
 ;; Emacs customization - this might be overwritten in the .emacs file
 
 (add-hook 'after-init-hook
