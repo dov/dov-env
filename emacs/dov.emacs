@@ -2526,14 +2526,24 @@ Does not delete the prompt."
   (define-key map [(iso-next-group)] nil))
 
   
-;; Bind some keybindings to sound. Done when I had a throat
+;; Bind some keybindings to sound. Did when I had a throat
 ;; infection and couldn't talk.
 (defun play-ogg (sound)
   (interactive)
-  (call-process "ogg123" nil "*foo*" nil (concat emacs-git "../sounds/" sound ".ogg")))
-(defun play-ping ()
+  (let ((fn (concat emacs-git "../sounds/" sound ".ogg"))
+        (pn (if (string-match "x86_64-w64-mingw32" system-configuration)
+                "start" "ogg123"))
+        )
+    (call-process pn nil "*foo*" nil fn)))
+;; Why doesn't this work?
+(defun play-wav (sound)
   (interactive)
-  (play-ogg "open-ended")
+  (let ((fn (concat emacs-git "../sounds/" sound ".wav")))
+    (play-sound-file fn)))
+
+(defun play-pling ()
+  (interactive)
+  (play-ogg "open-ended"))
 (defun play-buzz ()
   (interactive)
   (play-ogg "one-buzz"))
@@ -2541,7 +2551,7 @@ Does not delete the prompt."
 (global-set-key [(control ?x) (control ?8)] 'play-pling)
 (global-set-key [(control ?נ) (control ?8)] 'play-pling)
 (global-set-key [(control ?x) (control ?7)] 'play-buzz)
-(global-set-key [(control ?נ) (control ?7)] 'play-buz)
+(global-set-key [(control ?נ) (control ?7)] 'play-buzz)
 
 
 ;; some motion bindings in hebrew mode that reflect key
