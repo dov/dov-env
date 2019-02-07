@@ -91,7 +91,10 @@
      (error "No such font, but who cares"))
 
                                         ; Use Miriam mono font for Hebrew
-    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam Mono CLM:bold")
+;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "David CLM")
+;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Nachlieli CLM")
+;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Nachlieli CLM")
+;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam CLM")
     (ignore-errors
       (set-face-font 'default "fontset-default"))
     (setq load-path (append (list
@@ -197,6 +200,7 @@
 
 (require 'init-multiple-cursors)
 (require 'init-helm)
+(require 'init-default-text-scale)
 (require 'sticky-w)
 
 ;; Emacs 24 support
@@ -723,6 +727,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (setq org-export-allow-bind-keywords t)
   (setq org-html-doctype "html5")
   (setq org-format-latex-options (plist-put org-format-latex-options :scale 1.5))
+  ; Use this in order not to show subscript and superscripts. Curlies still forces sub and superscript behavior.
+  (setq org-use-sub-superscripts nil)
   (org-bullets-mode)
   (setq org-bullets-bullet-list
         '("►"
@@ -2520,6 +2526,47 @@ Does not delete the prompt."
   (define-key map [(iso-next-group)] nil))
 
   
+;; Bind some keybindings to sound. Done when I had a throat
+;; infection and couldn't talk.
+(defun play-ogg (sound)
+  (interactive)
+  (call-process "ogg123" nil "*foo*" nil (concat emacs-git "../sounds/" sound ".ogg")))
+(defun play-ping ()
+  (interactive)
+  (play-ogg "open-ended")
+(defun play-buzz ()
+  (interactive)
+  (play-ogg "one-buzz"))
+
+(global-set-key [(control ?x) (control ?8)] 'play-pling)
+(global-set-key [(control ?נ) (control ?8)] 'play-pling)
+(global-set-key [(control ?x) (control ?7)] 'play-buzz)
+(global-set-key [(control ?נ) (control ?7)] 'play-buz)
+
+
+;; some motion bindings in hebrew mode that reflect key
+;; positions for Dvorak.
+(global-set-key [(control ?ש)] 'move-beginning-of-line)
+(global-set-key [(control ?ג)] 'move-end-of-line)
+(global-set-key [(control ?ר)] 'previous-line)
+(global-set-key [(control ?ך)] 'next-line)
+(global-set-key [(control ?ה)] 'kill-line)
+(global-set-key [(control ?ף)] 'isearch-forward)
+(global-set-key [(control ?ם)] 'isearch-backward)
+(global-set-key [(control ?ץ)] 'scroll-up-command)
+(global-set-key [(meta ?ץ)] 'scroll-down-command)
+(global-set-key [(meta ?ט)] 'forward-word)
+(global-set-key [(control ?ט)] 'forward-char)
+(global-set-key [(meta ?מ)] 'backward-word)
+(global-set-key [(control ?מ)] 'backward-char)
+(global-set-key (kbd "C-\"") 'undo)
+(define-key isearch-mode-map [(control ?ף)] 'isearch-repeat-forward)
+(define-key isearch-mode-map [(control ?ם)] 'isearch-repeat-backward)
+(global-set-key [(meta ?ֱ)] 'beginning-of-buffer)
+(global-set-key [(meta ?ֲ)] 'end-of-buffer)
+(global-set-key [(meta ?ו)] 'goto-line)
+(global-set-key [(control ?נ) (control ?ף)] 'save-buffer)
+
 ;
 ; Doppke's hack for following the cursor in the compile window
 ;
