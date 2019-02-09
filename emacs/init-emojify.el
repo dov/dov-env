@@ -1,0 +1,15 @@
+(setq load-path (append
+                 (list
+                  (concat emacs-git "/packages/emojify-20190122.513/"))
+                 load-path))
+(load "emojify-autoloads.el")
+
+;; should it be on by default?
+
+(setq emojify-emoji-set "emojione-v2.2.6")
+(global-emojify-mode) ; :-) 
+
+(global-set-key "\C-cea" 'emojify-apropos-emoji)
+(global-set-key "\C-cep" 'emojify-describe-emoji-at-point)
+
+(provide 'init-default-text-scale)
