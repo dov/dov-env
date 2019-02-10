@@ -201,6 +201,7 @@
 (require 'init-multiple-cursors)
 (require 'init-helm)
 (require 'init-default-text-scale)
+(require 'init-telega)
 (require 'sticky-w)
 
 ;; Emacs 24 support
