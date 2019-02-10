@@ -1,8 +1,10 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "/packages/emojify-20190122.513/"))
+                  (concat emacs-git "/packages/emojify-20190122.513/")
+                  (concat emacs-git "/packages/ht-20181216.1137/"))
                  load-path))
 (load "emojify-autoloads.el")
+(load "ht-autoloads.el")
 
 ;; should it be on by default?
 
