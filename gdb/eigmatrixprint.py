@@ -38,10 +38,20 @@ class EigMatrixPrint (gdb.Command):
         gdb.execute("enable pretty-printer",False,True)
         # Get width and height
         m = re.search(r'Eigen::Matrix<(double|float), (\d+), (\d+), 0, \d+, \d+>.*?array\s*=\s*\{(.*?)\}', val,flags=re.DOTALL)
+
         # TBD check for column major!
         if m:
           nrows,ncols = [int(m.group(2)), int(m.group(3))]
-          array = [float(s) for s in re.split(r',\s*',m.group(4))]
+          array_string = m.group(4)
+          array = []
+          for s in re.split(r',\s*',m.group(4)):
+            ma = re.search(r'(\w+) <repeats (\d+) times>',s)
+            if ma:
+              array += [float(ma.group(1))] * int(ma.group(2))
+            else:
+              array += [float(s)]
+          
+#          array = [float(s) for s in re.split(r',\s*',m.group(4))]
           mat = [[' ' for i in range(ncols)] for j in range(nrows)]
           for row in range(nrows):
             for col in range(ncols):
