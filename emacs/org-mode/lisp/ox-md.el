@@ -1,6 +1,6 @@
 ;;; ox-md.el --- Markdown Back-End for Org Export Engine -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou@gmail.com>
 ;; Keywords: org, wp, markdown
@@ -175,7 +175,7 @@ channel."
 	    value)))
 
 
-;;;; Example Block, Src Block and export Block
+;;;; Example Block, Src Block and Export Block
 
 (defun org-md-example-block (example-block _contents info)
   "Transcode EXAMPLE-BLOCK element into Markdown format.

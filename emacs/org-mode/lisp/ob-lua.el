@@ -1,6 +1,6 @@
 ;;; ob-lua.el --- Org Babel functions for Lua evaluation -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2014, 2016-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2014, 2016-2019 Free Software Foundation, Inc.
 
 ;; Authors: Dieter Schoen
 ;; Keywords: literate programming, reproducible research
@@ -148,7 +148,7 @@ specifying a variable of the same value."
     (if (eq var 'hline)
         org-babel-lua-hline-to
       (format
-       (if (and (stringp var) (string-match "[\n\r]" var)) "\"\"%S\"\"" "%S")
+       (if (and (stringp var) (string-match "[\n\r]" var)) "[=[%s]=]" "%S")
        (if (stringp var) (substring-no-properties var) var)))))
 
 (defun org-babel-lua-table-or-string (results)

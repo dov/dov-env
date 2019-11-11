@@ -1,6 +1,6 @@
 ;;; ox-org.el --- Org Back-End for Org Export Engine -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2013-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2019 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou@gmail.com>
 ;; Keywords: org, wp
@@ -274,7 +274,7 @@ non-nil."
 ;;;###autoload
 (defun org-org-export-to-org
   (&optional async subtreep visible-only body-only ext-plist)
-  "Export current buffer to an org file.
+  "Export current buffer to an Org file.
 
 If narrowing is active in the current buffer, only export its
 narrowed part.
@@ -307,7 +307,7 @@ Return output file name."
 
 ;;;###autoload
 (defun org-org-publish-to-org (plist filename pub-dir)
-  "Publish an org file to org.
+  "Publish an Org file to Org.
 
 FILENAME is the filename of the Org file to be published.  PLIST
 is the property list for the given project.  PUB-DIR is the

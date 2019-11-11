@@ -1,6 +1,6 @@
 ;;; ob-clojure.el --- Babel Functions for Clojure    -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
 
 ;; Author: Joel Boehland, Eric Schulte, Oleh Krehel, Frederick Giasson
 ;;
@@ -80,7 +80,7 @@ If the value is nil, timeout is disabled."
 	  (const :tag "SLIME" slime)))
 
 (defcustom org-babel-clojure-default-ns "user"
-  "Default Clojure namespace for src block when all find ns ways failed."
+  "Default Clojure namespace for source block when finding ns failed."
   :type 'string
   :group 'org-babel)
 

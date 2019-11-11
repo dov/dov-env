@@ -1,6 +1,6 @@
 ;;; org-element.el --- Parser for Org Syntax         -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou at gmail dot com>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -307,8 +307,9 @@ Don't modify it, set `org-element-affiliated-keywords' instead.")
       (strike-through ,@standard-set)
       (subscript ,@standard-set)
       (superscript ,@standard-set)
-      ;; Ignore inline babel call and inline src block as formulas are
-      ;; possible.  Also ignore line breaks and statistics cookies.
+      ;; Ignore inline babel call and inline source block as formulas
+      ;; are possible.  Also ignore line breaks and statistics
+      ;; cookies.
       (table-cell bold code entity export-snippet footnote-reference italic
 		  latex-fragment link macro radio-target strike-through
 		  subscript superscript target timestamp underline verbatim)
@@ -2149,7 +2150,7 @@ containing `:key', `:value', `:begin', `:end', `:post-blank' and
     ;; this corner case.
     (let ((begin (or (car affiliated) (point)))
 	  (post-affiliated (point))
-	  (key (progn (looking-at "[ \t]*#\\+\\(\\S-+*\\):")
+	  (key (progn (looking-at "[ \t]*#\\+\\(\\S-*\\):")
 		      (upcase (match-string-no-properties 1))))
 	  (value (org-trim (buffer-substring-no-properties
 			    (match-end 0) (point-at-eol))))
@@ -2399,7 +2400,7 @@ containing `:closed', `:deadline', `:scheduled', `:begin',
 ;;;; Src Block
 
 (defun org-element-src-block-parser (limit affiliated)
-  "Parse a src block.
+  "Parse a source block.
 
 LIMIT bounds the search.  AFFILIATED is a list of which CAR is
 the buffer position at the beginning of the first affiliated
@@ -2455,7 +2456,7 @@ Assume point is at the beginning of the block."
 		       (string-match "-l +\"\\([^\"\n]+\\)\"" switches)
 		       (match-string 1 switches)))
 		 ;; Should labels be retained in (or stripped from)
-		 ;; src blocks?
+		 ;; source blocks?
 		 (retain-labels
 		  (or (not switches)
 		      (not (string-match "-r\\>" switches))
@@ -2929,7 +2930,7 @@ When at an inline source block, return a list whose car is
 `:language', `:value', `:parameters' and `:post-blank' as
 keywords.  Otherwise, return nil.
 
-Assume point is at the beginning of the inline src block."
+Assume point is at the beginning of the inline source block."
   (save-excursion
     (catch :no-object
       (when (let ((case-fold-search nil))
@@ -3101,8 +3102,8 @@ Assume point is at the beginning of the link."
 	(setq contents-begin (match-beginning 3))
 	(setq contents-end (match-end 3))
 	(setq link-end (match-end 0))
-	;; RAW-LINK is the original link.  Expand any
-	;; abbreviation in it.
+	;; RAW-LINK is the original link.  Decode any encoding.
+	;; Expand any abbreviation in it.
 	;;
 	;; Also treat any newline character and associated
 	;; indentation as a single space character.  This is not
@@ -3113,9 +3114,10 @@ Assume point is at the beginning of the link."
 	;; [[shell:ls *.org]], which defeats Org's focus on
 	;; simplicity.
 	(setq raw-link (org-link-expand-abbrev
-			(replace-regexp-in-string
-			 "[ \t]*\n[ \t]*" " "
-			 (match-string-no-properties 1))))
+			(org-link-unescape
+			 (replace-regexp-in-string
+			  "[ \t]*\n[ \t]*" " "
+			  (match-string-no-properties 1)))))
 	;; Determine TYPE of link and set PATH accordingly.  According
 	;; to RFC 3986, remove whitespaces from URI in external links.
 	;; In internal ones, treat indentation as a single space.
@@ -3911,7 +3913,18 @@ element it has to parse."
 	     ((looking-at "%%(")
 	      (org-element-diary-sexp-parser limit affiliated))
 	     ;; Table.
-	     ((looking-at "[ \t]*\\(|\\|\\+\\(-+\\+\\)+[ \t]*$\\)")
+	     ((or (looking-at "[ \t]*|")
+		  ;; There is no strict definition of a table.el
+		  ;; table.  Try to prevent false positive while being
+		  ;; quick.
+		  (let ((rule-regexp "[ \t]*\\+\\(-+\\+\\)+[ \t]*$")
+			(next (line-beginning-position 2)))
+		    (and (looking-at rule-regexp)
+			 (save-excursion
+			   (forward-line)
+			   (re-search-forward "^[ \t]*\\($\\|[^|]\\)" limit t)
+			   (and (> (line-beginning-position) next)
+				(org-match-line rule-regexp))))))
 	      (org-element-table-parser limit affiliated))
 	     ;; List.
 	     ((looking-at (org-item-re))
@@ -4083,7 +4096,10 @@ If STRING is the empty string or nil, return nil."
 	    (ignore-errors
 	      (if (symbolp v) (makunbound v)
 		(set (make-local-variable (car v)) (cdr v)))))
-	  (insert string)
+	  ;; Transferring local variables may put the temporary buffer
+	  ;; into a read-only state.  Make sure we can insert STRING.
+	  (let ((inhibit-read-only t)) (insert string))
+	  ;; Prevent "Buffer *temp* modified; kill anyway?".
 	  (restore-buffer-modified-p nil)
 	  (org-element--parse-objects
 	   (point-min) (point-max) nil restriction parent))))))
@@ -4803,13 +4819,13 @@ you want to help debugging the issue.")
 (defvar org-element-cache-sync-idle-time 0.6
   "Length, in seconds, of idle time before syncing cache.")
 
-(defvar org-element-cache-sync-duration (seconds-to-time 0.04)
+(defvar org-element-cache-sync-duration 0.04
   "Maximum duration, as a time value, for a cache synchronization.
 If the synchronization is not over after this delay, the process
 pauses and resumes after `org-element-cache-sync-break'
 seconds.")
 
-(defvar org-element-cache-sync-break (seconds-to-time 0.3)
+(defvar org-element-cache-sync-break 0.3
   "Duration, as a time value, of the pause between synchronizations.
 See `org-element-cache-sync-duration' for more information.")
 
@@ -4894,7 +4910,7 @@ table is cleared once the synchronization is complete."
 (defun org-element--cache-generate-key (lower upper)
   "Generate a key between LOWER and UPPER.
 
-LOWER and UPPER are integers or lists, possibly empty.
+LOWER and UPPER are fixnums or lists of same, possibly empty.
 
 If LOWER and UPPER are equals, return LOWER.  Otherwise, return
 a unique key, as an integer or a list of integers, according to
@@ -5091,7 +5107,7 @@ Assume ELEMENT belongs to cache and that a cache is active."
   (setq org-element--cache-sync-timer
 	(run-with-idle-timer
 	 (let ((idle (current-idle-time)))
-	   (if idle (time-add idle org-element-cache-sync-break)
+	   (if idle (org-time-add idle org-element-cache-sync-break)
 	     org-element-cache-sync-idle-time))
 	 nil
 	 #'org-element--cache-sync
@@ -5102,7 +5118,7 @@ Assume ELEMENT belongs to cache and that a cache is active."
 TIME-LIMIT is a time value or nil."
   (and time-limit
        (or (input-pending-p)
-	   (time-less-p time-limit (current-time)))))
+	   (org-time-less-p time-limit nil))))
 
 (defsubst org-element--cache-shift-positions (element offset &optional props)
   "Shift ELEMENT properties relative to buffer positions by OFFSET.
@@ -5156,8 +5172,8 @@ updated before current modification are actually submitted."
 	     (and next (aref next 0))
 	     threshold
 	     (and (not threshold)
-		  (time-add (current-time)
-			    org-element-cache-sync-duration))
+		  (org-time-add nil
+				org-element-cache-sync-duration))
 	     future-change)
 	    ;; Request processed.  Merge current and next offsets and
 	    ;; transfer ending position.

@@ -1,6 +1,6 @@
 ;;; org-goto.el --- Fast navigation in an Org buffer  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -176,7 +176,8 @@ When nil, you can use these keybindings to navigate the buffer:
   (let ((keys (this-command-keys)))
     (when (eq (lookup-key isearch-mode-map keys) 'isearch-printing-char)
       (isearch-mode t)
-      (isearch-process-search-char (string-to-char keys)))))
+      (isearch-process-search-char (string-to-char keys))
+      (org-font-lock-ensure))))
 
 (defun org-goto-ret (&optional _arg)
   "Finish `org-goto' by going to the new location."
@@ -237,10 +238,11 @@ position or nil."
 	  (condition-case nil
 	      (make-indirect-buffer (current-buffer) "*org-goto*")
 	    (error (make-indirect-buffer (current-buffer) "*org-goto*"))))
-	 (with-output-to-temp-buffer "*Org Help*"
+	 (let (temp-buffer-show-function temp-buffer-show-hook)
+	   (with-output-to-temp-buffer "*Org Help*"
 	   (princ (format help (if org-goto-auto-isearch
 				   "  Just type for auto-isearch."
-				 "  n/p/f/b/u to navigate, q to quit."))))
+				 "  n/p/f/b/u to navigate, q to quit.")))))
 	 (org-fit-window-to-buffer (get-buffer-window "*Org Help*"))
 	 (setq buffer-read-only nil)
 	 (let ((org-startup-truncated t)

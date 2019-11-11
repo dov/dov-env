@@ -1,6 +1,6 @@
 ;;; org-faces.el --- Face definitions -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -311,7 +311,7 @@ determines if it is a foreground or a background color."
   (if (not value)
       (setq org-tags-special-faces-re nil)
     (setq org-tags-special-faces-re
-	  (concat ":\\(" (mapconcat 'car value "\\|") "\\):"))))
+	  (concat ":" (regexp-opt (mapcar #'car value) t) ":"))))
 
 (defface org-checkbox '((t :inherit bold))
   "Face for checkboxes."

@@ -1,6 +1,6 @@
 ;;; ox-texinfo.el --- Texinfo Back-End for Org Export Engine -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2019 Free Software Foundation, Inc.
 ;; Author: Jonathan Leech-Pepin <jonathan.leechpepin at gmail dot com>
 ;; Keywords: outlines, hypermedia, calendar, wp
 
@@ -479,12 +479,12 @@ node or anchor name is unique."
 		    (org-texinfo--sanitize-title
 		     (org-export-get-alt-title datum info) info))
 		   (`radio-target
-		    (org-texinfo--sanitize-title
-		     (org-element-contents datum) info))
+		    (org-export-data (org-element-contents datum) info))
 		   (`target
-		    (org-export-data (org-element-property :value datum) info))
-		   (type
-		    (error "Cannot generate node name for type: %S" type)))))
+		    (org-element-property :value datum))
+		   (_
+		    (or (org-element-property :name datum)
+			(org-export-get-reference datum info))))))
 	       (name basename))
 	  ;; Org exports deeper elements before their parents.  If two
 	  ;; node names collide -- e.g., they have the same title --
@@ -576,7 +576,7 @@ holding export options."
     (concat
      "\\input texinfo    @c -*- texinfo -*-\n"
      "@c %**start of header\n"
-     (let ((file (or (plist-get info :texinfo-filename)
+     (let ((file (or (org-strip-quotes (plist-get info :texinfo-filename))
 		     (let ((f (plist-get info :output-file)))
 		       (and f (concat (file-name-sans-extension f) ".info"))))))
        (and file (format "@setfilename %s\n" file)))
@@ -706,7 +706,7 @@ contextual information."
   "Transcode a CENTER-BLOCK element from Org to Texinfo.
 CONTENTS holds the contents of the block.  INFO is a plist used
 as a communication channel."
-  contents)
+  (replace-regexp-in-string "\\(^\\).*?\\S-" "@center " contents nil nil 1))
 
 ;;;; Clock
 
@@ -1253,13 +1253,21 @@ contextual information."
 		  (if (string-prefix-p "@" i) i (concat "@" i))))
 	 (table-type (plist-get attr :table-type))
 	 (type (org-element-property :type plain-list))
+	 (initial-counter
+	  (and (eq type 'ordered)
+	       ;; Texinfo only supports initial counters, i.e., it
+	       ;; cannot change the numbering mid-list.
+	       (let ((first-item (car (org-element-contents plain-list))))
+		 (org-element-property :counter first-item))))
 	 (list-type (cond
 		     ((eq type 'ordered) "enumerate")
 		     ((eq type 'unordered) "itemize")
 		     ((member table-type '("ftable" "vtable")) table-type)
 		     (t "table"))))
     (format "@%s\n%s@end %s"
-	    (if (eq type 'descriptive) (concat list-type " " indic) list-type)
+	    (cond ((eq type 'descriptive) (concat list-type " " indic))
+		  (initial-counter (format "%s %d" list-type initial-counter))
+		  (t list-type))
 	    contents
 	    list-type)))
 
@@ -1345,11 +1353,12 @@ holding contextual information."
   "Transcode a QUOTE-BLOCK element from Org to Texinfo.
 CONTENTS holds the contents of the block.  INFO is a plist
 holding contextual information."
-  (let* ((title (org-element-property :name quote-block))
-	 (start-quote (concat "@quotation"
-			      (when title
-				(format " %s" title)))))
-    (format "%s\n%s@end quotation" start-quote contents)))
+  (let ((tag (org-export-read-attribute :attr_texinfo quote-block :tag))
+	(author (org-export-read-attribute :attr_texinfo quote-block :author)))
+    (format "@quotation%s\n%s%s\n@end quotation"
+	    (if tag (concat " " tag) "")
+	    contents
+	    (if author (concat "\n@author " author) ""))))
 
 ;;;; Radio Target
 
