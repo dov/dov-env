@@ -1,6 +1,6 @@
 ;;; ob-exp.el --- Exportation of Babel Source Blocks -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
 
 ;; Authors: Eric Schulte
 ;;	Dan Davison
@@ -209,9 +209,9 @@ this template."
 					      (progn (goto-char end)
 						     (skip-chars-forward " \t")
 						     (point)))
-			     ;; Otherwise: remove inline src block but
-			     ;; preserve following white spaces.  Then
-			     ;; insert value.
+			     ;; Otherwise: remove inline source block
+			     ;; but preserve following white spaces.
+			     ;; Then insert value.
 			     (delete-region begin end)
 			     (insert replacement)))))
 		      ((or `babel-call `inline-babel-call)
@@ -281,7 +281,8 @@ this template."
 		    (set-marker begin nil)
 		    (set-marker end nil)))))
 	  (kill-buffer org-babel-exp-reference-buffer)
-	  (remove-text-properties (point-min) (point-max) '(org-reference)))))))
+          (remove-text-properties (point-min) (point-max)
+                                  '(org-reference nil)))))))
 
 (defun org-babel-exp-do-export (info type &optional hash)
   "Return a string with the exported content of a code block.
@@ -376,7 +377,7 @@ block will be evaluated.  Optional argument SILENT can be used to
 inhibit insertion of results into the buffer."
   (unless (and hash (equal hash (org-babel-current-result-hash)))
     (let ((lang (nth 0 info))
-	  (body (if (org-babel-noweb-p (nth 2 info) :export)
+	  (body (if (org-babel-noweb-p (nth 2 info) :eval)
 		    (org-babel-expand-noweb-references
 		     info org-babel-exp-reference-buffer)
 		  (nth 1 info)))

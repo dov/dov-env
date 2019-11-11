@@ -1,6 +1,6 @@
 ;;; org-list.el --- Plain lists for Org              -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;;	   Bastien Guerry <bzg@gnu.org>
@@ -221,7 +221,7 @@ into
 
 (defcustom org-plain-list-ordered-item-terminator t
   "The character that makes a line with leading number an ordered list item.
-Valid values are ?. and ?\).  To get both terminators, use t.
+Valid values are ?. and ?\\).  To get both terminators, use t.
 
 This variable needs to be set before org.el is loaded.  If you
 need to make a change while Emacs is running, use the customize
@@ -1568,23 +1568,6 @@ STRUCT may be modified if `org-list-demote-modify-bullet' matches
 bullets between START and END."
   (let* (acc
 	 (set-assoc (lambda (cell) (push cell acc) cell))
-	 (change-bullet-maybe
-	  (function
-	   (lambda (item)
-	     (let ((new-bul-p
-		    (cdr (assoc
-			  ;; Normalize ordered bullets.
-			  (let ((bul (org-trim
-				      (org-list-get-bullet item struct))))
-			    (cond ((string-match "[A-Z]\\." bul) "A.")
-				  ((string-match "[A-Z])" bul) "A)")
-				  ((string-match "[a-z]\\." bul) "a.")
-				  ((string-match "[a-z])" bul) "a)")
-				  ((string-match "[0-9]\\." bul) "1.")
-				  ((string-match "[0-9])" bul) "1)")
-				  (t bul)))
-			  org-list-demote-modify-bullet))))
-	       (when new-bul-p (org-list-set-bullet item struct new-bul-p))))))
 	 (ind
 	  (lambda (cell)
 	    (let* ((item (car cell))
@@ -1600,7 +1583,20 @@ bullets between START and END."
 		;; Item is in zone...
 		(let ((prev (org-list-get-prev-item item struct prevs)))
 		  ;; Check if bullet needs to be changed.
-		  (funcall change-bullet-maybe item)
+		  (pcase (assoc (let ((b (org-list-get-bullet item struct))
+				      (case-fold-search nil))
+				  (cond ((string-match "[A-Z]\\." b) "A.")
+					((string-match "[A-Z])" b) "A)")
+					((string-match "[a-z]\\." b) "a.")
+					((string-match "[a-z])" b) "a)")
+					((string-match "[0-9]\\." b) "1.")
+					((string-match "[0-9])" b) "1)")
+					(t (org-trim b))))
+				org-list-demote-modify-bullet)
+		    (`(,_ . ,bullet)
+		     (org-list-set-bullet
+		      item struct (org-list-bullet-string bullet)))
+		    (_ nil))
 		  (cond
 		   ;; First item indented but not parent: error
 		   ((and (not prev) (or (not parent) (< parent start)))
@@ -2658,7 +2654,7 @@ Return t if successful."
 		(error "Cannot outdent beyond margin")
 	      ;; Change bullet if necessary.
 	      (when (and (= (+ top-ind offset) 0)
-			 (string-match "*"
+			 (string-match "\\*"
 				       (org-list-get-bullet beg struct)))
 		(org-list-set-bullet beg struct
 				     (org-list-bullet-string "-")))
@@ -2687,11 +2683,12 @@ Return t if successful."
 	  (error "Cannot outdent an item without its children"))
 	 ;; Normal shifting
 	 (t
-	  (let* ((new-parents
+	  (let* ((old-struct (copy-tree struct))
+		 (new-parents
 		  (if (< arg 0)
 		      (org-list-struct-outdent beg end struct parents)
 		    (org-list-struct-indent beg end struct parents prevs))))
-	    (org-list-write-struct struct new-parents))
+	    (org-list-write-struct struct new-parents old-struct))
 	  (org-update-checkbox-count-maybe))))))
   t)
 
@@ -3185,7 +3182,7 @@ Point is left at list's end."
   (if (not (ignore-errors (goto-char (org-in-item-p))))
       (error "Not in a list")
     (let ((list (save-excursion (org-list-to-lisp t))))
-      (insert (org-list-to-subtree list)))))
+      (insert (org-list-to-subtree list) "\n"))))
 
 (defun org-list-to-generic (list params)
   "Convert a LIST parsed through `org-list-to-lisp' to a custom format.

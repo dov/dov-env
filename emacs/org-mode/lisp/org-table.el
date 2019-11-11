@@ -1,6 +1,6 @@
 ;;; org-table.el --- The Table Editor for Org        -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -155,7 +155,7 @@ table, obtained by prompting the user."
   :type 'string)
 
 (defcustom org-table-number-regexp
-  "^\\([<>]?[-+^.0-9]*[0-9][-+^.0-9eEdDx()%:]*\\|[<>]?[-+]?0[xX][0-9a-fA-F.]+\\|[<>]?[-+]?[0-9]+#[0-9a-zA-Z.]+\\|nan\\|[-+u]?inf\\)$"
+  "^\\([<>]?[-+^.0-9]*[0-9][-+^.0-9eEdDx()%:]*\\|[<>]?[-+]?0[xX][[:xdigit:].]+\\|[<>]?[-+]?[0-9]+#[0-9a-zA-Z.]+\\|nan\\|[-+u]?inf\\)$"
   "Regular expression for recognizing numbers in table columns.
 If a table column contains mostly numbers, it will be aligned to the
 right.  If not, it will be aligned to the left.
@@ -180,9 +180,9 @@ Other options offered by the customize interface are more restrictive."
 	  (const :tag "Exponential, Floating point, Integer"
 		 "^[-+]?[0-9.]+\\([eEdD][-+0-9]+\\)?$")
 	  (const :tag "Very General Number-Like, including hex and Calc radix"
-		 "^\\([<>]?[-+^.0-9]*[0-9][-+^.0-9eEdDx()%]*\\|[<>]?[-+]?0[xX][0-9a-fA-F.]+\\|[<>]?[-+]?[0-9]+#[0-9a-zA-Z.]+\\|nan\\|[-+u]?inf\\)$")
+		 "^\\([<>]?[-+^.0-9]*[0-9][-+^.0-9eEdDx()%]*\\|[<>]?[-+]?0[xX][[:xdigit:].]+\\|[<>]?[-+]?[0-9]+#[0-9a-zA-Z.]+\\|nan\\|[-+u]?inf\\)$")
 	  (const :tag "Very General Number-Like, including hex and Calc radix, allows comma as decimal mark"
-		 "^\\([<>]?[-+^.,0-9]*[0-9][-+^.0-9eEdDx()%]*\\|[<>]?[-+]?0[xX][0-9a-fA-F.]+\\|[<>]?[-+]?[0-9]+#[0-9a-zA-Z.]+\\|nan\\|[-+u]?inf\\)$")
+		 "^\\([<>]?[-+^.,0-9]*[0-9][-+^.0-9eEdDx()%]*\\|[<>]?[-+]?0[xX][[:xdigit:].]+\\|[<>]?[-+]?[0-9]+#[0-9a-zA-Z.]+\\|nan\\|[-+u]?inf\\)$")
 	  (string :tag "Regexp:")))
 
 (defcustom org-table-number-fraction 0.5
@@ -489,8 +489,8 @@ Line numbers are counted from the beginning of the table.  This
 variable is initialized with `org-table-analyze'.")
 
 (defconst org-table-range-regexp
-  "@\\([-+]?I*[-+]?[0-9]*\\)?\\(\\$[-+]?[0-9]+\\)?\\(\\.\\.@?\\([-+]?I*[-+]?[0-9]*\\)?\\(\\$[-+]?[0-9]+\\)?\\)?"
-  ;;   1                        2                    3          4                        5
+  "@\\([-+]?I*[-+]?[0-9]*\\)\\(\\$[-+]?[0-9]+\\)?\\(\\.\\.@?\\([-+]?I*[-+]?[0-9]*\\)\\(\\$[-+]?[0-9]+\\)?\\)?"
+  ;;   1                       2                    3          4                       5
   "Regular expression for matching ranges in formulas.")
 
 (defconst org-table-range-regexp2
@@ -505,7 +505,7 @@ variable is initialized with `org-table-analyze'.")
   "Match a reference that needs translation, for reference display.")
 
 (defconst org-table-separator-space
-  (propertize " " 'display '(space :width 1))
+  (propertize " " 'display '(space :relative-width 1))
   "Space used around fields when aligning the table.
 This space serves as a segment separator for the purposes of the
 bidirectional reordering.")
@@ -1081,6 +1081,7 @@ Before doing so, re-align the table if necessary."
       (org-table-align))
   (let ((col (org-table-current-column)))
     (beginning-of-line 2)
+    (unless (bolp) (insert "\n"))	;missing newline at eob
     (when (or (not (org-at-table-p))
 	      (org-at-table-hline-p))
       (beginning-of-line 0)
@@ -1143,9 +1144,10 @@ to a number.  In the case of a timestamp, increment by days."
 			     (<= (setq n (1- n)) 0))
 			(throw 'exit (match-string 1))))))
 	  (setq non-empty-up (and field-up (string-match "[^ \t]" field-up))))
-      ;; Above field was not empty, go down to the next row
+      ;; Above field was not empty, go down to the next row.  Skip
+      ;; alignment since we do it at the end of the process anyway.
       (setq txt (org-trim field))
-      (org-table-next-row)
+      (let ((org-table-may-need-update nil)) (org-table-next-row))
       (org-table-blank-field))
     (if non-empty-up (setq txt-up (org-trim field-up)))
     (setq inc (cond
@@ -1155,7 +1157,7 @@ to a number.  In the case of a timestamp, increment by days."
 			      (- (org-time-string-to-absolute txt)
 				 (org-time-string-to-absolute txt-up)))
 			     ((string-match org-ts-regexp3 txt) 1)
-			     ((string-match "\\([-+]\\)?\\(?:[0-9]+\\)?\\(?:\.[0-9]+\\)?" txt-up)
+			     ((string-match "\\([-+]\\)?[0-9]*\\(?:\\.[0-9]+\\)?" txt-up)
 			      (- (string-to-number txt)
 				 (string-to-number (match-string 0 txt-up))))
 			     (t 1)))
@@ -1428,7 +1430,7 @@ non-nil, the one above is used."
     (cond ((or (> (aref org-table-dlines min) line)
 	       (< (aref org-table-dlines max) line))
 	   nil)
-	  ((= (aref org-table-dlines max) line) max)
+	  ((= line (aref org-table-dlines max)) max)
 	  (t (catch 'exit
 	       (while (> (- max min) 1)
 		 (let* ((mean (/ (+ max min) 2))
@@ -1436,7 +1438,10 @@ non-nil, the one above is used."
 		   (cond ((= v line) (throw 'exit mean))
 			 ((> v line) (setq max mean))
 			 (t (setq min mean)))))
-	       (if above min max))))))
+	       (cond ((= line (aref org-table-dlines max)) max)
+		     ((= line (aref org-table-dlines min)) min)
+		     (above min)
+		     (t max)))))))
 
 ;;;###autoload
 (defun org-table-delete-column ()
@@ -1600,7 +1605,7 @@ With prefix ARG, insert below the current line."
    (let* ((line (buffer-substring (line-beginning-position) (line-end-position)))
 	  (new (org-table-clean-line line)))
      ;; Fix the first field if necessary
-     (when (string-match "^[ \t]*| *[#$] *|" line)
+     (when (string-match "^[ \t]*| *[#*$] *|" line)
        (setq new (replace-match (match-string 0 line) t t new)))
      (beginning-of-line (if arg 2 1))
      ;; Buffer may not end of a newline character, so ensure
@@ -2194,8 +2199,8 @@ If NLAST is a number, only the NLAST fields will actually be summed."
 	     (sres (if (= org-timecnt 0)
 		       (number-to-string res)
 		     (setq diff (* 3600 res)
-			   h (floor (/ diff 3600)) diff (mod diff 3600)
-			   m (floor (/ diff 60)) diff (mod diff 60)
+			   h (floor diff 3600) diff (mod diff 3600)
+			   m (floor diff 60) diff (mod diff 60)
 			   s diff)
 		     (format "%.0f:%02.0f:%02.0f" h m s))))
 	(kill-new sres)
@@ -2323,7 +2328,7 @@ LOCATION instead."
 	      "\n"))))
 
 (defsubst org-table-formula-make-cmp-string (a)
-  (when (string-match "\\`$[<>]" a)
+  (when (string-match "\\`\\$[<>]" a)
     (let ((arrow (string-to-char (substring a 1))))
       ;; Fake a high number to make sure this is sorted at the end.
       (setq a (org-table-formula-handle-first/last-rc a))
@@ -2371,7 +2376,7 @@ LOCATION is a buffer position, consider the formulas there."
 		       (cond
 			((not (match-end 2)) m)
 			;; Is it a column reference?
-			((string-match-p "\\`$\\([0-9]+\\|[<>]+\\)\\'" m) m)
+			((string-match-p "\\`\\$\\([0-9]+\\|[<>]+\\)\\'" m) m)
 			;; Since named columns are not possible in
 			;; LHS, assume this is a named field.
 			(t (match-string 2 string)))))
@@ -3185,7 +3190,7 @@ ARGS are passed as arguments to the `message' function.  Returns
 current time if a message is printed, otherwise returns T1.  If
 T1 is nil, always messages."
   (let ((curtime (current-time)))
-    (if (or (not t1) (< 0 (nth 1 (time-subtract curtime t1))))
+    (if (or (not t1) (org-time-less-p 1 (org-time-subtract curtime t1)))
 	(progn (apply 'message args)
 	       curtime)
       t1)))
@@ -3220,139 +3225,139 @@ known that the table will be realigned a little later anyway."
 	   beg end eqlcol eqlfield)
       ;; Insert constants in all formulas.
       (when eqlist
-	(org-table-save-field
-	 ;; Expand equations, then split the equation list between
-	 ;; column formulas and field formulas.
-	 (dolist (eq eqlist)
-	   (let* ((rhs (org-table-formula-substitute-names
-			(org-table-formula-handle-first/last-rc (cdr eq))))
-		  (old-lhs (car eq))
-		  (lhs
-		   (org-table-formula-handle-first/last-rc
-		    (cond
-		     ((string-match "\\`@-?I+" old-lhs)
-		      (user-error "Can't assign to hline relative reference"))
-		     ((string-match "\\`$[<>]" old-lhs)
-		      (let ((new (org-table-formula-handle-first/last-rc
-				  old-lhs)))
-			(when (assoc new eqlist)
-			  (user-error "\"%s=\" formula tries to overwrite \
+	(org-table-with-shrunk-columns
+	 (org-table-save-field
+	  ;; Expand equations, then split the equation list between
+	  ;; column formulas and field formulas.
+	  (dolist (eq eqlist)
+	    (let* ((rhs (org-table-formula-substitute-names
+			 (org-table-formula-handle-first/last-rc (cdr eq))))
+		   (old-lhs (car eq))
+		   (lhs
+		    (org-table-formula-handle-first/last-rc
+		     (cond
+		      ((string-match "\\`@-?I+" old-lhs)
+		       (user-error "Can't assign to hline relative reference"))
+		      ((string-match "\\`\\$[<>]" old-lhs)
+		       (let ((new (org-table-formula-handle-first/last-rc
+				   old-lhs)))
+			 (when (assoc new eqlist)
+			   (user-error "\"%s=\" formula tries to overwrite \
 existing formula for column %s"
-				      old-lhs
-				      new))
-			new))
-		     (t old-lhs)))))
-	     (if (string-match-p "\\`\\$[0-9]+\\'" lhs)
-		 (push (cons lhs rhs) eqlcol)
-	       (push (cons lhs rhs) eqlfield))))
-	 (setq eqlcol (nreverse eqlcol))
-	 ;; Expand ranges in lhs of formulas
-	 (setq eqlfield (org-table-expand-lhs-ranges (nreverse eqlfield)))
-	 ;; Get the correct line range to process.
-	 (if all
-	     (progn
-	       (setq end (copy-marker (org-table-end)))
-	       (goto-char (setq beg org-table-current-begin-pos))
-	       (cond
-		((re-search-forward org-table-calculate-mark-regexp end t)
-		 ;; This is a table with marked lines, compute selected
-		 ;; lines.
-		 (setq line-re org-table-recalculate-regexp))
-		;; Move forward to the first non-header line.
-		((and (re-search-forward org-table-dataline-regexp end t)
-		      (re-search-forward org-table-hline-regexp end t)
-		      (re-search-forward org-table-dataline-regexp end t))
-		 (setq beg (match-beginning 0)))
-		;; Just leave BEG at the start of the table.
-		(t nil)))
-	   (setq beg (line-beginning-position)
-		 end (copy-marker (line-beginning-position 2))))
-	 (goto-char beg)
-	 ;; Mark named fields untouchable.  Also check if several
-	 ;; field/range formulas try to set the same field.
-	 (remove-text-properties beg end '(:org-untouchable t))
-	 (let ((current-line (count-lines org-table-current-begin-pos
-					  (line-beginning-position)))
-	       seen-fields)
-	   (dolist (eq eqlfield)
-	     (let* ((name (car eq))
-		    (location (assoc name org-table-named-field-locations))
-		    (eq-line (or (nth 1 location)
-				 (and (string-match "\\`@\\([0-9]+\\)" name)
-				      (aref org-table-dlines
-					    (string-to-number
-					     (match-string 1 name))))))
-		    (reference
-		     (if location
-			 ;; Turn field coordinates associated to NAME
-			 ;; into an absolute reference.
-			 (format "@%d$%d"
-				 (org-table-line-to-dline eq-line)
-				 (nth 2 location))
-		       name)))
-	       (when (member reference seen-fields)
-		 (user-error "Several field/range formulas try to set %s"
-			     reference))
-	       (push reference seen-fields)
-	       (when (or all (eq eq-line current-line))
-		 (org-table-goto-field name)
-		 (org-table-put-field-property :org-untouchable t)))))
-	 ;; Evaluate the column formulas, but skip fields covered by
-	 ;; field formulas.
-	 (goto-char beg)
-	 (while (re-search-forward line-re end t)
-	   (unless (string-match "\\` *[_^!$/] *\\'" (org-table-get-field 1))
-	     ;; Unprotected line, recalculate.
-	     (cl-incf cnt)
-	     (when all
-	       (setq log-last-time
-		     (org-table-message-once-per-second
-		      log-last-time
-		      "Re-applying formulas to full table...(line %d)" cnt)))
-	     (if (markerp org-last-recalc-line)
-		 (move-marker org-last-recalc-line (line-beginning-position))
-	       (setq org-last-recalc-line
-		     (copy-marker (line-beginning-position))))
-	     (dolist (entry eqlcol)
-	       (goto-char org-last-recalc-line)
-	       (org-table-goto-column
-		(string-to-number (substring (car entry) 1)) nil 'force)
-	       (unless (get-text-property (point) :org-untouchable)
-		 (org-table-eval-formula
-		  nil (cdr entry) 'noalign 'nocst 'nostore 'noanalysis)))))
-	 ;; Evaluate the field formulas.
-	 (dolist (eq eqlfield)
-	   (let ((reference (car eq))
-		 (formula (cdr eq)))
-	     (setq log-last-time
-		   (org-table-message-once-per-second
-		    (and all log-last-time)
-		    "Re-applying formula to field: %s" (car eq)))
-	     (org-table-goto-field
-	      reference
-	      ;; Possibly create a new column, as long as
-	      ;; `org-table-formula-create-columns' allows it.
-	      (let ((column-count (progn (end-of-line)
-					 (1- (org-table-current-column)))))
-		(lambda (column)
-		  (when (> column 1000)
-		    (user-error "Formula column target too large"))
-		  (and (> column column-count)
-		       (or (eq org-table-formula-create-columns t)
-			   (and (eq org-table-formula-create-columns 'warn)
-				(progn
-				  (org-display-warning
-				   "Out-of-bounds formula added columns")
-				  t))
-			   (and (eq org-table-formula-create-columns 'prompt)
-				(yes-or-no-p
-				 "Out-of-bounds formula.  Add columns? "))
-			   (user-error
-			    "Missing columns in the table.  Aborting"))))))
-	     (org-table-eval-formula nil formula t t t t))))
-	;; Clean up markers and internal text property.
-	(remove-text-properties (point-min) (point-max) '(org-untouchable t))
-	(set-marker end nil)
+				       old-lhs
+				       new))
+			 new))
+		      (t old-lhs)))))
+	      (if (string-match-p "\\`\\$[0-9]+\\'" lhs)
+		  (push (cons lhs rhs) eqlcol)
+		(push (cons lhs rhs) eqlfield))))
+	  (setq eqlcol (nreverse eqlcol))
+	  ;; Expand ranges in lhs of formulas
+	  (setq eqlfield (org-table-expand-lhs-ranges (nreverse eqlfield)))
+	  ;; Get the correct line range to process.
+	  (if all
+	      (progn
+		(setq end (copy-marker (org-table-end)))
+		(goto-char (setq beg org-table-current-begin-pos))
+		(cond
+		 ((re-search-forward org-table-calculate-mark-regexp end t)
+		  ;; This is a table with marked lines, compute selected
+		  ;; lines.
+		  (setq line-re org-table-recalculate-regexp))
+		 ;; Move forward to the first non-header line.
+		 ((and (re-search-forward org-table-dataline-regexp end t)
+		       (re-search-forward org-table-hline-regexp end t)
+		       (re-search-forward org-table-dataline-regexp end t))
+		  (setq beg (match-beginning 0)))
+		 ;; Just leave BEG at the start of the table.
+		 (t nil)))
+	    (setq beg (line-beginning-position)
+		  end (copy-marker (line-beginning-position 2))))
+	  (goto-char beg)
+	  ;; Mark named fields untouchable.  Also check if several
+	  ;; field/range formulas try to set the same field.
+	  (remove-text-properties beg end '(:org-untouchable t))
+	  (let ((current-line (count-lines org-table-current-begin-pos
+					   (line-beginning-position)))
+		seen-fields)
+	    (dolist (eq eqlfield)
+	      (let* ((name (car eq))
+		     (location (assoc name org-table-named-field-locations))
+		     (eq-line (or (nth 1 location)
+				  (and (string-match "\\`@\\([0-9]+\\)" name)
+				       (aref org-table-dlines
+					     (string-to-number
+					      (match-string 1 name))))))
+		     (reference
+		      (if location
+			  ;; Turn field coordinates associated to NAME
+			  ;; into an absolute reference.
+			  (format "@%d$%d"
+				  (org-table-line-to-dline eq-line)
+				  (nth 2 location))
+			name)))
+		(when (member reference seen-fields)
+		  (user-error "Several field/range formulas try to set %s"
+			      reference))
+		(push reference seen-fields)
+		(when (or all (eq eq-line current-line))
+		  (org-table-goto-field name)
+		  (org-table-put-field-property :org-untouchable t)))))
+	  ;; Evaluate the column formulas, but skip fields covered by
+	  ;; field formulas.
+	  (goto-char beg)
+	  (while (re-search-forward line-re end t)
+	    (unless (string-match "\\` *[_^!$/] *\\'" (org-table-get-field 1))
+	      ;; Unprotected line, recalculate.
+	      (cl-incf cnt)
+	      (when all
+		(setq log-last-time
+		      (org-table-message-once-per-second
+		       log-last-time
+		       "Re-applying formulas to full table...(line %d)" cnt)))
+	      (if (markerp org-last-recalc-line)
+		  (move-marker org-last-recalc-line (line-beginning-position))
+		(setq org-last-recalc-line
+		      (copy-marker (line-beginning-position))))
+	      (dolist (entry eqlcol)
+		(goto-char org-last-recalc-line)
+		(org-table-goto-column
+		 (string-to-number (substring (car entry) 1)) nil 'force)
+		(unless (get-text-property (point) :org-untouchable)
+		  (org-table-eval-formula
+		   nil (cdr entry) 'noalign 'nocst 'nostore 'noanalysis)))))
+	  ;; Evaluate the field formulas.
+	  (dolist (eq eqlfield)
+	    (let ((reference (car eq))
+		  (formula (cdr eq)))
+	      (setq log-last-time
+		    (org-table-message-once-per-second
+		     (and all log-last-time)
+		     "Re-applying formula to field: %s" (car eq)))
+	      (org-table-goto-field
+	       reference
+	       ;; Possibly create a new column, as long as
+	       ;; `org-table-formula-create-columns' allows it.
+	       (let ((column-count (progn (end-of-line)
+					  (1- (org-table-current-column)))))
+		 (lambda (column)
+		   (when (> column 1000)
+		     (user-error "Formula column target too large"))
+		   (and (> column column-count)
+			(or (eq org-table-formula-create-columns t)
+			    (and (eq org-table-formula-create-columns 'warn)
+				 (progn
+				   (org-display-warning
+				    "Out-of-bounds formula added columns")
+				   t))
+			    (and (eq org-table-formula-create-columns 'prompt)
+				 (yes-or-no-p
+				  "Out-of-bounds formula.  Add columns? "))
+			    (user-error
+			     "Missing columns in the table.  Aborting"))))))
+	      (org-table-eval-formula nil formula t t t t)))
+	  ;; Clean up marker.
+	  (set-marker end nil)))
 	(unless noalign
 	  (when org-table-may-need-update (org-table-align))
 	  (when all
@@ -3655,7 +3660,8 @@ Parameters get priority."
       (setq startline (org-current-line))
       (dolist (entry eql)
 	(let* ((type (cond
-		      ((string-match "\\`$\\([0-9]+\\|[<>]+\\)\\'" (car entry))
+		      ((string-match "\\`\\$\\([0-9]+\\|[<>]+\\)\\'"
+				     (car entry))
 		       'column)
 		      ((equal (string-to-char (car entry)) ?@) 'field)
 		      (t 'named)))
@@ -3875,6 +3881,11 @@ buffer positions.  FIELD is the real contents of the field, as
 a string, or nil.  It is meant to be displayed upon moving the
 mouse onto the overlay.
 
+When optional argument PRE is non-nil, assume the overlay is
+located at the beginning of the field, and prepend
+`org-table-separator-space' to it.  Otherwise, concatenate
+`org-table-shrunk-column-indicator' at its end.
+
 Return the overlay."
   (let ((show-before-edit
 	 (lambda (o &rest _)
@@ -3883,7 +3894,7 @@ Return the overlay."
 	   (mapc #'delete-overlay
 		 (cdr (overlay-get o 'org-table-column-overlays)))))
 	(o (make-overlay start end)))
-    (overlay-put o 'insert-behind-hooks (and (not pre) (list show-before-edit)))
+    (overlay-put o 'insert-behind-hooks (list show-before-edit))
     (overlay-put o 'insert-in-front-hooks (list show-before-edit))
     (overlay-put o 'modification-hooks (list show-before-edit))
     (overlay-put o 'org-overlay-type 'table-column-hide)
@@ -3891,17 +3902,20 @@ Return the overlay."
     ;; Make sure overlays stays on top of table coordinates overlays.
     ;; See `org-table-overlay-coordinates'.
     (overlay-put o 'priority 1)
-    (org-overlay-display o display 'org-table t)
+    (let ((d (if pre (concat org-table-separator-space display)
+	       (concat display org-table-shrunk-column-indicator))))
+      (org-overlay-display o d 'org-table t))
     o))
 
-(defun org-table--shrink-field (width start end contents)
+(defun org-table--shrink-field (width align start end contents)
   "Shrink a table field to a specified width.
 
 WIDTH is an integer representing the number of characters to
-display, in addition to `org-table-shrunk-column-indicator'.  START
-and END are, respectively, the beginning and ending positions of
-the field.  CONTENTS is its trimmed contents, as a string, or
-`hline' for table rules.
+display, in addition to `org-table-shrunk-column-indicator'.
+ALIGN is the alignment of the current column, as either \"l\",
+\"c\" or \"r\".  START and END are, respectively, the beginning
+and ending positions of the field.  CONTENTS is its trimmed
+contents, as a string, or `hline' for table rules.
 
 Real field is hidden under one or two overlays.  They have the
 following properties:
@@ -3924,59 +3938,106 @@ the column again.
 Return a list of overlays hiding the field, or nil if field is
 already hidden."
   (cond
-   ((org-table--shrunk-field) nil)	;already shrunk: bail out
-   ((or (= 0 width)			;shrink to one character
-	(>= 1 (org-string-width (buffer-substring start end))))
+   ((= start end) nil)			;no field to narrow
+   ((org-table--shrunk-field) nil)	;already shrunk
+   ((= 0 width)				;shrink to one character
     (list (org-table--make-shrinking-overlay
-	   start end org-table-shrunk-column-indicator
-	   (if (eq 'hline contents) "" contents))))
-   ((eq contents 'hline)		;no contents to hide
+	   start end "" (if (eq 'hline contents) "" contents))))
+   ((eq contents 'hline)
     (list (org-table--make-shrinking-overlay
-	   start end
-	   (concat (make-string (max 0 (1+ width)) ?-)
-		   org-table-shrunk-column-indicator)
-	   "")))
+	   start end (make-string (1+ width) ?-) "")))
+   ((equal contents "")			;no contents to hide
+    (list
+     (let ((w (org-string-width (buffer-substring start end)))
+	   ;; We really want WIDTH + 2 whitespace, to include blanks
+	   ;; around fields.
+	   (full (+ 2 width)))
+       (if (<= w full)
+	   (org-table--make-shrinking-overlay
+	    (1- end) end (make-string (- full w) ?\s) "")
+	 (org-table--make-shrinking-overlay (- end (- w full) 1) end "" "")))))
    (t
-    ;; If the field is not empty, consider using two overlays: one for
-    ;; the blanks at the beginning of the field, and another one at
-    ;; the end of the field.  The former ensures a shrunk field is
-    ;; always displayed with a single white space character in front
-    ;; of it -- e.g., so that even right-aligned fields appear to the
-    ;; left -- and the latter cuts the field at WIDTH visible
-    ;; characters.
-    (let* ((pre-overlay
-	    (and (not (equal contents ""))
-		 (org-with-point-at start (looking-at "\\( [ \t]+\\)\\S-"))
-		 (org-table--make-shrinking-overlay
-		  start (match-end 1) org-table-separator-space nil 'pre)))
-	   (post-overlay
-	    (let* ((start (if pre-overlay (overlay-end pre-overlay)
-			    (1+ start)))
-		   (w (org-string-width (buffer-substring start (1- end)))))
-	      (if (>= width w)
-		  ;; Field is too short.  Extend its size by adding
-		  ;; white space characters to the right overlay.
-		  (org-table--make-shrinking-overlay
-		   (1- end) end (concat (make-string (- width w) ?\s)
-					org-table-shrunk-column-indicator)
-		   contents)
-		;; Find cut location so that WIDTH characters are visible.
-		(org-table--make-shrinking-overlay
-		 (let* ((begin start)
-			(lower begin)
-			(upper (1- end)))
-		   (catch :exit
-		     (while (> (- upper lower) 1)
-		       (let ((mean (+ (ash lower -1)
-				      (ash upper -1)
-				      (logand lower upper 1))))
-			 (pcase (org-string-width (buffer-substring begin mean))
-			   ((pred (= width)) (throw :exit mean))
-			   ((pred (< width)) (setq upper mean))
-			   (_ (setq lower mean)))))
-		     upper))
-		 end org-table-shrunk-column-indicator contents)))))
-      (delq nil (list pre-overlay post-overlay))))))
+    ;; If the field is not empty, display exactly WIDTH characters.
+    ;; It can mean to partly hide the field, or extend it with virtual
+    ;; blanks.  To that effect, we use one or two overlays.  The
+    ;; first, optional, one may add or hide white spaces before the
+    ;; contents of the field.  The other, mandatory, one cuts the
+    ;; field or displays white spaces at the end of the field.  It
+    ;; also always displays `org-table-shrunk-column-indicator'.
+    (let* ((lead (org-with-point-at start (skip-chars-forward " ")))
+	   (trail (org-with-point-at end (abs (skip-chars-backward " "))))
+	   (contents-width (org-string-width
+			    (buffer-substring (+ start lead) (- end trail)))))
+      (cond
+       ;; Contents are too large to fit in WIDTH character.  Limit, if
+       ;; possible, blanks at the beginning of the field to a single
+       ;; white space, and cut the field at an appropriate location.
+       ((<= width contents-width)
+	(let ((pre
+	       (and (> lead 0)
+		    (org-table--make-shrinking-overlay
+		     start (+ start lead) "" contents t)))
+	      (post
+	       (org-table--make-shrinking-overlay
+		;; Find cut location so that WIDTH characters are
+		;; visible using dichotomy.
+		(let* ((begin (+ start lead))
+		       (lower begin)
+		       (upper (1- end))
+		       ;; Compensate the absence of leading space,
+		       ;; thus preserving alignment.
+		       (width (if (= lead 0) (1+ width) width)))
+		  (catch :exit
+		    (while (> (- upper lower) 1)
+		      (let ((mean (+ (ash lower -1)
+				     (ash upper -1)
+				     (logand lower upper 1))))
+			(pcase (org-string-width (buffer-substring begin mean))
+			  ((pred (= width)) (throw :exit mean))
+			  ((pred (< width)) (setq upper mean))
+			  (_ (setq lower mean)))))
+		    upper))
+		end "" contents)))
+	  (if pre (list pre post) (list post))))
+       ;; Contents fit it WIDTH characters.  First compute number of
+       ;; white spaces needed on each side of contents, then expand or
+       ;; compact blanks on each side of the field in order to
+       ;; preserve width and obey to alignment constraints.
+       (t
+	(let* ((required (- width contents-width))
+	       (before
+		(pcase align
+		  ;; Compensate the absence of leading space, thus
+		  ;; preserving alignment.
+		  ((guard (= lead 0)) -1)
+		  ("l" 0)
+		  ("r" required)
+		  ("c" (/ required 2))))
+	       (after (- required before))
+	       (pre
+		(pcase (1- lead)
+		  ((or (guard (= lead 0)) (pred (= before))) nil)
+		  ((pred (< before))
+		   (org-table--make-shrinking-overlay
+		    start (+ start (- lead before)) "" contents t))
+		  (_
+		   (org-table--make-shrinking-overlay
+		    start (1+ start)
+		    (make-string (- before (1- lead)) ?\s)
+		    contents t))))
+	       (post
+		(pcase (1- trail)
+		  ((pred (= after))
+		   (org-table--make-shrinking-overlay (1- end) end "" contents))
+		  ((pred (< after))
+		   (org-table--make-shrinking-overlay
+		    (+ after (- end trail)) end "" contents))
+		  (_
+		   (org-table--make-shrinking-overlay
+		    (1- end) end
+		    (make-string (- after (1- trail)) ?\s)
+		    contents)))))
+	  (if pre (list pre post) (list post)))))))))
 
 (defun org-table--read-column-selection (select max)
   "Read column selection select as a list of numbers.
@@ -4017,7 +4078,8 @@ table."
    (org-font-lock-ensure beg end)
    (dolist (c columns)
      (goto-char beg)
-     (let ((width nil)
+     (let ((align nil)
+	   (width nil)
 	   (fields nil))
        (while (< (point) end)
 	 (catch :continue
@@ -4039,16 +4101,19 @@ table."
 		    (contents (if hline? 'hline
 				(org-trim (buffer-substring start end)))))
 	       (push (list start end contents) fields)
-	       (when (and (null width)
-			  (not hline?)
-			  (string-match "\\`<[lrc]?\\([0-9]+\\)>\\'" contents))
-		 (setq width (string-to-number (match-string 1 contents)))))))
+	       (when (and (not hline?)
+			  (string-match "\\`<\\([lrc]\\)?\\([0-9]+\\)>\\'"
+					contents))
+		 (unless align (setq align (match-string 1 contents)))
+		 (unless width
+		   (setq width (string-to-number (match-string 2 contents))))))))
 	 (forward-line))
        ;; Link overlays for current field to the other overlays in the
        ;; same column.
        (let ((chain (list 'siblings)))
 	 (dolist (field fields)
-	   (dolist (new (apply #'org-table--shrink-field (or width 0) field))
+	   (dolist (new (apply #'org-table--shrink-field
+			       (or width 0) (or align "l") field))
 	     (push new (cdr chain))
 	     (overlay-put new 'org-table-column-overlays chain))))))))
 

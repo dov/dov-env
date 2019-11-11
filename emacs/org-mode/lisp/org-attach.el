@@ -1,6 +1,6 @@
 ;;; org-attach.el --- Manage file attachments to Org tasks -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2008-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2019 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@newartisans.com>
 ;; Keywords: org data task
@@ -193,7 +193,7 @@ D       Delete all of a task's attachments.  A safer way is
 s       Set a specific attachment directory for this entry or reset to default.
 i       Make children of the current entry inherit its attachment directory.")))
 	  (org-fit-window-to-buffer (get-buffer-window "*Org Attach*"))
-	  (message "Select command: [acmlzoOfFdD]")
+	  (message "Select command: [acmlyunzoOfFdD]")
 	  (setq c (read-char-exclusive))
 	  (and (get-buffer "*Org Attach*") (kill-buffer "*Org Attach*"))))
       (cond
@@ -354,7 +354,7 @@ This checks for the existence of a \".git\" directory in that directory."
                   (shell-command-to-string
                    "git ls-files -zmo --exclude-standard") "\0" t))
           (if (and use-annex
-                   (>= (nth 7 (file-attributes new-or-modified))
+                   (>= (file-attribute-size (file-attributes new-or-modified))
                        org-attach-git-annex-cutoff))
               (call-process "git" nil nil nil "annex" "add" new-or-modified)
             (call-process "git" nil nil nil "add" new-or-modified))
@@ -574,10 +574,8 @@ prefix."
   "Maybe delete subtree attachments when archiving.
 This function is called by `org-archive-hook'.  The option
 `org-attach-archive-delete' controls its behavior."
-  (when (if (eq org-attach-archive-delete 'query)
-	    (yes-or-no-p "Delete all attachments? ")
-	  org-attach-archive-delete)
-    (org-attach-delete-all t)))
+  (when org-attach-archive-delete
+    (org-attach-delete-all (not (eq org-attach-archive-delete 'query)))))
 
 
 ;; Attach from dired.
@@ -590,6 +588,7 @@ This function is called by `org-archive-hook'.  The option
 ;;  (lambda ()
 ;;    (define-key dired-mode-map (kbd "C-c C-x a") #'org-attach-dired-to-subtree))))
 
+;;;###autoload
 (defun org-attach-dired-to-subtree (files)
   "Attach FILES marked or current file in dired to subtree in other window.
 Takes the method given in `org-attach-method' for the attach action.

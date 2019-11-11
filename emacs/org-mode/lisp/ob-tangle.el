@@ -1,6 +1,6 @@
 ;;; ob-tangle.el --- Extract Source Code From Org Files -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research
@@ -407,7 +407,8 @@ can be used to limit the collected code blocks by target file."
 	      (if by-lang (setcdr by-lang (cons block (cdr by-lang)))
 		(push (cons src-lang (list block)) blocks)))))))
     ;; Ensure blocks are in the correct order.
-    (mapcar (lambda (b) (cons (car b) (nreverse (cdr b)))) blocks)))
+    (mapcar (lambda (b) (cons (car b) (nreverse (cdr b))))
+	    (nreverse blocks))))
 
 (defun org-babel-tangle-single-block (block-counter &optional only-this-block)
   "Collect the tangled source for current block.

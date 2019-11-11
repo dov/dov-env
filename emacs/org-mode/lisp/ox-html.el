@@ -1,6 +1,6 @@
 ;;; ox-html.el --- HTML Back-End for Org Export Engine -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;;      Jambunathan K <kjambunathan at gmail dot com>
@@ -234,7 +234,7 @@ property on the headline itself.")
 @licstart  The following is the entire license notice for the
 JavaScript code in this tag.
 
-Copyright (C) 2012-2018 Free Software Foundation, Inc.
+Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 The JavaScript code in this tag is free software: you can
 redistribute it and/or modify it under the terms of the GNU
@@ -537,7 +537,7 @@ means to use the maximum value consistent with other options."
  * @licstart  The following is the entire license notice for the
  *  JavaScript code in %SCRIPT_PATH.
  *
- * Copyright (C) 2012-2018 Free Software Foundation, Inc.
+ * Copyright (C) 2012-2019 Free Software Foundation, Inc.
  *
  *
  * The JavaScript code in this tag is free software: you can
@@ -566,7 +566,7 @@ means to use the maximum value consistent with other options."
 @licstart  The following is the entire license notice for the
 JavaScript code in this tag.
 
-Copyright (C) 2012-2018 Free Software Foundation, Inc.
+Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 The JavaScript code in this tag is free software: you can
 redistribute it and/or modify it under the terms of the GNU
@@ -1706,7 +1706,7 @@ object unless a different class is specified with an attribute."
 
 (defun org-html--textarea-block (element)
   "Transcode ELEMENT into a textarea block.
-ELEMENT is either a src block or an example block."
+ELEMENT is either a source or an example block."
   (let* ((code (car (org-export-unravel-code element)))
 	 (attr (org-export-read-attribute :attr_html element)))
     (format "<p>\n<textarea cols=\"%s\" rows=\"%s\">\n%s</textarea>\n</p>"
@@ -1749,8 +1749,8 @@ If you then set `org-html-htmlize-output-type' to `css', calls
 to the function `org-html-htmlize-region-for-paste' will
 produce code that uses these same face definitions."
   (interactive)
-  (or (require 'htmlize nil t)
-      (error "Please install htmlize from https://github.com/hniksic/emacs-htmlize"))
+  (unless (require 'htmlize nil t)
+    (error "htmlize library missing.  Aborting"))
   (and (get-buffer "*html*") (kill-buffer "*html*"))
   (with-temp-buffer
     (let ((fl (face-list))
@@ -1784,33 +1784,38 @@ Replaces invalid characters with \"_\"."
 (defun org-html-footnote-section (info)
   "Format the footnote section.
 INFO is a plist used as a communication channel."
-  (let* ((fn-alist (org-export-collect-footnote-definitions info))
-	 (fn-alist
-	  (cl-loop for (n _type raw) in fn-alist collect
-		   (cons n (if (eq (org-element-type raw) 'org-data)
-			       (org-trim (org-export-data raw info))
-			     (format "<div class=\"footpara\">%s</div>"
-				     (org-trim (org-export-data raw info))))))))
-    (when fn-alist
+  (pcase (org-export-collect-footnote-definitions info)
+    (`nil nil)
+    (definitions
       (format
        (plist-get info :html-footnotes-section)
        (org-html--translate "Footnotes" info)
        (format
 	"\n%s\n"
 	(mapconcat
-	 (lambda (fn)
-	   (let ((n (car fn)) (def (cdr fn)))
-	     (format
-	      "<div class=\"footdef\">%s %s</div>\n"
-	      (format
-	       (plist-get info :html-footnote-format)
-	       (org-html--anchor
-		(format "fn.%d" n)
-		n
-		(format " class=\"footnum\" href=\"#fnr.%d\"" n)
-		info))
-	      def)))
-	 fn-alist
+	 (lambda (definition)
+	   (pcase definition
+	     (`(,n ,_ ,def)
+	      ;; `org-export-collect-footnote-definitions' can return
+	      ;; two kinds of footnote definitions: inline and blocks.
+	      ;; Since this should not make any difference in the HTML
+	      ;; output, we wrap the inline definitions within
+	      ;; a "footpara" class paragraph.
+	      (let ((inline? (not (org-element-map def org-element-all-elements
+				    #'identity nil t)))
+		    (anchor (org-html--anchor
+			     (format "fn.%d" n)
+			     n
+			     (format " class=\"footnum\" href=\"#fnr.%d\"" n)
+			     info))
+		    (contents (org-trim (org-export-data def info))))
+		(format "<div class=\"footdef\">%s %s</div>\n"
+			(format (plist-get info :html-footnote-format) anchor)
+			(format "<div class=\"footpara\">%s</div>"
+				(if (not inline?) contents
+				  (format "<p class=\"footpara\">%s</p>"
+					  contents))))))))
+	 definitions
 	 "\n"))))))
 
 
@@ -1948,7 +1953,8 @@ INFO is a plist used as a communication channel."
       (?c . ,(plist-get info :creator))
       (?C . ,(let ((file (plist-get info :input-file)))
 	       (format-time-string timestamp-format
-				   (and file (nth 5 (file-attributes file))))))
+				   (and file (file-attribute-modification-time
+					      (file-attributes file))))))
       (?v . ,(or (plist-get info :html-validation-link) "")))))
 
 (defun org-html--build-pre/postamble (type info)
@@ -1992,8 +1998,9 @@ communication channel."
 			(plist-get info :html-metadata-timestamp-format))))
 		    (when (plist-get info :with-creator)
 		      (format "<p class=\"creator\">%s</p>\n" creator))
-		    (format "<p class=\"validation\">%s</p>\n"
-			    validation-link))))
+		    (when (org-string-nw-p validation-link)
+		      (format "<p class=\"validation\">%s</p>\n"
+			      validation-link)))))
 		(t
 		 (let ((formats (plist-get info (if (eq type 'preamble)
 						    :html-preamble-format
@@ -2168,12 +2175,10 @@ is the language used for CODE, as a string, or nil."
      ;; Plain text explicitly set.
      ((not org-html-htmlize-output-type) (org-html-encode-plain-text code))
      ;; No htmlize library or an inferior version of htmlize.
-     ((not (and (or (require 'htmlize nil t)
-		    (error "Please install htmlize from \
-https://github.com/hniksic/emacs-htmlize"))
-		(fboundp 'htmlize-region-for-paste)))
+     ((not (progn (require 'htmlize nil t)
+		  (fboundp 'htmlize-region-for-paste)))
       ;; Emit a warning.
-      (message "Cannot fontify src block (htmlize.el >= 1.34 required)")
+      (message "Cannot fontify source block (htmlize.el >= 1.34 required)")
       (org-html-encode-plain-text code))
      (t
       ;; Map language
@@ -2252,14 +2257,14 @@ line of code."
 
 (defun org-html-format-code (element info)
   "Format contents of ELEMENT as source code.
-ELEMENT is either an example block or a src block.  INFO is
-a plist used as a communication channel."
+ELEMENT is either an example or a source block.  INFO is a plist
+used as a communication channel."
   (let* ((lang (org-element-property :language element))
 	 ;; Extract code and references.
 	 (code-info (org-export-unravel-code element))
 	 (code (car code-info))
 	 (refs (cdr code-info))
-	 ;; Does the src block contain labels?
+	 ;; Does the source block contain labels?
 	 (retain-labels (org-element-property :retain-labels element))
 	 ;; Does it have line numbers?
 	 (num-start (org-export-get-loc element info)))
@@ -3014,7 +3019,7 @@ INFO is a plist holding contextual information.  See
 	 (path
 	  (cond
 	   ((member type '("http" "https" "ftp" "mailto" "news"))
-	    (url-encode-url (org-link-unescape (concat type ":" raw-path))))
+	    (url-encode-url (concat type ":" raw-path)))
 	   ((string= type "file")
 	    ;; During publishing, turn absolute file names belonging
 	    ;; to base directory into relative file names.  Otherwise,
@@ -3042,19 +3047,25 @@ INFO is a plist holding contextual information.  See
 			  "#"
 			  (org-publish-resolve-external-link option path t))))))
 	   (t raw-path)))
-	 ;; Extract attributes from parent's paragraph.  HACK: Only do
-	 ;; this for the first link in parent (inner image link for
-	 ;; inline images).  This is needed as long as attributes
-	 ;; cannot be set on a per link basis.
 	 (attributes-plist
-	  (let* ((parent (org-export-get-parent-element link))
-		 (link (let ((container (org-export-get-parent link)))
-			 (if (and (eq (org-element-type container) 'link)
-				  (org-html-inline-image-p link info))
-			     container
-			   link))))
-	    (and (eq (org-element-map parent 'link 'identity info t) link)
-		 (org-export-read-attribute :attr_html parent))))
+	  (org-combine-plists
+	   ;; Extract attributes from parent's paragraph.  HACK: Only
+	   ;; do this for the first link in parent (inner image link
+	   ;; for inline images).  This is needed as long as
+	   ;; attributes cannot be set on a per link basis.
+	   (let* ((parent (org-export-get-parent-element link))
+		  (link (let ((container (org-export-get-parent link)))
+			  (if (and (eq 'link (org-element-type container))
+				   (org-html-inline-image-p link info))
+			      container
+			    link))))
+	     (and (eq link (org-element-map parent 'link #'identity info t))
+		  (org-export-read-attribute :attr_html parent)))
+	   ;; Also add attributes from link itself.  Currently, those
+	   ;; need to be added programmatically before `org-html-link'
+	   ;; is invoked, for example, by backends building upon HTML
+	   ;; export.
+	   (org-export-read-attribute :attr_html link)))
 	 (attributes
 	  (let ((attr (org-html--make-attribute-string attributes-plist)))
 	    (if (org-string-nw-p attr) (concat " " attr) ""))))
@@ -3162,18 +3173,18 @@ INFO is a plist holding contextual information.  See
 		(format (org-export-get-coderef-format path desc)
 			(org-export-resolve-coderef path info)))))
      ;; External link with a description part.
-     ((and path desc) (format "<a href=\"%s\"%s>%s</a>"
-			      (org-html-encode-plain-text path)
-			      attributes
-			      desc))
+     ((and path desc)
+      (format "<a href=\"%s\"%s>%s</a>"
+	      (org-html-encode-plain-text path)
+	      attributes
+	      desc))
      ;; External link without a description part.
-     (path (let ((path (org-html-encode-plain-text path)))
-	     (format "<a href=\"%s\"%s>%s</a>"
-		     path
-		     attributes
-		     (org-link-unescape path))))
+     (path
+      (let ((path (org-html-encode-plain-text path)))
+	(format "<a href=\"%s\"%s>%s</a>" path attributes path)))
      ;; No path, only description.  Try to do something useful.
-     (t (format "<i>%s</i>" desc)))))
+     (t
+      (format "<i>%s</i>" desc)))))
 
 ;;;; Node Property
 

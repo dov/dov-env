@@ -1,6 +1,6 @@
 ;;; ob-core.el --- Working with Code Blocks          -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
 
 ;; Authors: Eric Schulte
 ;;	Dan Davison
@@ -175,9 +175,14 @@ This string must include a \"%s\" which will be replaced by the results."
   :safe #'booleanp)
 
 (defun org-babel-noweb-wrap (&optional regexp)
-  (concat org-babel-noweb-wrap-start
-	  (or regexp "\\([^ \t\n].+?[^ \t]\\|[^ \t\n]\\)")
-	  org-babel-noweb-wrap-end))
+  "Return regexp matching a Noweb reference.
+
+Match any reference, or only those matching REGEXP, if non-nil.
+
+When matching, reference is stored in match group 1."
+  (concat (regexp-quote org-babel-noweb-wrap-start)
+	  (or regexp "\\([^ \t\n]\\(?:.*?[^ \t\n]\\)?\\)")
+	  (regexp-quote org-babel-noweb-wrap-end)))
 
 (defvar org-babel-src-name-regexp
   "^[ \t]*#\\+name:[ \t]*"
@@ -521,7 +526,7 @@ to raise errors for all languages.")
   "Hook for functions to be called after `org-babel-execute-src-block'")
 
 (defun org-babel-named-src-block-regexp-for-name (&optional name)
-  "This generates a regexp used to match a src block named NAME.
+  "This generates a regexp used to match a source block named NAME.
 If NAME is nil, match any name.  Matched name is then put in
 match group 9.  Other match groups are defined in
 `org-babel-src-block-regexp'."
@@ -555,7 +560,7 @@ Remove final newline character and spurious indentation."
 
 ;;; functions
 (defvar org-babel-current-src-block-location nil
-  "Marker pointing to the src block currently being executed.
+  "Marker pointing to the source block currently being executed.
 This may also point to a call line or an inline code block.  If
 multiple blocks are being executed (e.g., in chained execution
 through use of the :var header argument) this marker points to
@@ -1855,7 +1860,7 @@ With optional prefix argument ARG, jump backward ARG many source blocks."
 
 ;;;###autoload
 (defun org-babel-mark-block ()
-  "Mark current src block."
+  "Mark current source block."
   (interactive)
   (let ((head (org-babel-where-is-src-block-head)))
     (when head
@@ -2216,10 +2221,10 @@ code ---- the results are extracted in the syntax of the source
           optional LANG argument.
 
 list ---- the results are rendered as a list.  This option not
-          allowed for inline src blocks.
+          allowed for inline source blocks.
 
 table --- the results are rendered as a table.  This option not
-          allowed for inline src blocks.
+          allowed for inline source blocks.
 
 INFO may provide the values of these header arguments (in the
 `header-arguments-alist' see the docstring for
@@ -2320,10 +2325,9 @@ INFO may provide the values of these header arguments (in the
 		       (lambda (r)
 			 ;; Non-nil when result R can be turned into
 			 ;; a table.
-			 (and (listp r)
-			      (null (cdr (last r)))
+                         (and (proper-list-p r)
 			      (cl-every
-			       (lambda (e) (or (atom e) (null (cdr (last e)))))
+                               (lambda (e) (or (atom e) (proper-list-p e)))
 			       result)))))
 		  ;; insert results based on type
 		  (cond
@@ -2946,29 +2950,29 @@ Otherwise return nil."
 (defun org-babel-import-elisp-from-file (file-name &optional separator)
   "Read the results located at FILE-NAME into an elisp table.
 If the table is trivial, then return it as a scalar."
-  (let (result)
-    (save-window-excursion
-      (with-temp-buffer
-	(condition-case err
-	    (progn
-	      (org-table-import file-name separator)
-	      (delete-file file-name)
-	      (setq result (mapcar (lambda (row)
-				     (mapcar #'org-babel-string-read row))
-				   (org-table-to-lisp))))
-	  (error (message "Error reading results: %s" err) nil)))
-      (if (null (cdr result)) ;; if result is trivial vector, then scalarize it
-	  (if (consp (car result))
-	      (if (null (cdr (car result)))
-		  (caar result)
-		result)
-	    (car result))
-	result))))
+  (save-window-excursion
+    (let ((result
+	   (with-temp-buffer
+	     (condition-case err
+		 (progn
+		   (org-table-import file-name separator)
+		   (delete-file file-name)
+		   (delq nil
+			 (mapcar (lambda (row)
+				   (and (not (eq row 'hline))
+					(mapcar #'org-babel-string-read row)))
+				 (org-table-to-lisp))))
+	       (error (message "Error reading results: %s" err) nil)))))
+      (pcase result
+	(`((,scalar)) scalar)
+	(`((,_ ,_ . ,_)) result)
+	(`(,scalar) scalar)
+	(_ result)))))
 
 (defun org-babel-string-read (cell)
   "Strip nested \"s from around strings."
   (org-babel-read (or (and (stringp cell)
-                           (string-match "\\\"\\(.+\\)\\\"" cell)
+                           (string-match "\"\\(.+\\)\"" cell)
                            (match-string 1 cell))
                       cell) t))
 
@@ -3149,7 +3153,8 @@ after the babel API for OLD-type source blocks is fully defined.
 Callers of this function will probably want to add an entry to
 `org-src-lang-modes' as well."
   (dolist (fn '("execute" "expand-body" "prep-session"
-		"variable-assignments" "load-session"))
+		"variable-assignments" "load-session"
+		"edit-prep"))
     (let ((sym (intern-soft (concat "org-babel-" fn ":" old))))
       (when (and sym (fboundp sym))
 	(defalias (intern (concat "org-babel-" fn ":" new)) sym))))
@@ -3159,10 +3164,6 @@ Callers of this function will probably want to add an entry to
     (let ((sym (intern-soft (concat "org-babel-" var ":" old))))
       (when (and sym (boundp sym))
 	(defvaralias (intern (concat "org-babel-" var ":" new)) sym)))))
-
-(defun org-babel-strip-quotes (string)
-  "Strip \\\"s from around a string, if applicable."
-  (org-unbracket-string "\"" "\"" string))
 
 (provide 'ob-core)
 

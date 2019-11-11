@@ -1,6 +1,6 @@
 ;;; org-agenda.el --- Dynamic task and appointment lists for Org
 
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -1227,7 +1227,7 @@ These days get the special face `org-agenda-date-weekend' in the agenda."
   "Non-nil means jump to today when moving a past date forward in time.
 When using S-right in the agenda to move a a date forward, and the date
 stamp currently points to the past, the first key press will move it
-to today.  WHen nil, just move one day forward even if the date stays
+to today.  When nil, just move one day forward even if the date stays
 in the past."
   :group 'org-agenda-daily/weekly
   :version "24.1"
@@ -1401,6 +1401,9 @@ current display in the agenda."
   :group 'org-agenda-daily/weekly
   :type 'plist)
 
+(defvaralias 'org-agenda-search-view-search-words-only
+  'org-agenda-search-view-always-boolean)
+
 (defcustom org-agenda-search-view-always-boolean nil
   "Non-nil means the search string is interpreted as individual parts.
 
@@ -1428,9 +1431,6 @@ boolean search."
   :group 'org-agenda-search-view
   :version "24.1"
   :type 'boolean)
-
-(defvaralias 'org-agenda-search-view-search-words-only
-  'org-agenda-search-view-always-boolean)
 
 (defcustom org-agenda-search-view-force-full-words nil
   "Non-nil means, search words must be matches as complete words.
@@ -1873,6 +1873,9 @@ Nil means don't hide any tags."
 	  (const  :tag "Hide none" nil)
 	  (string :tag "Regexp   ")))
 
+(defvaralias 'org-agenda-remove-tags-when-in-prefix
+  'org-agenda-remove-tags)
+
 (defcustom org-agenda-remove-tags nil
   "Non-nil means remove the tags from the headline copy in the agenda.
 When this is the symbol `prefix', only remove tags when
@@ -1883,8 +1886,7 @@ When this is the symbol `prefix', only remove tags when
 	  (const :tag "Never" nil)
 	  (const :tag "When prefix format contains %T" prefix)))
 
-(defvaralias 'org-agenda-remove-tags-when-in-prefix
-  'org-agenda-remove-tags)
+(defvaralias 'org-agenda-align-tags-to-column 'org-agenda-tags-column)
 
 (defcustom org-agenda-tags-column 'auto
   "Shift tags in agenda items to this column.
@@ -1901,8 +1903,6 @@ character screen."
 	  (integer :tag "Specific column" -80))
   :package-version '(Org . "9.1")
   :version "26.1")
-
-(defvaralias 'org-agenda-align-tags-to-column 'org-agenda-tags-column)
 
 (defcustom org-agenda-fontify-priorities 'cookies
   "Non-nil means highlight low and high priorities in agenda.
@@ -2084,9 +2084,9 @@ evaluate to a string."
 
 ;;; Define the org-agenda-mode
 
+(defvaralias 'org-agenda-keymap 'org-agenda-mode-map)
 (defvar org-agenda-mode-map (make-sparse-keymap)
   "Keymap for `org-agenda-mode'.")
-(defvaralias 'org-agenda-keymap 'org-agenda-mode-map)
 
 (defvar org-agenda-menu) ; defined later in this file.
 (defvar org-agenda-restrict nil) ; defined later in this file.
@@ -2229,10 +2229,14 @@ The following commands are available:
   (add-hook 'post-command-hook 'org-agenda-update-agenda-type nil 'local)
   (add-hook 'pre-command-hook 'org-unhighlight nil 'local)
   ;; Make sure properties are removed when copying text
-  (add-hook 'filter-buffer-substring-functions
-	    (lambda (fun start end delete)
-	      (substring-no-properties (funcall fun start end delete)))
-	    nil t)
+  (if (boundp 'filter-buffer-substring-functions)
+      (add-hook 'filter-buffer-substring-functions
+		(lambda (fun start end delete)
+                  (substring-no-properties (funcall fun start end delete)))
+		nil t)
+    ;; Emacs >= 24.4.
+    (add-function :filter-return (local 'filter-buffer-substring-function)
+                  #'substring-no-properties))
   (unless org-agenda-keep-modes
     (setq org-agenda-follow-mode org-agenda-start-with-follow-mode
 	  org-agenda-entry-text-mode org-agenda-start-with-entry-text-mode
@@ -2395,6 +2399,7 @@ The following commands are available:
 (define-key org-agenda-mode-map "?" 'org-agenda-show-the-flagging-note)
 (org-defkey org-agenda-mode-map "\C-c\C-x\C-mg"    'org-mobile-pull)
 (org-defkey org-agenda-mode-map "\C-c\C-x\C-mp"    'org-mobile-push)
+(org-defkey org-agenda-mode-map "\C-c\C-xI" 'org-info-find-node)
 
 (org-defkey org-agenda-mode-map [mouse-2] 'org-agenda-goto-mouse)
 (org-defkey org-agenda-mode-map [mouse-3] 'org-agenda-show-mouse)
@@ -2902,13 +2907,12 @@ Pressing `<' twice means to restrict to the current subtree or region
 	     (let* ((m (org-agenda-get-any-marker))
 		    (note (and m (org-entry-get m "THEFLAGGINGNOTE"))))
 	       (when note
-		 (message (concat
-			   "FLAGGING-NOTE ([?] for more info): "
-			   (org-add-props
-			       (replace-regexp-in-string
-				"\\\\n" "//"
-				(copy-sequence note))
-			       nil 'face 'org-warning)))))))
+		 (message "FLAGGING-NOTE ([?] for more info): %s"
+			  (org-add-props
+			   (replace-regexp-in-string
+			    "\\\\n" "//"
+			    (copy-sequence note))
+			   nil 'face 'org-warning))))))
 	 t t))
        ((equal org-keys "#") (call-interactively 'org-agenda-list-stuck-projects))
        ((equal org-keys "/") (call-interactively 'org-occur-in-agenda-files))
@@ -3021,19 +3025,18 @@ s   Search for keywords                 M   Like m, but only TODO entries
 					    (symbol-name type)
 					  "Lambda expression"))
 		      (t "???"))))
-	      (if org-agenda-menu-show-matcher
-		  (setq line
-			(concat line ": "
-				(cond
-				 ((stringp match)
-				  (setq match (copy-sequence match))
-				  (org-add-props match nil 'face 'org-warning))
-				 ((listp type)
-				  (format "set of %d commands" (length type))))))
-		(when (org-string-nw-p match)
-		  (add-text-properties
-		   0 (length line) (list 'help-echo
-					 (concat "Matcher: " match)) line)))
+	      (cond
+	       ((not (org-string-nw-p match)) nil)
+	       (org-agenda-menu-show-matcher
+		(setq line
+		      (concat line ": "
+			      (cond
+			       ((stringp match)
+				(propertize match 'face 'org-warning))
+			       ((listp type)
+				(format "set of %d commands" (length type)))))))
+	       (t
+		(org-add-props line nil 'help-echo (concat "Matcher: " match))))
 	      (push line lines)))
 	  (setq lines (nreverse lines))
 	  (when prefixes
@@ -3762,7 +3765,8 @@ FILTER-ALIST is an alist of filters we need to apply when
 	     (setq-local org-agenda-name name)))
       (setq buffer-read-only nil))))
 
-(defvar org-agenda-overriding-columns-format)  ; From org-colview.el
+(defvar org-overriding-columns-format)
+(defvar org-local-columns-format)
 (defun org-agenda-finalize ()
   "Finishing touch for the agenda buffer, called just before displaying it."
   (unless org-agenda-multi
@@ -3777,9 +3781,9 @@ FILTER-ALIST is an alist of filters we need to apply when
 	  (org-agenda-align-tags))
 	(unless org-agenda-with-colors
 	  (remove-text-properties (point-min) (point-max) '(face nil)))
-	(when (bound-and-true-p org-agenda-overriding-columns-format)
-	  (setq-local org-agenda-overriding-columns-format
-		      org-agenda-overriding-columns-format))
+	(when (bound-and-true-p org-overriding-columns-format)
+	  (setq-local org-local-columns-format
+		      org-overriding-columns-format))
 	(when org-agenda-view-columns-initially
 	  (org-agenda-columns))
 	(when org-agenda-fontify-priorities
@@ -4185,9 +4189,12 @@ items if they have an hour specification like [h]h:mm."
                           ((= w1 w2) (format " (W%02d)" w1))
                           (t (format " (W%02d-W%02d)" w1 w2)))
 		    ":\n")))
-	(add-text-properties s (1- (point)) (list 'face 'org-agenda-structure
-						  'org-date-line t))
-	(org-agenda-mark-header-line s))
+	;; Add properties if we actually inserted a header.
+	(when (> (point) s)
+	  (add-text-properties s (1- (point))
+			       (list 'face 'org-agenda-structure
+				     'org-date-line t))
+	  (org-agenda-mark-header-line s)))
       (while (setq d (pop day-numbers))
 	(setq date (calendar-gregorian-from-absolute d)
 	      s (point))
@@ -4667,18 +4674,8 @@ for a keyword.  A numeric prefix directly selects the Nth keyword in
   (when (and (stringp arg) (not (string-match "\\S-" arg))) (setq arg nil))
   (let* ((today (org-today))
 	 (date (calendar-gregorian-from-absolute today))
-	 (kwds org-todo-keywords-for-agenda)
 	 (completion-ignore-case t)
-	 (org-select-this-todo-keyword
-	  (if (stringp arg) arg
-	    (and arg (integerp arg) (> arg 0)
-                 (nth (1- arg) kwds))))
-	 rtn rtnall files file pos)
-    (when (equal arg '(4))
-      (setq org-select-this-todo-keyword
-	    (completing-read "Keyword (or KWD1|K2D2|...): "
-			     (mapcar #'list kwds) nil nil)))
-    (and (equal 0 arg) (setq org-select-this-todo-keyword nil))
+         kwds org-select-this-todo-keyword rtn rtnall files file pos)
     (catch 'exit
       (when org-agenda-sticky
 	(setq org-agenda-buffer-name
@@ -4687,6 +4684,16 @@ for a keyword.  A numeric prefix directly selects the Nth keyword in
 			  org-select-this-todo-keyword)
 		(format "*Org Agenda(%s)*" (or org-keys "t")))))
       (org-agenda-prepare "TODO")
+      (setq kwds org-todo-keywords-for-agenda
+            org-select-this-todo-keyword (if (stringp arg) arg
+                                           (and (integerp arg)
+						(> arg 0)
+                                                (nth (1- arg) kwds))))
+      (when (equal arg '(4))
+        (setq org-select-this-todo-keyword
+              (completing-read "Keyword (or KWD1|K2D2|...): "
+                               (mapcar #'list kwds) nil nil)))
+      (and (equal 0 arg) (setq org-select-this-todo-keyword nil))
       (org-compile-prefix-format 'todo)
       (org-set-sorting-strategy 'todo)
       (setq org-agenda-redo-command
@@ -4714,8 +4721,9 @@ for a keyword.  A numeric prefix directly selects the Nth keyword in
 		   org-select-this-todo-keyword))
 	  (setq pos (point))
 	  (unless org-agenda-multi
-	    (insert (substitute-command-keys "Available with \
-\\<org-agenda-mode-map>`N \\[org-agenda-redo]': (0)[ALL]"))
+	    (insert (substitute-command-keys "Press \
+\\<org-agenda-mode-map>`N \\[org-agenda-redo]' (e.g. `0 \\[org-agenda-redo]') \
+to search again: (0)[ALL]"))
 	    (let ((n 0))
               (dolist (k kwds)
                 (let ((s (format "(%d)%s" (cl-incf n) k)))
@@ -4818,7 +4826,7 @@ The prefix arg TODO-ONLY limits the search to TODO entries."
 	    (insert (substitute-command-keys
 		     "Press \
 \\<org-agenda-mode-map>`\\[universal-argument] \\[org-agenda-redo]' \
-to search again with new search string\n")))
+to search again\n")))
 	  (add-text-properties pos (1- (point))
 			       (list 'face 'org-agenda-structure))
 	  (buffer-string)))
@@ -5423,7 +5431,7 @@ This function is invoked if `org-agenda-todo-ignore-deadlines',
 	  (and org-agenda-todo-ignore-deadlines
 	       (re-search-forward org-deadline-time-regexp end t)
 	       (cond
-		((memq org-agenda-todo-ignore-deadlines '(t all)) t)
+		((eq org-agenda-todo-ignore-deadlines 'all) t)
 		((eq org-agenda-todo-ignore-deadlines 'far)
 		 (not (org-deadline-close-p (match-string 1))))
 		((eq org-agenda-todo-ignore-deadlines 'future)
@@ -5492,8 +5500,8 @@ displayed in agenda view."
 	    (substring
 	     (format-time-string
 	      (car org-time-stamp-formats)
-	      (apply #'encode-time	; DATE bound by calendar
-		     (list 0 0 0 (nth 1 date) (car date) (nth 2 date))))
+	      (encode-time	; DATE bound by calendar
+	       0 0 0 (nth 1 date) (car date) (nth 2 date)))
 	     1 11))
 	   "\\|\\(<[0-9]+-[0-9]+-[0-9]+[^>\n]+?\\+[0-9]+[hdwmy]>\\)"
 	   "\\|\\(<%%\\(([^>\n]+)\\)>\\)"))
@@ -5733,7 +5741,7 @@ then those holidays will be skipped."
 		 (when (memq 'closed items) (concat "\\<" org-closed-string))
 		 (when (memq 'clock items) (concat "\\<" org-clock-string))
 		 (when (memq 'state items)
-		   (format "- State \"%s\".*?" org-todo-regexp)))))
+		   (format "- +State \"%s\".*?" org-todo-regexp)))))
 	 (parts-re (if parts (mapconcat 'identity parts "\\|")
 		     (error "`org-agenda-log-mode-items' is empty")))
 	 (regexp (concat
@@ -5743,11 +5751,11 @@ then those holidays will be skipped."
 		   (substring
 		    (format-time-string
 		     (car org-time-stamp-formats)
-		     (apply 'encode-time  ; DATE bound by calendar
-			    (list 0 0 0 (nth 1 date) (car date) (nth 2 date))))
+		     (encode-time  ; DATE bound by calendar
+		      0 0 0 (nth 1 date) (car date) (nth 2 date)))
 		    1 11))))
 	 (org-agenda-search-headline-for-time nil)
-	 marker hdmarker priority category level tags closedp
+	 marker hdmarker priority category level tags closedp type
 	 statep clockp state ee txt extra timestr rest clocked inherited-tags)
     (goto-char (point-min))
     (while (re-search-forward regexp nil t)
@@ -5807,11 +5815,14 @@ then those holidays will be skipped."
 			(statep (concat "State:     (" state ")"))
 			(t (concat "Clocked:   (" clocked  ")")))
 		       txt level category tags timestr)))
+	  (setq type (cond (closedp "closed")
+			   (statep "state")
+			   (t "clock")))
 	  (setq priority 100000)
 	  (org-add-props txt props
 	    'org-marker marker 'org-hd-marker hdmarker 'face 'org-agenda-done
 	    'priority priority 'level level
-	    'type "closed" 'date date
+	    'type type 'date date
 	    'undone-face 'org-warning 'done-face 'org-agenda-done)
 	  (push txt ee))
 	(goto-char (point-at-eol))))
@@ -5861,21 +5872,19 @@ See also the user option `org-agenda-clock-consistency-checks'."
 	      (throw 'next t))
 	    (setq ts (match-string 1)
 		  te (match-string 3)
-		  ts (float-time
-		      (apply #'encode-time (org-parse-time-string ts)))
-		  te (float-time
-		      (apply #'encode-time (org-parse-time-string te)))
+		  ts (float-time (org-time-string-to-time ts))
+		  te (float-time (org-time-string-to-time te))
 		  dt (- te ts))))
 	(cond
 	 ((> dt (* 60 maxtime))
 	  ;; a very long clocking chunk
 	  (setq issue (format "Clocking interval is very long: %s"
-			      (org-duration-from-minutes (floor (/ dt 60.))))
+			      (org-duration-from-minutes (floor dt 60)))
 		face (or (plist-get pl :long-face) face)))
 	 ((< dt (* 60 mintime))
 	  ;; a very short clocking chunk
 	  (setq issue (format "Clocking interval is very short: %s"
-			      (org-duration-from-minutes (floor (/ dt 60.))))
+			      (org-duration-from-minutes (floor dt 60)))
 		face (or (plist-get pl :short-face) face)))
 	 ((and (> tlend 0) (< ts tlend))
 	  ;; Two clock entries are overlapping
@@ -5915,8 +5924,8 @@ See also the user option `org-agenda-clock-consistency-checks'."
       (throw 'exit t))
     ;; We have a shorter gap.
     ;; Now we have to get the minute of the day when these times are
-    (let* ((t1dec (decode-time (seconds-to-time t1)))
-	   (t2dec (decode-time (seconds-to-time t2)))
+    (let* ((t1dec (org-decode-time t1))
+	   (t2dec (org-decode-time t2))
 	   ;; compute the minute on the day
 	   (min1 (+ (nth 1 t1dec) (* 60 (nth 2 t1dec))))
 	   (min2 (+ (nth 1 t2dec) (* 60 (nth 2 t2dec)))))
@@ -6981,7 +6990,8 @@ The optional argument TYPE tells the agenda type."
 				  "\\([ \t]*\\[[a-zA-Z0-9]\\]\\)? *") tb)
 	(setq tb (substring tb (match-end 0))))
       (setq tb (downcase tb)))
-    (cond ((not ta) +1)
+    (cond ((not (or ta tb)) nil)
+	  ((not ta) +1)
 	  ((not tb) -1)
 	  ((string-lessp ta tb) -1)
 	  ((string-lessp tb ta) +1))))
@@ -6990,7 +7000,8 @@ The optional argument TYPE tells the agenda type."
   "Compare the string values of the first tags of A and B."
   (let ((ta (car (last (get-text-property 1 'tags a))))
 	(tb (car (last (get-text-property 1 'tags b)))))
-    (cond ((not ta) +1)
+    (cond ((not (or ta tb)) nil)
+	  ((not ta) +1)
 	  ((not tb) -1)
 	  ((string-lessp ta tb) -1)
 	  ((string-lessp tb ta) +1))))
@@ -7009,15 +7020,15 @@ When TYPE is \"scheduled\", \"deadline\", \"timestamp\" or
 \"timestamp_ia\", compare within each of these type.  When TYPE
 is the empty string, compare all timestamps without respect of
 their type."
-  (let* ((def (if org-sort-agenda-notime-is-late most-positive-fixnum -1))
+  (let* ((def (and (not org-sort-agenda-notime-is-late) -1))
 	 (ta (or (and (string-match type (or (get-text-property 1 'type a) ""))
 		      (get-text-property 1 'ts-date a))
 		 def))
 	 (tb (or (and (string-match type (or (get-text-property 1 'type b) ""))
 		      (get-text-property 1 'ts-date b))
 		 def)))
-    (cond ((< ta tb) -1)
-	  ((< tb ta) +1))))
+    (cond ((if ta (and tb (< ta tb)) tb) -1)
+	  ((if tb (and ta (< tb ta)) ta) +1))))
 
 (defsubst org-cmp-habit-p (a b)
   "Compare the todo states of strings A and B."
@@ -7375,6 +7386,10 @@ With a prefix argument, do so in all agenda buffers."
 (defvar org-agenda-filter-form nil)
 (defvar org-agenda-filtered-by-category nil)
 
+(defsubst org-agenda-get-category ()
+  "Return the category of the agenda line."
+  (org-get-at-bol 'org-category))
+
 (defun org-agenda-filter-by-category (strip)
   "Filter lines in the agenda buffer that have a specific category.
 The category is that of the current line.
@@ -7385,7 +7400,7 @@ With a prefix argument, exclude the lines of that category.
   (if (and org-agenda-filtered-by-category
 	   org-agenda-category-filter)
       (org-agenda-filter-show-all-cat)
-    (let ((cat (org-no-properties (org-get-at-eol 'org-category 1))))
+    (let ((cat (org-no-properties (org-agenda-get-category))))
       (cond
        ((and cat strip)
         (org-agenda-filter-apply
@@ -7720,7 +7735,7 @@ tags in the FILTER if any of the tags in FILTER are grouptags."
 	(if (org-get-at-bol 'org-marker)
 	    (progn
 	      (setq tags (org-get-at-bol 'tags)
-		    cat (org-get-at-eol 'org-category 1)
+		    cat (org-agenda-get-category)
 		    txt (org-get-at-bol 'txt))
 	      (unless (eval org-agenda-filter-form)
 		(org-agenda-filter-hide-line type))
@@ -8945,7 +8960,7 @@ If FORCE-TAGS is non nil, the car of it returns the new tags."
 		   (equal m hdmarker))
 	  (setq props (text-properties-at (point))
 		dotime (org-get-at-bol 'dotime)
-		cat (org-get-at-eol 'org-category 1)
+		cat (org-agenda-get-category)
 		level (org-get-at-bol 'level)
 		tags thetags
 		new
@@ -9009,7 +9024,7 @@ current line."
 				 (if (memq 'org-tag prop)
 				     prop
 				   (cons 'org-tag prop))))))
-	(setq l (- (match-end 1) (match-beginning 1))
+	(setq l (string-width (match-string 1))
 	      c (if (< org-agenda-tags-column 0)
 		    (- (abs org-agenda-tags-column) l)
 		  org-agenda-tags-column))
@@ -9251,7 +9266,7 @@ Called with a universal prefix arg, show the priority instead of setting it."
       (goto-char (point-max))
       (while (not (bobp))
 	(when (equal marker (org-get-at-bol 'org-marker))
-	  (remove-text-properties (point-at-bol) (point-at-eol) '(display))
+          (remove-text-properties (point-at-bol) (point-at-eol) '(display nil))
 	  (org-move-to-column (- (window-width) (length stamp)) t)
           (add-text-properties
 	   (1- (point)) (point-at-eol)
@@ -9465,7 +9480,7 @@ the resulting entry will not be shown.  When TEXT is empty, switch to
     (goto-char (point-min))
     (cl-case type
      (anniversary
-      (or (re-search-forward "^*[ \t]+Anniversaries" nil t)
+      (or (re-search-forward "^\\*[ \t]+Anniversaries" nil t)
 	  (progn
 	    (or (org-at-heading-p t)
 		(progn
@@ -9866,7 +9881,7 @@ The prefix arg is passed through to the command if possible."
   (org-unlogged-message
    (concat (if org-agenda-persistent-marks "Bulk (persistent): " "Bulk: ")
 	   "[$]arch [A]rch->sib [t]odo [+/-]tag [s]chd [d]eadline [r]efile "
-	   "[S]catter [f]unction    "
+	   "[S]catter [f]unction [p]ersist-toggle    "
 	   (and org-agenda-bulk-custom-functions
 		(format " Custom: [%s]"
 			(mapconcat (lambda (f) (char-to-string (car f)))
@@ -10192,7 +10207,7 @@ to override `appt-message-warning-time'."
          ;; time and without date as argument, so it may pass wrong
          ;; information otherwise
          (today (org-date-to-gregorian
-                 (time-to-days (current-time))))
+                 (time-to-days nil)))
          (org-agenda-restrict nil)
          (files (org-agenda-files 'unrestricted)) entries file
          (org-agenda-buffer nil))

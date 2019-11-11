@@ -1,6 +1,6 @@
 ;;; org-macs.el --- Top-level Definitions for Org -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -31,6 +31,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'format-spec)
 
 (declare-function org-string-collate-lessp "org-compat" (s1 s2 &optional locale ignore-case))
@@ -192,14 +193,32 @@ because otherwise all these markers will point to nowhere."
        (when local-variables
 	 (org-with-wide-buffer
 	  (goto-char (point-max))
-	  (unless (bolp) (insert "\n"))
-	  (insert local-variables))))))
+	  ;; If last section is folded, make sure to also hide file
+	  ;; local variables after inserting them back.
+	  (let ((overlay
+		 (cl-find-if (lambda (o)
+			       (eq 'outline (overlay-get o 'invisible)))
+			     (overlays-at (1- (point))))))
+	    (unless (bolp) (insert "\n"))
+	    (insert local-variables)
+	    (when overlay
+	      (move-overlay overlay (overlay-start overlay) (point-max)))))))))
 
 (defmacro org-no-popups (&rest body)
   "Suppress popup windows and evaluate BODY."
   `(let (pop-up-frames display-buffer-alist)
      ,@body))
 
+(defmacro org-table-with-shrunk-field (&rest body)
+  "Save field shrunk state, execute BODY and restore state."
+  (declare (debug (body)))
+  (org-with-gensyms (end shrunk size)
+    `(let* ((,shrunk (save-match-data (org-table--shrunk-field)))
+	    (,end (and ,shrunk (copy-marker (overlay-end ,shrunk) t)))
+	    (,size (and ,shrunk (- ,end (overlay-start ,shrunk)))))
+       (when ,shrunk (delete-overlay ,shrunk))
+       (unwind-protect (progn ,@body)
+	 (when ,shrunk (move-overlay ,shrunk (- ,end ,size) ,end))))))
 
 
 ;;; Buffer and windows
@@ -577,15 +596,6 @@ Optional argument REGEXP selects variables to clone."
 		  (or (null regexp) (string-match-p regexp (symbol-name name))))
 	 (ignore-errors (set (make-local-variable name) value)))))))
 
-
-
-;;; Logic
-
-(defsubst org-xor (a b)
-  "Exclusive `or'."
-  (if a (not b) b))
-
-
 
 ;;; Miscellaneous
 
@@ -803,79 +813,83 @@ SEPARATORS is a regular expression.  When nil, it defaults to
 Unlike `split-string', matching SEPARATORS at the beginning and
 end of string are ignored."
   (let ((separators (or separators "[ \f\t\n\r\v]+")))
-    (when (string-match (concat "\\`" separators) string)
-      (setq string (replace-match "" nil nil string)))
-    (when (string-match (concat separators "\\'") string)
-      (setq string (replace-match "" nil nil string)))
-    (split-string string separators)))
+    (if (not (string-match separators string)) (list string)
+      (let ((i (match-end 0))
+	    (results
+	     (and (/= 0 (match-beginning 0)) ;skip leading separator
+		  (list (substring string 0 (match-beginning 0))))))
+	(while (string-match separators string i)
+	  (push (substring string i (match-beginning 0))
+		results)
+	  (setq i (match-end 0)))
+	(nreverse (if (= i (length string))
+		      results		;skip trailing separator
+		    (cons (substring string i) results)))))))
 
-(defun org-string-display (string)
-  "Return STRING as it is displayed in the current buffer.
-This function takes into consideration `invisible' and `display'
-text properties."
-  (let* ((build-from-parts
-	  (lambda (s property filter)
-	    ;; Build a new string out of string S.  On every group of
-	    ;; contiguous characters with the same PROPERTY value,
-	    ;; call FILTER on the properties list at the beginning of
-	    ;; the group.  If it returns a string, replace the
-	    ;; characters in the group with it.  Otherwise, preserve
-	    ;; those characters.
-	    (let ((len (length s))
-		  (new "")
-		  (i 0)
-		  (cursor 0))
-	      (while (setq i (text-property-not-all i len property nil s))
-		(let ((end (next-single-property-change i property s len))
-		      (value (funcall filter (text-properties-at i s))))
-		  (when value
-		    (setq new (concat new (substring s cursor i) value))
-		    (setq cursor end))
-		  (setq i end)))
-	      (concat new (substring s cursor)))))
-	 (prune-invisible
-	  (lambda (s)
-	    (funcall build-from-parts s 'invisible
-		     (lambda (props)
-		       ;; If `invisible' property in PROPS means text
-		       ;; is to be invisible, return the empty string.
-		       ;; Otherwise return nil so that the part is
-		       ;; skipped.
-		       (and (or (eq t buffer-invisibility-spec)
-				(assoc-string (plist-get props 'invisible)
-					      buffer-invisibility-spec))
-			    "")))))
-	 (replace-display
-	  (lambda (s)
-	    (funcall build-from-parts s 'display
-		     (lambda (props)
-		       ;; If there is any string specification in
-		       ;; `display' property return it.  Also attach
-		       ;; other text properties on the part to that
-		       ;; string (face...).
-		       (let* ((display (plist-get props 'display))
-			      (value (if (stringp display) display
-				       (cl-some #'stringp display))))
-			 (when value
-			   (apply #'propertize
-				  ;; Displayed string could contain
-				  ;; invisible parts, but no nested
-				  ;; display.
-				  (funcall prune-invisible value)
-				  'display
-				  (and (not (stringp display))
-				       (cl-remove-if #'stringp display))
-				  props))))))))
-    ;; `display' property overrides `invisible' one.  So we first
-    ;; replace characters with `display' property.  Then we remove
-    ;; invisible characters.
-    (funcall prune-invisible (funcall replace-display string))))
+(defun org--string-from-props (s property beg end)
+  "Return the visible part of string S.
+Visible part is determined according to text PROPERTY, which is
+either `invisible' or `display'.  BEG and END are 0-indices
+delimiting S."
+  (let ((width 0)
+	(cursor beg))
+    (while (setq beg (text-property-not-all beg end property nil s))
+      (let* ((next (next-single-property-change beg property s end))
+	     (props (text-properties-at beg s))
+	     (spec (plist-get props property))
+	     (value
+	      (pcase property
+		(`invisible
+		 ;; If `invisible' property in PROPS means text is to
+		 ;; be invisible, return 0.  Otherwise return nil so
+		 ;; as to resume search.
+		 (and (or (eq t buffer-invisibility-spec)
+			  (assoc-string spec buffer-invisibility-spec))
+		      0))
+		(`display
+		 (pcase spec
+		   (`nil nil)
+		   (`(space . ,props)
+		    (let ((width (plist-get props :width)))
+		      (and (wholenump width) width)))
+		   (`(image . ,_)
+		    (ceiling (car (image-size spec))))
+		   ((pred stringp)
+		    ;; Displayed string could contain invisible parts,
+		    ;; but no nested display.
+		    (org--string-from-props spec 'invisible 0 (length spec)))
+		   (_
+		    ;; Un-handled `display' value.  Ignore it.
+		    ;; Consider the original string instead.
+		    nil)))
+		(_ (error "Unknown property: %S" property)))))
+	(when value
+	  (cl-incf width
+		   ;; When looking for `display' parts, we still need
+		   ;; to look for `invisible' property elsewhere.
+		   (+ (cond ((eq property 'display)
+			     (org--string-from-props s 'invisible cursor beg))
+			    ((= cursor beg) 0)
+			    (t (string-width (substring s cursor beg))))
+		      value))
+	  (setq cursor next))
+	(setq beg next)))
+    (+ width
+       ;; Look for `invisible' property in the last part of the
+       ;; string.  See above.
+       (cond ((eq property 'display)
+	      (org--string-from-props s 'invisible cursor end))
+	     ((= cursor end) 0)
+	     (t (string-width (substring s cursor end)))))))
 
 (defun org-string-width (string)
   "Return width of STRING when displayed in the current buffer.
 Unlike `string-width', this function takes into consideration
-`invisible' and `display' text properties."
-  (string-width (org-string-display string)))
+`invisible' and `display' text properties.  It supports the
+latter in a limited way, mostly for combinations used in Org.
+Results may be off sometimes if it cannot handle a given
+`display' value."
+  (org--string-from-props string 'display 0 (length string)))
 
 (defun org-not-nil (v)
   "If V not nil, and also not the string \"nil\", then return V.
@@ -885,14 +899,25 @@ Otherwise return nil."
 (defun org-unbracket-string (pre post string)
   "Remove PRE/POST from the beginning/end of STRING.
 Both PRE and POST must be pre-/suffixes of STRING, or neither is
-removed."
-  (if (and (string-prefix-p pre string)
-	   (string-suffix-p post string))
-      (substring string (length pre) (- (length post)))
-    string))
+removed.  Return the new string.  If STRING is nil, return nil."
+  (declare (indent 2))
+  (and string
+       (if (and (string-prefix-p pre string)
+		(string-suffix-p post string))
+	   (substring string (length pre) (- (length post)))
+	 string)))
+
+(defun org-strip-quotes (string)
+  "Strip double quotes from around STRING, if applicable.
+If STRING is nil, return nil."
+  (org-unbracket-string "\"" "\"" string))
 
 (defsubst org-current-line-string (&optional to-here)
-  (buffer-substring (point-at-bol) (if to-here (point) (point-at-eol))))
+  "Return current line, as a string.
+If optional argument TO-HERE is non-nil, return string from
+beginning of line up to point."
+  (buffer-substring (line-beginning-position)
+		    (if to-here (point) (line-end-position))))
 
 (defun org-shorten-string (s maxlength)
   "Shorten string S so that it is no longer than MAXLENGTH characters.
@@ -1036,23 +1061,6 @@ move it back by one char before doing this check."
     (org-invisible-p)))
 
 
-;;; Tables
-
-;; This macro is placed here because it is used in org.el.
-;; org-table.el requires org.el.  So, if we put this macro in its
-;; natural place (org-table), a require loop would result.
-(defmacro org-table-with-shrunk-field (&rest body)
-  "Save field shrunk state, execute BODY and restore state."
-  (declare (debug (body)))
-  (org-with-gensyms (end shrunk size)
-    `(let* ((,shrunk (save-match-data (org-table--shrunk-field)))
-	    (,end (and ,shrunk (copy-marker (overlay-end ,shrunk) t)))
-	    (,size (and ,shrunk (- ,end (overlay-start ,shrunk)))))
-       (when ,shrunk (delete-overlay ,shrunk))
-       (unwind-protect (progn ,@body)
-	 (when ,shrunk (move-overlay ,shrunk (- ,end ,size) ,end))))))
-
-
 ;;; Time
 
 (defun org-2ft (s)
@@ -1064,9 +1072,9 @@ nil, just return 0."
    ((numberp s) s)
    ((stringp s)
     (condition-case nil
-	(float-time (apply #'encode-time (org-parse-time-string s)))
-      (error 0.)))
-   (t 0.)))
+	(float-time (org-time-string-to-time s))
+      (error 0)))
+   (t 0)))
 
 (defun org-time= (a b)
   (let ((a (org-2ft a))
@@ -1104,7 +1112,9 @@ nil, just return 0."
 If time is not given, defaults to 0:00.  However, with optional
 NODEFAULT, hour and minute fields are nil if not given.
 
-Throw an error if S in not a valid Org time string.
+Throw an error if S does not contain a valid Org time string.
+Note that the first match for YYYY-MM-DD will be used (e.g.,
+\"-52000-02-03\" will be taken as \"2000-02-03\").
 
 This should be a lot faster than the `parse-time-string'."
   (unless (string-match org-ts-regexp0 s)

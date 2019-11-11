@@ -1,6 +1,6 @@
 ;;; org-compat.el --- Compatibility Code for Older Emacsen -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -70,9 +70,36 @@
 
 ;;; Emacs < 27.1 compatibility
 
+(unless (fboundp 'proper-list-p)
+  ;; `proper-list-p' was added in Emacs 27.1.  The function below is
+  ;; taken from Emacs subr.el 200195e824b^.
+  (defun proper-list-p (object)
+    "Return OBJECT's length if it is a proper list, nil otherwise.
+A proper list is neither circular nor dotted (i.e., its last cdr
+is nil)."
+    (and (listp object) (ignore-errors (length object)))))
+
+(if (fboundp 'xor)
+    ;; `xor' was added in Emacs 27.1.
+    (defalias 'org-xor #'xor)
+  (defsubst org-xor (a b)
+    "Exclusive `or'."
+    (if a (not b) b)))
+
 (unless (fboundp 'pcomplete-uniquify-list)
   ;; The misspelled variant was made obsolete in Emacs 27.1
   (defalias 'pcomplete-uniquify-list 'pcomplete-uniqify-list))
+
+(if (fboundp 'time-convert)
+    (progn
+      (defsubst org-time-convert-to-integer (time)
+	(time-convert time 'integer))
+      (defsubst org-time-convert-to-list (time)
+	(time-convert time 'list)))
+  (defun org-time-convert-to-integer (time)
+    (floor (float-time time)))
+  (defun org-time-convert-to-list (time)
+    (seconds-to-time (float-time time))))
 
 
 ;;; Emacs < 26.1 compatibility
@@ -80,6 +107,20 @@
 (if (fboundp 'line-number-display-width)
     (defalias 'org-line-number-display-width 'line-number-display-width)
   (defun org-line-number-display-width (&rest _) 0))
+
+(unless (fboundp 'file-attribute-modification-time)
+  (defsubst file-attribute-modification-time (attributes)
+    "The modification time in ATTRIBUTES returned by `file-attributes'.
+This is the time of the last change to the file's contents, and
+is a list of integers (HIGH LOW USEC PSEC) in the same style
+as (current-time)."
+    (nth 5 attributes)))
+
+(unless (fboundp 'file-attribute-size)
+  (defsubst file-attribute-size (attributes)
+    "The size (in bytes) in ATTRIBUTES returned by `file-attributes'.
+This is a floating point number if the size is too large for an integer."
+    (nth 7 attributes)))
 
 
 ;;; Emacs < 25.1 compatibility
@@ -115,6 +156,35 @@
     "Return non-nil if STRING1 is less than STRING2 in lexicographic order.
 Case is significant."
     (string< s1 s2)))
+
+;; The time- functions below translate nil to `current-time` and
+;; accept an integer as of Emacs 25.  `decode-time` and
+;; `format-time-string` accept nil on Emacs 24 but don't accept an
+;; integer until Emacs 25.
+(if (< emacs-major-version 25)
+    (let ((convert
+           (lambda (time)
+             (cond ((not time) (current-time))
+                   ((numberp time) (seconds-to-time time))
+                   (t time)))))
+      (defun org-decode-time (&optional time)
+        (decode-time (funcall convert time)))
+      (defun org-format-time-string (format-string &optional time universal)
+        (format-time-string format-string (funcall convert time) universal))
+      (defun org-time-add (a b)
+        (time-add (funcall convert a) (funcall convert b)))
+      (defun org-time-subtract (a b)
+        (time-subtract (funcall convert a) (funcall convert b)))
+      (defun org-time-since (time)
+        (time-since (funcall convert time)))
+      (defun org-time-less-p (t1 t2)
+        (time-less-p (funcall convert t1) (funcall convert t2))))
+  (defalias 'org-decode-time 'decode-time)
+  (defalias 'org-format-time-string 'format-time-string)
+  (defalias 'org-time-add 'time-add)
+  (defalias 'org-time-subtract 'time-subtract)
+  (defalias 'org-time-since 'time-since)
+  (defalias 'org-time-less-p 'time-less-p))
 
 
 ;;; Obsolete aliases (remove them after the next major release).
@@ -222,6 +292,7 @@ Counting starts at 1."
   'org-activate-links "Org 9.0")
 (define-obsolete-function-alias 'org-activate-plain-links 'ignore "Org 9.0")
 (define-obsolete-function-alias 'org-activate-angle-links 'ignore "Org 9.0")
+(define-obsolete-function-alias 'org-remove-double-quotes 'org-strip-quotes "Org 9.0")
 (define-obsolete-function-alias 'org-get-indentation
   'current-indentation "Org 9.2")
 (define-obsolete-function-alias 'org-capture-member 'org-capture-get "Org 9.2")
@@ -327,10 +398,6 @@ See `org-link-parameters' for documentation on the other parameters."
   (org-unbracket-string "<" ">" s))
 (make-obsolete 'org-remove-angle-brackets 'org-unbracket-string "Org 9.0")
 
-(defun org-remove-double-quotes (s)
-  (org-unbracket-string "\"" "\"" s))
-(make-obsolete 'org-remove-double-quotes 'org-unbracket-string "Org 9.0")
-
 (defcustom org-publish-sitemap-file-entry-format "%t"
   "Format string for site-map file entry.
 You could use brackets to delimit on what part the link will be.
@@ -416,6 +483,9 @@ use of this function is for the stuck project list."
 (define-obsolete-variable-alias 'org-texinfo-def-table-markup
   'org-texinfo-table-default-markup "Org 9.1")
 
+(define-obsolete-variable-alias 'org-agenda-overriding-columns-format
+  'org-overriding-columns-format "Org 9.2.2")
+
 ;; The function was made obsolete by commit 65399674d5 of 2013-02-22.
 ;; This make-obsolete call was added 2016-09-01.
 (make-obsolete 'org-capture-import-remember-templates
@@ -459,6 +529,9 @@ use of this function is for the stuck project list."
   (declare (obsolete "use `with-silent-modifications' instead." "Org 9.2")
 	   (debug (body)))
   `(with-silent-modifications ,@body))
+
+(define-obsolete-function-alias 'org-babel-strip-quotes
+  'org-strip-quotes "Org 9.2")
 
 ;;;; Obsolete link types
 

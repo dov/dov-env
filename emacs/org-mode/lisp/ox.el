@@ -1,6 +1,6 @@
 ;;; ox.el --- Export Framework for Org Mode          -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2019 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou at gmail dot com>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -1499,7 +1499,7 @@ Assume buffer is in Org mode.  Narrowing, if any, is ignored."
 			 (cond
 			  ;; Options in `org-export-special-keywords'.
 			  ((equal key "SETUPFILE")
-			   (let* ((uri (org-unbracket-string "\"" "\"" (org-trim val)))
+			   (let* ((uri (org-strip-quotes (org-trim val)))
 				  (uri-is-url (org-file-url-p uri))
 				  (uri (if uri-is-url
 					   uri
@@ -1650,7 +1650,7 @@ an alist where associations are (VARIABLE-NAME VALUE)."
 				      "BIND")
 			       (push (read (format "(%s)" val)) alist)
 			     ;; Enter setup file.
-			     (let* ((uri (org-unbracket-string "\"" "\"" val))
+			     (let* ((uri (org-strip-quotes val))
 				    (uri-is-url (org-file-url-p uri))
 				    (uri (if uri-is-url
 					     uri
@@ -2673,10 +2673,7 @@ The function assumes BUFFER's major mode is `org-mode'."
 				    (quote ,val))
 			      vars))))))
 	 ;; Whole buffer contents.
-	 (insert
-	  ,(org-with-wide-buffer
-	    (buffer-substring-no-properties
-	     (point-min) (point-max))))
+	 (insert ,(org-with-wide-buffer (buffer-string)))
 	 ;; Narrowing.
 	 ,(if (org-region-active-p)
 	      `(narrow-to-region ,(region-beginning) ,(region-end))
@@ -2922,56 +2919,47 @@ returned by the function."
       '(entity bold italic latex-environment latex-fragment strike-through
 	       subscript superscript underline)
     (lambda (datum)
-      (let ((new
-	     (cl-case (org-element-type datum)
-	       ;; ... entities...
-	       (entity
-		(and (not (plist-get info :with-entities))
-		     (list (concat
-			    (org-export-expand datum nil)
-			    (make-string
-			     (or (org-element-property :post-blank datum) 0)
-			     ?\s)))))
-	       ;; ... emphasis...
-	       ((bold italic strike-through underline)
-		(and (not (plist-get info :with-emphasize))
-		     (let ((marker (cl-case (org-element-type datum)
-				     (bold "*")
-				     (italic "/")
-				     (strike-through "+")
-				     (underline "_"))))
-		       (append
-			(list marker)
-			(org-element-contents datum)
-			(list (concat
-			       marker
-			       (make-string
-				(or (org-element-property :post-blank datum)
-				    0)
-				?\s)))))))
-	       ;; ... LaTeX environments and fragments...
-	       ((latex-environment latex-fragment)
-		(and (eq (plist-get info :with-latex) 'verbatim)
-		     (list (org-export-expand datum nil))))
-	       ;; ... sub/superscripts...
-	       ((subscript superscript)
-		(let ((sub/super-p (plist-get info :with-sub-superscript))
-		      (bracketp (org-element-property :use-brackets-p datum)))
-		  (and (or (not sub/super-p)
-			   (and (eq sub/super-p '{}) (not bracketp)))
-		       (append
-			(list (concat
-			       (if (eq (org-element-type datum) 'subscript)
-				   "_"
-				 "^")
-			       (and bracketp "{")))
-			(org-element-contents datum)
-			(list (concat
-			       (and bracketp "}")
-			       (and (org-element-property :post-blank datum)
-				    (make-string
-				     (org-element-property :post-blank datum)
-				     ?\s)))))))))))
+      (let* ((type (org-element-type datum))
+	     (post-blank
+	      (pcase (org-element-property :post-blank datum)
+		(`nil nil)
+		(n (make-string n (if (eq type 'latex-environment) ?\n ?\s)))))
+	     (new
+	      (cl-case type
+		;; ... entities...
+		(entity
+		 (and (not (plist-get info :with-entities))
+		      (list (concat (org-export-expand datum nil)
+				    post-blank))))
+		;; ... emphasis...
+		((bold italic strike-through underline)
+		 (and (not (plist-get info :with-emphasize))
+		      (let ((marker (cl-case type
+				      (bold "*")
+				      (italic "/")
+				      (strike-through "+")
+				      (underline "_"))))
+			(append
+			 (list marker)
+			 (org-element-contents datum)
+			 (list (concat marker post-blank))))))
+		;; ... LaTeX environments and fragments...
+		((latex-environment latex-fragment)
+		 (and (eq (plist-get info :with-latex) 'verbatim)
+		      (list (concat (org-export-expand datum nil)
+				    post-blank))))
+		;; ... sub/superscripts...
+		((subscript superscript)
+		 (let ((sub/super-p (plist-get info :with-sub-superscript))
+		       (bracketp (org-element-property :use-brackets-p datum)))
+		   (and (or (not sub/super-p)
+			    (and (eq sub/super-p '{}) (not bracketp)))
+			(append
+			 (list (concat (if (eq type 'subscript) "_" "^")
+				       (and bracketp "{")))
+			 (org-element-contents datum)
+			 (list (concat (and bracketp "}")
+				       post-blank)))))))))
 	(when new
 	  ;; Splice NEW at DATUM location in parse tree.
 	  (dolist (e new (org-element-extract-element datum))
@@ -3219,7 +3207,7 @@ locally for the subtree through node properties."
 	    (org-entry-put
 	     node "EXPORT_OPTIONS" (mapconcat 'identity items " "))
 	  (while items
-	    (insert "#+OPTIONS:")
+	    (insert "#+options:")
 	    (let ((width 10))
 	      (while (and items
 			  (< (+ width (length (car items)) 1) fill-column))
@@ -3233,7 +3221,7 @@ locally for the subtree through node properties."
       (let ((val (cond ((equal (car key) "DATE")
 			(or (cdr key)
 			    (with-temp-buffer
-			      (org-insert-time-stamp (current-time)))))
+			      (org-insert-time-stamp nil))))
 		       ((equal (car key) "TITLE")
 			(or (let ((visited-file
 				   (buffer-file-name (buffer-base-buffer))))
@@ -3245,7 +3233,7 @@ locally for the subtree through node properties."
 	(if subtreep (org-entry-put node (concat "EXPORT_" (car key)) val)
 	  (insert
 	   (format "#+%s:%s\n"
-		   (car key)
+		   (downcase (car key))
 		   (if (org-string-nw-p val) (format " %s" val) ""))))))))
 
 (defun org-export-expand-include-keyword (&optional included dir footnotes)
@@ -3283,8 +3271,8 @@ storing and resolving footnotes.  It is created automatically."
 		   (ind (current-indentation))
 		   location
 		   (file
-		    (and (string-match
-			  "^\\(\".+?\"\\|\\S-+\\)\\(?:\\s-+\\|$\\)" value)
+		    (and (string-match "^\\(\".+?\"\\|\\S-+\\)\\(?:\\s-+\\|$\\)"
+				       value)
 			 (prog1
 			     (save-match-data
 			       (let ((matched (match-string 1 value)))
@@ -3293,9 +3281,8 @@ storing and resolving footnotes.  It is created automatically."
 				   (setq location (match-string 2 matched))
 				   (setq matched
 					 (replace-match "" nil nil matched 1)))
-				 (expand-file-name
-				  (org-unbracket-string "\"" "\"" matched)
-				  dir)))
+				 (expand-file-name (org-strip-quotes matched)
+						   dir)))
 			   (setq value (replace-match "" nil nil value)))))
 		   (only-contents
 		    (and (string-match ":only-contents *\\([^: \r\t\n]\\S-*\\)?"
@@ -3304,7 +3291,7 @@ storing and resolving footnotes.  It is created automatically."
 			   (setq value (replace-match "" nil nil value)))))
 		   (lines
 		    (and (string-match
-			  ":lines +\"\\(\\(?:[0-9]+\\)?-\\(?:[0-9]+\\)?\\)\""
+			  ":lines +\"\\([0-9]*-[0-9]*\\)\""
 			  value)
 			 (prog1 (match-string 1 value)
 			   (setq value (replace-match "" nil nil value)))))
@@ -3452,6 +3439,32 @@ Return a string of lines to be included in the format expected by
 		       (while (< (point) end) (cl-incf counter) (forward-line))
 		       counter))))))))
 
+(defun org-export--update-included-link (file-dir includer-dir)
+  "Update relative file name of link at point, if possible.
+
+FILE-DIR is the directory of the file being included.
+INCLUDER-DIR is the directory of the file where the inclusion is
+going to happen.
+
+Move point after the link."
+  (let* ((link (org-element-link-parser))
+	 (path (org-element-property :path link)))
+    (if (or (not (string= "file" (org-element-property :type link)))
+	    (file-remote-p path)
+	    (file-name-absolute-p path))
+	(goto-char (org-element-property :end link))
+      (let ((new-path (file-relative-name (expand-file-name path file-dir)
+					  includer-dir))
+	    (new-link (org-element-copy link))
+	    (contents (and (org-element-property :contents-begin link)
+			   (buffer-substring
+			    (org-element-property :contents-begin link)
+			    (org-element-property :contents-end link)))))
+	(org-element-put-property new-link :path new-path)
+	(delete-region (org-element-property :begin link)
+		       (org-element-property :end link))
+	(insert (org-element-link-interpreter new-link contents))))))
+
 (defun org-export--prepare-file-contents
     (file &optional lines ind minlevel id footnotes includer)
   "Prepare contents of FILE for inclusion and return it as a string.
@@ -3504,27 +3517,32 @@ is to happen."
 	  (goto-char (point-min))
 	  (unless (eq major-mode 'org-mode)
 	    (let ((org-inhibit-startup t)) (org-mode)))	;set regexps
-	  (while (re-search-forward org-any-link-re nil t)
-	    (let ((link (save-excursion (backward-char) (org-element-context))))
-	      (when (and (eq 'link (org-element-type link))
-			 (string= "file" (org-element-property :type link)))
-		(let ((old-path (org-element-property :path link)))
-		  (unless (or (file-remote-p old-path)
-			      (file-name-absolute-p old-path))
-		    (let ((new-path (file-relative-name
-				     (expand-file-name old-path file-dir)
-				     includer-dir)))
-		      (insert
-		       (let ((new (org-element-copy link)))
-			 (org-element-put-property new :path new-path)
-			 (when (org-element-property :contents-begin link)
-			   (org-element-adopt-elements new
-			     (buffer-substring
-			      (org-element-property :contents-begin link)
-			      (org-element-property :contents-end link))))
-			 (delete-region (org-element-property :begin link)
-					(org-element-property :end link))
-			 (org-element-interpret-data new))))))))))))
+	  (let ((regexp (concat org-plain-link-re "\\|" org-angle-link-re)))
+	    (while (re-search-forward org-any-link-re nil t)
+	      (let ((link (save-excursion
+			    (forward-char -1)
+			    (save-match-data (org-element-context)))))
+		(when (eq 'link (org-element-type link))
+		  ;; Look for file links within link's description.
+		  ;; Org doesn't support such construct, but
+		  ;; `org-export-insert-image-links' may activate
+		  ;; them.
+		  (let ((contents-begin
+			 (org-element-property :contents-begin link))
+			(begin (org-element-property :begin link)))
+		    (when contents-begin
+		      (save-excursion
+			(goto-char (org-element-property :contents-end link))
+			(while (re-search-backward regexp contents-begin t)
+			  (save-match-data
+			    (org-export--update-included-link
+			     file-dir includer-dir))
+			  (goto-char (match-beginning 0)))))
+		    ;; Update current link, if necessary.
+		    (when (string= "file" (org-element-property :type link))
+		      (goto-char begin)
+		      (org-export--update-included-link
+		       file-dir includer-dir))))))))))
     ;; Remove blank lines at beginning and end of contents.  The logic
     ;; behind that removal is that blank lines around include keyword
     ;; override blank lines in included file.
@@ -4028,19 +4046,19 @@ inherited from parent headlines and FILETAGS keywords."
        ;; Add FILETAGS keywords and return results.
        (org-uniquify (append (plist-get info :filetags) current-tag-list))))))
 
-(defun org-export-get-node-property (property blob &optional inherited)
-  "Return node PROPERTY value for BLOB.
+(defun org-export-get-node-property (property datum &optional inherited)
+  "Return node PROPERTY value for DATUM.
 
-PROPERTY is an upcase symbol (i.e. `:COOKIE_DATA').  BLOB is an
+PROPERTY is an upcase symbol (e.g., `:COOKIE_DATA').  DATUM is an
 element or object.
 
 If optional argument INHERITED is non-nil, the value can be
 inherited from a parent headline.
 
 Return value is a string or nil."
-  (let ((headline (if (eq (org-element-type blob) 'headline) blob
-		    (org-export-get-parent-headline blob))))
-    (if (not inherited) (org-element-property property blob)
+  (let ((headline (if (eq (org-element-type datum) 'headline) datum
+		    (org-export-get-parent-headline datum))))
+    (if (not inherited) (org-element-property property datum)
       (let ((parent headline))
 	(catch 'found
 	  (while parent
@@ -4168,7 +4186,7 @@ The function ignores links with an implicit type (e.g.,
       (let ((protocol (org-link-get-parameter type :export)))
 	(and (functionp protocol)
 	     (funcall protocol
-		      (org-link-unescape (org-element-property :path link))
+		      (org-element-property :path link)
 		      desc
 		      backend))))))
 
@@ -4352,7 +4370,7 @@ Return value can be an object or an element:
 Assume LINK type is \"fuzzy\".  White spaces are not
 significant."
   (let* ((search-cells (org-export-string-to-search-cell
-			(org-link-unescape (org-element-property :path link))))
+			(org-element-property :path link)))
 	 (link-cache (or (plist-get info :resolve-fuzzy-link-cache)
 			 (let ((table (make-hash-table :test #'eq)))
 			   (plist-put info :resolve-fuzzy-link-cache table)
@@ -4889,26 +4907,32 @@ same column as TABLE-CELL, or nil."
 		      (plist-put info :table-cell-width-cache table)
 		      table)))
 	 (width-vector (or (gethash table cache)
-			   (puthash table (make-vector columns 'empty) cache)))
-	 (value (aref width-vector column)))
-    (if (not (eq value 'empty)) value
-      (let (cookie-width)
-	(dolist (row (org-element-contents table)
-		     (aset width-vector column cookie-width))
-	  (when (org-export-table-row-is-special-p row info)
-	    ;; In a special row, try to find a width cookie at COLUMN.
-	    (let* ((value (org-element-contents
-			   (elt (org-element-contents row) column)))
-		   (cookie (car value)))
-	      ;; The following checks avoid expanding unnecessarily
-	      ;; the cell with `org-export-data'.
-	      (when (and value
-			 (not (cdr value))
-			 (stringp cookie)
-			 (string-match "\\`<[lrc]?\\([0-9]+\\)?>\\'" cookie)
-			 (match-string 1 cookie))
-		(setq cookie-width
-		      (string-to-number (match-string 1 cookie)))))))))))
+			   (puthash table (make-vector columns 'empty) cache))))
+    ;; Table rows may not have the same number of cells.  Extend
+    ;; WIDTH-VECTOR appropriately if we encounter a row larger than
+    ;; expected.
+    (when (>= column (length width-vector))
+      (setq width-vector
+	    (vconcat width-vector
+		     (make-list (- (1+ column) (length width-vector))
+				'empty)))
+      (puthash table width-vector cache))
+    (pcase (aref width-vector column)
+      (`empty
+       (catch 'found
+	 (dolist (row (org-element-contents table))
+	   (when (org-export-table-row-is-special-p row info)
+	     ;; In a special row, try to find a width cookie at
+	     ;; COLUMN.  The following checks avoid expanding
+	     ;; unnecessarily the cell with `org-export-data'.
+	     (pcase (org-element-contents
+		     (elt (org-element-contents row) column))
+	       (`(,(and (pred stringp) cookie))
+		(when (string-match "\\`<[lrc]?\\([0-9]+\\)>\\'" cookie)
+		  (let ((w (string-to-number (match-string 1 cookie))))
+		    (throw 'found (aset width-vector column w))))))))
+	 (aset width-vector column nil)))
+      (value value))))
 
 (defun org-export-table-cell-alignment (table-cell info)
   "Return TABLE-CELL contents alignment.
@@ -4933,6 +4957,15 @@ Possible values are `left', `right' and `center'."
 		      table)))
 	 (align-vector (or (gethash table cache)
 			   (puthash table (make-vector columns nil) cache))))
+    ;; Table rows may not have the same number of cells.  Extend
+    ;; ALIGN-VECTOR appropriately if we encounter a row larger than
+    ;; expected.
+    (when (>= column (length align-vector))
+      (setq align-vector
+	    (vconcat align-vector
+		     (make-list (- (1+ column) (length align-vector))
+				nil)))
+      (puthash table align-vector cache))
     (or (aref align-vector column)
 	(let ((number-cells 0)
 	      (total-cells 0)
@@ -5310,11 +5343,11 @@ Return a list of elements recognized as figures."
   (org-export-collect-elements 'paragraph info predicate))
 
 (defun org-export-collect-listings (info)
-  "Build a list of src blocks.
+  "Build a list of source blocks.
 
 INFO is a plist used as a communication channel.
 
-Return a list of src-block elements with a caption."
+Return a list of `src-block' elements with a caption."
   (org-export-collect-elements 'src-block info))
 
 (defun org-export-excluded-from-toc-p (headline info)
@@ -5751,6 +5784,7 @@ them."
      ("ja" :default "前ページからの続き")
      ("nl" :default "Vervolg van vorige pagina")
      ("pt" :default "Continuação da página anterior")
+     ("pt_BR" :html "Continua&ccedil;&atilde;o da p&aacute;gina anterior" :ascii "Continuacao da pagina anterior" :default "Continuação da página anterior")
      ("ru" :html "(&#1055;&#1088;&#1086;&#1076;&#1086;&#1083;&#1078;&#1077;&#1085;&#1080;&#1077;)"
       :utf-8 "(Продолжение)")
      ("sl" :default "Nadaljevanje s prejšnje strani"))
@@ -5764,11 +5798,13 @@ them."
      ("ja" :default "次ページに続く")
      ("nl" :default "Vervolg op volgende pagina")
      ("pt" :default "Continua na página seguinte")
+     ("pt_BR" :html "Continua na pr&oacute;xima p&aacute;gina" :ascii "Continua na proxima pagina" :default "Continua na próxima página")
      ("ru" :html "(&#1055;&#1088;&#1086;&#1076;&#1086;&#1083;&#1078;&#1077;&#1085;&#1080;&#1077; &#1089;&#1083;&#1077;&#1076;&#1091;&#1077;&#1090;)"
       :utf-8 "(Продолжение следует)")
      ("sl" :default "Nadaljevanje na naslednji strani"))
     ("Created"
      ("cs" :default "Vytvořeno")
+     ("pt_BR" :default "Criado em")
      ("sl" :default "Ustvarjeno"))
     ("Date"
      ("ar" :default "بتاريخ")
@@ -5841,6 +5877,7 @@ them."
      ("et" :default "Joonis %d:")
      ("fr" :default "Figure %d :" :html "Figure&nbsp;%d&nbsp;:")
      ("is" :default "Mynd %d")
+     ("it" :default "Figura %d:")
      ("ja" :default "図%d: " :html "&#22259;%d: ")
      ("no" :default "Illustrasjon %d")
      ("nb" :default "Illustrasjon %d")
@@ -5889,6 +5926,7 @@ them."
      ("ja" :default "ソースコード目次")
      ("no" :default "Dataprogrammer")
      ("nb" :default "Dataprogrammer")
+     ("pt_BR" :html "&Iacute;ndice de Listagens" :default "Índice de Listagens" :ascii "Indice de Listagens")
      ("ru" :html "&#1057;&#1087;&#1080;&#1089;&#1086;&#1082; &#1088;&#1072;&#1089;&#1087;&#1077;&#1095;&#1072;&#1090;&#1086;&#1082;"
       :utf-8 "Список распечаток")
      ("sl" :default "Seznam programskih izpisov")
@@ -5902,11 +5940,12 @@ them."
      ("et" :default "Tabelite nimekiri")
      ("fr" :default "Liste des tableaux")
      ("is" :default "Töfluskrá" :html "T&ouml;fluskr&aacute;")
+     ("it" :default "Indice delle tabelle")
      ("ja" :default "表目次")
      ("no" :default "Tabeller")
      ("nb" :default "Tabeller")
      ("nn" :default "Tabeller")
-     ("pt_BR" :default "Índice de Tabelas" :ascii "Indice de Tabelas")
+     ("pt_BR" :html "&Iacute;ndice de Tabelas" :default "Índice de Tabelas" :ascii "Indice de Tabelas")
      ("ru" :html "&#1057;&#1087;&#1080;&#1089;&#1086;&#1082; &#1090;&#1072;&#1073;&#1083;&#1080;&#1094;"
       :utf-8 "Список таблиц")
      ("sl" :default "Seznam tabel")
@@ -5920,6 +5959,7 @@ them."
      ("es" :default "Listado de programa")
      ("et" :default "Loend")
      ("fr" :default "Programme" :html "Programme")
+     ("it" :default "Listato")
      ("ja" :default "ソースコード")
      ("no" :default "Dataprogram")
      ("nb" :default "Dataprogram")
@@ -5936,10 +5976,11 @@ them."
      ("es" :default "Listado de programa %d")
      ("et" :default "Loend %d")
      ("fr" :default "Programme %d :" :html "Programme&nbsp;%d&nbsp;:")
+     ("it" :default "Listato %d :")
      ("ja" :default "ソースコード%d:")
      ("no" :default "Dataprogram %d")
      ("nb" :default "Dataprogram %d")
-     ("pt_BR" :default "Listagem %d")
+     ("pt_BR" :default "Listagem %d:")
      ("ru" :html "&#1056;&#1072;&#1089;&#1087;&#1077;&#1095;&#1072;&#1090;&#1082;&#1072; %d.:"
       :utf-8 "Распечатка %d.:")
      ("sl" :default "Izpis programa %d")
@@ -5947,19 +5988,24 @@ them."
     ("References"
      ("ar" :default "المراجع")
      ("cs" :default "Reference")
-     ("fr" :ascii "References" :default "Références")
      ("de" :default "Quellen")
      ("es" :default "Referencias")
+     ("fr" :ascii "References" :default "Références")
+     ("it" :default "Riferimenti")
+     ("pt_BR" :html "Refer&ecirc;ncias" :default "Referências" :ascii "Referencias")
      ("sl" :default "Reference"))
     ("See figure %s"
      ("cs" :default "Viz obrázek %s")
      ("fr" :default "cf. figure %s"
       :html "cf.&nbsp;figure&nbsp;%s" :latex "cf.~figure~%s")
+     ("it" :default "Vedi figura %s")
+     ("pt_BR" :default "Veja a figura %s")
      ("sl" :default "Glej sliko %s"))
     ("See listing %s"
      ("cs" :default "Viz program %s")
      ("fr" :default "cf. programme %s"
       :html "cf.&nbsp;programme&nbsp;%s" :latex "cf.~programme~%s")
+     ("pt_BR" :default "Veja a listagem %s")
      ("sl" :default "Glej izpis programa %s"))
     ("See section %s"
      ("ar" :default "انظر قسم %s")
@@ -5969,6 +6015,7 @@ them."
      ("es" :ascii "Vea seccion %s" :html "Vea secci&oacute;n %s" :default "Vea sección %s")
      ("et" :html "Vaata peat&#252;kki %s" :utf-8 "Vaata peatükki %s")
      ("fr" :default "cf. section %s")
+     ("it" :default "Vedi sezione %s")
      ("ja" :default "セクション %s を参照")
      ("pt_BR" :html "Veja a se&ccedil;&atilde;o %s" :default "Veja a seção %s"
       :ascii "Veja a secao %s")
@@ -5980,6 +6027,8 @@ them."
      ("cs" :default "Viz tabulka %s")
      ("fr" :default "cf. tableau %s"
       :html "cf.&nbsp;tableau&nbsp;%s" :latex "cf.~tableau~%s")
+     ("it" :default "Vedi tabella %s")
+     ("pt_BR" :default "Veja a tabela %s")
      ("sl" :default "Glej tabelo %s"))
     ("Table"
      ("ar" :default "جدول")
@@ -5989,6 +6038,7 @@ them."
      ("et" :default "Tabel")
      ("fr" :default "Tableau")
      ("is" :default "Tafla")
+     ("it" :default "Tabella")
      ("ja" :default "表" :html "&#34920;")
      ("pt_BR" :default "Tabela")
      ("ru" :html "&#1058;&#1072;&#1073;&#1083;&#1080;&#1094;&#1072;"
@@ -6003,11 +6053,12 @@ them."
      ("et" :default "Tabel %d")
      ("fr" :default "Tableau %d :")
      ("is" :default "Tafla %d")
+     ("it" :default "Tabella %d:")
      ("ja" :default "表%d:" :html "&#34920;%d:")
      ("no" :default "Tabell %d")
      ("nb" :default "Tabell %d")
      ("nn" :default "Tabell %d")
-     ("pt_BR" :default "Tabela %d")
+     ("pt_BR" :default "Tabela %d:")
      ("ru" :html "&#1058;&#1072;&#1073;&#1083;&#1080;&#1094;&#1072; %d.:"
       :utf-8 "Таблица %d.:")
      ("sl" :default "Tabela %d")
@@ -6048,9 +6099,9 @@ them."
      ("es" :default "Referencia desconocida")
      ("et" :default "Tundmatu viide")
      ("fr" :ascii "Destination inconnue" :default "Référence inconnue")
+     ("it" :default "Riferimento sconosciuto")
      ("ja" :default "不明な参照先")
-     ("pt_BR" :default "Referência desconhecida"
-      :ascii "Referencia desconhecida")
+     ("pt_BR" :html "Refer&ecirc;ncia desconhecida" :default "Referência desconhecida" :ascii "Referencia desconhecida")
      ("ru" :html "&#1053;&#1077;&#1080;&#1079;&#1074;&#1077;&#1089;&#1090;&#1085;&#1072;&#1103; &#1089;&#1089;&#1099;&#1083;&#1082;&#1072;"
       :utf-8 "Неизвестная ссылка")
      ("sl" :default "Neznana referenca")

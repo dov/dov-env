@@ -1,6 +1,6 @@
 ;;; org-lint.el --- Linting for Org documents        -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2015-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2015-2019 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <mail@nicolasgoaziou.fr>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -69,13 +69,13 @@
 ;;   - duplicate footnote definitions
 ;;   - orphaned affiliated keywords
 ;;   - obsolete affiliated keywords
-;;   - missing language in src blocks
+;;   - missing language in source blocks
 ;;   - missing back-end in export blocks
 ;;   - invalid Babel call blocks
 ;;   - NAME values with a colon
 ;;   - deprecated export block syntax
 ;;   - deprecated Babel header properties
-;;   - wrong header arguments in src blocks
+;;   - wrong header arguments in source blocks
 ;;   - misuse of CATEGORY keyword
 ;;   - "coderef" links with unknown destination
 ;;   - "custom-id" links with unknown destination
@@ -162,7 +162,7 @@
     :trust 'low)
    (make-org-lint-checker
     :name 'missing-language-in-src-block
-    :description "Report missing language in src blocks"
+    :description "Report missing language in source blocks"
     :categories '(babel))
    (make-org-lint-checker
     :name 'missing-backend-in-export-block
@@ -558,8 +558,8 @@ Use :header-args: instead"
 (defun org-lint-link-to-local-file (ast)
   (org-element-map ast 'link
     (lambda (l)
-      (when (equal (org-element-property :type l) "file")
-	(let ((file (org-link-unescape (org-element-property :path l))))
+      (when (equal "file" (org-element-property :type l))
+	(let ((file (org-element-property :path l)))
 	  (and (not (file-remote-p file))
 	       (not (file-exists-p file))
 	       (list (org-element-property :begin l)
@@ -574,12 +574,13 @@ Use :header-args: instead"
     (lambda (k)
       (when (equal (org-element-property :key k) "SETUPFILE")
 	(let ((file (org-unbracket-string
-		     "\"" "\""
-		     (org-element-property :value k))))
-	  (and (not (file-remote-p file))
+			"\"" "\""
+		      (org-element-property :value k))))
+	  (and (not (org-file-url-p file))
+	       (not (file-remote-p file))
 	       (not (file-exists-p file))
 	       (list (org-element-property :begin k)
-		     (format "Non-existent setup file \"%s\"" file))))))))
+		     (format "Non-existent setup file %S" file))))))))
 
 (defun org-lint-wrong-include-link-parameter (ast)
   (org-element-map ast 'keyword
@@ -589,7 +590,7 @@ Use :header-args: instead"
 	       (path
 		(and (string-match "^\\(\".+\"\\|\\S-+\\)[ \t]*" value)
 		     (save-match-data
-		       (org-unbracket-string "\"" "\"" (match-string 1 value))))))
+		       (org-strip-quotes (match-string 1 value))))))
 	  (if (not path)
 	      (list (org-element-property :post-affiliated k)
 		    "Missing location argument in INCLUDE keyword")
