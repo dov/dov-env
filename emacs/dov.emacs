@@ -700,6 +700,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (load "org-comeet-hyperlink.el")
   (load "org-redmine-hyperlink.el")
   (load "org-pydoc-hyperlink.el")
+  (load "org-jira-hyperlink.el")
   (load "org-wp.el")
   (load "org-bullets.el")
   (load "ox-slidy.el")
