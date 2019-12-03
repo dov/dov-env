@@ -668,7 +668,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
 				  ("\\.cpp$" . dot-cpp)
 				  ("\\.org$" . dot-org)
 				  ("SConstruct" . sconstruct)
-				  ("SConscript" . sconscript))
+				  ("SConscript" . sconscript)
+				  ("meson.build" . mesonbuild)
+                                  )
 				  auto-dmacro-alist))
 
 (setq gdb-command-name "/usr/bin/gdb")
