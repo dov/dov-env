@@ -44,4 +44,7 @@
 (defun xjet-remote-python-file (filename)
   (xjet-remote-command 13 filename))
 
+(defun xjet-remote-machine-status ()
+  (xjet-remote-command 15 ""))
+
 (provide 'xjet-remote-client)

@@ -651,7 +651,8 @@ dot-org	expand	comment block for the top of a .org file
 ####
 orgmasthead	expand	comment block for the top of an .org file
 #+STARTUP: hidestars showall 
-#+OPTIONS: toc:nil num:nil html-postamble:nil
+#+OPTIONS: ^:nil toc:nil num:nil html-postamble:nil
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://swteam:8080/~dov/dov-org.css" />
 #+AUTHOR: Dov Grobgeld
 #+TITLE: ~(file-name)
 #+DATE: ~(org-date-string)
