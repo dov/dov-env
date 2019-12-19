@@ -4,7 +4,7 @@
 (org-link-set-parameters "jira" :follow #'org-jira-hyperlink-open)
 
 (defun org-jira-hyperlink-open (id)
-  "Visit the file in learning-git"
+  "Visit the jira link"
   (let* ()
     (browse-url (concat "https://xjetsw.atlassian.net/browse/" id))))
 
