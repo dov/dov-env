@@ -717,6 +717,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (local-set-key "\C-c\C-pp" 'org-toggle-pretty-entities)
   (local-set-key "\C-c\C-pi" 'org-toggle-iimage-in-org)
   (local-set-key "\C-c\C-pl" 'org-toggle-link-display)
+  (local-set-key "\C-c," 'org-insert-structure-template)
   (local-set-key (kbd "C-M-=") 'calc-eval-region)
 
   ;; variable pitch mode makes emacs rescale!
@@ -731,19 +732,29 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (setq org-format-latex-options (plist-put org-format-latex-options :scale 1.5))
   ; Use this in order not to show subscript and superscripts. Curlies still forces sub and superscript behavior.
   (setq org-use-sub-superscripts nil)
-  (org-bullets-mode)
-  (setq org-bullets-bullet-list
-        '("►"
-          "•"
-          "•"
-          "•"
-          "•"
-          "•"
-          "•"
+  (if (or (string= window-system "x") (string= window-system "w32"))
+      (progn
+        (setq org-bullets-bullet-list
+          '("►"
+            "•"
+            "•"
+            "•"
+            "•"
+            "•"
+            "•"
+            ;; ♥ ● ◇ ✚ ✜ ☯ ◆ ♠ ♣ ♦ ☢ ❀ ◆ ◖ ▶
+            ;;; Small
+            ;; ► • ★ ▸
+            )
+          )
+        (org-bullets-mode)
+        )
+      (setq org-bullets-bullet-list
+        '("*" "*" "*" "*" "*" "*" "*"
           ;; ♥ ● ◇ ✚ ✜ ☯ ◆ ♠ ♣ ♦ ☢ ❀ ◆ ◖ ▶
           ;;; Small
           ;; ► • ★ ▸
-    ))
+      )))
 
   (setq org-hide-emphasis-markers nil)
   (setq org-confirm-babel-evaluate nil)
@@ -2579,6 +2590,10 @@ Does not delete the prompt."
 (global-set-key [(meta ?ו)] 'goto-line)
 (global-set-key [(control ?נ) (control ?ף)] 'save-buffer)
 
+;; Setup for terminal mode (typically run in from tablet)
+(if (not window-system)
+    (progn
+      (xterm-mouse-mode 1)))
 ;
 ; Doppke's hack for following the cursor in the compile window
 ;
@@ -2598,10 +2613,6 @@ Does not delete the prompt."
       (eval-when (WHEN load) '(ad-activate 'compile))
     (eval-after-load "compile" '(ad-activate 'compile))))
 
-;; Change the region color
-(set-face-attribute 'region nil :background "#e0e8ff")
-(set-background-color "#f8f8f8")
-
 ;; eww - Use google search by default
 (setq eww-search-prefix "https://google.com/search?q=")
 
@@ -2611,27 +2622,54 @@ Does not delete the prompt."
   (lambda ()
     (if (or (string= window-system "x") (string= window-system "w32"))
         (custom-set-faces
+         '(font-lock-function-name-face ((t (:foreground "blue" :family "InconsolataDov"))))
+         '(link ((t (:foreground "RoyalBlue3" :underline t))))
+         '(helm-selection ((t (:background "#b5ffd1" :distant-foreground "black" :foreground "black"))))
+         '(font-lock-builtin-face ((t (:foreground "dark slate blue"))))
+         '(font-lock-comment-face ((t (:foreground "Firebrick"))))
          '(font-lock-constant-face ((((class color) (min-colors 88) (background light)) (:foreground "MidnightBlue"))))
+         '(font-lock-keyword-face ((t (:foreground "purple"))))
+         '(font-lock-type-face ((t (:foreground "ForestGreen"))))
          '(font-lock-string-face ((((class color) (min-colors 88) (background light)) (:foreground "green4"))))
          '(font-mediawiki-bold-face ((((class color) (background light)) (:inherit bold :foreground "Midnight blue"))))
          '(font-mediawiki-italic-face ((((class color) (background light)) (:inherit italic :foreground "Midnightblue"))))
          '(font-mediawiki-sedate-face ((((class color) (background light)) (:foreground "Black" :weight bold))))
          '(show-paren-match ((((class color) (background light)) (:background "#b4eeb4"))))
+         '(region ((t (:background "#e0e8ff"))))
+         '(org-hide ((((background light)) (:foreground "gray85"))))
+         '(minibuffer-prompt ((t (:foreground "black"))))
          )
     ;; else
-    ;; Colors for green on black terminal
-    (custom-set-faces
-     '(font-lock-function-name-face ((t (:foreground "Yellow" :family "InconsolataDov"))))
-     '(font-lock-comment-face ((t (:foreground "#4040ff" :family "InconsolataDov"))))
-     '(font-lock-keyword-face ((t (:foreground "Orange" :family "InconsolataDov"))))
-     '(font-lock-string-face ((t (:foreground "white" :family "InconsolataDov"))))
-     '(font-lock-type-face ((t (:foreground "maroon2" :family "InconsolataDov"))))
-     '(font-lock-builtin-face ((t (:foreground "Orange" :family "InconsolataDov"))))
-
-     '(py-builtins-face ((t (:foreground "#f84" :family "InconsolataDov"))) t)
-     '(minibuffer-prompt ((t (:foreground "green"))))
-     '(show-paren-match ((t (:background "#333300"))))
-     )
+      ;; Colors for green on black terminal
+      (progn
+      (custom-set-faces
+       '(default ((t (:foreground "white"))))
+       '(font-lock-constant-face ((t (:foreground "Orange"))))
+       '(font-lock-function-name-face ((t (:foreground "Yellow" :family "InconsolataDov"))))
+       '(font-lock-comment-face ((t (:foreground "#db4545"))))
+       '(font-lock-keyword-face ((t (:foreground "Orange" :family "InconsolataDov"))))
+       '(font-lock-string-face ((t (:foreground "green" :family "InconsolataDov"))))
+       '(font-lock-type-face ((t (:foreground "maroon2" :family "InconsolataDov"))))
+       '(font-lock-builtin-face ((t (:foreground "Orange" :family "InconsolataDov"))))
+       '(org-verbatim ((t (:foreground "green"))))
+       '(org-code ((t (:foreground "green"))))
+  
+       '(py-builtins-face ((t (:foreground "#f84" :family "InconsolataDov"))) t)
+       '(minibuffer-prompt ((t (:foreground "green"))))
+       '(show-paren-match ((t (:background "#228"))))
+       '(region ((t (:background "#501280"))))
+       '(org-link ((t (:inherit link :foreground "#09f"))))
+       '(org-document-info ((t (:foreground "#9370db"))))
+       '(org-document-title ((t (:foreground "#9370db"))))
+       '(org-table ((t (:foreground "#cyan2"))))
+       '(org-meta-line ((t (:foreground "#9370db"))))
+       '(org-verbatim ((t (:foreground "green"))))
+       '(org-code ((t (:foreground "green"))))
+       '(helm-selection ((t (:background "ForestGreen" :distant-foreground "black" :foreground "black"))))
+       )
+      ;; I don't understand why this doesn't work as a normal attribute!
+      (set-face-attribute 'org-hide nil :foreground "gray30")
+      )
     )))
 
 (custom-set-variables
