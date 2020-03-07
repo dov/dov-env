@@ -92,6 +92,10 @@ function term_set_title() {
 	fi
 }
 
+function emacs-nw() {
+    TERM=xterm-24bit emacs -nw
+}
+
 function term_title_get_command() {
 	emulate -L zsh
 	local job_text job_key
@@ -362,10 +366,13 @@ x-yank () {
   zle yank
 }
 zle -N x-yank
-bindkey -e '\eW' x-copy-region-as-kill
-bindkey -e '^W' x-kill-region
-bindkey -e '^Y' x-yank
-bindkey -e '^k' x-kill-end-of-line
+if [[ x$DISPLAY != x ]]; then
+    zle -N x-yank
+    bindkey -e '\eW' x-copy-region-as-kill
+    bindkey -e '^W' x-kill-region
+    bindkey -e '^Y' x-yank
+    bindkey -e '^k' x-kill-end-of-line
+fi
 
 # path
 path=(/usr/local/bin 
