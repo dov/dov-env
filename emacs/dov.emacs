@@ -717,7 +717,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (local-set-key "\C-c\C-pp" 'org-toggle-pretty-entities)
   (local-set-key "\C-c\C-pi" 'org-toggle-iimage-in-org)
   (local-set-key "\C-c\C-pl" 'org-toggle-link-display)
-  (local-set-key "\C-c," 'org-insert-structure-template)
+  (local-set-key "\C-c\C-x," 'org-insert-structure-template)
   (local-set-key (kbd "C-M-=") 'calc-eval-region)
 
   ;; variable pitch mode makes emacs rescale!
