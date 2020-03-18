@@ -202,6 +202,7 @@
 (require 'init-helm)
 (require 'init-default-text-scale)
 (require 'init-telega)
+(require 'init-ssh-agency)
 (require 'sticky-w)
 
 ;; Emacs 24 support
