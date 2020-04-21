@@ -185,6 +185,7 @@
                   (concat emacs-git "/company")
                   (concat emacs-git "/flycheck")
                   (concat emacs-git "/multiple-cursors")
+                  (concat emacs-git "/wat-mode")
                   emacs-git
                   )
                  load-path))
@@ -1152,7 +1153,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   
 (autoload 'vala-mode "vala-mode.el" "Valamode" t)
 (autoload 'pov-mode "pov-mode.el" "PoVray scene file mode" t)
-(autoload 'sather-mode "sather.el" "Sather mode" t nil)
+;(autoload 'sather-mode "sather.el" "Sather mode" t nil)
 (autoload 'cweb-mode "cweb.el" "CWeb mode" t nil)
 (autoload 'rust-mode "rust-mode.el" "Rust mode" t nil)
 (autoload 'lua-mode "lua-mode.el" "Lua mode" t nil)
@@ -1163,6 +1164,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'csharp-mode "csharp-mode-0.4.0.el" "CSharp mode" t nil)
 (autoload 'web-mode "web-mode.el" "WEB mode" t nil)
 (autoload 'elisp-mode "elisp-mode.el" "ELisp" t nil)
+(autoload 'wat-mode "wat-mode.el")
 (load "python-mode.el")
 
 (add-hook 'lua-mode-hook
@@ -1227,6 +1229,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.nsi\\(s\\)?$" 'nsis-mode)) 
        (list (cons "\\.pr[io]$" 'qt-pro-mode))
        (list (cons "\\.rec$" 'rec-mode))
+       (list (cons "\\.was?t$" 'wat-mode))
        auto-mode-alist))
 
 ;; macros for nxc code
