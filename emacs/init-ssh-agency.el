@@ -1,6 +1,6 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "packages/ssh-agency-20191009.156/")
+                  (concat emacs-git "packages/ssh-agency-20200329.1558/")
                   emacs-git
                   )
                  load-path))
