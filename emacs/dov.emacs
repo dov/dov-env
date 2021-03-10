@@ -242,6 +242,7 @@
 (autoload 'cc-mode "cc-mode" nil t)
 (autoload 'rec-mode "rec-mode" nil t)
 (autoload 'robot-mode "robot-mode" nil t)
+(autoload 'conf-mode "conf-mode" nil t)
 ;(load "vc")
 (load "gdb-libtool")
 (autoload 'gtk-lookup-symbol "gtk-look" nil t)
@@ -326,6 +327,23 @@
 
 ;; case fold by default
 (setq isearch-case-fold-search nil)
+
+(defun pcre-re-search-forward (re)
+  """Search forward for a pcre regular expression"""
+  (interactive)
+  (search-forward-regexp (rxt-pcre-to-elisp re)))
+
+;; Note that substrings may be extracted with
+;; etc (match-string 2 s)
+(defun pcre-string-match (re string)
+  """Match a string with pcre syntax"""
+  (interactive)
+  (string-match (pcre-to-elisp re) string))
+
+(defun whitespace-strip (s)
+  """Remove all whitespaces in a string"""
+  (interactive)
+  (replace-regexp-in-string " " "" s))
 
 ; Redefine the subword functions so that they work with underscores
 (defun subword-forward-fnc ()
@@ -423,6 +441,14 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (interactive)
   (kill-region (subword-backward-fnc) (point)))
 
+(defun kill-region-or-last-word ()
+  "Kill the region if there is a selection otherwise the last word"
+  (interactive)
+  (if (use-region-p)
+    (kill-region (region-beginning) (region-end))
+    (backward-kill-word 1)))
+(global-set-key (kbd "C-w") 'kill-region-or-last-word)
+
 (defun end-of-buffer-beginning-of-line ()
   "Move to the beginning of the line of the last line in the file"
   (interactive)
@@ -518,6 +544,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'mediawiki-mode "mediawiki" nil t)
 (autoload 'mediawiki-open "mediawiki" nil t)
 (autoload 'mediawiki-site "mediawiki" nil t)
+(autoload 'ag "ag" nil t)
 
 ;(require 'mediawiki)
 
@@ -543,6 +570,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;  (interactive)
 ;  (tex-send-command "xpdf" (tex-append tex-print-file ".pdf")))
 
+(pdf-loader-install)
 
 (add-hook 'LaTeX-mode-hook 
    (lambda()
@@ -602,14 +630,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
                "/data/data/com.termux/files/usr/bin"
                "/data/data/com.termux/files/usr/bin/applets"
                ) tramp-remote-path))
-
-(when (>= emacs-major-version 24)
-  (require 'package)
-  (add-to-list
-   'package-archives
-   '("melpa" . "http://melpa.org/packages/")
-   t)
-  (package-initialize))
 
 ;; Text mode stuff
 (add-hook 'text-mode-hook 'visual-line-mode)
@@ -1148,6 +1168,10 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (message "my-perl-mode-hook")
   )
 
+(defun my-lua-mode-hook ()
+  (interactive)
+  (define-key lua-mode-map [(control c) (control c)] 'shell-lua-on-buffer))
+
 ;(add-hook 'pde-hook 'my-perl-mode-hook)
 (add-hook 'cperl-mode-hook 'my-perl-mode-hook)
   
@@ -1175,7 +1199,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;; Set some auto mode
 (setq auto-mode-alist
       (append
-       (list (cons "\\.sa$" 'sather-mode))
+;       (list (cons "\\.sa$" 'sather-mode))
        (list (cons "\\.el$" 'emacs-lisp-mode))
        (list (cons "\\.cs$" 'csharp-mode))
        (list (cons "\\.css$" 'css-mode))
@@ -1230,6 +1254,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.pr[io]$" 'qt-pro-mode))
        (list (cons "\\.rec$" 'rec-mode))
        (list (cons "\\.was?t$" 'wat-mode))
+       (list (cons "\\.robot$" 'robot-mode))
+       (list (cons "\\.(conf|ini)$" 'conf-mode))
        auto-mode-alist))
 
 ;; macros for nxc code
@@ -1389,6 +1415,8 @@ With numeric ARG, display the images if and only if ARG is positive."
            '(("odt" . "libreoffice -norestore %s"))
            '(("gnumeric" . "gnumeric %s"))
            '(("html" . "firefox %s"))
+           '(("xopp" . "xournalpp %s"))
+           '(("ora" . "krita %s"))
            org-file-apps))))
 
 (setq org-src-lang-modes
@@ -1614,6 +1642,14 @@ With numeric ARG, display the images if and only if ARG is positive."
   "Load my personal todo list"
   (interactive)
   (find-file default-notes-file)
+  (font-lock-fontify-buffer)
+  (end-of-buffer)
+)
+
+(defun open-work-notes-file ()
+  "Load my main work notes file list"
+  (interactive)
+  (find-file work-notes-file)
   (font-lock-fontify-buffer)
   (end-of-buffer)
 )
@@ -1865,6 +1901,10 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control c) ?s] 'dov-git-grep)
 (global-set-key [(control c) (control s)] 'dov-git-grep-here)
 
+;; neo-tree configuration
+(setq neo-theme (if (display-graphic-p) 'nerd 'arrow))  ; Can't get classic to work!
+(setq neo-smart-open t)
+
 ;; Shortcuts to go to special buffers
 (global-set-key [(alt meta d)] 'goto-end-of-gud-buffer)
 (global-set-key [(alt meta k)] 'goto-end-of-compilation-buffer)
@@ -1970,6 +2010,8 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(meta prior)] '(lambda () (interactive) (scroll-other-window-down nil)))
 (global-set-key [(meta next)] '(lambda () (interactive) (scroll-other-window nil)))
 (global-set-key [f5] 'open-notes-file)
+(global-set-key [(meta f5)] 'open-work-notes-file)
+(global-set-key [f8] 'neotree-toggle)
 (global-set-key "\C-cT" 'toggle-truncate-lines)
 (define-key global-map " " 'space-or-undo)
 (define-key global-map "\C-x\C-m" 'save-buffers-dont-ask)
@@ -2351,19 +2393,28 @@ Does not delete the prompt."
   "Toggle all forward slashes to backslashes for the current line."
   (interactive)
   (save-excursion
-    (setq myBoundaries (bounds-of-thing-at-point 'line))
-    (beginning-of-line)
+    (if (use-region-p)
+        (setq myBoundaries (cons (region-beginning) (region-end)))
+        (setq myBoundaries (bounds-of-thing-at-point 'line)))
+      
     (save-restriction
+      (goto-char (car myBoundaries))
       (narrow-to-region (car myBoundaries) (cdr myBoundaries))
       (if (search-forward "/" nil t)
           (progn
-            (beginning-of-line)
+            (goto-char (car myBoundaries))
             (while (search-forward "/" nil t) (replace-match "\\\\" 'literal)))
         (progn
-          (beginning-of-line)
+          (goto-char (car myBoundaries))
           (while (search-forward "\\" nil t) (replace-match "/")))
         )
-      (end-of-line))))
+      ))
+    (if (use-region-p)
+        (progn
+          (set-mark (car myBoundaries))
+          (goto-char (cdr myBoundaries)))))
+
+(global-set-key [(control x) (control ?\\)] 'toggle-backslash-line)
 
 (add-hook 'comint-mode-hook
   (lambda()
@@ -2467,7 +2518,7 @@ Does not delete the prompt."
         (write-region (point-min) (point-max) cmd-filename))
     (setq cmd-filename (buffer-file-name)))
   (setq cmd-buffer-name (concat "*" (capitalize command) " Output*"))
-  (shell-command (concat command " " cmd-filename) cmd-buffer-name)
+  (shell-command (concat command " \"" cmd-filename "\"") cmd-buffer-name)
   ;; The following makes it easy to go to the resulting output buffer
   (setq my-buffer (current-buffer))
   (switch-to-buffer cmd-buffer-name)
@@ -2494,7 +2545,7 @@ Does not delete the prompt."
   (define-key ediff-mode-map "D" 'ediff-copy-both-ba-to-C))
 (add-hook 'ediff-keymap-setup-hook 'add-d-to-ediff-mode-map)
 
-(defvar my-python-interpreter "python")
+(setq my-python-interpreter "python")
 
 (defun shell-python-on-buffer ()
   "Send the current (python) buffer to be evaluated by the python shell"
@@ -2505,6 +2556,11 @@ Does not delete the prompt."
   "Send the current (python) buffer to be evaluated by the python shell"
   (interactive)
   (shell-command-on-buffer "perl" "pl"))
+
+(defun shell-lua-on-buffer ()
+  "Send the current (lua) buffer to be evaluated by the lua shell"
+  (interactive)
+  (shell-command-on-buffer "lua" "lua"))
 
 (defun xjet-python-buffer ()
   "Send the current (python) buffer to be evaluated in the MetalJet Application"
@@ -2594,6 +2650,12 @@ Does not delete the prompt."
 (global-set-key [(meta ?ו)] 'goto-line)
 (global-set-key [(control ?נ) (control ?ף)] 'save-buffer)
 
+;; dired default applications
+(setq dired-guess-shell-alist-user
+      (list
+       (list "\\.png$" "giv");; fixed rule
+       (list "\\.jpe?g$" "giv");; fixed rule
+       ))
 ;; Setup for terminal mode (typically run in from tablet)
 (if (not window-system)
     (progn
@@ -2641,6 +2703,7 @@ Does not delete the prompt."
          '(show-paren-match ((((class color) (background light)) (:background "#b4eeb4"))))
          '(region ((t (:background "#e0e8ff"))))
          '(org-hide ((((background light)) (:foreground "gray85"))))
+         '(lsp-ui-sideline-code-action ((t (:foreground "gray55"))))
          '(minibuffer-prompt ((t (:foreground "black"))))
          )
     ;; else
@@ -2670,6 +2733,7 @@ Does not delete the prompt."
        '(org-verbatim ((t (:foreground "green"))))
        '(org-code ((t (:foreground "green"))))
        '(helm-selection ((t (:background "ForestGreen" :distant-foreground "black" :foreground "black"))))
+       '(lsp-ui-sideline-code-action ((t (:foreground "gray55"))))
        )
       ;; I don't understand why this doesn't work as a normal attribute!
       (set-face-attribute 'org-hide nil :foreground "gray30")
