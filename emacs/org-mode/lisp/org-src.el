@@ -1,6 +1,6 @@
 ;;; org-src.el --- Source code examples in Org       -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2021 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;;	   Bastien Guerry <bzg@gnu.org>
@@ -32,11 +32,12 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'ob-comint)
 (require 'org-macs)
 (require 'org-compat)
-(require 'ob-keys)
-(require 'ob-comint)
+(require 'org-keys)
 
+(declare-function org-mode "org" ())
 (declare-function org-element-at-point "org-element" ())
 (declare-function org-element-class "org-element" (datum &optional parent))
 (declare-function org-element-context "org-element" (&optional element))
@@ -148,20 +149,28 @@ the existing edit buffer."
   "How the source code edit buffer should be displayed.
 Possible values for this option are:
 
+plain              Show edit buffer using `display-buffer'.  Users can
+                   further control the display behavior by modifying
+                   `display-buffer-alist' and its relatives.
 current-window     Show edit buffer in the current window, keeping all other
                    windows.
 split-window-below Show edit buffer below the current window, keeping all
                    other windows.
+split-window-right Show edit buffer to the right of the current window,
+                   keeping all other windows.
 other-window       Use `switch-to-buffer-other-window' to display edit buffer.
 reorganize-frame   Show only two windows on the current frame, the current
-                   window and the edit buffer.  When exiting the edit buffer,
-                   return to one window.
+                   window and the edit buffer.
 other-frame        Use `switch-to-buffer-other-frame' to display edit buffer.
-                   Also, when exiting the edit buffer, kill that frame."
+                   Also, when exiting the edit buffer, kill that frame.
+
+Values that modify the window layout (reorganize-frame, split-window-below,
+split-window-right) will restore the layout after exiting the edit buffer."
   :group 'org-edit-structure
   :type '(choice
 	  (const current-window)
 	  (const split-window-below)
+	  (const split-window-right)
 	  (const other-frame)
 	  (const other-window)
 	  (const reorganize-frame)))
@@ -229,11 +238,11 @@ green, respectability.
   :version "26.1"
   :package-version '(Org . "9.0"))
 
-(defcustom org-src-tab-acts-natively nil
+(defcustom org-src-tab-acts-natively t
   "If non-nil, the effect of TAB in a code block is as if it were
 issued in the language major mode buffer."
   :type 'boolean
-  :version "24.1"
+  :package-version '(Org . "9.4")
   :group 'org-babel)
 
 
@@ -254,6 +263,9 @@ issued in the language major mode buffer."
 
 (defvar-local org-src--block-indentation nil)
 (put 'org-src--block-indentation 'permanent-local t)
+
+(defvar-local org-src--content-indentation nil)
+(put 'org-src--content-indentation 'permanent-local t)
 
 (defvar-local org-src--end-marker nil)
 (put 'org-src--end-marker 'permanent-local t)
@@ -304,15 +316,6 @@ Return nil if there is no such buffer."
 	     (eq (marker-buffer end) (marker-buffer org-src--end-marker))
 	     (throw 'exit b))))))
 
-(defun org-src--get-lang-mode (lang)
-  "Return major mode that should be used for LANG.
-LANG is a string, and the returned major mode is a symbol."
-  (intern
-   (concat
-    (let ((l (or (cdr (assoc lang org-src-lang-modes)) lang)))
-      (if (symbolp l) (symbol-name l) l))
-    "-mode")))
-
 (defun org-src--coordinates (pos beg end)
   "Return coordinates of POS relatively to BEG and END.
 POS, BEG and END are buffer positions.  Return value is either
@@ -324,8 +327,7 @@ a cons cell (LINE . COLUMN) or symbol `end'.  See also
      (cons (count-lines beg (line-beginning-position))
 	   ;; Column is relative to the end of line to avoid problems of
 	   ;; comma escaping or colons appended in front of the line.
-	   (- (current-column)
-	      (progn (end-of-line) (current-column)))))))
+	   (- (point) (min end (line-end-position)))))))
 
 (defun org-src--goto-coordinates (coord beg end)
   "Move to coordinates COORD relatively to BEG and END.
@@ -338,9 +340,9 @@ which see.  BEG and END are buffer positions."
      (org-with-wide-buffer
       (goto-char beg)
       (forward-line (car coord))
-      (end-of-line)
-      (org-move-to-column (max (+ (current-column) (cdr coord)) 0))
-      (point)))))
+      (max (point)
+           (+ (min end (line-end-position))
+              (cdr coord)))))))
 
 (defun org-src--contents-area (datum)
   "Return contents boundaries of DATUM.
@@ -360,6 +362,12 @@ where BEG and END are buffer positions and CONTENTS is a string."
 			 (search-forward "{" (line-end-position) t)))
 	     (end (progn (goto-char (org-element-property :end datum))
 			 (search-backward "}" (line-beginning-position) t))))
+	 (list beg end (buffer-substring-no-properties beg end))))
+      ((eq type 'latex-fragment)
+       (let ((beg (org-element-property :begin datum))
+	     (end (org-with-point-at (org-element-property :end datum)
+		    (skip-chars-backward " \t")
+		    (point))))
 	 (list beg end (buffer-substring-no-properties beg end))))
       ((org-element-property :contents-begin datum)
        (let ((beg (org-element-property :contents-begin datum))
@@ -424,20 +432,20 @@ spaces after it as being outside."
 		(line-end-position)
 	      (point))))))
 
-(defun org-src--contents-for-write-back ()
-  "Return buffer contents in a format appropriate for write back.
+(defun org-src--contents-for-write-back (write-back-buf)
+  "Populate WRITE-BACK-BUF with contents in the appropriate format.
 Assume point is in the corresponding edit buffer."
   (let ((indentation-offset
 	 (if org-src--preserve-indentation 0
 	   (+ (or org-src--block-indentation 0)
 	      (if (memq org-src--source-type '(example-block src-block))
-		  org-edit-src-content-indentation
+		  org-src--content-indentation
 		0))))
 	(use-tabs? (and (> org-src--tab-width 0) t))
 	(source-tab-width org-src--tab-width)
 	(contents (org-with-wide-buffer (buffer-string)))
 	(write-back org-src--allow-write-back))
-    (with-temp-buffer
+    (with-current-buffer write-back-buf
       ;; Reproduce indentation parameters from source buffer.
       (setq indent-tabs-mode use-tabs?)
       (when (> source-tab-width 0) (setq tab-width source-tab-width))
@@ -445,17 +453,15 @@ Assume point is in the corresponding edit buffer."
       (insert (org-no-properties contents))
       (goto-char (point-min))
       (when (functionp write-back) (save-excursion (funcall write-back)))
-      ;; Add INDENTATION-OFFSET to every non-empty line in buffer,
+      ;; Add INDENTATION-OFFSET to every line in buffer,
       ;; unless indentation is meant to be preserved.
       (when (> indentation-offset 0)
 	(while (not (eobp))
 	  (skip-chars-forward " \t")
-	  (unless (eolp)		;ignore blank lines
-	    (let ((i (current-column)))
-	      (delete-region (line-beginning-position) (point))
-	      (indent-to (+ i indentation-offset))))
-	  (forward-line)))
-      (buffer-string))))
+	  (let ((i (current-column)))
+	    (delete-region (line-beginning-position) (point))
+	    (indent-to (+ i indentation-offset)))
+	  (forward-line))))))
 
 (defun org-src--edit-element
     (datum name &optional initialize write-back contents remote)
@@ -475,7 +481,10 @@ When REMOTE is non-nil, do not try to preserve point or mark when
 moving from the edit area to the source.
 
 Leave point in edit buffer."
-  (setq org-src--saved-temp-window-config (current-window-configuration))
+  (when (memq org-src-window-setup '(reorganize-frame
+				     split-window-below
+				     split-window-right))
+    (setq org-src--saved-temp-window-config (current-window-configuration)))
   (let* ((area (org-src--contents-area datum))
 	 (beg (copy-marker (nth 0 area)))
 	 (end (copy-marker (nth 1 area) t))
@@ -494,9 +503,9 @@ Leave point in edit buffer."
 	     (source-file-name (buffer-file-name (buffer-base-buffer)))
 	     (source-tab-width (if indent-tabs-mode tab-width 0))
 	     (type (org-element-type datum))
-	     (ind (org-with-wide-buffer
-		   (goto-char (org-element-property :begin datum))
-		   (current-indentation)))
+	     (block-ind (org-with-point-at (org-element-property :begin datum)
+			  (current-indentation)))
+	     (content-ind org-edit-src-content-indentation)
 	     (preserve-ind
 	      (and (memq type '(example-block src-block))
 		   (or (org-element-property :preserve-indent datum)
@@ -539,13 +548,18 @@ Leave point in edit buffer."
 	(setq org-src--end-marker end)
 	(setq org-src--remote remote)
 	(setq org-src--source-type type)
-	(setq org-src--block-indentation ind)
+	(setq org-src--block-indentation block-ind)
+	(setq org-src--content-indentation content-ind)
 	(setq org-src--preserve-indentation preserve-ind)
 	(setq org-src--overlay overlay)
 	(setq org-src--allow-write-back write-back)
 	(setq org-src-source-file-name source-file-name)
 	;; Start minor mode.
 	(org-src-mode)
+	;; Clear undo information so we cannot undo back to the
+	;; initial empty buffer.
+	(buffer-disable-undo (current-buffer))
+	(buffer-enable-undo)
 	;; Move mark and point in edit buffer to the corresponding
 	;; location.
 	(if remote
@@ -572,7 +586,7 @@ Leave point in edit buffer."
   "Fontify code block.
 This function is called by emacs automatic fontification, as long
 as `org-src-fontify-natively' is non-nil."
-  (let ((lang-mode (org-src--get-lang-mode lang)))
+  (let ((lang-mode (org-src-get-lang-mode lang)))
     (when (fboundp lang-mode)
       (let ((string (buffer-substring-no-properties start end))
 	    (modified (buffer-modified-p))
@@ -766,6 +780,15 @@ Org-babel commands."
     (org-src-do-at-code-block
      (call-interactively (lookup-key org-babel-map key)))))
 
+(defun org-src-get-lang-mode (lang)
+  "Return major mode that should be used for LANG.
+LANG is a string, and the returned major mode is a symbol."
+  (intern
+   (concat
+    (let ((l (or (cdr (assoc lang org-src-lang-modes)) lang)))
+      (if (symbolp l) (symbol-name l) l))
+    "-mode")))
+
 (defun org-src-edit-buffer-p (&optional buffer)
   "Non-nil when current buffer is a source editing buffer.
 If BUFFER is non-nil, test it instead."
@@ -789,11 +812,23 @@ Raise an error when current buffer is not a source editing buffer."
 
 (defun org-src-switch-to-buffer (buffer context)
   (pcase org-src-window-setup
+    (`plain
+     (when (eq context 'exit) (quit-restore-window))
+     (pop-to-buffer buffer))
     (`current-window (pop-to-buffer-same-window buffer))
     (`other-window
-     (switch-to-buffer-other-window buffer))
+     (let ((cur-win (selected-window)))
+       (org-switch-to-buffer-other-window buffer)
+       (when (eq context 'exit) (quit-restore-window cur-win))))
     (`split-window-below
-     (select-window (split-window-vertically))
+     (if (eq context 'exit)
+	 (delete-window)
+       (select-window (split-window-vertically)))
+     (pop-to-buffer-same-window buffer))
+    (`split-window-right
+     (if (eq context 'exit)
+	 (delete-window)
+       (select-window (split-window-horizontally)))
      (pop-to-buffer-same-window buffer))
     (`other-frame
      (pcase context
@@ -902,7 +937,7 @@ A coderef format regexp can only match at the end of a line."
 	   ;; remove any newline characters in order to preserve
 	   ;; table's structure.
 	   (when (org-element-lineage definition '(table-cell))
-	     (while (search-forward "\n" nil t) (replace-match "")))))
+	     (while (search-forward "\n" nil t) (replace-match " ")))))
        contents
        'remote))
     ;; Report success.
@@ -932,6 +967,46 @@ Throw an error when not at such a table."
     (table-recognize)
     t))
 
+(defun org-edit-latex-fragment ()
+  "Edit LaTeX fragment at point."
+  (interactive)
+  (let ((context (org-element-context)))
+    (unless (and (eq 'latex-fragment (org-element-type context))
+		 (org-src--on-datum-p context))
+      (user-error "Not on a LaTeX fragment"))
+    (let* ((contents
+	    (buffer-substring-no-properties
+	     (org-element-property :begin context)
+	     (- (org-element-property :end context)
+		(org-element-property :post-blank context))))
+	   (delim-length (if (string-match "\\`\\$[^$]" contents) 1 2)))
+      ;; Make the LaTeX deliminators read-only.
+      (add-text-properties 0 delim-length
+			   (list 'read-only "Cannot edit LaTeX deliminator"
+				 'front-sticky t
+				 'rear-nonsticky t)
+			   contents)
+      (let ((l (length contents)))
+	(add-text-properties (- l delim-length) l
+			     (list 'read-only "Cannot edit LaTeX deliminator"
+				   'front-sticky nil
+				   'rear-nonsticky nil)
+			     contents))
+      (org-src--edit-element
+       context
+       (org-src--construct-edit-buffer-name (buffer-name) "LaTeX fragment")
+       (org-src-get-lang-mode "latex")
+       (lambda ()
+	 ;; Blank lines break things, replace with a single newline.
+	 (while (re-search-forward "\n[ \t]*\n" nil t) (replace-match "\n"))
+	 ;; If within a table a newline would disrupt the structure,
+	 ;; so remove newlines.
+	 (goto-char (point-min))
+	 (when (org-element-lineage context '(table-cell))
+	   (while (search-forward "\n" nil t) (replace-match " "))))
+       contents))
+    t))
+
 (defun org-edit-latex-environment ()
   "Edit LaTeX environment at point.
 \\<org-src-mode-map>
@@ -950,7 +1025,7 @@ the LaTeX environment in the Org mode buffer."
     (org-src--edit-element
      element
      (org-src--construct-edit-buffer-name (buffer-name) "LaTeX environment")
-     (org-src--get-lang-mode "latex")
+     (org-src-get-lang-mode "latex")
      t)
     t))
 
@@ -975,7 +1050,7 @@ Throw an error when not at an export block."
 			       ;; Missing export-block type.  Fallback
 			       ;; to default mode.
 			       "fundamental")))
-	   (mode (org-src--get-lang-mode type)))
+	   (mode (org-src-get-lang-mode type)))
       (unless (functionp mode) (error "No such language mode: %s" mode))
       (org-src--edit-element
        element
@@ -1008,7 +1083,7 @@ name of the sub-editing buffer."
     (let* ((lang
 	    (if (eq type 'src-block) (org-element-property :language element)
 	      "example"))
-	   (lang-f (and (eq type 'src-block) (org-src--get-lang-mode lang)))
+	   (lang-f (and (eq type 'src-block) (org-src-get-lang-mode lang)))
 	   (babel-info (and (eq type 'src-block)
 			    (org-babel-get-src-block-info 'light)))
 	   deactivate-mark)
@@ -1041,7 +1116,7 @@ name of the sub-editing buffer."
 		 (org-src--on-datum-p context))
       (user-error "Not on inline source code"))
     (let* ((lang (org-element-property :language context))
-	   (lang-f (org-src--get-lang-mode lang))
+	   (lang-f (org-src-get-lang-mode lang))
 	   (babel-info (org-babel-get-src-block-info 'light))
 	   deactivate-mark)
       (unless (functionp lang-f) (error "No such language mode: %s" lang-f))
@@ -1112,20 +1187,27 @@ Throw an error if there is no such buffer."
   (interactive)
   (unless (org-src-edit-buffer-p) (user-error "Not in a sub-editing buffer"))
   (set-buffer-modified-p nil)
-  (let ((edited-code (org-src--contents-for-write-back))
+  (let ((write-back-buf (generate-new-buffer "*org-src-write-back*"))
 	(beg org-src--beg-marker)
 	(end org-src--end-marker)
 	(overlay org-src--overlay))
+    (org-src--contents-for-write-back write-back-buf)
     (with-current-buffer (org-src-source-buffer)
       (undo-boundary)
       (goto-char beg)
       ;; Temporarily disable read-only features of OVERLAY in order to
       ;; insert new contents.
       (delete-overlay overlay)
-      (delete-region beg end)
       (let ((expecting-bol (bolp)))
-	(insert edited-code)
+	(if (version< emacs-version "26.1")
+	    (progn (delete-region beg end)
+		   (insert (with-current-buffer write-back-buf (buffer-string))))
+	    (save-restriction
+	      (narrow-to-region beg end)
+	      (replace-buffer-contents write-back-buf)
+	      (goto-char (point-max))))
 	(when (and expecting-bol (not (bolp))) (insert "\n")))
+      (kill-buffer write-back-buf)
       (save-buffer)
       (move-overlay overlay beg (point))))
   ;; `write-contents-functions' requires the function to return
@@ -1135,30 +1217,45 @@ Throw an error if there is no such buffer."
 (defun org-edit-src-exit ()
   "Kill current sub-editing buffer and return to source buffer."
   (interactive)
-  (unless (org-src-edit-buffer-p) (error "Not in a sub-editing buffer"))
+  (unless (org-src-edit-buffer-p)
+    (error "Not in a sub-editing buffer"))
   (let* ((beg org-src--beg-marker)
 	 (end org-src--end-marker)
 	 (write-back org-src--allow-write-back)
 	 (remote org-src--remote)
 	 (coordinates (and (not remote)
 			   (org-src--coordinates (point) 1 (point-max))))
-	 (code (and write-back (org-src--contents-for-write-back))))
+	 (write-back-buf
+          (and write-back (generate-new-buffer "*org-src-write-back*"))))
+    (when write-back (org-src--contents-for-write-back write-back-buf))
     (set-buffer-modified-p nil)
     ;; Switch to source buffer.  Kill sub-editing buffer.
     (let ((edit-buffer (current-buffer))
 	  (source-buffer (marker-buffer beg)))
-      (unless source-buffer (error "Source buffer disappeared.  Aborting"))
+      (unless source-buffer
+        (when write-back-buf (kill-buffer write-back-buf))
+        (error "Source buffer disappeared.  Aborting"))
       (org-src-switch-to-buffer source-buffer 'exit)
       (kill-buffer edit-buffer))
     ;; Insert modified code.  Ensure it ends with a newline character.
     (org-with-wide-buffer
-     (when (and write-back (not (equal (buffer-substring beg end) code)))
+     (when (and write-back
+                (not (equal (buffer-substring beg end)
+			    (with-current-buffer write-back-buf
+                              (buffer-string)))))
        (undo-boundary)
        (goto-char beg)
-       (delete-region beg end)
        (let ((expecting-bol (bolp)))
-	 (insert code)
+	 (if (version< emacs-version "26.1")
+	     (progn (delete-region beg end)
+		    (insert (with-current-buffer write-back-buf
+                              (buffer-string))))
+	     (save-restriction
+	       (narrow-to-region beg end)
+	       (replace-buffer-contents write-back-buf)
+	       (goto-char (point-max))))
 	 (when (and expecting-bol (not (bolp))) (insert "\n")))))
+    (when write-back-buf (kill-buffer write-back-buf))
     ;; If we are to return to source buffer, put point at an
     ;; appropriate location.  In particular, if block is hidden, move
     ;; to the beginning of the block opening line.
@@ -1174,9 +1271,9 @@ Throw an error if there is no such buffer."
     (set-marker beg nil)
     (set-marker end nil)
     (when org-src--saved-temp-window-config
-      (set-window-configuration org-src--saved-temp-window-config)
-      (setq org-src--saved-temp-window-config nil))))
-
+      (unwind-protect
+	  (set-window-configuration org-src--saved-temp-window-config)
+	(setq org-src--saved-temp-window-config nil)))))
 
 (provide 'org-src)
 

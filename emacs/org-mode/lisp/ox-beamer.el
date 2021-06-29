@@ -1,6 +1,6 @@
 ;;; ox-beamer.el --- Beamer Back-End for Org Export Engine -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2007-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2021 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten.dominik AT gmail DOT com>
 ;;         Nicolas Goaziou <n.goaziou AT gmail DOT com>
@@ -326,7 +326,7 @@ INFO is a plist used as a communication channel.
 
 The value is either the label specified in \"BEAMER_opt\"
 property, the custom ID, if there is one and
-`:latex-prefer-user-labels' property has a non nil value, or
+`:latex-prefer-user-labels' property has a non-nil value, or
 a unique internal label.  This function assumes HEADLINE will be
 treated as a frame."
   (cond
@@ -645,13 +645,22 @@ as a communication channel."
 		contents))
        ;; Case 4: HEADLINE is a note.
        ((member environment '("note" "noteNH"))
-	(format "\\note{%s}"
-		(concat (and (equal environment "note")
-			     (concat
-			      (org-export-data
-			       (org-element-property :title headline) info)
-			      "\n"))
-			(org-trim contents))))
+        (concat "\\note"
+		;; Overlay specification.
+		(let ((overlay (org-element-property :BEAMER_ACT headline)))
+		  (when overlay
+		    (org-beamer--normalize-argument
+		     overlay
+		     (if (string-match "\\`\\[.*\\]\\'" overlay)
+			 'defaction 'action))))
+		(format "{%s}"
+                        (concat (and (equal environment "note")
+                                     (concat
+                                      (org-export-data
+                                       (org-element-property :title headline)
+				       info)
+                                      "\n"))
+				(org-trim contents)))))
        ;; Case 5: HEADLINE is a frame.
        ((= level frame-level)
 	(org-beamer--format-frame headline contents info))
@@ -722,7 +731,7 @@ channel."
   "Transcode a LINK object into Beamer code.
 CONTENTS is the description part of the link.  INFO is a plist
 used as a communication channel."
-  (or (org-export-custom-protocol-maybe link contents 'beamer)
+  (or (org-export-custom-protocol-maybe link contents 'beamer info)
       ;; Fall-back to LaTeX export.  However, prefer "\hyperlink" over
       ;; "\hyperref" since the former handles overlay specifications.
       (let ((latex-link (org-export-with-backend 'latex link contents info)))

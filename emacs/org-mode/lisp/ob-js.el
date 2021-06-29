@@ -1,6 +1,6 @@
 ;;; ob-js.el --- Babel Functions for Javascript      -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2010-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2021 Free Software Foundation, Inc.
 
 ;; Author: Eric Schulte
 ;; Keywords: literate programming, reproducible research, js
@@ -30,11 +30,11 @@
 
 ;;; Requirements:
 
-;; - a non-browser javascript engine such as node.js http://nodejs.org/
-;;   or mozrepl http://wiki.github.com/bard/mozrepl/
+;; - a non-browser javascript engine such as node.js https://nodejs.org/
+;;   or mozrepl https://wiki.github.com/bard/mozrepl/
 ;;
 ;; - for session based evaluation mozrepl and moz.el are required see
-;;   http://wiki.github.com/bard/mozrepl/emacs-integration for
+;;   https://wiki.github.com/bard/mozrepl/emacs-integration for
 ;;   configuration instructions
 
 ;;; Code:
@@ -65,12 +65,12 @@
   :safe #'stringp)
 
 (defvar org-babel-js-function-wrapper
-  "require('sys').print(require('sys').inspect(function(){\n%s\n}()));"
+  "require('process').stdout.write(require('util').inspect(function(){%s}()));"
   "Javascript code to print value of body.")
 
 (defun org-babel-execute:js (body params)
   "Execute a block of Javascript code with org-babel.
-This function is called by `org-babel-execute-src-block'"
+This function is called by `org-babel-execute-src-block'."
   (let* ((org-babel-js-cmd (or (cdr (assq :cmd params)) org-babel-js-cmd))
 	 (session (cdr (assq :session params)))
          (result-type (cdr (assq :result-type params)))
@@ -200,7 +200,5 @@ then create.  Return the initialized session."
     (error "Sessions are only supported with mozrepl add \":cmd mozrepl\""))))
 
 (provide 'ob-js)
-
-
 
 ;;; ob-js.el ends here

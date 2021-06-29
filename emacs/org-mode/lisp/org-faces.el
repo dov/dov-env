@@ -1,6 +1,6 @@
 ;;; org-faces.el --- Face definitions -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2021 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -243,6 +243,15 @@ is of course immediately visible, but for example a passed deadline is
 of the frame, for example."
   :group 'org-faces)
 
+(defface org-headline-todo	  ;Copied from `font-lock-string-face'
+  '((((class color) (min-colors 16) (background light)) (:foreground "Red4"))
+    (((class color) (min-colors 16) (background dark)) (:foreground "Pink2"))
+    (((class color) (min-colors 8)  (background light)) (:bold t)))
+  "Face used to indicate that a headline is marked as TODO.
+This face is only used if `org-fontify-todo-headline' is set.  If applies
+to the part of the headline after the TODO keyword."
+  :group 'org-faces)
+
 (defface org-headline-done	  ;Copied from `font-lock-string-face'
   '((((class color) (min-colors 16) (background light)) (:foreground "RosyBrown"))
     (((class color) (min-colors 16) (background dark)) (:foreground "LightSalmon"))
@@ -355,6 +364,12 @@ changes."
   "Face used for tables."
   :group 'org-faces)
 
+(defface org-table-header '((t :inherit org-table
+			       :background "LightGray"
+			       :foreground "Black"))
+  "Face for table header."
+  :group 'org-faces)
+
 (defface org-formula
   '((((class color) (min-colors 88) (background light)) (:foreground "Firebrick"))
     (((class color) (min-colors 88) (background dark)) (:foreground "chocolate1"))
@@ -393,9 +408,17 @@ follows a #+DATE:, #+AUTHOR: or #+EMAIL: keyword."
   "Face for #+TITLE:, #+AUTHOR:, #+EMAIL: and #+DATE: keywords."
   :group 'org-faces)
 
-(defface org-block '((t :inherit shadow))
-  "Face text in #+begin ... #+end blocks.
-For source-blocks `org-src-block-faces' takes precedence."
+(defface org-block `((t :inherit shadow
+			,@(and (>= emacs-major-version 27) '(:extend t))))
+  "Face used for text inside various blocks.
+
+It is always used for source blocks.  You can refine what face
+should be used depending on the source block language by setting,
+`org-src-block-faces', which takes precedence.
+
+When `org-fontify-quote-and-verse-blocks' is not nil, text inside
+verse and quote blocks are fontified using the `org-verse' and
+`org-quote' faces, which inherit from `org-block'."
   :group 'org-faces
   :version "26.1")
 
@@ -408,7 +431,7 @@ For source-blocks `org-src-block-faces' takes precedence."
   :group 'org-faces)
 
 (defface org-verbatim '((t (:inherit shadow)))
-  "Face for fixed-with text like code snippets"
+  "Face for fixed-with text like code snippets."
   :group 'org-faces
   :version "22.1")
 
@@ -559,16 +582,16 @@ month and 365.24 days for a year)."
   "Face for tag(s) in the mode-line when filtering the agenda."
   :group 'org-faces)
 
-(defface org-agenda-filter-regexp '((t :inherit mode-line))
-  "Face for regexp(s) in the mode-line when filtering the agenda."
-  :group 'org-faces)
-
 (defface org-agenda-filter-category '((t :inherit mode-line))
   "Face for categories in the mode-line when filtering the agenda."
   :group 'org-faces)
 
 (defface org-agenda-filter-effort '((t :inherit mode-line))
   "Face for effort in the mode-line when filtering the agenda."
+  :group 'org-faces)
+
+(defface org-agenda-filter-regexp '((t :inherit mode-line))
+  "Face for regexp(s) in the mode-line when filtering the agenda."
   :group 'org-faces)
 
 (defface org-time-grid	   ;Copied from `font-lock-variable-name-face'
@@ -608,8 +631,8 @@ If it is less than 8, the level-1 face gets re-used for level N+1 etc."
 (defcustom org-cycle-level-faces t
   "Non-nil means level styles cycle after level `org-n-level-faces'.
 Then so level org-n-level-faces+1 is styled like level 1.
-If nil, then all levels >=org-n-level-faces are styled like
-level org-n-level-faces"
+If nil, then all levels >= org-n-level-faces are styled like
+level org-n-level-faces."
   :group 'org-appearance
   :group 'org-faces
   :version "24.1"
