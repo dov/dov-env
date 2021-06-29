@@ -1,6 +1,6 @@
 ;;; ox-groff.el --- Groff Back-End for Org Export Engine
 
-;; Copyright (C) 2011-2018  Free Software Foundation, Inc.
+;; Copyright (C) 2011-2021  Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou at gmail dot com>
 ;; Author: Luis R Anaya <papoanaya aroba hot mail punto com>
@@ -429,7 +429,7 @@ language.")
   is replace on the value of the CDR. "
   :group 'org-export-groff
   :type '(list
-          (cons :tag "Character Subtitute"
+          (cons :tag "Character Substitute"
                 (string :tag "Original Character Group")
                 (string :tag "Replacement Character"))))
 
@@ -1248,7 +1248,7 @@ INFO is a plist holding contextual information.  See
                 ((string= type "file") (org-export-file-uri raw-path))
                 (t raw-path))))
     (cond
-     ((org-export-custom-protocol-maybe link desc 'groff))
+     ((org-export-custom-protocol-maybe link desc 'groff info))
      ;; Image file.
      (imagep (org-groff-link--inline-image link info))
      ;; import groff files

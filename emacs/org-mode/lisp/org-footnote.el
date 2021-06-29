@@ -1,6 +1,6 @@
 ;;; org-footnote.el --- Footnote support in Org      -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2021 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -37,6 +37,7 @@
 (declare-function org-at-comment-p "org" ())
 (declare-function org-at-heading-p "org" (&optional ignored))
 (declare-function org-back-over-empty-lines "org" ())
+(declare-function org-end-of-meta-data "org" (&optional full))
 (declare-function org-edit-footnote-reference "org-src" ())
 (declare-function org-element-at-point "org-element" ())
 (declare-function org-element-class "org-element" (datum &optional parent))
@@ -56,7 +57,7 @@
 
 (defvar electric-indent-mode)
 (defvar org-blank-before-new-entry)	; defined in org.el
-(defvar org-bracket-link-regexp)	; defined in org.el
+(defvar org-link-bracket-re)	; defined in org.el
 (defvar org-complex-heading-regexp)	; defined in org.el
 (defvar org-odd-levels-only)		; defined in org.el
 (defvar org-outline-regexp)		; defined in org.el
@@ -489,7 +490,7 @@ This function is meant to be used for fontification only."
 			     (goto-char beg)
 			     (let ((linkp
 				    (save-match-data
-				      (org-in-regexp org-bracket-link-regexp))))
+				      (org-in-regexp org-link-bracket-re))))
 			       (and linkp (< (point) (cdr linkp))))))
 		      ;; Verify point doesn't belong to a LaTeX macro.
 		      (not (org-inside-latex-macro-p))
@@ -704,7 +705,7 @@ function doesn't move point."
 	   (concat "^\\*+[ \t]+" (regexp-quote org-footnote-section) "[ \t]*$")
 	   nil t))
 	(goto-char (match-end 0))
-	(forward-line)
+        (org-end-of-meta-data t)
 	(unless (bolp) (insert "\n")))
        (t (org-footnote--clear-footnote-section)))
       (when (zerop (org-back-over-empty-lines)) (insert "\n"))

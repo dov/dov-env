@@ -1,6 +1,6 @@
 ;;; ob-lisp.el --- Babel Functions for Common Lisp   -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2021 Free Software Foundation, Inc.
 
 ;; Authors: Joel Boehland
 ;;	 Eric Schulte
@@ -107,7 +107,7 @@ a property list containing the parameters of the block."
                                      (point-min) (point-max)))))
                               (cdr (assq :package params)))))))
      (org-babel-result-cond (cdr (assq :result-params params))
-       result
+       (org-strip-quotes result)
        (condition-case nil
            (read (org-babel-lisp-vector-to-list result))
          (error result))))
@@ -121,7 +121,5 @@ a property list containing the parameters of the block."
   (replace-regexp-in-string "#(" "(" results))
 
 (provide 'ob-lisp)
-
-
 
 ;;; ob-lisp.el ends here

@@ -60,7 +60,10 @@
 		     (template . org-confluence-template)
 		     (timestamp . org-confluence-timestamp)
 		     (underline . org-confluence-underline)
-		     (verbatim . org-confluence-verbatim)))
+		     (verbatim . org-confluence-verbatim))
+  :menu-entry
+  '(?f "Export to Confluence"
+       ((?f "As Confluence buffer" org-confluence-export-as-confluence))))
 
 (defcustom org-confluence-lang-alist
   '(("sh" . "bash"))
@@ -125,15 +128,17 @@
             (if (org-string-nw-p contents) contents ""))))
 
 (defun org-confluence-link (link desc info)
-  (let ((raw-link (org-element-property :raw-link link)))
-    (concat "["
-            (when (org-string-nw-p desc) (format "%s|" desc))
-            (cond
-             ((string-match "^confluence:" raw-link)
-              (replace-regexp-in-string "^confluence:" "" raw-link))
-             (t
-              raw-link))
-            "]")))
+  (if (string= "radio" (org-element-property :type link))
+      desc
+    (let ((raw-link (org-element-property :raw-link link)))
+      (concat "["
+              (when (org-string-nw-p desc) (format "%s|" desc))
+              (cond
+               ((string-match "^confluence:" raw-link)
+		(replace-regexp-in-string "^confluence:" "" raw-link))
+               (t
+		raw-link))
+              "]"))))
 
 (defun org-confluence-paragraph (paragraph contents info)
   "Transcode PARAGRAPH element for Confluence.

@@ -1,6 +1,6 @@
 ;;; org-id.el --- Global identifiers for Org entries -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2008-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2021 Free Software Foundation, Inc.
 ;;
 ;; Author: Carsten Dominik <carsten at orgmode dot org>
 ;; Keywords: outlines, hypermedia, calendar, wp
@@ -71,6 +71,8 @@
 ;;; Code:
 
 (require 'org)
+(require 'org-refile)
+(require 'ol)
 
 (declare-function message-make-fqdn "message" ())
 (declare-function org-goto-location "org-goto" (&optional _buf help))
@@ -140,11 +142,15 @@ org        Org's own internal method, using an encoding of the current time to
 
 uuid       Create random (version 4) UUIDs.  If the program defined in
            `org-id-uuid-program' is available it is used to create the ID.
-           Otherwise an internal functions is used."
+           Otherwise an internal functions is used.
+
+ts         Create ID's based on ISO8601 timestamps (without separators
+           and without timezone, local time).  Precision down to seconds."
   :group 'org-id
   :type '(choice
 	  (const :tag "Org's internal method" org)
-	  (const :tag "external: uuidgen" uuid)))
+	  (const :tag "external: uuidgen" uuid)
+	  (const :tag "ISO8601 timestamp" ts)))
 
 (defcustom org-id-prefix nil
   "The prefix for IDs.
@@ -161,7 +167,7 @@ to have no space characters in them."
   "Non-nil means add the domain name to new IDs.
 This ensures global uniqueness of IDs, and is also suggested by
 the relevant RFCs.  This is relevant only if `org-id-method' is
-`org'.  When uuidgen is used, the domain will never be added.
+`org' or `ts'.  When uuidgen is used, the domain will never be added.
 
 The default is to not use this because we have no really good way to get
 the true domain, and Org entries will normally not be shared with enough
@@ -188,6 +194,22 @@ the link."
 This variable is only relevant when `org-id-track-globally' is set."
   :group 'org-id
   :type 'file)
+
+(defcustom org-id-locations-file-relative nil
+  "Determines if org-id-locations should be stored as relative links.
+Non-nil means that links to locations are stored as links
+relative to the location of where `org-id-locations-file' is
+stored.
+
+Nil means to store absolute paths to files.
+
+This customization is useful when folders are shared across
+systems but mounted at different roots.  Relative path to
+`org-id-locations-file' still has to be maintained across
+systems."
+  :group 'org-id
+  :type 'boolean
+  :package-version '(Org . "9.3"))
 
 (defvar org-id-locations nil
   "List of files with IDs in those files.")
@@ -237,12 +259,17 @@ Create an ID if necessary."
   (interactive)
   (org-kill-new (org-id-get nil 'create)))
 
+(defvar org-id-overriding-file-name nil
+  "Tell `org-id-get' to use this as the file name when creating an ID.
+This is useful when working with contents in a temporary buffer
+that will be copied back to the original.")
+
 ;;;###autoload
 (defun org-id-get (&optional pom create prefix)
   "Get the ID property of the entry at point-or-marker POM.
 If POM is nil, refer to the entry at point.
 If the entry does not have an ID, the function returns nil.
-However, when CREATE is non nil, create an ID if none is present already.
+However, when CREATE is non-nil, create an ID if none is present already.
 PREFIX will be passed through to `org-id-new'.
 In any case, the ID of the entry is returned."
   (org-with-point-at pom
@@ -253,7 +280,9 @@ In any case, the ID of the entry is returned."
        (create
 	(setq id (org-id-new prefix))
 	(org-entry-put pom "ID" id)
-	(org-id-add-location id (buffer-file-name (buffer-base-buffer)))
+	(org-id-add-location id
+			     (or org-id-overriding-file-name
+				 (buffer-file-name (buffer-base-buffer))))
 	id)))))
 
 ;;;###autoload
@@ -350,6 +379,13 @@ So a typical ID could look like \"Org:4nd91V40HI\"."
 			    (require 'message)
 			    (concat "@" (message-make-fqdn))))))
 	(setq unique (concat etime postfix))))
+     ((eq org-id-method 'ts)
+      (let ((ts (format-time-string "%Y%m%dT%H%M%S.%6N"))
+	    (postfix (if org-id-include-domain
+			 (progn
+			   (require 'message)
+			   (concat "@" (message-make-fqdn))))))
+	(setq unique (concat ts postfix))))
      (t (error "Invalid `org-id-method'")))
     (concat prefix unique)))
 
@@ -447,82 +483,66 @@ and TIME is a Lisp time value (HI LO USEC)."
 Store the relation between files and corresponding IDs.
 This will scan all agenda files, all associated archives, and all
 files currently mentioned in `org-id-locations'.
-When FILES is given, scan these files instead."
+When FILES is given, scan also these files."
   (interactive)
-  (if (not org-id-track-globally)
-      (error "Please turn on `org-id-track-globally' if you want to track IDs")
-    (let* ((org-id-search-archives
-	    (or org-id-search-archives
-		(and (symbolp org-id-extra-files)
-		     (symbol-value org-id-extra-files)
-		     (member 'agenda-archives org-id-extra-files))))
-	   (files
-	    (or files
-		(append
-		 ;; Agenda files and all associated archives
-		 (org-agenda-files t org-id-search-archives)
-		 ;; Explicit extra files
-		 (if (symbolp org-id-extra-files)
-		     (symbol-value org-id-extra-files)
-		   org-id-extra-files)
-		 ;; Files associated with live Org buffers
-		 (delq nil
-		       (mapcar (lambda (b)
-				 (with-current-buffer b
-				   (and (derived-mode-p 'org-mode) (buffer-file-name))))
-			       (buffer-list)))
-		 ;; All files known to have IDs
-		 org-id-files)))
-	   org-agenda-new-buffers
-	   file nfiles tfile ids reg found id seen (ndup 0))
-      (when (member 'agenda-archives files)
-	(setq files (delq 'agenda-archives (copy-sequence files))))
-      (setq nfiles (length files))
-      (while (setq file (pop files))
-	(unless silent
-	  (message "Finding ID locations (%d/%d files): %s"
-		   (- nfiles (length files)) nfiles file))
-	(setq tfile (file-truename file))
-	(when (and (file-exists-p file) (not (member tfile seen)))
-	  (push tfile seen)
-	  (setq ids nil)
-	  (with-current-buffer (org-get-agenda-file-buffer file)
-	    (save-excursion
-	      (save-restriction
-		(widen)
-		(goto-char (point-min))
-		(while (re-search-forward "^[ \t]*:ID:[ \t]+\\(\\S-+\\)[ \t]*$"
-					  nil t)
-		  (setq id (match-string-no-properties 1))
-		  (if (member id found)
-		      (progn
-			(message "Duplicate ID \"%s\", also in file %s"
-				 id (or (car (delq
-					      nil
-					      (mapcar
-					       (lambda (x)
-						 (if (member id (cdr x))
-						     (car x)))
-					       reg)))
-					(buffer-file-name)))
-			(when (= ndup 0)
-			  (ding)
-			  (sit-for 2))
-			(setq ndup (1+ ndup)))
-		    (push id found)
-		    (push id ids)))
-		(push (cons (abbreviate-file-name file) ids) reg))))))
-      (org-release-buffers org-agenda-new-buffers)
-      (setq org-agenda-new-buffers nil)
-      (setq org-id-locations reg)
-      (setq org-id-files (mapcar 'car org-id-locations))
-      (org-id-locations-save) ;; this function can also handle the alist form
-      ;; now convert to a hash
-      (setq org-id-locations (org-id-alist-to-hash org-id-locations))
-      (if (> ndup 0)
-	  (message "WARNING: %d duplicate IDs found, check *Messages* buffer" ndup)
-	(message "%d unique files scanned for IDs" (length org-id-files)))
-      org-id-locations)))
+  (unless org-id-track-globally
+    (error "Please turn on `org-id-track-globally' if you want to track IDs"))
+  (setq org-id-locations nil)
+  (let* ((files
+          (delete-dups
+           (mapcar #'file-truename
+                   (cl-remove-if-not
+		    ;; Default `org-id-extra-files' value contains
+		    ;; `agenda-archives' symbol.
+		    #'stringp
+		    (append
+		     ;; Agenda files and all associated archives.
+		     (org-agenda-files t org-id-search-archives)
+		     ;; Explicit extra files.
+		     (if (symbolp org-id-extra-files)
+			 (symbol-value org-id-extra-files)
+		       org-id-extra-files)
+		     ;; All files known to have IDs.
+		     org-id-files
+		     ;; Additional files from function call.
+		     files)))))
+         (nfiles (length files))
+         (id-regexp
+	  (rx (seq bol (0+ (any "\t ")) ":ID:" (1+ " ") (not (any " ")))))
+         (seen-ids nil)
+         (ndup 0)
+         (i 0))
+    (dolist (file files)
+      (when (file-exists-p file)
+        (unless silent
+          (cl-incf i)
+          (message "Finding ID locations (%d/%d files): %s" i nfiles file))
+        (with-current-buffer (find-file-noselect file t)
+          (let ((ids nil)
+                (case-fold-search t))
+            (org-with-point-at 1
+              (while (re-search-forward id-regexp nil t)
+                (when (org-at-property-p)
+                  (push (org-entry-get (point) "ID") ids)))
+              (when ids
+                (push (cons (abbreviate-file-name file) ids)
+                      org-id-locations)
+                (dolist (id ids)
+                  (cond
+                   ((not (member id seen-ids)) (push id seen-ids))
+                   (silent nil)
+                   (t
+                    (message "Duplicate ID %S" id)
+                    (cl-incf ndup))))))))))
+    (setq org-id-files (mapcar #'car org-id-locations))
+    (org-id-locations-save)
+    ;; Now convert to a hash table.
+    (setq org-id-locations (org-id-alist-to-hash org-id-locations))
+    (when (and (not silent) (> ndup 0))
+      (warn "WARNING: %d duplicate IDs found, check *Messages* buffer" ndup))
+    (message "%d files scanned, %d files contains IDs, and %d IDs found."
+             nfiles (length org-id-files) (hash-table-count org-id-locations))
+    org-id-locations))
 
 (defun org-id-locations-save ()
   "Save `org-id-locations' in `org-id-locations-file'."
@@ -530,6 +550,16 @@ When FILES is given, scan these files instead."
     (let ((out (if (hash-table-p org-id-locations)
 		   (org-id-hash-to-alist org-id-locations)
 		 org-id-locations)))
+      (when (and org-id-locations-file-relative out)
+	(setq out (mapcar
+                   (lambda (item)
+		     (if (file-name-absolute-p (car item))
+		         (cons (file-relative-name
+                                (car item) (file-name-directory
+					    org-id-locations-file))
+                               (cdr item))
+                       item))
+	           out)))
       (with-temp-file org-id-locations-file
 	(let ((print-level nil)
 	      (print-length nil))
@@ -543,7 +573,12 @@ When FILES is given, scan these files instead."
       (condition-case nil
 	  (progn
 	    (insert-file-contents org-id-locations-file)
-	    (setq org-id-locations (read (current-buffer))))
+	    (setq org-id-locations (read (current-buffer)))
+	    (let ((loc (file-name-directory org-id-locations-file)))
+	      (mapc (lambda (item)
+		      (unless (file-name-absolute-p (car item))
+			(setf (car item) (expand-file-name (car item) loc))))
+		    org-id-locations)))
 	(error
 	 (message "Could not read org-id-values from %s.  Setting it to nil."
 		  org-id-locations-file))))
@@ -553,10 +588,14 @@ When FILES is given, scan these files instead."
 (defun org-id-add-location (id file)
   "Add the ID with location FILE to the database of ID locations."
   ;; Only if global tracking is on, and when the buffer has a file
-  (when (and org-id-track-globally id file)
-    (unless org-id-locations (org-id-locations-load))
-    (puthash id (abbreviate-file-name file) org-id-locations)
-    (add-to-list 'org-id-files (abbreviate-file-name file))))
+  (unless file
+    (error "bug: org-id-get expects a file-visiting buffer"))
+  (let ((afile (abbreviate-file-name file)))
+    (when (and org-id-track-globally id)
+      (unless org-id-locations (org-id-locations-load))
+      (puthash id afile org-id-locations)
+      (unless (member afile org-id-files)
+	(add-to-list 'org-id-files afile)))))
 
 (unless noninteractive
   (add-hook 'kill-emacs-hook 'org-id-locations-save))
@@ -566,7 +605,7 @@ When FILES is given, scan these files instead."
   (let (res x)
     (maphash
      (lambda (k v)
-       (if (setq x (member v res))
+       (if (setq x (assoc v res))
 	   (setcdr x (cons k (cdr x)))
 	 (push (list v k) res)))
      hash)
@@ -610,7 +649,7 @@ When FILES is given, scan these files instead."
   (or (and org-id-locations
 	   (hash-table-p org-id-locations)
 	   (gethash id org-id-locations))
-      ;; ball back on current buffer
+      ;; Fall back on current buffer
       (buffer-file-name (or (buffer-base-buffer (current-buffer))
 			    (current-buffer)))))
 
@@ -644,16 +683,19 @@ optional argument MARKERP, return the position as a new marker."
     (let* ((link (concat "id:" (org-id-get-create)))
 	   (case-fold-search nil)
 	   (desc (save-excursion
-		   (org-back-to-heading t)
-		   (or (and (looking-at org-complex-heading-regexp)
+		   (org-back-to-heading-or-point-min t)
+		   (or (and (org-before-first-heading-p)
+			    (file-name-nondirectory
+			     (buffer-file-name (buffer-base-buffer))))
+		       (and (looking-at org-complex-heading-regexp)
 			    (if (match-end 4)
 				(match-string 4)
 			      (match-string 0)))
 		       link))))
-      (org-store-link-props :link link :description desc :type "id")
+      (org-link-store-props :link link :description desc :type "id")
       link)))
 
-(defun org-id-open (id)
+(defun org-id-open (id _)
   "Go to the entry with id ID."
   (org-mark-ring-push)
   (let ((m (org-id-find id 'marker))

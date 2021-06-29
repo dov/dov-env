@@ -1,6 +1,6 @@
 ;;; ox-koma-letter.el --- KOMA Scrlttr2 Back-End for Org Export Engine
 
-;; Copyright (C) 2007-2018  Free Software Foundation, Inc.
+;; Copyright (C) 2007-2021  Free Software Foundation, Inc.
 
 ;; Author: Nicolas Goaziou <n.goaziou AT gmail DOT com>
 ;;         Alan Schmitt <alan.schmitt AT polytechnique DOT org>
@@ -483,10 +483,6 @@ e.g. \"title-subject:t\"."
 (defvar org-koma-letter-special-contents nil
   "Holds special content temporarily.")
 
-(make-obsolete-variable 'org-koma-letter-use-title
-                        'org-export-with-title
-                        "25.1" 'set)
-
 
 ;;; Define Back-End
 
@@ -748,7 +744,8 @@ holding export options."
                 (if (symbolp with-subject) with-subject
                   (mapconcat #'symbol-name with-subject ","))))
       ;; Hyperref.
-      (format-spec hyperref-template spec)
+      (and (stringp hyperref-template)
+	   (format-spec hyperref-template spec))
       ;; Document start.
       "\\begin{document}\n\n"
       ;; Subject and title.
@@ -921,7 +918,7 @@ contents of hidden elements.
 When optional argument BODY-ONLY is non-nil, only write code
 between \"\\begin{letter}\" and \"\\end{letter}\".
 
-EXT-PLIST, when provided, is a proeprty list with external
+EXT-PLIST, when provided, is a property list with external
 parameters overriding Org default settings, but still inferior to
 file-local settings.
 
