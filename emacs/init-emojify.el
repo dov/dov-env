@@ -14,4 +14,4 @@
 (global-set-key "\C-cea" 'emojify-apropos-emoji)
 (global-set-key "\C-cep" 'emojify-describe-emoji-at-point)
 
-(provide 'init-default-text-scale)
+(provide 'init-emojify)

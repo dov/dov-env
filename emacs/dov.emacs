@@ -12,7 +12,7 @@
 ;;  ; Point ediff to the diff path.
 ;;  (setq ediff-diff-program "c:/Program Files/Git/usr/bin/diff.exe")
 ;;  (setenv "GIT_SSH" "c:/Program Files/PuTTY/plink.exe") ; For remote access
-;;  (setenv "PATH" (concat (getenv "PATH") ";D:\\DevTools\\git\\bin"))
+;;  (setenv "PATH" (concat (getenv "PATH") ";D:\\DevTools\\git\\bin;D:\\DevTools\\git\\usr\\bin"))
 ;;  (setenv "SJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
 ;;  (load (concat emacs-git "/dov.emacs"))
 ;;
@@ -47,9 +47,9 @@
       (setq temp-dir "c:/Temp/")
       (if (not (boundp 'emacs-persistance-dir))
           (setq emacs-persistance-dir "c:/Document and Settings/dovg"))
-;      (set-default-font "-*-Lucida Console-*-*-*-*-15-*-*-*-*-*-*")
-      (set-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
-      (setq browse-url-generic-program "c:/Program Files (x86)/Mozilla Firefox/firefox.exe")
+;      (set-frame-font "-*-Lucida Console-*-*-*-*-15-*-*-*-*-*-*")
+;      (set-frame-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
+      (setq browse-url-generic-program "C:\\Program Files\\Mozilla Firefox\\firefox.exe")
       (setq my-default-family "DejaVu Sans Mono")
 
       ;; don't use Hebrew locale!
@@ -79,15 +79,15 @@
 
     (condition-case err
      (set-frame-font my-default-font)
-;    (set-default-font "Consolas 12") 
-;     (set-default-font "lucidasanstypewriter-bold-14")
-;     (set-default-font "lucidasanstypewriter-bold-12")
-;       (set-default-font "Bitstream Vera Sans Mono-11")
-;     (set-default-font "InconsolataDov")
-;     (set-default-font "Fira Mono OT")
-;     (set-default-font "Droid sans Mono")
-;     (set-default-font "Source Code Pro")
-;     (set-default-font "Menlo:pixelsize=12")
+;    (set-frame-font "Consolas 12") 
+;     (set-frame-font "lucidasanstypewriter-bold-14")
+;     (set-frame-font "lucidasanstypewriter-bold-12")
+;       (set-frame-font "Bitstream Vera Sans Mono-11")
+;     (set-frame-font "InconsolataDov")
+;     (set-frame-font "Fira Mono OT")
+;     (set-frame-font "Droid sans Mono")
+;     (set-frame-font "Source Code Pro")
+;     (set-frame-font "Menlo:pixelsize=12")
      (error "No such font, but who cares"))
 
                                         ; Use Miriam mono font for Hebrew
@@ -163,7 +163,7 @@
 
 ;; Font for all frames
 (set-frame-font my-default-font)
-(set-default-font my-default-font)
+(set-frame-font my-default-font)
 (add-to-list 'default-frame-alist
              (cons 'font my-default-font))
 
@@ -191,20 +191,13 @@
                  load-path))
 
 ;; packages - tbd as much as possible there!
-(require 'package)
-(setq package-user-dir (concat emacs-git "packages"))
-(let* ((no-ssl (and (memq system-type '(windows-nt ms-dos))
-                    (not (gnutls-available-p))))
-       (url (concat (if no-ssl "http" "https") "://melpa.org/packages/")))
-  (add-to-list 'package-archives (cons "melpa" url) t))
-(package-initialize)
-
+(setq package-user-dir (concat emacs-git "/packages"))
 (require 'init-multiple-cursors)
 (require 'init-helm)
 (require 'init-default-text-scale)
-(require 'init-telega)
-(require 'init-ssh-agency)
+;(require 'init-telega)
 (require 'sticky-w)
+(require 'init-emojify)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -238,7 +231,7 @@
 (setq backup-by-copying t)
 
 ;; Get newer private versions of standard libraries
-;(load "cmake-mode")
+(load "cmake-mode")
 (autoload 'cc-mode "cc-mode" nil t)
 (autoload 'rec-mode "rec-mode" nil t)
 (autoload 'robot-mode "robot-mode" nil t)
@@ -570,7 +563,10 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;  (interactive)
 ;  (tex-send-command "xpdf" (tex-append tex-print-file ".pdf")))
 
-(pdf-loader-install)
+; ignore pdf loader install error
+(condition-case err
+    (pdf-loader-install)
+  (error "pdf-loader-install not available"))
 
 (add-hook 'LaTeX-mode-hook 
    (lambda()
@@ -1391,14 +1387,14 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 ; Choose applications to open external files .
 
-(if (string-match "mingw-nt" system-configuration)
+(if (string-match "x86_64-w64-mingw32" system-configuration)
     (progn
       (setq org-file-apps
             (append
-             '(("png" . "c:/progra~2/IrfanView/i_view32.exe %s"))
+;             '(("png" . "c:/progra~2/IrfanView/i_view32.exe %s"))
              '(("doc" . "\"c:/Program Files (x86)/OpenOffice.org 3/program/soffice.exe\" %s"))
-
-             org-file-apps
+             '(("pdf" . "\"c:/Program Files (x86)/Adobe/Acrobat Reader DC/Reader/AcroRd32.exe\" %s"))
+;             org-file-apps
              ))
       )
   (progn 
@@ -2603,11 +2599,19 @@ Does not delete the prompt."
 ;; infection and couldn't talk.
 (defun play-ogg (sound)
   (interactive)
-  (let ((fn (concat emacs-git "../sounds/" sound ".ogg"))
-        (pn (if (string-match "x86_64-w64-mingw32" system-configuration)
-                "start" "ogg123"))
-        )
-    (call-process pn nil "*foo*" nil fn)))
+  (let ((fn (concat emacs-git "/../sounds/" sound ".ogg")))
+    (if (string-match "x86_64-w64-mingw32" system-configuration)
+        ;; A hack just to her something!
+        (call-process "powershell" nil "*foo*" nil "-c (New-Object Media.SoundPlayer \"C:\\Windows\\Media\\chimes.wav\").PlaySync();")
+      (call-process "ogg123" nil "*foo*" nil fn)))) 
+;; None of this works!!!
+;; (w32-shell-execute "open" "c:/users/dovg/git/dov-env/sounds/open-ended.ogg")
+;; (w32-shell-execute "cmd" (concat "/C \"c:\\Program Files\\videolan\\vlc\\vlc.exe\" --qt-start-minimized --play-and-exit " "c:/users/dovg/git/dov-env/sounds/open-ended.ogg"))
+;; (call-process "c:\\Program Files\\videolan\\vlc\\vlc.exe" nil "*foo*" nil "c:/users/dovg/git/dov-env/sounds/open-ended.ogg")
+;; (call-process "wmplayer" nil "*foo*" nil "c:/users/dovg/git/dov-env/sounds/open-ended.ogg")
+;(call-process "powershell" nil "*foo*" nil "-c (New-Object Media.SoundPlayer \"C:\\Windows\\Media\\notify.wav\").PlaySync();")
+;(call-process "powershell" nil "*foo*" nil "-c (New-Object Media.SoundPlayer \"c:\\users\\dovg\\git\\dov-env\\sounds\\open-ended.ogg\").PlaySync();")
+
 ;; Why doesn't this work?
 (defun play-wav (sound)
   (interactive)
