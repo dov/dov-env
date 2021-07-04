@@ -21,13 +21,15 @@ def die(msg):
   print(msg)
   sys.exit(-1)
 
-def print_table(df, fmt=None):
+def print_table(df, fmt=None, do_reset_index = True, do_show_index = False):
+  if do_reset_index:
+    df = df.reset_index()
   if fmt=='csv':
-    print(df.to_csv())
+    print(df.to_csv(na_rep=''))
   elif fmt is not None:
     print(tabulate(df, tablefmt=fmt,headers='keys',showindex=False))
   else:
-    print(df.to_string(index=False))
+    print(df.to_string(index=False,justify='right'))
   
 
 argp=1
@@ -41,22 +43,22 @@ while argp < len(sys.argv) and sys.argv[argp][0]=='-':
   S_= sys.argv[argp]
   argp+=1
   if S_=='--help':
-    print('pkl-cat - Cat and join csv and pkl files'
+    print('pkl-cat - Cat and join csv and pkl files\n'
           '\n'
           'Syntax:\n'
           '  pkl-cat [--join] file...\n'
           '\n'
           'Options:\n'
-          '  --join      Join together several files'
-          '  --join-num  When joining use numerical index'
-          '  --org       Output table in org mode. Default is ascii'
-          '  --csv       Output table in csv mode. Useful when joining.'
-          '  --fmt fmt   Output table in any format supported by python tabulate.'
-          '  --cols cc   A comma separated list of columns to show.'
-          '  --plot      When joining plot the filtered columns'
-          '  --title     Title for plot'
-          '  --xlabel    x-label for plot'
-          '  --ylabel    y-label for plot'
+          '  --join      Join together several files\n'
+          '  --join-num  When joining use numerical index\n'
+          '  --org       Output table in org mode. Default is ascii\n'
+          '  --csv       Output table in csv mode. Useful when joining.\n'
+          '  --fmt fmt   Output table in any format supported by python tabulate.\n'
+          '  --cols cc   A comma separated list of columns to show.\n'
+          '  --plot      When joining plot the filtered columns\n'
+          '  --title     Title for plot\n'
+          '  --xlabel    x-label for plot\n'
+          '  --ylabel    y-label for plot\n'
           )
     
     sys.exit(0)
@@ -101,7 +103,7 @@ while argp < len(sys.argv) and sys.argv[argp][0]=='-':
 if do_plot and not do_join:
   die('Plotting is only supported when joining!')
 
-# Should these be optional
+# Should these be optional?
 pd.set_option('display.max_columns', 9999)
 pd.set_option('display.max_rows', 999999)
 pd.set_option('display.width', 999999)
@@ -119,7 +121,7 @@ for fn in sys.argv[argp:]:
     df['Filename'] = os.path.basename(os.path.dirname(fn))
     res = res.append(df,sort=False)
   else:
-    print_table(df, fmt=fmt, columns=filter_columns)
+    print_table(df, fmt=fmt)
 
 if do_join:
   ColumnsWithoutFilename = [c for c in res.columns if c!='Filename']
