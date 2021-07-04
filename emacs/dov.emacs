@@ -93,8 +93,10 @@
                                         ; Use Miriam mono font for Hebrew
 ;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "David CLM")
 ;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Nachlieli CLM")
+     (set-fontset-font "fontset-default" '(#x2b24 . #x2b24) "xft:-PfEd-DejaVu Sans-normal-normal-normal-*-16-*-*-*-*-0-iso10646-1")
+     (set-fontset-font "fontset-default" '(#x25ef . #x25ef) "xft:-PfEd-DejaVu Sans-normal-normal-normal-*-16-*-*-*-*-0-iso10646-1")
 ;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Nachlieli CLM")
-;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam CLM")
+;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam Mono CLM Bold")
     (ignore-errors
       (set-face-font 'default "fontset-default"))
     (setq load-path (append (list
@@ -197,6 +199,8 @@
 (require 'init-default-text-scale)
 ;(require 'init-telega)
 (require 'sticky-w)
+(require 'init-transient)
+(require 'init-with-editor)
 (require 'init-emojify)
 
 ;; Emacs 24 support
@@ -259,11 +263,11 @@
 (autoload 'qt-pro-mode "qt-pro-mode" nil t)
 (autoload 'doc-mode "doc-mode" nil t)
 ;(load "csharp-mode-0.4.0")
-(autoload 'octave-mode "octave-mod" nil t)
+(autoload 'octave-mode "octave" nil t)
 (autoload 'vc-ediff "vc-ediff" nil t)
 (setq with-editor-file-name-history-exclude 'nil)
 ;(autoload 'magit-status "magit" "Open a Magit status buffer […]" t nil)
-(load "with-editor")
+;(load "with-editor")
 (load "magit-popup")
 (load "ghub")
 (load "magit")
@@ -450,6 +454,17 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (move-beginning-of-line nil)
   )
 (global-set-key (kbd "C-M->") 'end-of-buffer-beginning-of-line)
+
+
+;; Example of how to call and external script on a region and replace the output.
+;; These kinds of scripts should be placed in the dov-env environment.
+(defun camel-case-to-upper (start end)
+  "Convert the string s from AbcDef to ABC_DEF notation"
+  (interactive "r")
+  (if (use-region-p)
+      (shell-command-on-region start end "/home/dov/scripts/camel_case_to_upper " (current-buffer) t)))
+
+
 ;(add-hook 'python-mode-hook #'pretty-mode 1)
 
 ;(global-set-key [?\C-c ?g ?c] 'mo-git-blame-current)
@@ -719,6 +734,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (load "org-git-hyperlink.el")
   (load "org-comeet-hyperlink.el")
   (load "org-redmine-hyperlink.el")
+  (load "org-jira-hyperlink.el")
   (load "org-pydoc-hyperlink.el")
   (load "org-jira-hyperlink.el")
   (load "org-wp.el")
@@ -833,7 +849,41 @@ Optional argument ARG is the same as for `backward-kill-word'."
        ("\\subsection{%s}" . "\\subsection*{%s}")
        ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
        ("\\paragraph{%s}" . "\\paragraph*{%s}")
-       ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))))
+       ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
+
+ ;; beamer class, for presentations
+     (add-to-list 'org-latex-classes
+    '("beamer"
+       "\\documentclass[11pt]{beamer}\n
+        \\mode<{{{beamermode}}}>\n
+        \\usetheme{{{{beamertheme}}}}\n
+        \\usecolortheme{{{{beamercolortheme}}}}\n
+        \\beamertemplateballitem\n
+        \\setbeameroption{show notes}
+        \\usepackage[utf8]{inputenc}\n
+        \\usepackage[T1]{fontenc}\n
+        \\usepackage{hyperref}\n
+        \\usepackage{color}
+        \\usepackage{listings}
+        \\lstset{numbers=none,language=[ISO]C++,tabsize=4,
+    frame=single,
+    basicstyle=\\small,
+    showspaces=false,showstringspaces=false,
+    showtabs=false,
+    keywordstyle=\\color{blue}\\bfseries,
+    commentstyle=\\color{red},
+    }\n
+        \\usepackage{verbatim}\n
+        \\institute{{{{beamerinstitute}}}}\n          
+         \\subject{{{{beamersubject}}}}\n"
+  
+       ("\\section{%s}" . "\\section*{%s}")
+       
+       ("\\begin{frame}[fragile]\\frametitle{%s}"
+         "\\end{frame}"
+         "\\begin{frame}[fragile]\\frametitle{%s}"
+         "\\end{frame}")))
+  ))
 
 (add-hook 'org-mode-hook 'my-org-hook)
 
@@ -1021,6 +1071,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (setq ipython-command "ipython")
 ;(require 'ipython)
 ;(setq py-python-command-args '("-pylab" "-p" "pylab" "-colors" "LightBG"))
+;(setq py-python-command "python2")
 ;(setq py-python-command "python")
 ;(setq py-python-command-args nil)
 
@@ -1180,7 +1231,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'rust-mode "rust-mode.el" "Rust mode" t nil)
 (autoload 'lua-mode "lua-mode.el" "Lua mode" t nil)
 (autoload 'csv-mode "csv-mode.el" "CSV mode" t nil)
-(autoload 'octave-mode "octave-mod.el" "Octave mode" t nil)
+(autoload 'octave-mode "octave.el" "Octave mode" t nil)
 ;(autoload 'sgml-mode "sgml-mode.el" "SGML mode" t nil)
 (autoload 'doc-mode "doc-mode.el" "Doc load" t nil)
 (autoload 'csharp-mode "csharp-mode-0.4.0.el" "CSharp mode" t nil)
@@ -1402,7 +1453,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (progn 
     (setq org-file-apps
           (append
-           '(("png" . "eog %s"))
+           '(("png" . "feh %s"))
            '(("pdf" . "evince %s"))
            '(("svg" . "inkscape %s"))
            '(("net" . "/usr/local/samiam/runsamiam %s"))
@@ -2151,7 +2202,10 @@ With numeric ARG, display the images if and only if ARG is positive."
 
   ;; Python
   (setq py-indent-offset 2)
-  )
+
+  ;; Json
+  (setq js2-basic-offset 2)
+  (setq js-indent-level 2))
 
 (defun standard-python-indent ()
   """Setup standard python indentation"""
@@ -2212,7 +2266,8 @@ With numeric ARG, display the images if and only if ARG is positive."
   (modify-syntax-entry ?_ "w")
   (local-set-key [(alt ?b)] 'left-word)
   (local-set-key [(alt ?f)] 'right-word)
-  
+  (c-set-offset 'arglist-intro 2)  
+
   ;  (subword-mode)
 ;  (auto-complete-mode 0)   ; I don't believe in autocomplete mode for C/C++
   )
@@ -2279,10 +2334,15 @@ With numeric ARG, display the images if and only if ARG is positive."
      (local-set-key [(control c) (control j)] 'xjet-python-buffer)
      ;; I don't like interactive shell for python commands by default
      (setq py-fast-process-p nil)
+     (eldoc-mode 0)
+     (setq-local eldoc-documentation-function #'ignore)
      ;; restore backward erase word
      (local-set-key [(control backspace)] 'backward-kill-word)
 ;     (company-mode -1)   ; Doesn't work!
      ))
+
+(global-eldoc-mode -1) ;; Don't use this at the moment...
+
 (setq company-global-modes '(not python-mode))
 (add-hook 'diff-mode-hook '(lambda() 
                              (remove-dos-eol)))
@@ -2597,6 +2657,15 @@ Does not delete the prompt."
   (define-key map [(iso-next-group)] nil))
 
   
+;; Some git convenience commands
+(defun gitlg ()
+  "Run git log -1 and copy the result to the clip buffer"
+  (interactive)
+  (shell-command "git log -1" "*git-log-1*")
+  (switch-to-buffer "*git-log-1*")
+  (clipboard-kill-ring-save (point-min) (point-max))
+  (kill-buffer "*git-log-1*"))
+
 ;; Bind some keybindings to sound. Did when I had a throat
 ;; infection and couldn't talk.
 (defun play-ogg (sound)
