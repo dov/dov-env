@@ -1,12 +1,14 @@
 ;;; magit-imenu.el --- Integrate Imenu in magit major modes  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2010-2018  The Magit Project Contributors
+;; Copyright (C) 2010-2021  The Magit Project Contributors
 ;;
 ;; You should have received a copy of the AUTHORS.md file which
 ;; lists all contributors.  If not, see http://magit.vc/authors.
 
 ;; Author: Damien Cassou <damien@cassou.me>
 ;; Maintainer: Jonas Bernoulli <jonas@bernoul.li>
+
+;; SPDX-License-Identifier: GPL-3.0-or-later
 
 ;; Magit is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
@@ -29,14 +31,14 @@
 ;; a programming major mode).  Selecting an item from this list moves
 ;; point to this item.
 
-;; magit-imenu.el adds Imenu support to every major mode in Magit
+;; magit-imenu.el adds Imenu support to every major mode in Magit.
 
 ;;; Code:
 
-(eval-when-compile (require 'subr-x))
-
 (require 'magit)
 (require 'git-rebase)
+
+;;; Core
 
 (defun magit-imenu--index-function (entry-types menu-types)
   "Return an alist of imenu entries in current buffer.
@@ -237,5 +239,6 @@ beginning of the line."
   (buffer-substring-no-properties (line-beginning-position)
                                   (line-end-position)))
 
+;;; _
 (provide 'magit-imenu)
 ;;; magit-imenu.el ends here

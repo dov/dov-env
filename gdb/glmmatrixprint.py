@@ -1,10 +1,10 @@
 # Print variables by python
 
-import gdb,re
+import gdb, re
 from pyparsing import nestedExpr
 import pdb
 
-class GlmMatrixPrint (gdb.Command):
+class GlmMatrixPrint(gdb.Command):
   "A command for printing glm variables via python"
 
   def __init__ (self):
@@ -55,9 +55,12 @@ class GlmMatrixPrint (gdb.Command):
           row = []
           n = (len(m)+1)//2
           for idx in range(n*n):
-            yidx = (idx//n)*2
-            xidx = (idx%n)*2
-            v = float(m[xidx][yidx][2][:-1])
+            yidx = idx//n
+            xidx = idx%n
+            if m[0][0][0][3]=='y':
+              v = float(m[xidx*2][0][0][yidx*3+2].replace(',',''))
+            else:
+              v = float(m[xidx*2][yidx*2][2][:-1])
 
             # Add to the table
             row += ['{:>12}'.format(f'{v:.5f}')]
@@ -67,10 +70,16 @@ class GlmMatrixPrint (gdb.Command):
         elif len(ne)==1 and ne[0][0]!='value':
           m = ne[0]
           row = []
-          n = (len(m)+1)//2
-          for i in range(n):
-            v = float(m[i*2][2][:-1])
-            row += ['{:>8}'.format(f'{v:.5f}')]
+          if m[0][0][3]=='y':
+            n = len(m[0][0])//3
+            for i in range(n):
+              v = float(m[0][0][3*i+2].replace(',',''))
+              row += ['{:>8}'.format(f'{v:.5f}')]
+          else:
+            n = (len(m)+1)//2
+            for i in range(n):
+              v = float(m[i*2][2][:-1])
+              row += ['{:>8}'.format(f'{v:.5f}')]
           table += [row]
 
         for row in table:
