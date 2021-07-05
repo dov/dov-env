@@ -1259,6 +1259,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.mp$" 'metapost-mode))
        (list (cons "\\.mf$" 'metafont-mode))
        (list (cons "\\.cmake$" 'cmake-mode))
+       (list (cons "CMakeLists.txt" 'cmake-mode))
        (list (cons "SConstruct" 'python-mode))
        (list (cons "SConscript" 'python-mode))
        (list (cons "\\.md$" 'markdown-mode))
