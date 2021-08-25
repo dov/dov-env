@@ -1,4 +1,4 @@
-;;; ein-websocket.el --- Wrapper of websocket.el
+;;; ein-websocket.el --- Wrapper of websocket.el    -*- lexical-binding:t -*-
 
 ;; Copyright (C) 2012- Takafumi Arakaki
 
@@ -25,7 +25,6 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
 (require 'websocket)
 (require 'ein-core)
 (require 'ein-classes)
@@ -33,14 +32,14 @@
 (require 'request)
 
 ;; Fix issues reading cookies in request when using curl backend
-(defun fix-request-netscape-cookie-parse (next-method)
+(defun fix-request-netscape-cookie-parse (_next-method)
   "Parse Netscape/Mozilla cookie format."
   (goto-char (point-min))
   (let ((tsv-re (concat "^\\="
                         (cl-loop repeat 6 concat "\\([^\t\n]+\\)\t")
                         "\\(.*\\)"))
         cookies)
-    (forward-line 3) ;; Skip header (first three lines)
+    (forward-line 3) ;; Skip header (cl-first three lines)
     (while
         (and
          (cond
@@ -61,72 +60,55 @@
                            name
                            value))))
 
+(defsubst ein:websocket-store-cookie (c host-port url-filename securep)
+  (url-cookie-store (car c) (cdr c) nil host-port url-filename securep))
+
+(defun ein:maybe-get-jhconn-user (url)
+  (let ((paths (cl-rest (split-string (url-filename (url-generic-parse-url url)) "/"))))
+    (if (string= (cl-first paths) "user")
+        (format "/%s/%s/" (cl-first paths) (cl-second paths))
+      "")))
+
 ;;(advice-add 'request--netscape-cookie-parse :around #'fix-request-netscape-cookie-parse)
-
-;; Websocket gets its cookies using the url-cookie API, so we need to copy over
-;; any cookies that are made and stored during the contents API calls via
-;; emacs-request.
 (defun ein:websocket--prepare-cookies (url)
-  (let* ((jh-conn (ein:jupyterhub-url-p url))
-         (parsed-url (url-generic-parse-url url))
-         (host-port (if (url-port-if-non-default parsed-url)
-                        (format "%s:%s" (url-host parsed-url) (url-port parsed-url))
-                      (url-host parsed-url)))
-         (securep (string-match "^wss://" url))
-         (http-only-cookies (request-cookie-alist (concat "#HttpOnly_" (url-host (url-generic-parse-url url))) "/" securep)) ;; Current version of Jupyter store cookies as HttpOnly)
-         (cookies (request-cookie-alist (url-host (url-generic-parse-url url)) "/" securep))
-         (hub-cookies (request-cookie-alist (url-host (url-generic-parse-url url)) "/hub/" securep))
-         (user-cookies (and jh-conn
+  "Websocket gets its cookies using the url-cookie API, so we need to copy over
+ any cookies that are made and stored during the contents API calls via
+ emacs-request."
+  (let*
+      ((parsed-url (url-generic-parse-url url))
+       (host-port (if (url-port-if-non-default parsed-url)
+                      (format "%s:%s" (url-host parsed-url) (url-port parsed-url))
+                    (url-host parsed-url)))
+       (securep (string-match "^wss://" url))
+       (read-cookies-func (lambda (path)
                             (request-cookie-alist
-                             (url-host (url-generic-parse-url url))
-                             (ein:$jh-user-server (ein:$jh-conn-user jh-conn))
-                             securep))))
-    (when (or cookies http-only-cookies hub-cookies user-cookies)
-      (ein:log 'debug "EIN:WEBSOCKET--PREPARE-COOKIES Storing cookies in prep for opening websocket (%s)" cookies)
-      (dolist (c (append cookies http-only-cookies hub-cookies user-cookies))
-        (url-cookie-store (car c) (cdr c) nil host-port (car (url-path-and-query parsed-url)) securep)))))
+                             (url-host parsed-url) path securep)))
+       (cookies (cl-loop repeat 4
+                      for cand = (cl-mapcan read-cookies-func
+                                            `("/" "/hub/"
+                                              ,(ein:maybe-get-jhconn-user url)))
+                      until (cl-some (lambda (x) (string= "_xsrf" (car x))) cand)
+                      do (ein:log 'info
+                                  "ein:websocket--prepare-cookies: no _xsrf among %s, retrying."
+                                  cand)
+                      do (sleep-for 0 300)
+                      finally return cand)))
+    (dolist (c cookies)
+      (ein:websocket-store-cookie c host-port
+                                  (car (url-path-and-query parsed-url)) securep))))
 
-
-;; Issues opening websockets in IPython 2.0, think it is related to
-;; http://stackoverflow.com/questions/22202182/error-on-websocket-when-try-to-use-ipython-notebook-in-emacs
-(defun ein:websocket (url &optional onmessage onclose onopen
-                          onmessage-args onclose-args onopen-args)
+(defun ein:websocket (url kernel on-message on-close on-open)
   (ein:websocket--prepare-cookies url)
-  (let* ((websocket (make-ein:$websocket
-                     :onmessage onmessage
-                     :onclose onclose
-                     :onopen onopen
-                     :onmessage-args onmessage-args
-                     :onclose-args onclose-args
-                     :onopen-args onopen-args))
-         (ws (websocket-open
-              url
-              :on-open
-              (lambda (ws)
-                (let ((websocket (websocket-client-data ws)))
-                  (ein:aif (ein:$websocket-onopen websocket)
-                      (apply it (ein:$websocket-onopen-args websocket)))))
-              :on-message
-              (lambda (ws frame)
-                (let ((websocket (websocket-client-data ws))
-                      (packet (websocket-frame-payload frame)))
-                  (ein:aif (ein:$websocket-onmessage websocket)
-                      (when packet
-                        (apply it packet
-                               (ein:$websocket-onmessage-args websocket))))))
-              :on-close
-              (lambda (ws)
-                (let ((websocket (websocket-client-data ws)))
-                  (ein:aif (ein:$websocket-onclose websocket)
-                      (apply it websocket
-                             (ein:$websocket-onclose-args websocket)))))
-              :on-error
-              (lambda (ws action err)
-                (ein:log 'error "Error %s on websocket %s action %s." err ws action)))))
+  (let* ((ws (websocket-open url
+                             :on-open on-open
+                             :on-message on-message
+                             :on-close on-close
+                             :on-error (lambda (ws action err)
+                                         (ein:log 'info "WS action [%s] %s (%s)"
+                                                  err action (websocket-url ws)))))
+         (websocket (make-ein:$websocket :ws ws :kernel kernel :closed-by-client nil)))
     (setf (websocket-client-data ws) websocket)
-    (setf (ein:$websocket-ws websocket) ws)
     websocket))
-
 
 (defun ein:websocket-open-p (websocket)
   (eql (websocket-ready-state (ein:$websocket-ws websocket)) 'open))
@@ -148,19 +130,19 @@
   (cond ((= (ein:$kernel-api-version kernel) 2)
          (ein:websocket-send
           (ein:$kernel-shell-channel kernel)
-          (json-encode msg)))
+          (ein:json-encode msg)))
         ((>= (ein:$kernel-api-version kernel) 3)
          (ein:websocket-send
-          (ein:$kernel-channels kernel)
-          (json-encode (plist-put msg :channel "shell"))))))
+          (ein:$kernel-websocket kernel)
+          (ein:json-encode (plist-put msg :channel "shell"))))))
 
 (defun ein:websocket-send-stdin-channel (kernel msg)
   (cond ((= (ein:$kernel-api-version kernel) 2)
          (ein:log 'warn "Stdin messages only supported with IPython 3."))
         ((>= (ein:$kernel-api-version kernel) 3)
          (ein:websocket-send
-          (ein:$kernel-channels kernel)
-          (json-encode (plist-put msg :channel "stdin"))))))
+          (ein:$kernel-websocket kernel)
+          (ein:json-encode (plist-put msg :channel "stdin"))))))
 
 (provide 'ein-websocket)
 

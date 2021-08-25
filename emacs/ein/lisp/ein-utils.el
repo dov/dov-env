@@ -1,4 +1,4 @@
-;;; ein-utils.el --- Utility module
+;;; ein-utils.el --- Utility module    -*- lexical-binding:t -*-
 
 ;; Copyright (C) 2012- Takafumi Arakaki
 
@@ -25,13 +25,14 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
 (require 'cc-mode)
 (require 'json)
-(require 's)
 (require 'dash)
+(require 'url)
+(require 'deferred)
 
-
+(make-obsolete-variable 'ein:enable-gc-adjust nil "0.17.0")
+
 ;;; Macros and core functions/variables
 
 (defmacro ein:with-undo-disabled (&rest body)
@@ -39,13 +40,6 @@
 while maintaining the undo list for the current buffer."
   `(let ((buffer-undo-list t))
      ,@body))
-
-(defmacro ein:aif (test-form then-form &rest else-forms)
-  "Anaphoric IF.  Adapted from `e2wm:aif'."
-  (declare (debug (form form &rest form)))
-  `(let ((it ,test-form))
-     (if it ,then-form ,@else-forms)))
-(put 'ein:aif 'lisp-indent-function 2)
 
 (defmacro ein:aand (test &rest rest)
   "Anaphoric AND.  Adapted from `e2wm:aand'."
@@ -69,6 +63,9 @@ while maintaining the undo list for the current buffer."
        ((= (length head) 1) `(if ,(car head) ,rest))
        (t `(let (,head) (if ,(car head) ,rest)))))))
 
+(defvar ein:local-variables '()
+  "Modified by `ein:deflocal'")
+
 (defmacro ein:deflocal (name &optional initvalue docstring)
   "Define permanent buffer local variable named NAME.
 INITVALUE and DOCSTRING are passed to `defvar'."
@@ -77,7 +74,8 @@ INITVALUE and DOCSTRING are passed to `defvar'."
   `(progn
      (defvar ,name ,initvalue ,docstring)
      (make-variable-buffer-local ',name)
-     (put ',name 'permanent-local t)))
+     (put ',name 'permanent-local t)
+     (setq ein:local-variables (append ein:local-variables '(,name)))))
 
 (defmacro ein:with-read-only-buffer (buffer &rest body)
   (declare (indent 1))
@@ -107,6 +105,7 @@ Execute BODY if BUFFER is not live anyway."
   (let ((table (make-syntax-table c-mode-syntax-table)))
     (modify-syntax-entry ?. "w" table)
     (modify-syntax-entry ?_ "w" table)
+    (modify-syntax-entry ?% "w" table)
     table)
   "Adapted from `python-dotty-syntax-table'.")
 
@@ -138,6 +137,14 @@ The result is unspecified if there isn't a symbol under the point."
   (save-excursion (ein:end-of-object) (point)))
 
 
+(defun ein:object-prefix-at-point ()
+  "Similar to `ein:object-at-point', but instead of returning the entire object
+only returns the string up to the current point. For example, given pd.Series, if the
+cursor is at the S then 'pd.S' will be returned."
+  (ein:and-let* ((obj (ein:object-at-point))
+                 (delta (- (point) (ein:object-start-pos))))
+    (substring obj 0 delta)))
+
 (defun ein:object-at-point ()
   "Return dotty.words.at.point.
 When region is active, text in region is returned after trimmed
@@ -153,7 +160,7 @@ before previous opening parenthesis."
                 "\\s-\\|\n\\|\\.")
     (save-excursion
       (with-syntax-table ein:dotty-syntax-table
-        (ein:aif (thing-at-point 'symbol)
+        (aif (thing-at-point 'symbol)
             it
           (unless (looking-at "(")
             (search-backward "(" (point-at-bol) t))
@@ -183,30 +190,40 @@ at point, i.e. any word before then \"(\", if it is present."
       (traverse tree))
     (nreverse list)))
 
-
-
-;;; URL utils
-
 (defvar ein:url-localhost "127.0.0.1")
-(defvar ein:url-localhost-template "http://127.0.0.1:%s")
+
+(defsubst ein:glom-paths (&rest paths)
+  (cl-loop with result = ""
+        for p in paths
+        if (not (zerop (length p)))
+          do (setq result (concat result (ein:trim-left (directory-file-name p) "/") "/"))
+        end
+        finally return (directory-file-name result)))
 
 (defun ein:url (url-or-port &rest paths)
-  (loop with url = (if (integerp url-or-port)
-                       (format ein:url-localhost-template url-or-port)
-                     url-or-port)
-        for p in paths
-        do (setq url (concat (ein:trim-right url "/")
-                             "/"
-                             (ein:trim-left p "/")))
-        finally return url))
+  (when url-or-port
+    (when (or (integerp url-or-port)
+              (and (stringp url-or-port) (string-match "^[0-9]+$" url-or-port)))
+      (setq url-or-port (format "http://localhost:%s" url-or-port)))
+    (setq url-or-port (string-trim url-or-port))
+    (cl-flet ((localhost-p (host) (or (string= host "localhost")
+                                      (string= host ein:url-localhost)
+                                      (string= host ""))))
+      (let ((parsed-url (url-generic-parse-url url-or-port)))
+        (unless (url-host parsed-url)
+          (setq url-or-port (format "%s://%s" (if (localhost-p url-or-port)
+                                                  "http" "https")
+                                    url-or-port))
+          (setq parsed-url (url-generic-parse-url url-or-port)))
+        (when (localhost-p (url-host parsed-url))
+            (setf (url-host parsed-url) ein:url-localhost))
+        (directory-file-name (concat (file-name-as-directory (url-recreate-url parsed-url))
+                                     (apply #'ein:glom-paths paths)))))))
 
 (defun ein:url-no-cache (url)
   "Imitate `cache=false' of `jQuery.ajax'.
 See: http://api.jquery.com/jQuery.ajax/"
   (concat url (format-time-string "?_=%s")))
-
-
-;;; HTML utils
 
 (defun ein:html-get-data-in-body-tag (key)
   "Very ad-hoc parser to get data in body tag."
@@ -217,15 +234,12 @@ See: http://api.jquery.com/jQuery.ajax/"
       (search-forward-regexp (format "%s=\\([^[:space:]\n]+\\)" key))
       (match-string 1))))
 
-
-;;; JSON utils
-
 (defmacro ein:with-json-setting (&rest body)
   `(let ((json-object-type 'plist)
          (json-array-type 'list))
      ,@body))
 
-(defun ein:json-read ()
+(defsubst ein:json-read ()
   "Read json from `url-retrieve'-ed buffer.
 
 * `json-object-type' is `plist'. This is mainly for readability.
@@ -233,67 +247,50 @@ See: http://api.jquery.com/jQuery.ajax/"
   data type must be edit-friendly.  `vector' type is not."
   (goto-char (point-max))
   (backward-sexp)
-  (ein:with-json-setting
-   (json-read)))
+  (if (fboundp 'json-parse-buffer)
+      (json-parse-buffer :object-type 'plist :array-type 'array :null-object json-null :false-object json-false)
+    (ein:with-json-setting (json-read))))
 
-(defun ein:json-read-from-string (string)
-  (ein:with-json-setting
-   (json-read-from-string string)))
+(defsubst ein:json-read-from-string (string)
+  (if (fboundp 'json-parse-string)
+      (json-parse-string string :object-type 'plist :array-type 'array :null-object json-null :false-object json-false)
+    (ein:with-json-setting (json-read-from-string string))))
 
-(defun ein:json-any-to-bool (obj)
+(defsubst ein:json-insert (obj)
+  (if (fboundp 'json-insert)
+      (json-insert obj :null-object json-null :false-object json-false)
+    (insert (json-encode obj))))
+
+(defsubst ein:json-encode (obj)
+  (if (fboundp 'json-serialize)
+      (json-serialize obj :null-object json-null :false-object json-false)
+    (json-encode obj)))
+
+(defsubst ein:json-any-to-bool (obj)
   (if (and obj (not (eq obj json-false))) t json-false))
-
-;; (defun ein:json-encode-char (char)
-;;   "Fixed `json-encode-char'."
-;;   (setq char (json-encode-char0 char 'ucs))
-;;   (let ((control-char (car (rassoc char json-special-chars))))
-;;     (cond
-;;      ;; Special JSON character (\n, \r, etc.).
-;;      (control-char
-;;       (format "\\%c" control-char))
-;;      ;; ASCIIish printable character.
-;;      ((and (> char 31) (< char 127))    ; s/161/127/
-;;       (format "%c" char))
-;;      ;; Fallback: UCS code point in \uNNNN form.
-;;      (t
-;;       (format "\\u%04x" char)))))
-
-;; (defadvice json-encode-char (around ein:json-encode-char (char) activate)
-;;   "Replace `json-encode-char' with `ein:json-encode-char'."
-;;   (setq ad-return-value (ein:json-encode-char char)))
-
-;; (defadvice json-encode (around encode-nil-as-json-empty-object activate)
-;;   (if (null object)
-;;     (setq ad-return-value "{}")
-;;     ad-do-it))
-
-
-;;; EWOC
 
 (defun ein:ewoc-create (pretty-printer &optional header footer nosep)
   "Do nothing wrapper of `ewoc-create' to provide better error message."
   (condition-case nil
       (ewoc-create pretty-printer header footer nosep)
     ((debug wrong-number-of-arguments)
-     (ein:display-warning "Incompatible EOWC version.
+     (ein:display-warning "Incompatible EWOC version.
   The version of ewoc.el you are using is too old for EIN.
   Please install the newer version.
   See also: https://github.com/tkf/emacs-ipython-notebook/issues/49")
      (error "Incompatible EWOC version."))))
 
-
-;;; Text property
-
 (defun ein:propertize-read-only (string &rest properties)
   (apply #'propertize string 'read-only t 'front-sticky t properties))
 
+(defvar ein:truncate-long-cell-output) ; defined in ein-cell - but cannot require it because of circularity
 (defun ein:insert-read-only (string &rest properties)
-  (insert (apply #'ein:propertize-read-only
-                 (ein:maybe-truncate-string-lines string ein:truncate-long-cell-output)
-                 properties)))
-
-
-;;; String manipulation
+  (let ((buffer-undo-list t)
+        (start (point)))
+    (insert (apply #'ein:propertize-read-only
+                   (ein:maybe-truncate-string-lines string ein:truncate-long-cell-output)
+                   properties))
+    (comint-carriage-motion start (point))))
 
 (defun ein:maybe-truncate-string-lines (string nlines)
   "Truncate multi-line `string' to the number of lines specified by `nlines'. If actual
@@ -327,13 +324,13 @@ number of lines is less than `nlines' then just return the string."
   (let* ((lines (split-string string "\n"))
          (indent
           (let ((lens
-                 (loop for line in lines
+                 (cl-loop for line in lines
                        for stripped = (ein:trim-left line)
                        unless (equal stripped "")
                        collect (- (length line) (length stripped)))))
             (if lens (apply #'min lens) 0)))
          (trimmed
-          (loop for line in lines
+          (cl-loop for line in lines
                 if (> (length line) indent)
                 collect (ein:trim-right (substring line indent))
                 else
@@ -370,10 +367,9 @@ Adapted from twittering-mode.el's `case-string'."
              ,@body)))
        clauses)))
 
-
 ;;; Text manipulation on buffer
 
-(defun ein:find-leftmot-column (beg end)
+(defun ein:find-leftmost-column (beg end)
   "Return the leftmost column in region BEG to END."
   (save-excursion
     (let (mincol)
@@ -385,16 +381,21 @@ Adapted from twittering-mode.el's `case-string'."
                            (min mincol (current-column))
                          (current-column))))
         (unless (= (forward-line 1) 0)
-          (return-from ein:find-leftmot-column mincol)))
+          (cl-return-from ein:find-leftmost-column mincol)))
       mincol)))
 
-
 ;;; Misc
+
+(defun ein:completing-read (&rest args)
+  (cond (noninteractive (if (consp (cl-second args))
+                            (car (cl-second args))
+                          (cl-second args)))
+        (t (apply completing-read-function args))))
 
 (defun ein:plist-iter (plist)
   "Return list of (key . value) in PLIST."
   ;; FIXME: this is not needed.  See: `ein:plist-exclude'.
-  (loop for p in plist
+  (cl-loop for p in plist
         for i from 0
         for key-p = (= (% i 2) 0)
         with key = nil
@@ -407,24 +408,9 @@ Adapted from twittering-mode.el's `case-string'."
 Example::
 
     (ein:plist-exclude '(:a 1 :b 2 :c 3 :d 4) '(:b :c))"
-  (loop for (k v) on plist by 'cddr
+  (cl-loop for (k v) on plist by 'cddr
         unless (memq k keys)
         nconc (list k v)))
-
-(defun ein:hash-keys (table)
-  (let (keys)
-    (maphash (lambda (k v) (push k keys)) table)
-    keys))
-
-(defun ein:hash-vals (table)
-  (let (vals)
-    (maphash (lambda (k v) (push v vals)) table)
-    vals))
-
-(defun ein:filter (predicate sequence)
-  (loop for item in sequence
-        when (funcall predicate item)
-        collect item))
 
 (defun ein:clip-list (list first last)
   "Return elements in region of the LIST specified by FIRST and LAST element.
@@ -432,7 +418,7 @@ Example::
 Example::
 
     (ein:clip-list '(1 2 3 4 5 6) 2 4)  ;=> (2 3 4)"
-  (loop for elem in list
+  (cl-loop for elem in list
         with clipped
         with in-region-p = nil
         when (eq elem first)
@@ -442,34 +428,34 @@ Example::
         when (eq elem last)
         return (reverse clipped)))
 
-(defun* ein:list-insert-after (list pivot new &key (test #'eq))
+(cl-defun ein:list-insert-after (list pivot new &key (test #'eq))
   "Insert NEW after PIVOT in LIST destructively.
 Note: do not rely on that `ein:list-insert-after' change LIST in place.
 Elements are compared using the function TEST (default: `eq')."
-  (loop for rest on list
+  (cl-loop for rest on list
         when (funcall test (car rest) pivot)
         return (progn (push new (cdr rest)) list)
         finally do (error "PIVOT %S is not in LIST %S" pivot list)))
 
-(defun* ein:list-insert-before (list pivot new &key (test #'eq))
+(cl-defun ein:list-insert-before (list pivot new &key (test #'eq))
   "Insert NEW before PIVOT in LIST destructively.
 Note: do not rely on that `ein:list-insert-before' change LIST in place.
 Elements are compared using the function TEST (default: `eq')."
   (if (and list (funcall test (car list) pivot))
       (cons new list)
-    (loop for rest on list
+    (cl-loop for rest on list
           when (funcall test (cadr rest) pivot)
           return (progn (push new (cdr rest)) list)
           finally do (error "PIVOT %S is not in LIST %S" pivot list))))
 
-(defun* ein:list-move-left (list elem &key (test #'eq))
+(cl-defun ein:list-move-left (list elem &key (test #'eq))
   "Move ELEM in LIST left.  TEST is used to compare elements"
-  (macrolet ((== (a b) `(funcall test ,a ,b)))
+  (cl-macrolet ((== (a b) `(funcall test ,a ,b)))
     (cond
      ((== (car list) elem)
       (append (cdr list) (list (car list))))
      (t
-      (loop for rest on list
+      (cl-loop for rest on list
             when (== (cadr rest) elem)
             return (let ((prev (car rest)))
                      (setf (car rest) elem)
@@ -477,9 +463,9 @@ Elements are compared using the function TEST (default: `eq')."
                      list)
             finally do (error "ELEM %S is not in LIST %S" elem list))))))
 
-(defun* ein:list-move-right (list elem &key (test #'eq))
+(cl-defun ein:list-move-right (list elem &key (test #'eq))
   "Move ELEM in LIST right.  TEST is used to compare elements"
-  (loop with first = t
+  (cl-loop with first = t
         for rest on list
         when (funcall test (car rest) elem)
         return (if (cdr rest)
@@ -534,14 +520,14 @@ FUNC is called as (apply FUNC ARG ARGS)."
 (defun ein:remove-by-index (list indices)
   "Remove elements from LIST if its index is in INDICES.
 NOTE: This function creates new list."
-  (loop for l in list
+  (cl-loop for l in list
         for i from 0
         when (not (memq i indices))
         collect l))
 
 (defun ein:ask-choice-char (prompt choices)
   "Show PROMPT and read one of acceptable key specified as CHOICES."
-  (let ((char-list (loop for i from 0 below (length choices)
+  (let ((char-list (cl-loop for i from 0 below (length choices)
                          collect (elt choices i)))
         (answer 'recenter))
     (while
@@ -573,7 +559,7 @@ PREDARGS is argument list for the PREDICATE function.
 Make TIMEOUT-SECONDS larger \(default 5) to wait longer before timeout."
   (ein:log 'debug "WAIT-UNTIL start")
   (unless timeout-seconds (setq timeout-seconds 5))
-  (unless (loop repeat (/ timeout-seconds 0.05)
+  (unless (cl-loop repeat (/ timeout-seconds 0.05)
                 when (apply predicate predargs)
                 return t
                 ;; borrowed from `deferred:sync!':
@@ -590,8 +576,44 @@ otherwise it should be a function, which is called on `time'."
     (string (format-time-string format time))
     (function (funcall format time))))
 
-
 ;;; Emacs utilities
+(defmacro ein:message-whir (mesg callback &rest body)
+  "Display MESG with a modest animation until ASYNC-CALL completes."
+  `(let* (done-p
+          (done-callback (lambda (&rest _args) (setf done-p t)))
+          (errback (lambda (&rest _args) (setf done-p 'error))))
+     (ignore errback)           ; make errback ignorable
+     ;; again, how can done-callback remove itself after running?
+     (add-function :before ,callback done-callback)
+     (unless noninteractive
+       (ein:message-whir-subr ,mesg (lambda () done-p)))
+     ,@body))
+
+(defun ein:message-whir-subr (mesg doneback)
+  "Display MESG with a modest animation until done-p returns t.
+
+DONEBACK returns t or 'error when calling process is done, and nil if not done."
+  (let* ((mesg mesg)
+         (doneback doneback)
+         (count -1))
+    (message "%s%s" mesg (make-string (1+ (% (cl-incf count) 3)) ?.))
+    ;; https://github.com/kiwanami/emacs-deferred/issues/28
+    ;; "complicated timings of macro expansion lexical-let, deferred:lambda"
+    ;; using deferred:loop instead
+    (deferred:$
+      (deferred:loop (cl-loop for i from 1 below 60 by 1 collect i)
+        (lambda ()
+          (deferred:$
+            (deferred:next
+              (lambda ()
+                (aif (funcall doneback) it
+                  (message "%s%s" mesg (make-string (1+ (% (cl-incf count) 3)) ?.))
+                  (sleep-for 0 365)))))))
+      (deferred:nextc it
+        (lambda (status)
+          (message "%s... %s" mesg
+                   (if (or (null status) (eq status 'error)) "failed" "done")))))))
+
 
 (defun ein:display-warning (message &optional level)
   "Simple wrapper around `display-warning'.
@@ -612,12 +634,10 @@ Use `ein:log' for debugging and logging."
       (ein:display-warning message level)
       (puthash key t ein:display-warning-once--db))))
 
+(defvar help-xref-following)    ; defined in help-mode
 (defun ein:get-docstring (function)
   "Return docstring of FUNCTION."
-  ;; Borrowed from `ac-symbol-documentation'.
   (with-temp-buffer
-    ;; import help-xref-following
-    (require 'help-mode)
     (erase-buffer)
     (let ((standard-output (current-buffer))
           (help-xref-following t)
@@ -627,20 +647,13 @@ Use `ein:log' for debugging and logging."
 
 (defun ein:generate-menu (list-name-callback)
   (mapcar (lambda (name-callback)
-            (destructuring-bind (name callback &rest args) name-callback
-              `[,name ,callback :help ,(ein:get-docstring callback) ,@args]))
+            (cl-destructuring-bind (name callback &rest args) name-callback
+              `[,name
+		,(let ((km (intern-soft (concat (symbol-name callback) "-km"))))
+		   (if (commandp km) km callback))
+		:help ,(ein:get-docstring callback) ,@args]))
           list-name-callback))
 
-(lexical-let ((current-gc-cons-threshold gc-cons-threshold))
-  (defun ein:gc-prepare-operation ()
-    (ein:log 'debug "[GC-PREPARE-OPERATION] Setting cons threshold to %s." (* current-gc-cons-threshold 10000) )
-    (setq gc-cons-threshold (* current-gc-cons-threshold 10000)))
-
-  (defun ein:gc-complete-operation ()
-    (ein:log 'debug "[GC-COMPLETE-OPERATION] Reverting cons threshold to %s." current-gc-cons-threshold)
-    (setq gc-cons-threshold current-gc-cons-threshold)))
-
-
 ;;; Git utilities
 
 (defun ein:call-process (command &optional args)

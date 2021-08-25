@@ -1,4 +1,4 @@
-;;; ein-classes.el --- Classes and structures.
+;;; ein-classes.el --- Classes and structures.      -*- lexical-binding:t -*-
 
 ;; Copyright (C) 2017 John M. Miller
 
@@ -21,11 +21,10 @@
 
 ;;; Commentary:
 
-
 ;;; Content
 (require 'eieio)
 
-(defstruct ein:$content
+(cl-defstruct ein:$content
   "Content returned from the Jupyter notebook server:
 `ein:$content-url-or-port'
   URL or port of Jupyter server.
@@ -63,12 +62,9 @@
     :file      : Either :text or :base64
     :notebook  : :json.
 
-`ein:$content-checkpoints'
-  Names auto-saved checkpoints for content. Stored as a list
-  of (<id> . <last_modified>) pairs.
 "
   url-or-port
-  ipython-version
+  notebook-version
   name
   path
   type
@@ -78,42 +74,22 @@
   mimetype
   raw-content
   format
-  session-p
-  checkpoints)
-
-
-
+  session-p)
 ;;; Websockets
 
-(defstruct ein:$websocket
+(cl-defstruct ein:$websocket
   "A wrapper object of `websocket'.
 
 `ein:$websocket-ws'               : an instance returned by `websocket-open'
-
-`ein:$websocket-onmessage'        : function called with (PACKET &rest ARGS)'
-`ein:$websocket-onclose'          : function called with (WEBSOCKET &rest ARGS)'
-`ein:$websocket-onopen'           : function called with (&rest ARGS)'
-
-`ein:$websocket-onmessage-args'   : optional arguments for onmessage callback'
-`ein:$websocket-onclose-args'     : optional arguments for onclose callback'
-`ein:$websocket-onopen-args'      : optional arguments for onopen callback'
-
+`ein:$websocket-kernel'           : kernel at the time of instantiation
 `ein:$websocket-closed-by-client' : t/nil'
 "
   ws
-  onmessage
-  onmessage-args
-  onclose
-  onclose-args
-  onopen
-  onopen-args
+  kernel
   closed-by-client)
 
-
-
-
 ;;; Notebook
-(defstruct ein:$notebook
+(cl-defstruct ein:$notebook
   "Hold notebook variables.
 
 `ein:$notebook-url-or-port'
@@ -163,10 +139,6 @@
 
 `ein:$notebook-api-version' : integer
    Major version of the IPython notebook server we are talking to.
-
-`ein:$notebook-checkpoints'
-  Names auto-saved checkpoints for content. Stored as a list
-  of (<id> . <last_modified>) pairs.
 "
   url-or-port
   notebook-id ;; In IPython-2.0 this is "[:path]/[:name].ipynb"
@@ -183,21 +155,14 @@
   events
   worksheets
   scratchsheets
-  api-version
-  autosave-timer
-  checkpoints)
+  api-version)
 
 
-
 ;;; Worksheet
 (defclass ein:worksheet ()
   ((nbformat :initarg :nbformat :type integer)
-   (get-notebook-name :initarg :get-notebook-name :type cons
-                      :accessor ein:worksheet--notebook-name)
-   ;; This slot introduces too much complexity so therefore must be
-   ;; removed later.  This is here only for backward compatible
-   ;; reason.
-   (discard-output-p :initarg :discard-output-p :accessor ein:worksheet--discard-output-p)
+   (notebook-path :initarg :notebook-path :type function
+		  :accessor ein:worksheet--notebook-path)
    (saved-cells :initarg :saved-cells :initform nil
                 :accessor ein:worksheet--saved-cells
                 :documentation
@@ -209,14 +174,10 @@
    (kernel :initarg :kernel :type ein:$kernel :accessor ein:worksheet--kernel)
    (dirty :initarg :dirty :type boolean :initform nil :accessor ein:worksheet--dirty-p)
    (metadata :initarg :metadata :initform nil :accessor ein:worksheet--metadata)
-   (show-slide-data-p :initarg :show-slide-data-p
-                      :initform nil
-                      :accessor ein:worksheet--show-slide-data-p)
    (events :initarg :events :accessor ein:worksheet--events)))
 
-
 ;;; Kernel
-(defstruct ein:$kernelspec
+(cl-defstruct ein:$kernelspec
   "Kernel specification as return by the Jupyter notebook server.
 
 `ein:$kernelspec-name' : string
@@ -232,7 +193,8 @@
   Resources, if any, used by the kernel.
 
 `ein:$kernelspec-spec' : plist
-  How to start the kernel from the command line. Not used by ein (yet).
+  How the outside world defines kernelspec:
+  https://ipython.org/ipython-doc/dev/development/kernels.html#kernelspecs
 "
   name
   display-name
@@ -242,33 +204,31 @@
 
 ;; FIXME: Rewrite `ein:$kernel' using `defclass'.  It should ease
 ;;        testing since I can mock I/O using method overriding.
-(defstruct ein:$kernel
-  "Hold kernel variables.
+(cl-defstruct ein:$kernel
+  "Should perhaps be named ein:$session.  We glom session and kernel as defined by the server as just ein:$kernel in the client.
 
-`ein:$kernel-url-or-port'
-  URL or port of IPython server.
 "
   url-or-port
+  path
+  kernelspec
   events
   api-version
   session-id
   kernel-id
   shell-channel
   iopub-channel
-  channels                              ; For IPython 3.x+
+  websocket                             ; For IPython 3.x+
   base-url                              ; /api/kernels/
   kernel-url                            ; /api/kernels/<KERNEL-ID>
   ws-url                                ; ws://<URL>[:<PORT>]
-  stdin-activep
-  running
   username
   msg-callbacks
+  oinfo-cache
   ;; FIXME: Use event instead of hook.
   after-start-hook
   after-execute-hook)
 
 
-
 ;;; Cells
 
 (defclass ein:basecell ()
@@ -281,9 +241,8 @@
    (input :initarg :input :type string
           :documentation "Place to hold data until it is rendered via `ewoc'.")
    (outputs :initarg :outputs :initform nil :type list)
-   (metadata :initarg :metadata :initform nil :type list :accessor ein:cell-metadata) ;; For nbformat >= 4
+   (metadata :initarg :metadata :initform nil :type list :accessor ein:cell-metadata)
    (events :initarg :events :type ein:events)
-   (slidetype :initarg :slidetype :initform "-" :type string)
    (cell-id :initarg :cell-id :initform (ein:utils-uuid) :type string
             :accessor ein:cell-id))
   "Notebook cell base class")
@@ -292,7 +251,7 @@
   ((traceback :initform nil :initarg :traceback :type list)
    (cell-type :initarg :cell-type :initform "code")
    (kernel :initarg :kernel :type ein:$kernel :accessor ein:cell-kernel)
-   (element-names :initform (:prompt :input :output :footer :slidetype))
+   (element-names :initform '(:prompt :input :output :footer))
    (input-prompt-number :initarg :input-prompt-number
                         :documentation "\
 Integer or \"*\" (running state).
@@ -300,33 +259,11 @@ Implementation note:
 Typed `:input-prompt-number' becomes a problem when reading a
 notebook that saved "*".  So don't add `:type'!")
    (collapsed :initarg :collapsed :initform nil :type boolean)
-   (running :initarg :running :initform nil :type boolean)
-   (dynamic :initarg :dynamic :initform nil :type boolean
-            :documentation "\
-Whether cell output is evaluated dynamically or not.
-
-Only Emacs lisp type output data will be affected by this
-slot (Javascript will not be evaluated).  This value must be set
-to `t' when executing cell.  See `ein:notebook-execute-cell'.
-In the implantation of IPython web client it is passed around via
-argument, but since it is difficult to pass argument to EWOC
-pretty printer, `ein:codecell' instance holds this setting in a
-slot.")
-   (autoexec :initarg :autoexec :initform nil :type boolean
-             :documentation "Auto-execution flag.
-
-This cell is executed when the connected buffer is saved,
-provided that (1) this flag is `t' and (2) corresponding
-auto-execution mode flag in the connected buffer is `t'.")))
-
-;; Use this cell to execute hy code in notebook running a Python kernel.
-(defclass ein:hy-codecell (ein:codecell)
-  ((cell-type :initarg :cell-type :initform "hy-code"))
-  "Codecell that supports executing hy code from within a Python kernel.")
+   (running :initarg :running :initform nil :type boolean)))
 
 (defclass ein:textcell (ein:basecell)
   ((cell-type :initarg :cell-type :initform "text")
-   (element-names :initform (:prompt :input :footer :slidetype))))
+   (element-names :initform '(:prompt :input :footer))))
 
 (defclass ein:htmlcell (ein:textcell)
   ((cell-type :initarg :cell-type :initform "html")))
@@ -337,30 +274,17 @@ auto-execution mode flag in the connected buffer is `t'.")))
 (defclass ein:rawcell (ein:textcell)
   ((cell-type :initarg :cell-type :initform "raw")))
 
-(defclass ein:headingcell (ein:textcell)
-  ((cell-type :initarg :cell-type :initform "heading")
-   (level :initarg :level :initform 1)))
-
-
 ;;; Notifications
 
 (defclass ein:notification-status ()
   ((status :initarg :status :initform nil)
    (message :initarg :message :initform nil)
    (s2m :initarg :s2m))
-  "Hold status and it's string representation (message).")
+  "Hold status and its string representation (message).")
 
 (defclass ein:notification-tab ()
   ((get-list :initarg :get-list :type function)
-   (get-current :initarg :get-current :type function)
-   (get-name :initarg :get-name :type function)
-   (get-buffer :initarg :get-buffer :type function)
-   (delete :initarg :delete :type function)
-   (insert-prev :initarg :insert-prev :type function)
-   (insert-next :initarg :insert-next :type function)
-   (move-prev :initarg :move-prev :type function)
-   (move-next :initarg :move-next :type function)
-   )
+   (get-current :initarg :get-current :type function))
   ;; These "methods" are for not depending on what the TABs for.
   ;; Probably I'd want change this to be a separated Emacs lisp
   ;; library at some point.
@@ -378,11 +302,9 @@ auto-execution mode flag in the connected buffer is `t'.")))
     (ein:notification-status
      "NotebookStatus"
      :s2m
-     '((notebook_saving.Notebook       . "Saving Notebook...")
-       (notebook_create_checkpoint.Notebook . "Creating Checkpoint...")
-       (notebook_saved.Notebook        . "Notebook is saved")
-       (notebook_checkpoint_created.Notebook . "Checkpoint created.")
-       (notebook_save_failed.Notebook  . "Failed to save Notebook!")))
+     '((notebook_saving.Notebook       . "Saving notebook...")
+       (notebook_saved.Notebook        . "Notebook saved")
+       (notebook_save_failed.Notebook  . "Failed saving notebook!")))
     :type ein:notification-status)
    (kernel
     :initarg :kernel
@@ -391,12 +313,16 @@ auto-execution mode flag in the connected buffer is `t'.")))
      "KernelStatus"
      :s2m
      '((status_idle.Kernel . nil)
-       (status_busy.Kernel . "Kernel is busy...")
-       (status_dead.Kernel . "Kernel is dead. Need restart.")))
+       (status_busy.Kernel . "Kernel busy...")
+       (status_restarting.Kernel . "Kernel restarting...")
+       (status_restarted.Kernel . "Kernel restarted")
+       (status_dead.Kernel . "Kernel requires restart \\<ein:notebook-mode-map>\\[ein:notebook-restart-session-command-km]")
+       (status_reconnecting.Kernel . "Kernel reconnecting...")
+       (status_reconnected.Kernel . "Kernel reconnected")
+       (status_disconnected.Kernel . "Kernel requires reconnect \\<ein:notebook-mode-map>\\[ein:notebook-reconnect-session-command-km]")))
     :type ein:notification-status))
   "Notification widget for Notebook.")
 
-
 ;;; Events
 
 (defclass ein:events ()

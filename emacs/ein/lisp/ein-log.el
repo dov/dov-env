@@ -1,4 +1,4 @@
-;;; ein-log.el --- Logging module for ein.el
+;;; ein-log.el --- Logging module for ein.el    -*- lexical-binding:t -*-
 
 ;; Copyright (C) 2012- Takafumi Arakaki
 
@@ -25,9 +25,7 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
 (require 'ein-core)
-
 
 (defvar ein:log-all-buffer-name "*ein:log-all*")
 
@@ -48,7 +46,6 @@
 (defvar ein:log-print-level 1 "`print-level' for `ein:log'")
 (defvar ein:log-max-string 1000)
 
-
 (defun ein:log-set-level (level)
   (setq ein:log-level (ein:log-level-name-to-int level)))
 
@@ -56,7 +53,7 @@
   (setq ein:log-message-level (ein:log-level-name-to-int level)))
 
 (defun ein:log-level-int-to-name (int)
-  (loop for (n . i) in ein:log-level-def
+  (cl-loop for (n . i) in ein:log-level-def
         when (>= int i)
         return n
         finally 'error))
@@ -64,13 +61,16 @@
 (defun ein:log-level-name-to-int (name)
   (cdr (assq name ein:log-level-def)))
 
+(defsubst ein:log-strip-timestamp (msg)
+  (replace-regexp-in-string "^[0-9: ]+" "" msg))
+
 (defun ein:log-wrapper (level func)
   (setq level (ein:log-level-name-to-int level))
   (when (<= level ein:log-level)
     (let* ((levname (ein:log-level-int-to-name level))
            (print-level ein:log-print-level)
            (print-length ein:log-print-length)
-           (msg (format "[%s] %s"  levname (funcall func)))
+           (msg (format "%s: [%s] %s" (format-time-string "%H:%M:%S:%3N") levname (funcall func)))
            (orig-buffer (current-buffer)))
       (if (and ein:log-max-string
                (> (length msg) ein:log-max-string))
@@ -79,29 +79,33 @@
         (goto-char (point-max))
         (insert msg (format " @%S" orig-buffer) "\n"))
       (when (<= level ein:log-message-level)
-        (message "ein: %s" msg)))))
+        (message "ein: %s" (ein:log-strip-timestamp msg))))))
+
+(make-obsolete-variable 'ein:debug nil "0.17.0")
 
 (defmacro ein:log (level string &rest args)
   (declare (indent 1))
   `(ein:log-wrapper ,level (lambda () (format ,string ,@args))))
 
-;; FIXME: this variable must go to somewhere more central
-(defvar ein:debug nil
+(defsubst ein:debug-p ()
   "Set to non-`nil' to raise errors instead of suppressing it.
-Change the behavior of `ein:log-ignore-errors'.")
+Change the behavior of `ein:log-ignore-errors'."
+  (>= ein:log-level (alist-get 'debug ein:log-level-def)))
 
-(defmacro ein:log-ignore-errors (&rest body)
-  "Execute BODY; if an error occurs, log the error and return nil.
-Otherwise, return result of last form in BODY."
-  (declare (debug t) (indent 0))
-  `(if ein:debug
-       (progn ,@body)
-     (condition-case err
-         (progn ,@body)
-       (error
-        (ein:log 'debug "Error: %S" err)
-        (ein:log 'error (error-message-string err))
-        nil))))
+(defun ein:log-pop-to-ws-buffer ()
+  (interactive)
+  (-if-let* ((kernel (ein:get-kernel--notebook))
+             (websocket (ein:$kernel-websocket kernel)))
+      (pop-to-buffer
+       (websocket-get-debug-buffer-create
+        (ein:$websocket-ws websocket)))
+    (message "Must be run from notebook buffer")))
+
+(defun ein:log-pop-to-request-buffer ()
+  (interactive)
+  (aif (get-buffer request-log-buffer-name)
+      (pop-to-buffer it)
+    (message "No buffer %s" request-log-buffer-name)))
 
 (defun ein:log-pop-to-all-buffer ()
   (interactive)

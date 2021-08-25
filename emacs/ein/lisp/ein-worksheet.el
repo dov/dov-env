@@ -1,4 +1,4 @@
-;;; ein-worksheet.el --- Worksheet module
+;;; ein-worksheet.el --- Worksheet module    -*- lexical-binding:t -*-
 
 ;; Copyright (C) 2012 Takafumi Arakaki
 
@@ -26,7 +26,6 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
 (require 'eieio)
 (require 'ewoc)
 
@@ -34,84 +33,89 @@
 (require 'ein-utils)
 (require 'ein-cell)
 (require 'ein-kill-ring)
+(require 'warnings)
+(require 'poly-ein)
+(require 'seq)
 
-
 ;;; Configuration
 
 ;; (define-obsolete-variable-alias
 ;;   'ein:notebook-enable-undo 'ein:worksheet-enable-undo "0.2.0")
 
-(defcustom ein:worksheet-show-slide-data nil
-  "Controls whether to show slide metadata by default when
-  opening or creating worksheets. Note that viewing of slide
-  metadata can be toggled in an open worksheet using the command
-  C-cS."
+(defconst ein:worksheet--max-buffer-undo-list-length 2000
+  "Emacs gc's buffer-undo-list at `undo-limit` size *bytes* which
+we can't know in elisp-space.  So conservatively prune buffer-undo-list
+at a certain length (which at time of writing is 2000).
+
+Alas, this is bound to fail eventually (a big change drives gc while
+buffer-undo-list is still under the threshold.")
+
+(defcustom ein:worksheet-warn-obsolesced-keybinding t
+  "Warn of keybindings we arbitrarily obsolesce."
   :type 'boolean
   :group 'ein)
 
-(defcustom ein:worksheet-enable-undo nil
+(defcustom ein:worksheet-enable-undo t
   "When non-`nil', allow undo of cell inputs only (as opposed to
   whole-cell operations such as killing, moving, executing cells).
- 
+
   Changes to this variable only take effect for newly opened worksheets."
   :type 'boolean
   :group 'ein)
 
-
-
 (ein:deflocal buffer-local-enable-undo t
-  "Buffer local variable with activating undo accounting.  Should not modify.")
+  "Buffer local variable activating undo accounting.  Should not modify.")
 
-(ein:deflocal ein:%cell-lengths% '()
+(ein:deflocal ein:%cell-lengths% nil
   "Buffer local variable with buffer-undo-list's current knowledge of cell lengths.")
 
-(ein:deflocal ein:%which-cell% '()
-  "Buffer local variable one-to-one cell-id corresponding buffer-undo-list item.")
+(ein:deflocal ein:%which-cell% nil
+  "Buffer local variable one-to-one buffer-undo-list item to cell id.")
 
 (defsubst ein:worksheet--unique-enough-cell-id (cell)
-  "Gets the first five characters of an md5sum.  How far I can get without r collisions follow a negative binomial with p=1e-6 (should go pretty far)."
-  (intern (substring (oref cell :cell-id) 0 5)))
+  "Gets the first five characters of an md5sum.  How far I can get without r collisions follows a negative binomial with p=1e-6 (should go pretty far)."
+  (intern (substring (slot-value cell 'cell-id) 0 5)))
 
-(defsubst delete-if (clause lst)
-  (delete-if-not (lambda (u) (not (funcall clause u))) lst))
+(defun ein:worksheet--which-cell-hook (change-beg change-end _prev-len)
+  "Hook important for undo thats runs for everything we type (an after-change-functions hook).
 
-(defun ein:worksheet--which-cell-hook (change-beg change-end prev-len)
-  (when (and (not (null buffer-undo-list)) (listp buffer-undo-list))
-    (setq buffer-undo-list (delete-if (lambda (u) (or (numberp u) (and (consp u) (markerp (car u))))) buffer-undo-list))
+Normalize `buffer-undo-list' by removing extraneous details, and update the ein:%which-cell% ledger that associates changes in `buffer-undo-list' with individual cells."
+  (when (and buffer-undo-list (listp buffer-undo-list))
+    (setq buffer-undo-list (cl-delete-if (lambda (u) (or (numberp u) (and (consp u) (markerp (car u))))) buffer-undo-list))
     (let ((fill (- (length buffer-undo-list) (length ein:%which-cell%))))
       (if (< fill 0)
           (progn
             (ein:log 'debug "truncating %s to %s: %S -> %S" (length ein:%which-cell%) (length buffer-undo-list) ein:%which-cell% (nthcdr (- fill)  ein:%which-cell%))
             (setq ein:%which-cell% (nthcdr (- fill)  ein:%which-cell%)))
         (when (> fill 0)
-          (let ((cell-id (ein:aif (ein:worksheet-get-current-cell :noerror t)
+          (let ((cell-id (aif (ein:worksheet-get-current-cell :noerror t)
                              (ein:worksheet--unique-enough-cell-id it) nil)))
             (let ((ein:log-print-level 5))
-              (ein:log 'debug "which-cell (%s . %s) %s %S fill=%s" change-beg change-end cell-id (subseq buffer-undo-list 0 fill) fill))
-            (setq ein:%which-cell% 
+              (ein:log 'debug "which-cell (%s . %s) %s %S fill=%s" change-beg change-end cell-id (cl-subseq buffer-undo-list 0 fill) fill))
+            (setq ein:%which-cell%
                   (nconc (make-list fill cell-id) ein:%which-cell%))))))))
 
 (defun ein:worksheet--next-cell-start (cell)
   (let ((cell1 (ein:cell-next cell)))
-    (if cell1 
+    (if cell1
         (ein:worksheet--element-start cell1 :prompt)
       (ein:with-live-buffer (ein:cell-buffer cell) (point-max)))))
 
 (defun ein:worksheet--element-start (cell key &optional cached)
   (if cached
-      (plist-get (nth 4 (plist-get ein:%cell-lengths% (oref cell :cell-id))) key)
+      (plist-get (nth 4 (plist-get ein:%cell-lengths% (slot-value cell 'cell-id))) key)
     (let ((node (ein:cell-element-get cell key (if (eq key :output) 0))))
-      (if node 
+      (if node
           (marker-position (ewoc-location node))
         (if (eq key :output)
             (ein:worksheet--element-start cell :footer))))))
-  
+
 (defsubst ein:worksheet--saved-input-length (cell)
-  (or (fourth (plist-get ein:%cell-lengths% (oref cell :cell-id))) 0))
+  (or (cl-fourth (plist-get ein:%cell-lengths% (slot-value cell 'cell-id))) 0))
 
 (defsubst ein:worksheet--prompt-length (cell &optional cached)
   (if cached
-      (or (first (plist-get ein:%cell-lengths% (oref cell :cell-id))) 0)
+      (or (cl-first (plist-get ein:%cell-lengths% (slot-value cell 'cell-id))) 0)
     ;; 1+ for newline
     (1+ (- (ein:worksheet--element-start cell :input)
            (ein:worksheet--element-start cell :prompt)))))
@@ -119,18 +123,20 @@
 (defsubst ein:worksheet--output-length (cell &optional cached)
   (if cached
       ;; 1 for when cell un-executed, there is still a newline
-      (or (second (plist-get ein:%cell-lengths% (oref cell :cell-id))) 1)
-    (- (ein:worksheet--next-cell-start cell)
-       (ein:worksheet--element-start cell (if (string= (oref cell :cell-type) "code") :output :footer)))))
+      (or (cl-second (plist-get ein:%cell-lengths% (slot-value cell 'cell-id))) 1)
+    (if (string= (slot-value cell 'cell-type) "code")
+      (- (ein:worksheet--next-cell-start cell)
+         (ein:worksheet--element-start cell :output))
+      0)))
 
 (defsubst ein:worksheet--total-length (cell &optional cached)
   (if cached
-      (or (third (plist-get ein:%cell-lengths% (oref cell :cell-id))) 0)
+      (or (cl-third (plist-get ein:%cell-lengths% (slot-value cell 'cell-id))) 0)
     (- (ein:worksheet--next-cell-start cell)
        (ein:worksheet--element-start cell :prompt))))
 
 (defun ein:worksheet--update-cell-lengths (cell &optional saved-input-length)
-  (setq ein:%cell-lengths% (plist-put ein:%cell-lengths% (oref cell :cell-id) 
+  (setq ein:%cell-lengths% (plist-put ein:%cell-lengths% (slot-value cell 'cell-id)
                                       (list (ein:worksheet--prompt-length cell)
                                             (ein:worksheet--output-length cell)
                                             (ein:worksheet--total-length cell)
@@ -140,7 +146,7 @@
 (defmacro hof-add (distance)
 "Return function that adds signed DISTANCE those undo elements.  'hof' refers to higher-order function,"
   `(lambda (u)
-     (cond ((numberp u) 
+     (cond ((numberp u)
             (+ u ,distance))
            ((and (consp u) (numberp (car u)) (numberp (cdr u)))
             (cons (+ ,distance (car u))
@@ -150,22 +156,23 @@
                   (* (if (< (cdr u) 0) -1 1) (+ ,distance (abs (cdr u))))))
            ((and (consp u) (markerp (car u)))
             (let ((mp (marker-position (car u))))
-              (if (not (null mp))
-                  (let* ((m (set-marker (make-marker) (+ ,distance mp) (marker-buffer (car u)))))
-                    (cons m (cdr u))) u)))
-           ((and (consp u) (null (car u)) 
+              (if mp
+                  (let ((m (set-marker (make-marker) (+ ,distance mp) (marker-buffer (car u)))))
+                    (cons m (cdr u)))
+                u)))
+           ((and (consp u) (null (car u))
                  (numberp (car (last u))) (numberp (cdr (last u))))
-            (append (subseq u 0 3)
+            (append (cl-subseq u 0 3)
                     (cons (+ ,distance (car (last u)))
                           (+ ,distance (cdr (last u))))))
-           ((and (consp u) (eq (car u) 'apply) 
+           ((and (consp u) (eq (car u) 'apply)
                  (numberp (nth 2 u)) (numberp (nth 3 u)))
-            (append (subseq u 0 2) 
+            (append (cl-subseq u 0 2)
                     (list (+ ,distance (nth 2 u)))
-                    (list (+ ,distance (nth 3 u))) 
+                    (list (+ ,distance (nth 3 u)))
                     (nthcdr 4 u)))
            (t u))))
-    
+
 (defun ein:worksheet--get-ids-after (cell)
   (let ((cell0 cell) result)
     (while (ein:cell-next cell0)
@@ -173,51 +180,110 @@
       (setq cell0 (ein:cell-next cell0)))
     result))
 
-(defun ein:worksheet--jigger-undo-list ()
-  (if (/= (length buffer-undo-list) (length ein:%which-cell%))
-      (ein:log 'debug "jig %s to %s: %S %S" (length ein:%which-cell%) (length buffer-undo-list) buffer-undo-list ein:%which-cell%))
-  (let ((fill (- (length buffer-undo-list) (length ein:%which-cell%))))
-    (if (> (abs fill) 1)
-        (error "show stopper %s %s | %s" buffer-undo-list ein:%which-cell%)
-      (if (< fill 0)
-          (setq ein:%which-cell% (nthcdr (- fill)  ein:%which-cell%))
-        (if (> fill 0)
-            (setq ein:%which-cell%
-                  (nconc (make-list fill (car ein:%which-cell%))
-                         ein:%which-cell%))))))
-  (cl-assert (= (length buffer-undo-list) (length ein:%which-cell%))))
+(defun ein:worksheet--jigger-undo-list (&optional change-cell-id)
+  "Nobody said it was easy.  No one ever said it would be this hard. -- Martin et al."
+  (cl-assert (listp buffer-undo-list))
+  (let ((len-buffer-undo-list (length buffer-undo-list))
+	(len-which-cell (length ein:%which-cell%)))
+    (when (/= len-buffer-undo-list len-which-cell)
+      (ein:log 'debug "jig %s to %s: %S %S"
+	       len-which-cell len-buffer-undo-list
+	       buffer-undo-list ein:%which-cell%))
+    (-when-let* ((old-cell-id (car change-cell-id))
+		 (new-cell-id (cdr change-cell-id))
+		 (changed-p (not (eq old-cell-id new-cell-id))))
+      (setq ein:%which-cell% (-replace old-cell-id new-cell-id ein:%which-cell%)))
+    (let (multiple-cursors-p
+	  (fill (- len-buffer-undo-list len-which-cell)))
+      (cond ((and
+	      (> (abs fill) 1)
+	      (not (setq multiple-cursors-p
+			 (cl-some
+			  (lambda (entry)
+			    (cl-flet ((check
+				       (entry bogey)
+				       (and (listp entry)
+					    (not (atom (cdr entry)))
+					    (eq (nth 1 entry) bogey))))
+			      (or (check entry 'activate-cursor-for-undo)
+				  (check entry 'deactivate-cursor-after-undo))))
+			  (cl-subseq buffer-undo-list 0 (min len-buffer-undo-list 30))))))
+	     (let ((msg (format "Undo failure diagnostic %s %s | %s"
+				buffer-undo-list ein:%which-cell% fill))
+		   (pm-allow-post-command-hook nil))
+	       (setq ein:worksheet-enable-undo nil)
+	       (ein:worksheet-undo-setup ein:%worksheet%)
+	       (when pm/polymode
+		 (dolist (b (eieio-oref pm/polymode '-buffers))
+		   (when (buffer-live-p b)
+		     (poly-ein--copy-state (ein:worksheet--get-buffer ein:%worksheet%) b))))
+	       (ein:display-warning msg :error)
+	       (error "ein:worksheet--jigger-undo-list: aborting")))
+	    ((< fill 0)
+	     (setq ein:%which-cell% (nthcdr (- fill) ein:%which-cell%)))
+	    ((> fill 0)
+	     (when (and (> fill 1) multiple-cursors-p)
+	       (ein:log 'debug "multiple-cursors-mode exception fill %s" fill))
+	     (setq ein:%which-cell% (nconc (make-list fill (car ein:%which-cell%))
+				       ein:%which-cell%)))))
+    (let ((len-a (length buffer-undo-list))
+          (len-b (length ein:%which-cell%))
+          (limit ein:worksheet--max-buffer-undo-list-length))
+      (cl-assert (= len-a len-b) t
+	         "ein:worksheet--jigger-undo-list %d != %d" len-a len-b)
+      (when (> len-a limit)
+        (setq buffer-undo-list (seq-take buffer-undo-list limit)
+              ein:%which-cell% (seq-take ein:%which-cell% limit))
+        (ein:log 'debug "ein:worksheet--jigger-undo-list: trim from %s to %s in %s"
+                 len-a limit (buffer-name))))))
 
-(defun ein:worksheet--unshift-undo-list (cell &optional exogenous-input)
-  "Adjust `buffer-undo-list' for adding CELL.  Unshift in list parlance means prepending to list."
+(defun ein:worksheet--unshift-undo-list (cell &optional exogenous-input old-cell)
+  "Adjust `buffer-undo-list' for adding CELL.
+Unshift in list parlance means prepending to list."
+  (unless old-cell
+    (setq old-cell cell))
   (when buffer-local-enable-undo
     (ein:with-live-buffer (ein:cell-buffer cell)
-      (let* ((opl (ein:worksheet--prompt-length cell t))
-             (ool (ein:worksheet--output-length cell t))
-             (otl (ein:worksheet--total-length cell t))
-             (npl (ein:worksheet--prompt-length cell))
-             (nol (ein:worksheet--output-length cell))
-             (ntl (ein:worksheet--total-length cell))
-             (pdist (- npl opl))
-             (odist (- nol ool))
-             (after-ids (ein:worksheet--get-ids-after cell))
-             (func-same-cell (hof-add pdist))
-             (func-after-cell (hof-add (if (zerop otl) ntl (+ pdist odist))))
-             lst)
-        (ein:log 'debug "unsh trig=%s pdist=%s odist=%s otl=%s ntl=%s" (ein:worksheet--unique-enough-cell-id cell) pdist odist otl ntl)
-        (ein:worksheet--jigger-undo-list)
-        (dolist (uc (mapcar* 'cons buffer-undo-list ein:%which-cell%))
-          (let ((u (car uc))
-                (cell-id (or (cdr uc) "")))
-            (if (string= (ein:worksheet--unique-enough-cell-id cell) cell-id)
-                (setq lst (nconc lst (list (funcall func-same-cell u))))
-              (if (plist-member after-ids cell-id)
-                  (progn
-                    (ein:log 'debug "unsh adj %s %s" u cell-id)
-                    (setq lst (nconc lst (list (funcall func-after-cell u)))))
-                (setq lst (nconc lst (list u)))))))
-        (cl-assert (= (length buffer-undo-list) (length lst)))
-        (setq buffer-undo-list lst)
-        (ein:worksheet--update-cell-lengths cell exogenous-input)))))
+      (if (listp buffer-undo-list)
+          (let* ((opl (ein:worksheet--prompt-length old-cell t))
+                 (ool (ein:worksheet--output-length old-cell t))
+                 (otl (ein:worksheet--total-length old-cell t))
+                 (npl (ein:worksheet--prompt-length cell))
+                 (nol (ein:worksheet--output-length cell))
+                 (ntl (ein:worksheet--total-length cell))
+                 (pdist (- npl opl))
+                 (odist (- nol ool))
+                 (has-output (memq :output (slot-value cell 'element-names)))
+                 (old-has-output (memq :output (slot-value old-cell 'element-names)))
+                 (converted-newline (if (eq has-output old-has-output) 0
+                                      (if has-output -1 1)))
+                 (after-ids (ein:worksheet--get-ids-after cell))
+                 (func-same-cell (hof-add pdist))
+                 (func-after-cell (hof-add (if (zerop otl)
+                                               ntl (+ pdist odist converted-newline))))
+                 lst)
+            (ein:log 'debug "unsh trig=%s pdist=%s odist=%s otl=%s ntl=%s conv=%s"
+                     (ein:worksheet--unique-enough-cell-id cell) pdist odist otl ntl converted-newline)
+            (ein:worksheet--jigger-undo-list
+             (cons (ein:worksheet--unique-enough-cell-id old-cell)
+                   (ein:worksheet--unique-enough-cell-id cell)))
+            (dolist (uc (cl-mapcar #'cons buffer-undo-list ein:%which-cell%))
+              (let ((u (car uc))
+                    (cell-id (or (cdr uc) "")))
+                (if (string= (ein:worksheet--unique-enough-cell-id cell) cell-id)
+                    (push (funcall func-same-cell u) lst)
+                  (if (plist-member after-ids cell-id)
+                      (progn
+                        (ein:log 'debug "unsh adj %s %s" u cell-id)
+                        (push (funcall func-after-cell u) lst))
+                    (push u lst)))))
+            (cl-assert (= (length buffer-undo-list) (length lst)) t
+                       "ein:worksheet--unshift-undo-list %d != %d"
+                       (length buffer-undo-list) (length lst))
+            (setq buffer-undo-list (nreverse lst))
+            (ein:worksheet--update-cell-lengths cell exogenous-input))
+        (ein:log 'debug "ein:worksheet--unshift-undo-list: buffer-undo-list %s in %s"
+                 buffer-undo-list (ein:cell-buffer cell))))))
 
 (defun ein:worksheet--calc-offset (u)
   "Return length of inserted (or uninserted) text corresponding to undo entry U."
@@ -231,56 +297,51 @@
   "Adjust `buffer-undo-list' for deleting CELL.  Shift in list parlance means removing the front."
   (when buffer-local-enable-undo
     (ein:with-live-buffer (ein:cell-buffer cell)
-      (let* ((pdist (ein:worksheet--prompt-length cell))
-             (odist (ein:worksheet--output-length cell))
-             (sdist (ein:worksheet--saved-input-length cell))
-             (after-ids (ein:worksheet--get-ids-after cell))
-             (offset 0)
-             lst wc)
-        (ein:log 'debug "shft trig=%s pdist=%s odist=%s sdist=%s" (ein:worksheet--unique-enough-cell-id cell) pdist odist sdist)
-        (ein:worksheet--jigger-undo-list)
-        ;; Deletion of a less recent undo affects a more recent undo (arrow of time)
-        ;; Since buffer-undo-list is ordered most to least recent, we must
-        ;; reverse.
-        (dolist (uc (nreverse (mapcar* 'cons buffer-undo-list ein:%which-cell%)))
-          (let ((u (car uc))
-                (cell-id (or (cdr uc) "")))
-            (if (string= (ein:worksheet--unique-enough-cell-id cell) cell-id)
-                (progn
-                  (setq offset (+ offset (ein:worksheet--calc-offset u)))
-                  (ein:log 'debug "shft del %s (%s) %s" u (ein:worksheet--calc-offset u) cell-id))
-              (setq wc (nconc wc (list (cdr uc))))
-              (if (plist-member after-ids cell-id)
-                  (progn
-                    (ein:log 'debug "shft adj %s %s" u cell-id)
-                    ;; 1 for when cell un-executed, there is still a newline
-                    (setq lst (nconc lst (list (funcall (hof-add (- (+ 1 offset pdist odist sdist))) u)))))
-                (setq lst (nconc lst (list u)))))))
-        (setq buffer-undo-list (nreverse lst))
-        (setq ein:%which-cell% (nreverse wc))
-        (ein:worksheet--jigger-undo-list)
-        (remprop 'ein:%cell-lengths% (oref cell :cell-id))))))
-
-
-;;; Class and variable
-
-(defvar ein:worksheet-buffer-name-template "*ein: %s/%s*")
+      (if (listp buffer-undo-list)
+          (let* ((pdist (ein:worksheet--prompt-length cell))
+                 (odist (ein:worksheet--output-length cell))
+                 (sdist (ein:worksheet--saved-input-length cell))
+                 (after-ids (ein:worksheet--get-ids-after cell))
+                 (offset 0)
+                 lst wc)
+            (ein:log 'debug "shft trig=%s pdist=%s odist=%s sdist=%s" (ein:worksheet--unique-enough-cell-id cell) pdist odist sdist)
+            (ein:worksheet--jigger-undo-list)
+            ;; Deletion of a less recent undo affects a more recent undo (arrow of time)
+            ;; Since buffer-undo-list is ordered most to least recent, we must
+            ;; reverse.
+            (dolist (uc (nreverse (cl-mapcar #'cons buffer-undo-list ein:%which-cell%)))
+              (let ((u (car uc))
+                    (cell-id (or (cdr uc) "")))
+                (if (string= (ein:worksheet--unique-enough-cell-id cell) cell-id)
+                    (progn
+                      (setq offset (+ offset (ein:worksheet--calc-offset u)))
+                      (ein:log 'debug "shft del %s (%s) %s" u (ein:worksheet--calc-offset u) cell-id))
+                  (push (cdr uc) wc)
+                  (if (plist-member after-ids cell-id)
+                      (progn
+                        (ein:log 'debug "shft adj %s %s" u cell-id)
+                        ;; 1 for when cell un-executed, there is still a newline
+                        (push (funcall (hof-add (- (+ 1 offset pdist odist sdist))) u) lst))
+                    (push u lst)))))
+            (setq buffer-undo-list lst)
+            (setq ein:%which-cell% wc)
+            (ein:worksheet--jigger-undo-list)
+            (cl-remprop 'ein:%cell-lengths% (slot-value cell 'cell-id)))
+        (ein:log 'debug "ein:worksheet--shift-undo-list: buffer-undo-list %s in %s"
+                 buffer-undo-list (ein:cell-buffer cell))))))
 
 (ein:deflocal ein:%worksheet% nil
   "Buffer local variable to store an instance of `ein:worksheet'.")
 
-
-;;; Initialization of object and buffer
-
-(defun ein:worksheet-new (nbformat get-notebook-name discard-output-p
-                                   kernel events &rest args)
+(defun ein:worksheet-new (nbformat notebook-path kernel events &rest args)
   (apply #'make-instance 'ein:worksheet
-         :nbformat nbformat :get-notebook-name get-notebook-name
-         :discard-output-p discard-output-p :kernel kernel :events events
-         :show-slide-data-p ein:worksheet-show-slide-data
+         :nbformat nbformat
+	 :notebook-path notebook-path
+         :kernel kernel
+	 :events events
          args))
 
-(defmethod ein:worksheet-bind-events ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-bind-events ((ws ein:worksheet))
   (with-slots (events) ws
     ;; Bind events for sub components:
     (mapc (lambda (cell) (setf (slot-value cell 'events) events))
@@ -290,14 +351,14 @@
   "Binds event handlers which are not needed to be bound per instance."
   (ein:events-on events
                  'maybe_reset_undo.Worksheet
-                 (lambda (-ignore- cell)
+                 (lambda (_ignore cell)
                    (ein:worksheet--unshift-undo-list cell)))
   (ein:events-on events 'set_next_input.Worksheet
                  #'ein:worksheet--set-next-input)
   (ein:events-on events 'set_dirty.Worksheet #'ein:worksheet--set-dirty))
 
-(defun ein:worksheet--set-next-input (-ignore- data)
-  (destructuring-bind (&key cell text) data
+(defun ein:worksheet--set-next-input (_ignore data)
+  (cl-destructuring-bind (&key cell text) data
     (ein:with-live-buffer (ein:cell-buffer cell)
       (ein:and-let* ((ws ein:%worksheet%)
                      (new-cell
@@ -305,90 +366,93 @@
         (ein:cell-set-text new-cell text)
         (setf (slot-value ws 'dirty) t)))))
 
-(defun ein:worksheet--set-dirty (-ignore- data)
+(defun ein:worksheet--set-dirty (_ignore data)
   "Set dirty flag of worksheet in which CELL in DATA locates."
-  (destructuring-bind (&key value cell) data
+  (cl-destructuring-bind (&key value cell) data
     (ein:with-live-buffer (ein:cell-buffer cell)
       (ein:worksheet-set-modified-p ein:%worksheet% value))))
 
-(defmethod ein:worksheet-notebook-name ((ws ein:worksheet))
-  (ein:funcall-packed (ein:worksheet--notebook-name ws)))
+(cl-defmethod ein:worksheet-notebook-path ((ws ein:worksheet))
+  (funcall (ein:worksheet--notebook-path ws)))
 
-(defmethod ein:worksheet-url-or-port ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-url-or-port ((ws ein:worksheet))
   (ein:kernel-url-or-port (ein:worksheet--kernel ws)))
 
-(defmethod ein:worksheet-name ((ws ein:worksheet))
-  (plist-get (ein:worksheet--metadata ws) :name))
-
-(defmethod ein:worksheet-set-name ((ws ein:worksheet) name)
-  "Set worksheet name.
-
-\(fn ws name)"
-  (assert (stringp name) nil "NAME must be a string.  Got: %S" name)
-  (setf (ein:worksheet--metadata ws) (plist-put (ein:worksheet--metadata ws) :name name)))
-
-(defmethod ein:worksheet-full-name ((ws ein:worksheet))
-  (let ((nb-name (ein:worksheet-notebook-name ws)))
-    (ein:aif (ein:worksheet-name ws)
-        (concat nb-name "/" it)
-      nb-name)))
-
-(defmethod ein:worksheet-buffer ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-buffer ((ws ein:worksheet))
   (ein:and-let* (((slot-boundp ws :ewoc))
                  (ewoc (ein:worksheet--ewoc ws))
                  (buffer (ewoc-buffer ewoc))
                  ((buffer-live-p buffer)))
     buffer))
 
-(defmethod ein:worksheet--buffer-name ((ws ein:worksheet))
-  (format ein:worksheet-buffer-name-template
-          (ein:worksheet-url-or-port ws)
-          (ein:worksheet-full-name ws)))
+(cl-defmethod ein:worksheet--buffer-name ((ws ein:worksheet))
+  (format "*ein: %s/%s*" (ein:worksheet-url-or-port ws) (ein:worksheet-notebook-path ws)))
 
-(defmethod ein:worksheet--get-buffer ((ws ein:worksheet))
+(cl-defmethod ein:worksheet--get-buffer ((ws ein:worksheet))
   (or (ein:worksheet-buffer ws)
-      (generate-new-buffer (ein:worksheet--buffer-name ws))))
+      (with-current-buffer (generate-new-buffer (ein:worksheet--buffer-name ws))
+        (let ((buffer-undo-list t))
+          (setf (ein:worksheet--ewoc ws)
+                (ein:ewoc-create 'ein:worksheet-pp
+                                 (ein:propertize-read-only "\n")
+                                 nil t))
+          (current-buffer)))))
 
-(defmethod ein:worksheet-set-buffer-name ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-set-buffer-name ((ws ein:worksheet))
   (ein:with-live-buffer (ein:worksheet-buffer ws)
-    (rename-buffer (ein:worksheet--buffer-name ws) t)))
+    (dolist (b (or (and pm/polymode (eieio-oref pm/polymode '-buffers))
+                   (list (current-buffer))))
+      (ein:with-live-buffer b
+        (let* ((base-name (ein:worksheet--buffer-name ws))
+               (impl-name
+                (and pm/polymode
+                     (not (eq (pm-base-buffer) (current-buffer)))
+                     (format "%s%s[%s]" (if pm-hide-implementation-buffers " " "")
+                             base-name
+                             (replace-regexp-in-string
+                              "poly-\\|-mode" ""
+                              (symbol-name
+                               (pm--get-existing-mode
+                                (eieio-oref pm/chunkmode 'mode)
+                                (eieio-oref pm/chunkmode 'fallback-mode)))))))
+               (new-name (or impl-name base-name)))
+          (unless (string= new-name (buffer-name b))
+            (rename-buffer new-name)))))))
 
-(defmethod ein:worksheet-set-modified-p ((ws ein:worksheet) dirty)
+(cl-defmethod ein:worksheet-set-modified-p ((ws ein:worksheet) dirty)
   (ein:with-live-buffer (ein:worksheet-buffer ws)
     (set-buffer-modified-p dirty))
   (setf (slot-value ws 'dirty) dirty))
 
-(defun ein:worksheet-toggle-slideshow-view ()
-  "Changes the display of
- slideshow metadata in the current worksheet."
-  (interactive)
-  (let ((ws (ein:worksheet--get-ws-or-error)))
-    (setf (ein:worksheet--show-slide-data-p ws)
-          (not (ein:worksheet--show-slide-data-p ws)))
-    (ein:worksheet-render ws)))
+(cl-defmethod ein:worksheet-undo-setup ((ws ein:worksheet))
+  (with-current-buffer (ein:worksheet--get-buffer ws)
+    (setq buffer-local-enable-undo ein:worksheet-enable-undo)
+    (let ((undo-binding (key-binding (kbd "C-/"))))
+      (if buffer-local-enable-undo
+          (unless (eq undo-binding 'undo)
+            (setq buffer-local-enable-undo nil)
+            (ein:display-warning-once (format "Disabling undo for %s" undo-binding)))))
+    (ein:worksheet-reinstall-undo-hooks ws)
+    (if buffer-local-enable-undo
+        (progn
+          (setq buffer-undo-list nil)
+          (setq ein:%which-cell% nil)
+          (setq ein:%cell-lengths% nil))
+      (setq buffer-undo-list t))))
 
-(defmethod ein:worksheet-render ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-reinstall-undo-hooks ((ws ein:worksheet))
+  (with-current-buffer (ein:worksheet--get-buffer ws)
+    (if buffer-local-enable-undo
+        (add-hook 'after-change-functions 'ein:worksheet--which-cell-hook nil t)
+      (remove-hook 'after-change-functions 'ein:worksheet--which-cell-hook t))))
+
+(cl-defmethod ein:worksheet-render ((ws ein:worksheet))
   (with-current-buffer (ein:worksheet--get-buffer ws)
     (setq ein:%worksheet% ws)
-
-    (when buffer-local-enable-undo
-      (setq buffer-undo-list nil)
-      (setq ein:%which-cell% nil)
-      (setq ein:%cell-lengths% nil))
-
-    (setq buffer-local-enable-undo ein:worksheet-enable-undo)
-    (if (not buffer-local-enable-undo)
-        (setq buffer-undo-list t))
-
-    (ein:worksheet-reinstall-which-cell-hook)
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (let ((ewoc (let ((buffer-undo-list t))
-                    (ein:ewoc-create 'ein:worksheet-pp
-                                     (ein:propertize-read-only "\n")
-                                     nil t)))
-            (cells (ein:worksheet--saved-cells ws)))
-        (setf (ein:worksheet--ewoc ws) ewoc)
+    (ein:worksheet-undo-setup ws)
+    (let ((inhibit-read-only t)
+          (ewoc (ein:worksheet--ewoc ws)))
+      (let ((cells (ein:worksheet--saved-cells ws)))
         (if cells
             (let ((buffer-undo-list t))
               (mapc (lambda (c)
@@ -400,52 +464,45 @@
           (ein:worksheet-insert-cell-below ws 'code nil t))))
     (set-buffer-modified-p nil)
     (ein:worksheet-bind-events ws)
-    (ein:worksheet-set-kernel ws)
-    (ein:gc-complete-operation)
-    (ein:log 'info "Worksheet %s is ready" (ein:worksheet-full-name ws))))
+    (ein:worksheet-set-kernel ws)))
 
 (defun ein:worksheet-pp (ewoc-data)
+  "Consider disabling `buffer-undo-list' here instead of `ein:cell--ewoc-invalidate'
+which is probably unnecessarily 'surgical'."
   (let ((path (ein:$node-path ewoc-data))
         (data (ein:$node-data ewoc-data)))
-    (case (car path)
+    (cl-case (car path)
       (cell (ein:cell-pp (cdr path) data)))))
 
-
-;;; Persistance and loading
-
-(defmethod ein:worksheet-from-json ((ws ein:worksheet) data)
-  (destructuring-bind (&key cells metadata &allow-other-keys) data
+(cl-defmethod ein:worksheet-from-json ((ws ein:worksheet) data)
+  (cl-destructuring-bind (&key cells metadata &allow-other-keys) data
     (setf (slot-value ws 'metadata) metadata)
     (setf (slot-value ws 'saved-cells)
           (mapcar (lambda (data) (ein:cell-from-json data)) cells)))
   ws)
 
-(defmethod ein:worksheet-from-cells ((ws ein:worksheet) cells)
+(cl-defmethod ein:worksheet-from-cells ((_ws ein:worksheet) _cells)
   )
 
-(defmethod ein:worksheet-to-json ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-to-json ((ws ein:worksheet))
   "Convert worksheet WS into JSON ready alist.
 It sets buffer internally so that caller doesn not have to set
 current buffer."
-  (let* ((discard-output-p (ein:worksheet--discard-output-p ws))
-         (cells (ein:with-possibly-killed-buffer (ein:worksheet-buffer ws)
+  (let* ((cells (ein:with-possibly-killed-buffer (ein:worksheet-buffer ws)
                   (mapcar (lambda (c)
-                            (ein:cell-to-json
-                             c (ein:funcall-packed discard-output-p c)))
+                            (ein:cell-to-json c))
                           (ein:worksheet-get-cells ws)))))
     `((cells . ,(apply #'vector cells))
       ,@(ein:aand (ein:worksheet--metadata ws) `((metadata . ,it))))))
 
-(defmethod ein:worksheet-to-nb4-json ((ws ein:worksheet) wsidx)
-  (let* ((discard-output-p (slot-value ws 'discard-output-p))
-         (cells (ein:with-possibly-killed-buffer (ein:worksheet-buffer ws)
+(cl-defmethod ein:worksheet-to-nb4-json ((ws ein:worksheet) wsidx)
+  (let* ((cells (ein:with-possibly-killed-buffer (ein:worksheet-buffer ws)
                   (mapcar (lambda (c)
-                            (ein:cell-to-nb4-json
-                             c wsidx (ein:funcall-packed discard-output-p c)))
+                            (ein:cell-to-nb4-json c wsidx))
                           (ein:worksheet-get-cells ws)))))
     cells))
 
-(defmethod ein:worksheet-save-cells ((ws ein:worksheet) &optional deactivate)
+(cl-defmethod ein:worksheet-save-cells ((ws ein:worksheet) &optional deactivate)
   "Save cells in worksheet buffer in cache before killing the buffer.
 
 .. warning:: After called with non-nil DEACTIVATE flag is given,
@@ -475,17 +532,17 @@ worksheet WS is reopened.
       (mapc #'ein:cell-deactivate (slot-value ws 'saved-cells))))
   (setf (slot-value ws 'dont-save-cells) nil))
 
-(defmethod ein:worksheet-dont-save-cells ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-dont-save-cells ((ws ein:worksheet))
   "Turn on `:dont-save-cells' flag so that next call on
 `ein:worksheet-save-cells' actually do nothing.
 
 \(fn ws)"
   (setf (slot-value ws 'dont-save-cells) t))
 
-
+
 ;;; Cell indexing, retrieval, etc.
 
-(defmethod ein:worksheet-cell-from-type ((ws ein:worksheet) type &rest args)
+(cl-defmethod ein:worksheet-cell-from-type ((ws ein:worksheet) type &rest args)
   "Create a cell of TYPE (symbol or string)."
   ;; FIXME: unify type of TYPE to symbol or string.
   (apply #'ein:cell-from-type
@@ -494,7 +551,7 @@ worksheet WS is reopened.
          :events (slot-value ws 'events)
          args))
 
-(defmethod ein:worksheet-get-cells ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-get-cells ((ws ein:worksheet))
   (if (ein:worksheet-has-buffer-p ws)
       (let* ((ewoc (slot-value ws 'ewoc))
              (nodes (ewoc-collect ewoc
@@ -502,7 +559,7 @@ worksheet WS is reopened.
         (mapcar #'ein:$node-data nodes))
     (slot-value ws 'saved-cells)))
 
-(defmethod ein:worksheet-ncells ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-ncells ((ws ein:worksheet))
   (length (ein:worksheet-get-cells ws)))
 
 (defun ein:worksheet-get-ewoc (&optional ws)
@@ -511,7 +568,7 @@ worksheet WS is reopened.
 (defun ein:worksheet-get-current-ewoc-node (&optional pos)
   (ein:aand (ein:worksheet-get-ewoc) (ewoc-locate it pos)))
 
-(defun ein:worksheet-get-nearest-cell-ewoc-node (&optional pos max cell-p)
+(defun ein:worksheet-get-nearest-cell-ewoc-node (&optional pos _max cell-p)
   (ein:and-let* ((ewoc-node (ein:worksheet-get-current-ewoc-node pos)))
     ;; FIXME: can be optimized using the argument `max'
     (while (and ewoc-node
@@ -523,8 +580,8 @@ worksheet WS is reopened.
       (setq ewoc-node (ewoc-next (slot-value ein:%worksheet% 'ewoc) ewoc-node)))
     ewoc-node))
 
-(defun* ein:worksheet-get-current-cell (&key pos noerror
-                                             (cell-p #'ein:basecell-child-p))
+(cl-defun ein:worksheet-get-current-cell (&key pos noerror
+                                               (cell-p #'ein:basecell-child-p))
   "Return a cell at POS.  If POS is not given, it is assumed be the
 current cursor position.  When the current buffer is not worksheet
 buffer or there is no cell in the current buffer, return `nil'."
@@ -543,9 +600,9 @@ buffer or there is no cell in the current buffer, return `nil'."
                  (ein:worksheet-get-current-cell :pos beg)
                  (ein:worksheet-get-current-cell :pos end)))
 
-(defun* ein:worksheet-get-cells-in-region-or-at-point
+(cl-defun ein:worksheet-get-cells-in-region-or-at-point
     (&key noerror (cell-p #'ein:basecell-child-p))
-  (or (ein:filter cell-p
+  (or (seq-filter cell-p
                   (if (region-active-p)
                       (ein:worksheet-get-cells-in-region (region-beginning)
                                                          (region-end))
@@ -553,7 +610,7 @@ buffer or there is no cell in the current buffer, return `nil'."
       (unless noerror
         (error "Cell not found"))))
 
-
+
 ;;; Insertion and deletion of cells
 
 (defun ein:worksheet--get-ws-or-error ()
@@ -577,11 +634,11 @@ If you really want use this command, you can do something like this
                      t))
   (ein:worksheet--shift-undo-list cell)
   (let ((inhibit-read-only t)
-        (buffer-undo-list t))        ; disable undo recording
+        (buffer-undo-list t))
     (apply #'ewoc-delete
            (slot-value ws 'ewoc)
            (ein:cell-all-element cell)))
-  (oset ws :dirty t)
+  (setf (oref ws :dirty) t)
   (when focus (ein:worksheet-focus-cell)))
 
 (defun ein:worksheet-kill-cell (ws cells &optional focus)
@@ -610,21 +667,27 @@ kill-ring of Emacs (kill-ring for texts)."
              (deactivate-mark)))))
   (let ((cells (mapcar
                 (lambda (c)
-                  (ein:cell-deactivate (ein:cell-copy c))) cells)))
-    (ein:log 'info "%s cells are copied." (length  cells))
+                  (ein:cell-deactivate (ein:cell-copy c)))
+                cells)))
+    (ein:log 'info "%s cells are copied." (length cells))
     (ein:kill-new cells)))
 
-(defun ein:worksheet-insert-clone (ws cell pivot up)
-  (let ((clone (ein:cell-copy cell)))
+(defun ein:worksheet-insert-clone (ws cell pivot up &optional focus)
+  (let* ((clone (ein:cell-copy cell))
+         (clone-buffer (ein:cell-buffer clone))
+         (clone-buffer-base (buffer-base-buffer clone-buffer))
+         (ws-buffer (ewoc-buffer (ein:worksheet--ewoc ws))))
     ;; Cell can be from another buffer, so reset `ewoc'.
-    (setf (ein:basecell--ewoc clone) (ein:worksheet--ewoc ws))
-                                        ;(oset clone :ewoc (oref ws :ewoc))
-    (funcall (intern (concat "ein:worksheet-insert-cell-" up)) ws clone pivot)
+    (when (if clone-buffer-base
+              (not (equal clone-buffer-base ws-buffer))
+            (not (equal clone-buffer ws-buffer)))
+      (setf (ein:basecell--ewoc clone) (ein:worksheet--ewoc ws)))
+    (funcall (intern (concat "ein:worksheet-insert-cell-" up)) ws clone pivot focus)
     clone))
 
 (defun ein:worksheet-yank-cell (ws &optional n)
-  "Insert (\"paste\") the latest killed cell.
-Prefixes are act same as the normal `yank' command."
+  "Paste the latest killed cell.
+Treats prefixes identically to the normal `yank' command."
   (interactive (list (ein:worksheet--get-ws-or-error)
                      (let ((arg current-prefix-arg))
                        (cond ((listp arg) 0)
@@ -632,16 +695,16 @@ Prefixes are act same as the normal `yank' command."
                              (t (1- arg))))))
   (let* ((cell (ein:worksheet-get-current-cell :noerror t)) ; can be nil
          (killed (ein:current-kill n)))
-    (loop for c in killed
-          with last = cell
-          do (setq last (ein:worksheet-insert-clone ws c last "below"))
-          finally (ein:cell-goto last))))
+    (cl-loop for c in killed
+             with last = cell
+             do (setq last (ein:worksheet-insert-clone ws c last "below"))
+             finally (ein:cell-goto last))))
 
 (defun ein:worksheet--node-positions (cell)
   (let ((result))
-    (loop for k in (oref cell :element-names)
-          do (setq result 
-                   (plist-put result k 
+    (cl-loop for k in (slot-value cell 'element-names)
+          do (setq result
+                   (plist-put result k
                               (let* ((en-or-list (ein:cell-element-get cell k))
                                      (en (if (listp en-or-list) (nth 0 en-or-list) en-or-list)))
                                 (if en (marker-position (ewoc-location en)))))))
@@ -649,7 +712,7 @@ Prefixes are act same as the normal `yank' command."
 
 (defun ein:worksheet-maybe-new-cell (ws type-or-cell)
   "Return TYPE-OR-CELL as-is if it is a cell, otherwise return a new cell."
-  (let ((cell (if (cl-typep type-or-cell 'ein:basecell)                    ;(ein:basecell-child-p type-or-cell)
+  (let ((cell (if (cl-typep type-or-cell 'ein:basecell)
                   type-or-cell
                 (ein:worksheet-cell-from-type ws type-or-cell))))
     ;; When newly created or copied, kernel is not attached or not the
@@ -660,51 +723,39 @@ Prefixes are act same as the normal `yank' command."
     cell))
 
 (defun ein:worksheet-insert-cell-below (ws type-or-cell pivot &optional focus)
-  "Insert cell below.  Insert markdown cell instead of code cell
-when the prefix argument is given.
-
-When used as a lisp function, insert a cell of TYPE-OR-CELL just
-after PIVOT and return the new cell."
+  "Insert cell below.
+Insert markdown cell instead of code cell when the prefix argument is given."
   (interactive (list (ein:worksheet--get-ws-or-error)
                      (if current-prefix-arg 'markdown 'code)
-                     (ein:worksheet-get-current-cell :noerror t) ; can be nil
+                     (ein:worksheet-get-current-cell :noerror t)
                      t))
   (let ((cell (ein:worksheet-maybe-new-cell ws type-or-cell)))
-    (cond
-     ((= (ein:worksheet-ncells ws) 0)
-      (ein:cell-enter-last cell))
-     (pivot
+    (if (zerop (ein:worksheet-ncells ws))
+        (ein:cell-enter-last cell)
       (ein:cell-insert-below pivot cell))
-     (t (error
-         "PIVOT is `nil' but ncells != 0.  There is something wrong...")))
     (ein:worksheet--unshift-undo-list cell (- (ein:cell-input-pos-max cell)
                                               (ein:cell-input-pos-min cell)))
-    (oset ws :dirty t)
+    (setf (oref ws :dirty) t)
     (when focus (ein:cell-goto cell))
     cell))
 
 (defun ein:worksheet-insert-cell-above (ws type-or-cell pivot &optional focus)
-  "Insert cell above.  Insert markdown cell instead of code cell
-when the prefix argument is given.
-See also: `ein:worksheet-insert-cell-below'."
+  "Insert cell above.
+Insert markdown cell instead of code cell when the prefix argument is given."
   (interactive (list (ein:worksheet--get-ws-or-error)
                      (if current-prefix-arg 'markdown 'code)
-                     (ein:worksheet-get-current-cell :noerror t) ; can be nil
+                     (ein:worksheet-get-current-cell :noerror t)
                      t))
   (let ((cell (ein:worksheet-maybe-new-cell ws type-or-cell)))
-    (cond
-     ((< (ein:worksheet-ncells ws) 2)
-      (ein:cell-enter-first cell))
-     (pivot
+    (if (<= (ein:worksheet-ncells ws) 1)
+        (ein:cell-enter-first cell)
       (let ((prev-cell (ein:cell-prev pivot)))
         (if prev-cell
             (ein:cell-insert-below prev-cell cell)
           (ein:cell-enter-first cell))))
-     (t (error
-         "PIVOT is `nil' but ncells > 0.  There is something wrong...")))
     (ein:worksheet--unshift-undo-list cell (- (ein:cell-input-pos-max cell)
                                               (ein:cell-input-pos-min cell)))
-    (oset ws :dirty t)
+    (setf (oref ws :dirty) t)
     (when focus (ein:cell-goto cell))
     cell))
 
@@ -715,78 +766,19 @@ directly."
   (interactive (list (ein:worksheet--get-ws-or-error)
                      (ein:worksheet-get-current-cell)
                      t))
-  (let ((type (case (slot-value ws 'nbformat)
-                (2 (ein:case-equal (slot-value cell 'cell-type)
-                     (("code") "markdown")
-                     (("markdown") "code")))
-                (3 (ein:case-equal (slot-value cell 'cell-type)
-                     (("code") "markdown")
-                     (("markdown") "raw")
-                     (("raw") "heading")
-                     (("heading") "code")))
-                (4 (ein:case-equal (slot-value cell 'cell-type)
-                     (("code") "markdown")
-                     (("markdown") "raw")
-                     (("raw") "code"))))))
+  (let ((type (ein:case-equal (slot-value cell 'cell-type)
+                              (("code") "markdown")
+                              (("markdown") "raw")
+                              (("raw") "code"))))
     (let ((relpos (ein:cell-relative-point cell))
           (new (ein:cell-convert-inplace cell type)))
       (when (ein:codecell-p new)
-        (setf (slot-value new 'kernel) (slot-value ws 'kernel)))
-      (ein:worksheet--unshift-undo-list cell)
-      (when focus (ein:cell-goto new relpos)))))
+        (setf (slot-value new 'kernel) (slot-value ws 'kernel))
+        (setf (slot-value new 'events) (slot-value ws 'events)))
+      (when focus (ein:cell-goto new relpos))
+      (ein:worksheet--unshift-undo-list new nil cell))))
 
-(defun ein:worksheet-toggle-slide-type (ws cell &optional focus)
-  "Toggle the slide metadata of the cell at point. Available slide settings are:
- [slide, subslide, fragment, skip, notes, - (none)]."
-  (interactive (list (ein:worksheet--get-ws-or-error)
-                     (ein:worksheet-get-current-cell)
-                     t))
-  (let ((new-slide-type (ein:case-equal (slot-value cell 'slidetype)
-                          (("-") "slide")
-                          (("slide") "subslide")
-                          (("subslide") "fragment")
-                          (("fragment") "skip")
-                          (("skip") "notes")
-                          (("notes") "-"))))
-    (message "changing slide type %s" new-slide-type)
-    (oset cell :slidetype new-slide-type))
-  (ewoc-invalidate (slot-value cell 'ewoc) (ein:cell-element-get cell :prompt))
-  (when focus (ein:cell-goto cell)))
-
-(defun ein:worksheet-change-cell-type (ws cell type &optional level focus)
-  "Change the cell type of the current cell.
-Prompt will appear in the minibuffer.
-
-When used in as a Lisp function, TYPE (string) should be chose
-from \"code\", \"hy-code\", \"markdown\", \"raw\" and \"heading\".  LEVEL is
-an integer used only when the TYPE is \"heading\"."
-  (interactive
-   (let* ((ws (ein:worksheet--get-ws-or-error))
-          (cell (ein:worksheet-get-current-cell))
-          (choices (case (slot-value ws 'nbformat)
-                     (2 "cm")
-                     (3 "cmr123456")
-                     (4 "chmr123456")))
-          (key (ein:ask-choice-char
-                (format "Cell type [%s]: " choices) choices))
-          (type (case key
-                  (?c "code")
-                  (?h "hy-code")
-                  (?m "markdown")
-                  (?r "raw")
-                  (t "heading")))
-          (level (when (equal type "heading")
-                   (string-to-number (char-to-string key)))))
-     (list ws cell type level t)))
-
-  (let ((relpos (ein:cell-relative-point cell))
-        (new (ein:cell-convert-inplace cell type)))
-    (when (ein:codecell-p new)
-      (setf (slot-value new 'kernel) (slot-value ws 'kernel)))
-    (when level
-      (ein:cell-change-level new level))
-    (ein:worksheet--unshift-undo-list cell)
-    (when focus (ein:cell-goto new relpos))))
+(defalias 'ein:worksheet-change-cell-type #'ein:worksheet-toggle-cell-type)
 
 (defun ein:worksheet-split-cell-at-point (ws cell &optional no-trim focus)
   "Split cell at current position. Newlines at the splitting
@@ -801,10 +793,7 @@ argument \(C-u)."
          (head (buffer-substring beg pos))
          (new (ein:worksheet-insert-cell-above ws
                                                (slot-value cell 'cell-type)
-                                               cell))
-         )
-    (when (ein:headingcell-p cell)
-      (ein:cell-change-level new (slot-value cell 'level)))
+                                               cell)))
     (undo-boundary)
     (delete-region beg pos)
     (unless no-trim
@@ -826,21 +815,23 @@ If prefix is given, merge current cell into next cell."
                      t))
   (unless next
     (setq cell (ein:cell-prev cell))
-    (unless cell (error "No previous cell"))
-    (ein:cell-goto cell))
-  (let* ((next-cell (ein:cell-next cell))
-         (head (ein:cell-get-text cell)))
-    (assert next-cell nil "No cell to merge.")
-    (ein:worksheet-delete-cell ws cell)
-    (save-excursion
-      (goto-char (ein:cell-input-pos-min next-cell))
-      (insert head "\n"))
-    (when focus (ein:cell-goto next-cell))))
+    (if cell
+        (ein:cell-goto cell)
+      (message "No previous cell")))
+  (when cell
+    (let* ((next-cell (ein:cell-next cell))
+           (head (ein:cell-get-text cell)))
+      (cl-assert next-cell nil "No cell to merge.")
+      (ein:worksheet-delete-cell ws cell)
+      (save-excursion
+        (goto-char (ein:cell-input-pos-min next-cell))
+        (insert head "\n"))
+      (when focus (ein:cell-goto next-cell)))))
 
-
+
 ;;; Cell selection.
 
-(defun* ein:worksheet-next-input-cell (ewoc-node &optional up (nth 1))
+(cl-defun ein:worksheet-next-input-cell (ewoc-node &optional up (nth 1))
   "Return a cell containing the next input node after EWOC-NODE.
 When UP is non-`nil', do the same for the *previous* input node.
 When NTH is specified, return NTH cell.  Note that this function is
@@ -850,7 +841,7 @@ When NTH is specified, return NTH cell.  Note that this function is
       (setq nth (* nth -1))
       (setq up (not up)))
     (let ((cell (ein:worksheet-next-input-cell-1 ewoc-node up)))
-      (loop repeat (1- nth)
+      (cl-loop repeat (1- nth)
             with next = (if up #'ein:cell-prev #'ein:cell-next)
             if (funcall next cell)
             do (setq cell it)
@@ -868,9 +859,9 @@ When NTH is specified, return NTH cell.  Note that this function is
       (funcall (if up #'ein:cell-prev #'ein:cell-next) cell))))
 
 (defun ein:worksheet-goto-input (ewoc-node up)
-  (ein:aif (ein:worksheet-next-input-cell ewoc-node up)
+  (aif (and ewoc-node (ein:worksheet-next-input-cell ewoc-node up))
       (ein:cell-goto it)
-    (error "No %s input!" (if up "previous" "next"))))
+    (message "No %s input" (if up "previous" "next"))))
 
 (defun ein:worksheet-goto-next-input (ewoc-node)
   (interactive (list (and (ein:worksheet--get-ws-or-error)
@@ -887,7 +878,7 @@ When NTH is specified, return NTH cell.  Note that this function is
 Go to previous cell if UP is t.
 Return t when the movement is succeeded."
   (unless prop (setq prop :input))
-  (ein:and-let* ((current-node (ein:worksheet-get-current-ewoc-node))
+  (-when-let* ((current-node (ein:worksheet-get-current-ewoc-node))
                  (current-cell (ein:cell-from-ewoc-node current-node))
                  (target-cell
                   (if (and (= nth 1)
@@ -915,24 +906,41 @@ similarly with `end-of-defun'.
 It is set in `ein:notebook-multilang-mode'."
   (ein:worksheet-goto-next-cell-element (or arg 1) nil 0 :after-input))
 
-
-;;; Cell movement
-
 (defun ein:worksheet-move-cell (ws cell up)
-  ;; effectively kill and yank modulo dirtying kill ring
-  (ein:aif (if up (ein:cell-prev cell) (ein:cell-next cell))
+  "Effectively kill and yank modulo dirtying kill ring."
+  (aif (if up (ein:cell-prev cell) (ein:cell-next cell))
       (let ((inhibit-read-only t)
-            (pivot-cell it) clone)
+            (pivot-cell it))
         (ein:cell-save-text cell)
         (ein:worksheet-delete-cell ws cell)
         (ein:cell-deactivate cell)
 
         ;; the clone conveniently makes otl zero
         ;; (as opposed to ein:worksheet-insert-cell)
-        (setq clone (ein:worksheet-insert-clone ws cell pivot-cell (if up "above" "below")))
-        (ein:cell-goto clone)
-        (oset ws :dirty t))
-    (error "No %s cell" (if up "previous" "next"))))
+        (ein:worksheet-insert-clone ws cell pivot-cell (if up "above" "below") t)
+        (poly-ein-fontify-buffer (ein:worksheet--get-buffer ws)))
+    (message "No %s cell" (if up "previous" "next"))))
+
+(defun ein:worksheet-not-move-cell (which)
+  (when ein:worksheet-warn-obsolesced-keybinding
+    (ein:display-warning-once
+     (mapconcat #'identity
+                '("M-<up> and M-<down> no longer move cells."
+                  "Use C-c <up> and C-c <down>."
+                  "Custom set variable `ein:worksheet-warn-obsolesced-keybinding' to disable this warning.") "\n")
+     warning-minimum-level))
+  (aif (cl-some (lambda (c) (and (commandp c) c))
+                (mapcar (lambda (pair) (lookup-key (cdr pair) which))
+                        (cdr minor-mode-map-alist)))
+      (call-interactively it)))
+
+(defun ein:worksheet-not-move-cell-up (&rest _args)
+  (interactive)
+  (ein:worksheet-not-move-cell (kbd "M-<up>")))
+
+(defun ein:worksheet-not-move-cell-down (&rest _args)
+  (interactive)
+  (ein:worksheet-not-move-cell (kbd "M-<down>")))
 
 (defun ein:worksheet-move-cell-up (ws cell)
   (interactive (list (ein:worksheet--get-ws-or-error)
@@ -944,7 +952,6 @@ It is set in `ein:notebook-multilang-mode'."
                      (ein:worksheet-get-current-cell)))
   (ein:worksheet-move-cell ws cell nil))
 
-
 ;;; Cell collapsing and output clearing
 
 (defun ein:worksheet-toggle-output (ws cell)
@@ -963,7 +970,7 @@ This does not alter the actual data stored in the cell."
   (interactive (list (ein:worksheet--get-ws-or-error) current-prefix-arg))
   (when collapsed (setq collapsed t))   ; force it to be a boolean
   (mapc (lambda (c)
-          (when (ein:codecell-p c) 
+          (when (ein:codecell-p c)
             (let ((buffer-undo-list t))
               (ein:cell-set-collapsed c collapsed))
             (ein:worksheet--unshift-undo-list c)))
@@ -986,45 +993,49 @@ Do not clear input prompt when the prefix argument is given."
 Do not clear input prompts when the prefix argument is given."
   (interactive (list (ein:worksheet--get-ws-or-error) current-prefix-arg))
   (mapc (lambda (c) (ein:worksheet-clear-output c preserve-input-prompt))
-        (ein:filter #'ein:codecell-p (ein:worksheet-get-cells ws))))
+        (seq-filter #'ein:codecell-p (ein:worksheet-get-cells ws))))
 
-
 ;;; Kernel related things
 
 (defun ein:worksheet-kernel-status (ws)
   "Report kernel status."
   (interactive (list (ein:worksheet--get-ws-or-error)))
   (let ((kernel (slot-value ws 'kernel)))
-    (message "%s" (mapcan (lambda (slot)
-                            (let ((channel (funcall slot kernel)))
-                              (and channel
-                                   (list (cons slot
-                                               (websocket-ready-state
-                                                (ein:$websocket-ws channel)))))))
-                          '(ein:$kernel-channels
-                            ein:$kernel-shell-channel
-                            ein:$kernel-iopub-channel)))))
+    (message "%s" (cl-mapcan (lambda (slot)
+                               (let ((channel (funcall slot kernel)))
+                                 (and channel
+                                      (list (cons slot
+                                                  (websocket-ready-state
+                                                   (ein:$websocket-ws channel)))))))
+                             '(ein:$kernel-websocket
+                               ein:$kernel-shell-channel
+                               ein:$kernel-iopub-channel)))))
 
-(defmethod ein:worksheet-set-kernel ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-set-kernel ((ws ein:worksheet))
   (mapc (lambda (cell) (setf (slot-value cell 'kernel) (slot-value ws 'kernel)))
-        (ein:filter #'(lambda (x)
-                        (cl-typep x 'ein:codecell))
-                    (ein:worksheet-get-cells ws))))
+        (seq-filter #'ein:codecell-p (ein:worksheet-get-cells ws))))
 
-(defun ein:undo-execute-cell (ws cell old-cell)
-  (ein:worksheet-insert-cell-below ws old-cell cell)
-  (ein:worksheet-delete-cell ws cell))
-
-(defun ein:worksheet-execute-cell (ws cell)
+(defun ein:worksheet-execute-cell (ws cell &optional batch)
   "Execute code type CELL."
-  (interactive (list (ein:worksheet--get-ws-or-error)
-                     (ein:worksheet-get-current-cell
-                      :cell-p #'ein:codecell-p)))
-  (let ((buffer-undo-list t))
-    (ein:kernel-if-ready (slot-value ws 'kernel)
-      (ein:cell-execute cell)
-      (oset ws :dirty t)))
-  (ein:worksheet--unshift-undo-list cell)
+  (interactive `(,(ein:worksheet--get-ws-or-error)
+                 ,(ein:worksheet-get-current-cell)
+                 ,(when current-prefix-arg
+                    (prog1 (read-char-choice "[RET]all [a]bove [b]elow: " (list ?\r ?a ?b))
+                      (message "")))))
+  (if (ein:codecell-p cell)
+      (ein:kernel-when-ready
+       (slot-value ws 'kernel)
+       (apply-partially
+        (lambda (ws* cell* batch* _kernel)
+          (cl-case batch*
+            (?\r (ein:worksheet-execute-all-cells ws*))
+            (?a (ein:worksheet-execute-all-cells ws* :above cell*))
+            (?b (ein:worksheet-execute-all-cells ws* :below cell*))
+            (t (ein:cell-execute cell*)
+               (setf (oref ws* :dirty) t)
+               (ein:worksheet--unshift-undo-list cell*))))
+        ws cell batch))
+    (message "ein:worksheet-execute-cell: not a code cell"))
   cell)
 
 (defun ein:worksheet-execute-cell-and-goto-next (ws cell &optional insert)
@@ -1034,7 +1045,7 @@ next cell, or insert if none."
                      (ein:worksheet-get-current-cell)))
   (when (cl-typep cell 'ein:codecell)
     (ein:worksheet-execute-cell ws cell))
-  (ein:aif (and (not insert) (ein:cell-next cell))
+  (aif (and (not insert) (ein:cell-next cell))
       (ein:cell-goto it)
     (ein:worksheet-insert-cell-below ws 'code cell t)))
 
@@ -1045,88 +1056,44 @@ cell bellow."
                      (ein:worksheet-get-current-cell)))
   (ein:worksheet-execute-cell-and-goto-next ws cell t))
 
-(defun ein:worksheet-execute-all-cell (ws)
-  "Execute all cells in the current worksheet buffer."
+(define-obsolete-function-alias
+  'ein:worksheet-execute-all-cell 'ein:worksheet-execute-all-cells "0.17.0")
+
+(cl-defun ein:worksheet-execute-all-cells (ws &key above below)
+  "Execute all cells in the current worksheet buffer.
+If :above or :below specified, execute above/below the current cell."
   (interactive (list (ein:worksheet--get-ws-or-error)))
-  (mapc #'ein:cell-execute
-        (ein:filter #'ein:codecell-p (ein:worksheet-get-cells ws))))
+  (let ((all (ein:worksheet-get-cells ws)))
+    (mapc (apply-partially #'ein:worksheet-execute-cell ws)
+          (seq-filter
+           #'ein:codecell-p
+           (aif (or above below)
+               (-when-let* ((current-id (slot-value it 'cell-id))
+                            (not-matching (apply-partially
+                                           (lambda (my other)
+                                             (not (string= (slot-value other 'cell-id) my)))
+                                           current-id)))
+                 (append (when above
+                           (aif (seq-take-while not-matching all)
+                               it
+                             (prog1 nil
+                               (ein:log 'info
+                                 "ein:worksheet-execute-all-cells: no cells above current"))))
+                         (when below
+                           (seq-drop-while not-matching all))))
+             all)))))
 
-(defun ein:worksheet-insert-last-input-history (ws cell index)
-  "Insert INDEX-th previous history into CELL in worksheet WS."
-  (ein:kernel-history-request
-   (slot-value ws 'kernel)
-   (list
-    :history_reply
-    (cons
-     (lambda (cell content -metadata-not-used-)
-       (destructuring-bind (session line-number input)
-           (car (plist-get content :history))
-         (if (eq (ein:worksheet-get-current-cell) cell)
-             (ein:cell-set-text cell input)
-           (ein:log 'warning
-             "Cursor moved from the cell after history request."))
-         (ein:log 'info "Input history inserted: session:%d line:%d"
-                  session line-number)))
-     cell))
-   :hist-access-type "range"
-   :session 0
-   :start (- index)
-   :stop (- 1 index)))
+(defun ein:worksheet-execute-all-cells-above (ws)
+  "Execute all cells above the current cell (exclusively) in the
+current worksheet buffer."
+  (interactive (list (ein:worksheet--get-ws-or-error)))
+  (ein:worksheet-execute-all-cells ws :above (ein:worksheet-get-current-cell)))
 
-(defvar ein:worksheet--history-index 1)
-
-(defun ein:worksheet--get-history-index (inc)
-  "Increment history index by (possibly negative) INC.
-Get history index for `ein:worksheet-previous-input-history' and
-`ein:worksheet-next-input-history'.  Raise error if caller tries
-to decrement index to less than or equal to 1."
-  (if (or (eq last-command 'ein:worksheet-previous-input-history)
-          (eq last-command 'ein:worksheet-next-input-history))
-      (progn
-        (setq ein:worksheet--history-index
-              (+ ein:worksheet--history-index inc))
-        (when (< ein:worksheet--history-index 1)
-          (setq ein:worksheet--history-index 1)
-          (warn "This is the latest input"))
-        ein:worksheet--history-index)
-    (setq ein:worksheet--history-index 1)))
-
-(defun ein:worksheet-previous-input-history (ws cell index)
-  "Insert the previous input in the execution history.
-You can go back further in the history by repeating this command.
-Use `ein:worksheet-next-input-history' to go forward in the
-history."
-  (interactive (list (ein:worksheet--get-ws-or-error)
-                     (ein:worksheet-get-current-cell)
-                     (ein:worksheet--get-history-index +1)))
-  (ein:worksheet-insert-last-input-history ws cell index))
-
-(defun ein:worksheet-next-input-history (ws cell index)
-  "Insert next input in the execution history.
-You can go forward further in the history by repeating this
-command.  Use `ein:worksheet-previous-input-history' to go back
-in the history."
-  (interactive (list (ein:worksheet--get-ws-or-error)
-                     (ein:worksheet-get-current-cell)
-                     (ein:worksheet--get-history-index -1)))
-  (ein:worksheet-insert-last-input-history ws cell index))
-
-
-;;; Metadata
-
-(defun ein:worksheet-rename-sheet (ws name)
-  "Change worksheet name (*not* notebook name)."
-  (interactive (let ((ws (ein:worksheet--get-ws-or-error)))
-                 (list ws
-                       (read-from-minibuffer
-                        "New worksheet name: " (ein:worksheet-name ws)))))
-  (unless (equal name (or (ein:worksheet-name ws) ""))
-    (ein:worksheet-set-name ws name)
-    (ein:worksheet-set-modified-p ws t)
-    (ein:worksheet-set-buffer-name ws)))
-
-
-;;; Generic getter
+(defun ein:worksheet-execute-all-cells-below (ws)
+  "Execute all cells below the current cell (inclusively) in the
+current worksheet buffer."
+  (interactive (list (ein:worksheet--get-ws-or-error)))
+  (ein:worksheet-execute-all-cells ws :below (ein:worksheet-get-current-cell)))
 
 (defun ein:get-url-or-port--worksheet ()
   (when (ein:worksheet-p ein:%worksheet%)
@@ -1135,36 +1102,29 @@ in the history."
 (defun ein:get-kernel--worksheet ()
   (when (ein:worksheet-p ein:%worksheet%) (slot-value ein:%worksheet% 'kernel)))
 
-;; in edit-cell-mode, worksheet is bound as src--ws
-;; used by ein:get-kernel as a last option so completion, tooltips
-;; work in edit-cell-mode
-(defun ein:get-kernel--worksheet-in-edit-cell ()
-  "Get kernel when in edit-cell-mode."
-  (when (ein:worksheet-p ein:src--ws) (slot-value ein:src--ws 'kernel)))
-
 (defun ein:get-cell-at-point--worksheet ()
   (ein:worksheet-get-current-cell :noerror t))
 
 (defun ein:get-traceback-data--worksheet ()
   (ein:aand (ein:get-cell-at-point--worksheet) (ein:cell-get-tb-data it)))
 
-
+
 ;;; Predicate
 
 (defun ein:worksheet-buffer-p ()
   "Return non-`nil' if the current buffer is a worksheet buffer."
   ein:%worksheet%)
 
-(defmethod ein:worksheet-has-buffer-p ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-has-buffer-p ((ws ein:worksheet))
   (ein:aand (ein:worksheet-buffer ws) (buffer-live-p it)))
 
-(defmethod ein:worksheet-modified-p ((ws ein:worksheet))
+(cl-defmethod ein:worksheet-modified-p ((ws ein:worksheet))
   (let ((buffer (ein:worksheet-buffer ws)))
     (and (buffer-live-p buffer)
          (or (slot-value ws 'dirty)
              (buffer-modified-p buffer)))))
 
-
+
 ;;; Utility commands
 
 (defun ein:worksheet-dedent-cell-text (cell)
@@ -1173,70 +1133,8 @@ in the history."
   (let* ((beg (ein:cell-input-pos-min cell))
          (end (ein:cell-input-pos-max cell)))
     (indent-rigidly
-     beg end (- (ein:find-leftmot-column beg end)))))
+     beg end (- (ein:find-leftmost-column beg end)))))
 
-
-;;; Auto-execution
-
-(defun ein:worksheet-toggle-autoexec (cell)
-  "Toggle auto-execution flag of the cell at point."
-  (interactive (list (ein:worksheet-get-current-cell #'ein:codecell-p)))
-  (ein:cell-toggle-autoexec cell))
-
-(defun ein:worksheet-turn-on-autoexec (cells &optional off)
-  "Turn on auto-execution flag of the cells in region or cell at point.
-When the prefix argument is given, turn off the flag instead.
-
-To use autoexec feature, you need to turn on auto-execution mode
-in connected buffers, using the `ein:connect-toggle-autoexec'
-command."
-  (interactive
-   (list (ein:worksheet-get-cells-in-region-or-at-point
-          :cell-p #'ein:codecell-p)
-         current-prefix-arg))
-  (mapc (lambda (c) (ein:cell-set-autoexec c (not off))) cells)
-  (ein:log 'info "Turn %s auto-execution flag of %s cells."
-           (if off "off" "on")
-           (length cells)))
-
-(defun ein:worksheet-execute-autoexec-cells (ws)
-  "Execute cells of which auto-execution flag is on.
-This function internally sets current buffer to the worksheet
-buffer, so you don't need to set current buffer to call this
-function."
-  (interactive (list (ein:worksheet--get-ws-or-error)))
-  (ein:with-live-buffer (ein:worksheet-buffer ws)
-    (ein:kernel-if-ready (slot-value ws 'kernel)
-      (mapc #'ein:cell-execute
-            (ein:filter #'ein:cell-autoexec-p
-                        (ein:worksheet-get-cells ws))))))
-
-
-;;; Imenu
-
-(defun ein:worksheet-imenu-create-index ()
-  "`imenu-create-index-function' for notebook buffer."
-  ;; As Imenu does not provide the way to represent level *and*
-  ;; position, use #'s to do that.
-  (loop for cell in (when (ein:worksheet-p ein:%worksheet%)
-                      (ein:filter #'ein:headingcell-p
-                                  (ein:worksheet-get-cells ein:%worksheet%)))
-        for sharps = (loop repeat (slot-value cell 'level) collect "#")
-        for text = (ein:cell-get-text cell)
-        for name = (ein:join-str "" (append sharps (list " " text)))
-        collect (cons name (ein:cell-input-pos-min cell))))
-
-(defun ein:worksheet-reinstall-which-cell-hook ()
-  "Fontify clobbers the which-cell hook."
-  (if buffer-local-enable-undo
-      (add-hook 'after-change-functions 'ein:worksheet--which-cell-hook t t)
-    (remove-hook 'after-change-functions 'ein:worksheet--which-cell-hook t)))
-
-(defun ein:worksheet-imenu-setup ()
-  "Called via notebook mode hooks."
-  (setq imenu-create-index-function #'ein:worksheet-imenu-create-index))
-
-
 ;;; Workarounds
 
 (defadvice fill-paragraph (around ein:worksheet-fill-paragraph activate)

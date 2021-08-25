@@ -1,4 +1,4 @@
-;;; ein-file.el --- Editing files downloaded from jupyter
+;;; ein-file.el --- Editing files downloaded from jupyter    -*- lexical-binding:t -*-
 
 ;; Copyright (C) 2017- John M. Miller
 
@@ -22,7 +22,6 @@
 
 ;;; Commentary:
 
-
 (defvar *ein:file-buffername-template* "'/ein:%s:%s")
 (ein:deflocal ein:content-file-buffer--content nil)
 
@@ -35,31 +34,30 @@
           path))
 
 (defun ein:file-open (url-or-port path)
-  (ein:content-query-contents path url-or-port nil
-                              #'ein:file-open-finish))
+  (interactive (ein:notebooklist-parse-nbpath (ein:notebooklist-ask-path "file")))
+  (ein:content-query-contents url-or-port path #'ein:file-open-finish nil))
 
 (defun ein:file-open-finish (content)
   (with-current-buffer (get-buffer-create (ein:file-buffer-name (ein:$content-url-or-port content)
                                                                 (ein:$content-path content)))
     (setq ein:content-file-buffer--content content)
     (let ((raw-content (ein:$content-raw-content content)))
-      (if (eql system-type 'windows-nt)
+      (if (eq system-type 'windows-nt)
           (insert (decode-coding-string raw-content 'utf-8))
         (insert raw-content)))
     (set-visited-file-name (buffer-name))
     (set-auto-mode)
     (add-hook 'write-contents-functions 'ein:content-file-save) ;; FIXME Brittle, will not work
                                                                 ;; if user changes major mode.
+    (ein:log 'verbose "Opened file %s" (ein:$content-name content))
     (set-buffer-modified-p nil)
     (goto-char (point-min))
     (pop-to-buffer (buffer-name))))
 
 (defun ein:content-file-save ()
-  (when (boundp 'ein:content-file-buffer--content)
-    (setf (ein:$content-raw-content ein:content-file-buffer--content) (buffer-string))
-    (ein:content-save ein:content-file-buffer--content)
-    (set-buffer-modified-p nil)
-    t))
+  (setf (ein:$content-raw-content ein:content-file-buffer--content) (buffer-string))
+  (ein:content-save ein:content-file-buffer--content)
+  (set-buffer-modified-p nil)
+  t)
 
 (provide 'ein-file)
-

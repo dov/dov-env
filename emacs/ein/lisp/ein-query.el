@@ -1,4 +1,4 @@
-;;; ein-query.el --- jQuery like interface on to of url-retrieve
+;;; ein-query.el --- jQuery like interface on top of curl -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2012- Takafumi Arakaki
 
@@ -25,174 +25,172 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
 (require 'request)
-(require 'request-deferred)
 (require 'url)
-
 (require 'ein-core)
 (require 'ein-log)
 
-
-;;; Utils
-
-(defun ein:safe-funcall-packed (packed &rest args)
-  (when packed
-    (ein:log-ignore-errors (apply #'ein:funcall-packed packed args))))
-
-
-;;; Variables
-
-(defcustom ein:query-timeout
-  (if (eq request-backend 'url-retrieve) 1000 nil)
-  "Default query timeout for HTTP access in millisecond.
-
-Setting this to `nil' means no timeout.
-If you have ``curl`` command line program, it is automatically set to
-`nil' as ``curl`` is reliable than `url-retrieve' therefore no need for
-a workaround (see below).
-
-If you do the same operation before the timeout, old operation
-will be canceled \(see also `ein:query-singleton-ajax').
-
-.. note:: This value exists because it looks like `url-retrieve'
-   occasionally fails to finish \(start?) querying.  Timeout is
-   used to let user notice that their operation is not finished.
-   It also prevent opening a lot of useless process buffers.
-   You will see them when closing Emacs if there is no timeout.
-
-   If you know how to fix the problem with `url-retrieve', please
-   let me know or send pull request at github!
-   \(Related bug report in Emacs bug tracker:
-   http://debbugs.gnu.org/cgi/bugreport.cgi?bug=11469)"
-  :type '(choice (integer :tag "Timeout [ms]" 5000)
+(defcustom ein:query-timeout 1000
+  "Default query timeout for HTTP access in millisecond."
+  :type '(choice (integer :tag "Timeout [ms]" 1000)
                  (const :tag "No timeout" nil))
   :group 'ein)
 
-
-;;; Jupyterhub
-(defvar *ein:jupyterhub-servers* (make-hash-table :test #'equal))
+(defvar ein:query-xsrf-cache (make-hash-table :test 'equal)
+  "Remember the last xsrf token by host.
+This is a hack in case we catch cookie jar in transition.
+The proper fix is to sempahore between competing curl processes.")
 
-(defstruct ein:$jh-conn
-  "Data representing a connection to a jupyterhub server."
-  url
-  version
-  user
-  token)
+(defvar ein:query-authorization-tokens (make-hash-table :test 'equal)
+  "Jupyterhub authorization token by (host . username).")
 
-(defstruct ein:$jh-user
-  "A jupyterhub user, per https://jupyterhub.readthedocs.io/en/latest/_static/rest-api/index.html#/definitions/User."
-  name
-  admin
-  groups
-  server
-  pending
-  last-activity)
-
-
-
-(defun ein:get-jh-conn (url)
-  (gethash url *ein:jupyterhub-servers*))
-
-(defun ein:reset-jh-servers ()
-  (setq *ein:jupyterhub-servers* (make-hash-table :test #'equal)))
-
-(defun ein:jupyterhub-url-p (url)
-  "Does URL reference a jupyterhub server? If so then return the
-connection structure representing the server."
-  (let ((parsed (url-generic-parse-url url)))
-    (or (gethash (format "http://%s:%s" (url-host parsed) (url-port parsed))
-                 *ein:jupyterhub-servers*)
-        (gethash (format "https://%s:%s" (url-host parsed) (url-port parsed))
-                 *ein:jupyterhub-servers*))))
-
-(defun ein:jupyterhub-correct-query-url-maybe (url-or-port)
-  (let* ((parsed-url (url-generic-parse-url url-or-port))
-         (hostport (format "http://%s:%s" (url-host parsed-url) (url-port parsed-url)))
-         (command (url-filename parsed-url)))
-    (ein:aif (ein:jupyterhub-url-p hostport)
-        (let ((user-server-path (ein:$jh-user-server (ein:$jh-conn-user it))))
-          (ein:url hostport
-                   user-server-path
-                   command))
-      url-or-port)))
-
-;;; Functions
-
-(defvar ein:query-running-process-table (make-hash-table :test 'equal))
+(defun ein:query-get-cookies (host path-prefix)
+  "Return (:path :expire :name :value) for HOST, matching PATH-PREFIX."
+  (when-let ((filename (request--curl-cookie-jar)))
+    (with-temp-buffer
+      (insert-file-contents filename)
+      (cl-loop for (domain _flag path _secure _http-only expire name value)
+               in (request--netscape-cookie-parse)
+               when (and (string= domain host)
+                         (cl-search path-prefix path))
+               collect `(:path ,path :expire ,expire :name ,name :value ,value)))))
 
 (defun ein:query-prepare-header (url settings &optional securep)
-  "Ensure that REST calls to the jupyter server have the correct
-_xsrf argument."
-  (let* ((parsed-url (url-generic-parse-url url))
-         (cookies (request-cookie-alist (url-host parsed-url)
-                                       "/" securep)))
-    (ein:aif (assoc-string "_xsrf" cookies)
-        (setq settings (plist-put settings :headers (append (plist-get settings :headers)
-                                                            (list (cons "X-XSRFTOKEN" (cdr it)))))))
-    (ein:aif (ein:jupyterhub-url-p (format "http://%s:%s" (url-host parsed-url) (url-port parsed-url)))
-        (progn
-          (unless (string-equal (ein:$jh-conn-url it)
-                                (ein:url (ein:$jh-conn-url it) "hub/login"))
-            (setq settings (plist-put settings :headers (append (plist-get settings :headers)
-                                                                (list (cons "Referer"
-                                                                            (ein:url (ein:$jh-conn-url it)
-                                                                       "hub/login")))))))
-          (when (ein:$jh-conn-token it)
-            (setq settings (plist-put settings :headers (append (plist-get settings :headers)
-                                                                (list (cons "Authorization"
-                                                                            (format "token %s"
-                                                                                    (ein:$jh-conn-token it))))))))))
+  "Ensure that REST calls to the jupyter server have the correct _xsrf argument."
+  (let* ((host (url-host (url-generic-parse-url url)))
+         (cookies (request-cookie-alist host "/" securep))
+         (xsrf (or (cdr (assoc-string "_xsrf" cookies))
+                   (gethash host ein:query-xsrf-cache)))
+         (key (ein:query-divine-authorization-tokens-key url))
+         (token (aand key
+                      (gethash key ein:query-authorization-tokens)
+                      (cons "Authorization" (format "token %s" it)))))
+    (setq settings (plist-put settings :headers
+                              (append (plist-get settings :headers)
+                                      (list (cons "User-Agent" "Mozilla/5.0")))))
+    (when token
+      (setq settings (plist-put settings :headers
+                                (append (plist-get settings :headers)
+                                        (list token)))))
+    (when xsrf
+      (setq settings (plist-put settings :headers
+                                (append (plist-get settings :headers)
+                                        (list (cons "X-XSRFTOKEN" xsrf)))))
+      (setf (gethash host ein:query-xsrf-cache) xsrf))
+    ;(setq settings (plist-put settings :encoding 'binary))
     settings))
 
-(defun* ein:query-singleton-ajax (key url &rest settings
-                                      &key
-                                      (timeout ein:query-timeout)
-                                      &allow-other-keys)
-  "Cancel the old process if there is a process associated with
-KEY, then call `request' with URL and SETTINGS.  KEY is compared by
-`equal'."
-  (with-local-quit
-    (ein:query-gc-running-process-table)
-    (when timeout
-      (setq settings (plist-put settings :timeout (/ timeout 1000.0))))
-    (ein:aif (gethash key ein:query-running-process-table)
-        (unless (request-response-done-p it)
-          (request-abort it)))            ; This will run callbacks
-    (let ((response (apply #'request (url-encode-url (ein:jupyterhub-correct-query-url-maybe url))
-                           (ein:query-prepare-header url settings))))
-      (puthash key response ein:query-running-process-table)
-      response)))
+(defun ein:query-divine-authorization-tokens-key (url)
+  "Infer semblance of jupyterhub root.
+From https://hub.data8x.berkeley.edu/hub/user/806b3e7/notebooks/Untitled.ipynb,
+get (\"hub.data8x.berkeley.edu\" . \"806b3e7\")"
+  (-when-let* ((parsed-url (url-generic-parse-url url))
+               (url-host (url-host parsed-url))
+               (slash-path (car (url-path-and-query parsed-url)))
+               (components (split-string slash-path "/" t)))
+    (awhen (member "user" components)
+      (cons url-host (cl-second it)))))
 
-(defun* ein:query-deferred (url &rest settings
-                                &key
-                                (timeout ein:query-timeout)
-                                &allow-other-keys)
-  ""
-  (apply #'request-deferred (url-encode-url url)
-         (ein:query-prepare-header url settings)))
+(cl-defun ein:query-singleton-ajax (url &rest settings
+                                        &key (timeout ein:query-timeout)
+                                        &allow-other-keys)
+  (if (executable-find request-curl)
+      (let ((request-backend 'curl))
+        (when timeout
+          (setq settings (plist-put settings :timeout (/ timeout 1000.0))))
+        (unless (plist-member settings :sync)
+          (setq settings (plist-put settings :sync ein:force-sync)))
+        (apply #'request (url-encode-url url) (ein:query-prepare-header url settings)))
+    (ein:display-warning
+     (format "The %s program was not found, aborting" request-curl)
+     :error)))
 
-(defun ein:query-gc-running-process-table ()
-  "Garbage collect dead processes in `ein:query-running-process-table'."
-  (maphash
-   (lambda (key buffer)
-     (when (request-response-done-p buffer)
-       (remhash key ein:query-running-process-table)))
-   ein:query-running-process-table))
+(defun ein:query-kernelspecs (url-or-port callback &optional iteration)
+  "Send for kernelspecs of URL-OR-PORT with CALLBACK arity 0 (just a semaphore)"
+  (setq iteration (or iteration 0))
+  (ein:query-singleton-ajax
+   (ein:url url-or-port "api/kernelspecs")
+   :type "GET"
+   :parser 'ein:json-read
+   :complete (apply-partially #'ein:query-kernelspecs--complete url-or-port)
+   :success (apply-partially #'ein:query-kernelspecs--success url-or-port callback)
+   :error (apply-partially #'ein:query-kernelspecs--error url-or-port callback iteration)))
 
-(defun ein:get-response-redirect (response)
-  "Determine if the query has been redirected, and if so return then URL the request was redirected to."
-  (if (length (request-response-history response))
-      (let ((url (url-generic-parse-url (format "%s" (request-response-url response)))))
-        (format "%s://%s:%s"
-                (url-type url)
-                (url-host url)
-                (url-port url)))))
+(defun ein:normalize-kernelspec-language (name)
+  "Normalize the kernelspec language string"
+  (if (stringp name)
+      (replace-regexp-in-string "[ ]" "-" name)
+    name))
 
-
-;;; Cookie
+(cl-defun ein:query-kernelspecs--success (url-or-port callback
+                                          &key data _symbol-status _response
+                                          &allow-other-keys)
+  (let ((ks (list :default (plist-get data :default)))
+        (specs (ein:plist-iter (plist-get data :kernelspecs))))
+    (setf (gethash url-or-port *ein:kernelspecs*)
+          (ein:flatten (dolist (spec specs ks)
+                         (let ((name (car spec))
+                               (info (cdr spec)))
+                           (push (list name (make-ein:$kernelspec :name (plist-get info :name)
+                                                                  :display-name (plist-get (plist-get info :spec)
+                                                                                           :display_name)
+                                                                  :resources (plist-get info :resources)
+                                                                  :language (ein:normalize-kernelspec-language
+                                                                             (plist-get (plist-get info :spec)
+                                                                                        :language))
+                                                                  :spec (plist-get info :spec)))
+                                 ks))))))
+  (when callback (funcall callback)))
 
-(defalias 'ein:query-get-cookie 'request-cookie-string)
+(cl-defun ein:query-kernelspecs--error
+    (url-or-port callback iteration
+     &key data response error-thrown &allow-other-keys
+     &aux
+     (response-status (request-response-status-code response))
+     (hub-p (request-response-header response "x-jupyterhub-version")))
+  (if (< iteration 3)
+      (if (and hub-p (eq response-status 405))
+          (ein:query-kernelspecs--success url-or-port callback :data data)
+        (ein:log 'verbose "Retry kernelspecs #%s in response to %s"
+                 iteration response-status)
+        (ein:query-kernelspecs url-or-port callback (1+ iteration)))
+    (ein:log 'error
+      "ein:query-kernelspecs--error %s: ERROR %s DATA %s"
+      url-or-port (car error-thrown) (cdr error-thrown))
+    (when callback (funcall callback))))
+
+(cl-defun ein:query-kernelspecs--complete (_url-or-port &key data response &allow-other-keys
+                                           &aux (resp-string (format "STATUS: %s DATA: %s" (request-response-status-code response) data)))
+  (ein:log 'debug "ein:query-kernelspecs--complete %s" resp-string))
+
+(defun ein:query-notebook-version (url-or-port callback)
+  "Send for notebook version of URL-OR-PORT with CALLBACK arity 0 (just a semaphore)"
+  (ein:query-singleton-ajax
+   (ein:url url-or-port "api")
+   :parser #'ein:json-read
+   :complete (apply-partially #'ein:query-notebook-version--complete
+                              url-or-port callback)))
+
+(cl-defun ein:query-notebook-version--complete
+    (url-or-port callback
+     &key data response &allow-other-keys
+     &aux
+     (resp-string (format "STATUS: %s DATA: %s"
+                          (request-response-status-code response) data))
+     (hub-p (request-response-header response "x-jupyterhub-version")))
+  (ein:log 'debug "ein:query-notebook-version--complete %s" resp-string)
+  (aif (plist-get data :version)
+      (setf (gethash url-or-port *ein:notebook-version*) it)
+    (if hub-p
+        (let ((key (ein:query-divine-authorization-tokens-key url-or-port)))
+          (remhash key ein:query-authorization-tokens)
+          (ein:display-warning
+           (format "Server for user %s requires start, aborting"
+                   (or (cdr key) "unknown"))
+           :error)
+          (setq callback nil))
+      (ein:log 'warn "notebook version currently unknowable")))
+  (when callback (funcall callback)))
 
 (provide 'ein-query)
 

@@ -26,45 +26,93 @@
 ;; along with ob-ein.el.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
+
 ;; Support executing org-babel source blocks using EIN worksheets.
-;; Async support based on work by @khinsen on github in ob-ipython-async: https://github.com/khinsen/ob-ipython-async/blob/master/ob-ipython-async.el
-;; which was in turn inspired by the scimax starter kit by @jkitchin: https://github.com/jkitchin/scimax
+
+;;; Credits:
+
+;; Uses code from https://github.com/gregsexton/ob-ipython (MIT License)
 
 ;;; Code:
 (require 'ob)
-(require 'ob-python)
-(require 'cl)
-(require 'ein-notebook)
-(require 'ein-shared-output)
 (require 'ein-utils)
-(require 'python)
+(require 'ein-cell)
+(require 'anaphora)
 
-(defcustom ein:org-async-p t
-  "If non-nil run ein org-babel source blocks asyncronously."
+(autoload 'org-element-property "org-element")
+(autoload 'org-element-context "org-element")
+(autoload 'org-element-type "org-element")
+(autoload 'org-id-new "org-id")
+(autoload 'org-redisplay-inline-images "org" nil t)
+(autoload 'ein:notebooklist-new-notebook-with-name "ein-notebooklist")
+(autoload 'ein:notebooklist-canonical-url-or-port "ein-notebooklist")
+(autoload 'ein:notebooklist-login "ein-notebooklist" nil t)
+(autoload 'ein:notebook-get-opened-notebook "ein-notebook")
+(autoload 'ein:notebook-url "ein-notebook")
+(autoload 'ein:notebook-open "ein-notebook")
+(autoload 'ein:notebook-close "ein-notebook")
+(autoload 'ein:process-url-or-port "ein-process")
+(autoload 'ein:process-url-match "ein-process")
+(autoload 'ein:process-refresh-processes "ein-process")
+(autoload 'ein:jupyter-server-conn-info "ein-jupyter")
+(autoload 'ein:jupyter-server-start "ein-jupyter" nil t)
+(autoload 'ein:shared-output-get-cell "ein-shared-output")
+(autoload 'ein:shared-output-eval-string "ein-shared-output")
+(autoload 'ein:kernel-live-p "ein-kernel")
+(autoload 'ein:query-singleton-ajax "ein-query")
+(autoload 'ein:output-area-case-type "ein-output-area")
+(autoload 'ein:log "ein-log")
+
+(defvar *ob-ein-sentinel* "[....]"
+  "Placeholder string replaced after async cell execution")
+
+(defcustom ob-ein-timeout-seconds 600
+  "Maximum seconds to wait for block to finish (for synchronous operations)."
+  :type 'integer
+  :group 'ein)
+
+(defcustom ob-ein-languages
+  '(("ein" . python)
+    ("ein-python" . python)
+    ("ein-R" . R)
+    ("ein-r" . R)
+    ("ein-julia" . julia))
+  "ob-ein has knowledge of these (ein-LANG . LANG-MODE) pairs."
+  :type '(repeat (cons string symbol))
+  :group 'ein)
+
+(defcustom ob-ein-anonymous-path ".%s.ipynb"
+  "Applies when session header doesn't specify ipynb.
+Prosecute all interactions for a given language in this throwaway
+notebook (substitute %s with language)."
+  :type '(string)
+  :group 'ein)
+
+(defun ob-ein-anonymous-p (path)
+  "Return t if PATH looks like ob-ein-anonymous-path.  Fragile"
+  (string-match (replace-regexp-in-string "%s" ".+"
+                  (replace-regexp-in-string "\\." "\\\\." ob-ein-anonymous-path))
+                path))
+
+(defcustom ob-ein-inline-image-directory "ein-images"
+  "Store ob-ein images here."
   :group 'ein
-  :type 'boolean)
+  :type 'directory)
 
-(defcustom ein:org-inline-image-directory "ein-images"
-  "Default directory where to save images generated from ein org-babel source blocks."
+(defcustom ob-ein-default-header-args:ein nil
+  "No documentation."
   :group 'ein
-  :type '(directory))
+  :type '(repeat string))
 
-;; declare default header arguments for this language
-(defvar org-babel-default-header-args:ein '())
-
-(add-to-list 'org-src-lang-modes '("ein" . python))
-(add-to-list 'org-src-lang-modes '("ein-hy" . hy))
-
-;; Handling source block execution results
-(defun ein:temp-inline-image-info (value)
+(defun ob-ein--inline-image-info (value)
   (let* ((f (md5 value))
-         (d ein:org-inline-image-directory)
+         (d ob-ein-inline-image-directory)
          (tf (concat d "/ob-ein-" f ".png")))
     (unless (file-directory-p d)
-      (make-directory d))
+      (make-directory d 'parents))
     tf))
 
-(defun ein:write-base64-image (img-string file)
+(defun ob-ein--write-base64-image (img-string file)
   (with-temp-file file
     (let ((buffer-read-only nil)
           (buffer-file-coding-system 'binary)
@@ -73,242 +121,337 @@
       (insert img-string)
       (base64-decode-region (point-min) (point-max)))))
 
-(defun ein:return-mime-type (json file)
-  (loop
-   for key in (cond
-               ((functionp ein:output-type-preference)
-                (funcall ein:output-type-preference json))
-               (t ein:output-type-preference))
-   for type = (intern (format ":%s" key)) ; something like `:text'
-   for value = (plist-get json type)      ; FIXME: optimize
-   when (plist-member json type)
-   return
-   (case key
-     ((svg image/svg)
-      (let ((file (or file (ein:temp-inline-image-info value))))
-        (ein:write-base64-decoded-image value file)
-        (format "[[file:%s]]" file)))
-     ((png image/png jpeg image/jpeg)
-      (let ((file (or file (ein:temp-inline-image-info value))))
-        (ein:write-base64-image value file)
-        (format "[[file:%s]]" file)))
-     (t (plist-get json type)))))
+(defun ob-ein--proxy-images (json explicit-file)
+  (let (result
+        (ein:output-area-case-types '(:image/svg+xml :image/png :image/jpeg :text/plain :application/latex :application/tex :application/javascript)))
+    (ein:output-area-case-type
+     json
+     (cl-case type
+       ((:image/svg+xml :image/png :image/jpeg)
+        (let ((file (or explicit-file (ob-ein--inline-image-info value))))
+          (ob-ein--write-base64-image value file)
+          (setq result (format "[[file:%s]]" file))))
+       (otherwise
+        (setq result value))))
+    result))
 
-(defun org-babel-ein-process-outputs (outputs params)
-  (let ((file (cdr (assoc :image params))))
-    (ein:join-str "\n"
-                  (loop for o in outputs
-                        collecting (ein:return-mime-type o file)))))
+(defun ob-ein--process-outputs (result-type cell params)
+  (let* ((session (aand (cdr (assoc :session params))
+			(unless (string= "none" it)
+			  (format "%s" it))))
+	 (render (let ((stdout-p
+			(lambda (out)
+			  (and (equal "stream" (plist-get out :output_type))
+			       (equal "stdout" (plist-get out :name))))))
+		   (if (eq result-type 'output)
+		       (lambda (out)
+			 (if (funcall stdout-p out)
+			     (plist-get out :text)
+			   (when session ;; should aways be true under ob-ein
+			     (concat (ob-ein--proxy-images
+				       out (cdr (assoc :image params)))
+				     "\n"))))
+		     (lambda (out)
+		       (and (not (funcall stdout-p out))
+			    (concat (ob-ein--proxy-images
+				       out (cdr (assoc :image params)))
+				     "\n"))))))
+	 (outputs (cl-loop for out in (ein:oref-safe cell 'outputs)
+			   collect (funcall render out))))
+    (when outputs
+      (ansi-color-apply (ein:join-str "" outputs)))))
 
-;; Asynchronous execution requires each source code block to
-;; be named. For blocks that have no name, an automatically
-;; generated name is added. This variable holds the function
-;; that generates the name.
-(defvar *ein:org-name-generator* 'ein:uuid-generator
-  "Function to generate a name for a src block.
-The default is `ein:uuid-generator'.")
-
-(defun ein:uuid-generator ()
-  (org-id-new 'none))
-
-(defun ein:org-get-name-create ()
+(defun ob-ein--get-name-create (src-block-info)
   "Get the name of a src block or add a uuid as the name."
-  (if-let ((name (fifth (org-babel-get-src-block-info))))
+  (if-let ((name (cl-fifth src-block-info)))
       name
     (save-excursion
       (let ((el (org-element-context))
-	          (id (funcall *ein:org-name-generator*)))
-	      (goto-char (org-element-property :begin el))
-	      (insert (format "#+NAME: %s\n" id))
-	      id))))
+            (id (org-id-new 'none)))
+        (goto-char (org-element-property :begin el))
+        (back-to-indentation)
+        (split-line)
+        (insert (format "#+NAME: %s" id))
+        id))))
 
-(defcustom ein:org-execute-timeout 30
-  "Query timeout, in seconds, for executing ein source blocks in
-  org files."
-  :type 'number
-  :group 'ein)
+(defun ob-ein--babelize-lang (lang-name lang-mode)
+  "Stand-up LANG-NAME as a babelized language with LANG-MODE syntax table.
 
-;; This is the main function which is called to evaluate a code
-;; block.
-;;
-;; This function will evaluate the body of the source code and
-;; return the results as emacs-lisp depending on the value of the
-;; :results header argument
-;; - output means that the output to STDOUT will be captured and
-;;   returned
-;; - value means that the value of the last statement in the
-;;   source code block will be returned
-;;
+Based on ob-ipython--configure-kernel."
+  (add-to-list 'org-src-lang-modes `(,lang-name . ,lang-mode))
+  (defvaralias (intern (concat "org-babel-default-header-args:" lang-name))
+    'ob-ein-default-header-args:ein)
+  (fset (intern (concat "org-babel-execute:" lang-name))
+        `(lambda (body params)
+           "Should get rid of accommodating org-babel-variable-assignments.
+We don't test it, and finding a module named ob-LANG-MODE won't work generally,
+e.g., ob-c++ is not ob-C.el."
+           (require (quote ,(intern (format "ob-%s" lang-mode))) nil t)
+           ;; hack because ob-ein loads independently of ein
+           (custom-set-variables '(python-indent-guess-indent-offset-verbose nil))
+           (let ((parser
+                  (quote
+                   ,(intern (format "org-babel-variable-assignments:%s" lang-mode)))))
+             (ob-ein--execute-body
+              (if (fboundp parser)
+                  (org-babel-expand-body:generic
+                   body params (funcall (symbol-function parser) params))
+                body)
+              params)))))
 
-(defun org-babel-execute:ein (body params)
-  "Execute a block of python code with org-babel by way of
-emacs-ipython-notebook's facilities for communicating with
-jupyter kernels.
- This function is called by `org-babel-execute-src-block'"
-  (let* ((processed-params (org-babel-process-params params))
-         (kernelspec (cdr (assoc :kernelspec params)))
-         ;; set the session if the session variable is non-nil
-         (session-kernel (org-babel-ein-initiate-session
-                          (cdr (assoc :session processed-params))
-                          kernelspec))
-         ;; either OUTPUT or VALUE which should behave as described above
-         ;; (result-type (cdr (assoc :result-type processed-params)))
-         ;; expand the body with `org-babel-expand-body:template'
-         (full-body (org-babel-expand-body:generic (encode-coding-string body 'utf-8)
-                                                   params
-                                                   (org-babel-variable-assignments:python params))))
-    (if ein:org-async-p
-        (ein:ob-ein--execute-async full-body session-kernel processed-params (ein:org-get-name-create))
-      (ein:ob-ein--execute full-body session-kernel processed-params))))
-
-(defun org-babel-execute:ein-hy (body params)
-  (org-babel-execute:ein (ein:pytools-wrap-hy-code body) params))
-
-(defun ein:ob-ein--execute-async (body kernel params name)
-  (let ((buffer (current-buffer))
-        (name name)
-        (body body)
-        (kernel kernel)
-        (params params))
-    (deferred:$
-      (deferred:next
-        (lambda ()
-          (message "Starting deferred ein execution: %s" name)
-          (ein:shared-output-eval-string body nil nil kernel)))
-      (deferred:nextc it
-        (deferred:lambda ()
-          (let ((cell (ein:shared-output-get-cell)))
-            (if (not (null (slot-value cell 'running)))
-                (deferred:nextc (deferred:wait 50) self)))))
-      (deferred:nextc it
-        (lambda ()
-          (let ((cell (ein:shared-output-get-cell)))
-            (if (and (slot-boundp cell 'traceback)
-                     (slot-value cell 'traceback))
-                (ansi-color-apply (apply #'concat (mapcar #'(lambda (s)
-                                                              (format "%s\n" s))
-                                                          (slot-value cell 'traceback))))
-              (org-babel-ein-process-outputs (slot-value cell 'outputs) params)))))
-      (deferred:nextc it
-        (lambda (formatted-result)
-          (ein:ob-ein--execute-async-update formatted-result buffer name))))
-    (format "[[ob-ein-async-running: %s]]" name)))
-
-(defun ein:ob-ein--execute-async-update (formatted-result buffer name)
-  (message "Finished deferred ein execution: %s" name)
-  (with-current-buffer buffer
+(defun ob-ein--execute-body (body params)
+  (let* ((buffer (current-buffer))
+	 (result-type (cdr (assq :result-type params)))
+	 (result-params (cdr (assq :result-params params)))
+         (session (or (aand (cdr (assoc :session params))
+                            (unless (string= "none" it)
+                              (format "%s" it)))
+                      ein:url-localhost))
+         (lang (nth 0 (org-babel-get-src-block-info)))
+         (kernelspec (or (cdr (assoc :kernelspec params))
+                         (aif (cdr (assoc lang org-src-lang-modes))
+                             (cons 'language (format "%s" it))
+                           (error "ob-ein--execute-body: %s not among %s"
+                                  lang (mapcar #'car org-src-lang-modes)))))
+         (name (ob-ein--get-name-create (org-babel-get-src-block-info)))
+         (callback (lambda (notebook)
+                    (ob-ein--execute-async
+                     buffer
+                     body
+                     (ein:$notebook-kernel notebook)
+                     params
+		     result-type
+                     result-params
+                     name))))
     (save-excursion
-      (org-babel-goto-named-result name)
-      (search-forward (format "[[ob-ein-async-running: %s]]" name))
-      (replace-match formatted-result t t)
-      (org-redisplay-inline-images)
-      ;; (when (member "drawer" (cdr (assoc :result-params params)))
-      ;;   ;; open the results drawer
-      ;;   (org-babel-goto-named-result name)
-      ;;   (forward-line)
-      ;; (org-flag-drawer nil))
-      )))
+      (cl-assert (not (stringp (org-babel-goto-named-src-block name))))
+      (org-babel-insert-result *ob-ein-sentinel* result-params))
+    (ob-ein--initiate-session session kernelspec callback)
+    (if (ein:eval-if-bound 'org-current-export-file)
+        (save-excursion
+          (cl-loop with interval = 2000
+                with pending = t
+                repeat (/ (* ob-ein-timeout-seconds 1000) interval)
+                do (progn
+                     (org-babel-goto-named-result name)
+                     (forward-line 1)
+                     (setq pending (re-search-forward
+                                    (regexp-quote *ob-ein-sentinel*)
+                                    (org-babel-result-end) t)))
+                until (not pending)
+                do (sleep-for 0 interval)
+                finally return
+                (if pending
+                    (prog1 ""
+                      (ein:log 'error "ob-ein--execute-body: %s timed out" name))
+                  (ob-ein--process-outputs result-type
+					   (ein:shared-output-get-cell)
+					   params))))
+      (org-babel-remove-result)
+      *ob-ein-sentinel*)))
 
-(defun ein:ob-ein--execute (full-body session-kernel processed-params)
-  (let* ((d (ein:shared-output-eval-string full-body nil nil session-kernel))
-         (cell (ein:shared-output-get-cell)))
-    (deferred:sync! d)
-    (ein:wait-until #'(lambda ()
-                        (null (slot-value cell 'running)))
-                    nil ein:org-execute-timeout)
-    (if (and (slot-boundp cell 'traceback)
-             (slot-value cell 'traceback))
-        (ansi-color-apply (apply #'concat (mapcar #'(lambda (s)
-                                                      (format "%s\n" s))
-                                                  (slot-value cell 'traceback))))
-      (org-babel-ein-process-outputs (slot-value cell 'outputs) processed-params))))
+(defun ob-ein--execute-async-callback (buffer params result-type result-params name)
+  "Return callback of 1-arity (the shared output cell) to update org buffer when
+`ein:shared-output-eval-string' completes.
 
+The callback returns t if results containt RESULT-TYPE outputs, nil otherwise."
+  (apply-partially
+   (lambda (buffer* params* result-type* result-params* name* cell)
+     (when-let ((raw (aif (ein:oref-safe cell 'traceback)
+			 (ansi-color-apply (ein:join-str "\n" it))
+		       (ob-ein--process-outputs result-type* cell params*))))
+       (prog1 t
+	 (let ((result
+		(let ((tmp-file (org-babel-temp-file "ein-")))
+		  (with-temp-file tmp-file (insert raw))
+		  (org-babel-result-cond result-params*
+		    raw (org-babel-import-elisp-from-file tmp-file '(16)))))
+	       (info (org-babel-get-src-block-info 'light)))
+	   (ein:log 'debug "ob-ein--execute-async-callback %s \"%s\" %s"
+		    name* result buffer*)
+	   (save-excursion
+	     (save-restriction
+	       (with-current-buffer buffer*
+		 (unless (stringp (org-babel-goto-named-src-block name*)) ;; stringp=error
+		   (when (version-list-< (version-to-list (org-release)) '(9))
+		     (when info ;; kill #+RESULTS: (no-name)
+		       (setf (nth 4 info) nil)
+		       (org-babel-remove-result info))
+		     (org-babel-remove-result)) ;; kill #+RESULTS: name
+		   (org-babel-insert-result
+		    result
+		    (cdr (assoc :result-params
+				(cl-third (org-babel-get-src-block-info)))))
+		   (org-redisplay-inline-images)))))))))
+   buffer params result-type result-params name))
 
-(defun ein:org-find-or-open-session (session &optional kernelspec)
-  (multiple-value-bind (url-or-port path) (ein:org-babel-parse-session session)
-    (setf kernelspec (or kernelspec (ein:get-kernelspec url-or-port "default")))
-    (let ((nb (or (ein:notebook-get-opened-notebook url-or-port path)
-                  (ein:notebook-open url-or-port path kernelspec
-                                     (lambda (_nb _param packed)
-                                       (multiple-value-bind (session kernelspec) packed
-                                         (org-babel-ein-initiate-session session kernelspec)))
-                                     (list session kernelspec)))))
-      (loop do (sit-for 1.0)
-            until (ein:kernel-live-p (ein:$notebook-kernel nb)))
-      nb)))
+(defun ob-ein--execute-async-clear (buffer result-params name)
+  "Return function of 0-arity to clear *ob-ein-sentinel*."
+  (apply-partially
+   (lambda (buffer* result-params* name*)
+     (let ((info (org-babel-get-src-block-info 'light)))
+       (save-excursion
+	 (save-restriction
+	   (with-current-buffer buffer*
+	     (unless (stringp (org-babel-goto-named-src-block name*)) ;; stringp=error
+	       (when info ;; kill #+RESULTS: (no-name)
+		 (setf (nth 4 info) nil)
+		 (org-babel-remove-result info))
+	       (org-babel-remove-result) ;; kill #+RESULTS: name
+	       (org-babel-insert-result "" result-params*)
+	       (org-redisplay-inline-images)))))))
+   buffer result-params name))
 
-(defun org-babel-edit-prep:ein (babel-info)
-  "Set up source code completion for editing an EIN source block."
-  (let ((nb (ein:org-find-or-open-session (cdr (assoc :session (third babel-info))))))
-    (ein:connect-buffer-to-notebook nb (current-buffer) t)
-    (define-key ein:connect-mode-map "\C-c\C-c" 'org-babel-edit:ein-execute)))
+(defun ob-ein--execute-async (buffer body kernel params result-type result-params name)
+  "As `ein:shared-output-get-cell' is a singleton, ob-ein can only execute blocks
+one at a time.  Further, we do not order the queued up blocks!"
+  (deferred:$
+    (deferred:next
+      (deferred:lambda ()
+        (let ((cell (ein:shared-output-get-cell)))
+          (if (eq (slot-value cell 'callback) #'ignore)
+              (let ((callback (ob-ein--execute-async-callback
+			       buffer params result-type
+			       result-params name))
+		    (clear (ob-ein--execute-async-clear buffer result-params name)))
+                (setf (slot-value cell 'callback) callback)
+		(setf (slot-value cell 'clear) clear))
+            ;; still pending previous callback
+            (deferred:nextc (deferred:wait 1200) self)))))
+    (deferred:nextc it
+      (lambda (_x)
+        (ein:shared-output-eval-string kernel body)))))
 
-(defun org-babel-edit:ein-execute ()
+(defun ob-ein--parse-session (session)
+  (cl-multiple-value-bind (url-or-port _password) (ein:jupyter-server-conn-info)
+    (let* ((tokens (split-string session "/"))
+           (parsed-url (url-generic-parse-url session))
+           (url-host (url-host parsed-url)))
+      (cond ((null url-host)
+             (let* ((candidate (apply #'ein:url (car tokens) (cdr tokens)))
+                    (parsed-candidate (url-generic-parse-url candidate))
+                    (missing (url-scheme-get-property
+                              (url-type parsed-candidate)
+                              'default-port)))
+               (if (and url-or-port
+                        (= (url-port parsed-candidate) missing))
+                   (apply #'ein:url url-or-port (cdr tokens))
+                 candidate)))
+            (t (ein:url session))))))
+
+(defun ob-ein--initiate-session (session kernelspec callback)
+  "Retrieve notebook based on SESSION path and KERNELSPEC, starting jupyter instance
+if necessary.  Install CALLBACK (i.e., cell execution) upon notebook retrieval."
+  (let* ((nbpath (ob-ein--parse-session session))
+         (info (org-babel-get-src-block-info))
+         (anonymous-path (format ob-ein-anonymous-path (nth 0 info)))
+         (parsed-url (url-generic-parse-url nbpath))
+         (slash-path (car (url-path-and-query parsed-url)))
+         (_ (awhen (cdr (url-path-and-query parsed-url))
+              (error "Cannot handle :session `%s`" it)))
+         (ipynb-p (file-name-extension (file-name-nondirectory slash-path)))
+         (path (if ipynb-p
+                   (file-name-nondirectory slash-path)
+                 anonymous-path))
+         (url-or-port (directory-file-name
+                       (if ipynb-p
+                           (cl-subseq nbpath 0 (- (length path)))
+                         nbpath)))
+         (notebook (ein:notebook-get-opened-notebook url-or-port path))
+         (callback-nbopen (lambda (nb _created)
+                            (cl-loop repeat 50
+                                  for live-p = (ein:kernel-live-p (ein:$notebook-kernel nb))
+                                  until live-p
+                                  do (sleep-for 0 300)
+                                  finally
+                                  do (if (not live-p)
+                                         (ein:log 'error
+                                           "Kernel for %s failed to launch"
+                                           (ein:$notebook-notebook-name nb))
+                                       (funcall callback nb)))))
+         (errback-nbopen (lambda (url-or-port status-code)
+                           (if (eq status-code 404)
+                               (ein:notebooklist-new-notebook-with-name
+                                url-or-port kernelspec path callback-nbopen t))))
+         (callback-login (lambda (_buffer url-or-port)
+                           (ein:notebook-open url-or-port path kernelspec
+                                              callback-nbopen errback-nbopen t))))
+    (cond ((and notebook
+                (string= path anonymous-path)
+                (stringp kernelspec)
+                (not (equal (ein:$kernelspec-name (ein:$notebook-kernelspec notebook))
+                            kernelspec)))
+           (ein:log 'debug "ob-ein--initiate-session: switching %s from %s to %s"
+                    path (ein:$kernelspec-name (ein:$notebook-kernelspec notebook))
+                    kernelspec)
+           (cl-letf (((symbol-function 'y-or-n-p) #'ignore))
+             (ein:notebook-close notebook))
+           (ein:query-singleton-ajax (ein:notebook-url notebook)
+            :type "DELETE")
+           (cl-loop repeat 8
+                    with fullpath = (concat (file-name-as-directory nbpath) path)
+                    for extant = (file-exists-p fullpath)
+                    until (not extant)
+                    do (sleep-for 0 500)
+                    finally do (if extant
+                                   (ein:display-warning
+                                    (format "cannot delete path=%s nbpath=%s"
+                                            fullpath nbpath))
+                                 (ob-ein--initiate-session session kernelspec callback))))
+          (notebook (funcall callback notebook))
+          ((string= (url-host parsed-url) ein:url-localhost)
+           (ein:process-refresh-processes)
+           (aif (ein:process-url-match nbpath)
+               (ein:notebooklist-login (ein:process-url-or-port it) callback-login)
+             (ein:jupyter-server-start
+              (executable-find (or (ein:eval-if-bound 'ein:jupyter-server-command)
+                                   "jupyter"))
+              (read-directory-name "Notebook directory: " default-directory)
+              nil
+              callback-login
+              (let* ((port (url-port parsed-url))
+                     (avoid (url-scheme-get-property (url-type parsed-url) 'default-port)))
+                (cond ((= port avoid) nil)
+                      (t (url-port parsed-url)))))))
+          (t (ein:notebooklist-login url-or-port callback-login)))))
+
+(cl-loop for (lang . mode) in ob-ein-languages
+         do (ob-ein--babelize-lang lang mode))
+
+(defun ob-ein-kernel-interrupt ()
+  "Interrupt kernel associated with session."
   (interactive)
-  (let* ((beg org-src--beg-marker)
-         (buf (marker-buffer beg)))
-    (with-current-buffer buf
-      (save-excursion
-        (goto-char beg)
-        (org-ctrl-c-ctrl-c)))))
+  (org-babel-when-in-src-block
+   (-if-let* ((info (org-babel-get-src-block-info))
+              (pparams (cl-callf org-babel-process-params (nth 2 info)))
+              (params (nth 2 info))
+              (session (or (aand (cdr (assoc :session params))
+                                 (unless (string= "none" it)
+                                   (format "%s" it)))
+                           ein:url-localhost))
+              (nbpath (ob-ein--parse-session session))
+              (anonymous-path (format ob-ein-anonymous-path (nth 0 info)))
+              (parsed-url (url-generic-parse-url nbpath))
+              (slash-path (car (url-path-and-query parsed-url)))
+              (path (if (string= slash-path "") anonymous-path
+                      (substring slash-path 1)))
+              (url-or-port (if (string= slash-path "")
+                               nbpath
+                             (substring nbpath 0 (- (length slash-path)))))
+              (notebook (ein:notebook-get-opened-notebook url-or-port path))
+              (kernel (ein:$notebook-kernel notebook)))
+       (ein:kernel-interrupt kernel)
+     (ein:log 'info "ob-ein-kernel-interrupt: nothing to interrupt"))))
 
-;; This function should be used to assign any variables in params in
-;; the context of the session environment.
-(defun org-babel-prep-session:ein (_session _params)
-  "Prepare SESSION according to the header arguments specified in PARAMS."
-  )
+(define-key org-babel-map "\C-k" 'ob-ein-kernel-interrupt)
 
-(defun org-babel-ein-var-to-template (var)
-  "Convert an elisp var into a string of template source code
- specifying a var of the same value."
-  (format "%S" var))
-
-(defun org-babel-ein-table-or-string (_results)
-  "If the results look like a table, then convert them into an
- Emacs-lisp table, otherwise return the results as a string."
-  )
-
-(defun ein:org-babel-clean-url (url-or-port)
-  (if (search ":" url-or-port)
-      url-or-port
-    (string-to-number url-or-port)))
-
-(defun ein:org-babel-parse-session (session)
-  (if (numberp session)
-      (values (format "http://localhost:%s" session) nil)
-    (let ((session-uri (url-generic-parse-url session)))
-      (cond ((url-fullness session-uri)
-             (values (format "%s://%s:%s" (url-type session-uri) (url-host session-uri) (url-port session-uri))
-                     (url-filename session-uri)))
-            (t (let* ((url-or-port (ein:org-babel-clean-url (car (split-string session "/"))))
-                      (path (ein:join-str "/" (rest (split-string session "/")))))
-                 (values (format "http://localhost:%s" url-or-port) path)))))))
-
-(defcustom ein:org-babel-default-session-name "ein_babel_session.ipynb"
-  "Default name for org babel sessions running ein environments.
-This is the name of the notebook used when no notebook path is
-given in the session parameter."
-  :type '(string :tag "Format string")
-  :group 'ein)
-
-
-(defun org-babel-ein-initiate-session (&optional session kernelspec)
-  "If there is not a current inferior-process-buffer in SESSION then create.
- Return the initialized session."
-  (when (and (stringp session) (string= session "none"))
-    (error "You must specify a notebook or kernelspec as the session variable for ein code blocks."))
-  (multiple-value-bind (url-or-port path) (ein:org-babel-parse-session session)
-    (if (null (gethash url-or-port ein:available-kernelspecs))
-        (ein:query-kernelspecs url-or-port))
-    (if (null kernelspec)
-        (setq kernelspec (ein:get-kernelspec url-or-port "default")))
-    (cond ((null path)
-           (let* ((name ein:org-babel-default-session-name)
-                  (new-session (format "%s/%s" url-or-port name)))
-             (ein:notebooklist-new-notebook-with-name name kernelspec url-or-port)
-             (org-babel-ein-initiate-session new-session kernelspec)))
-          (t (let ((nb (ein:org-find-or-open-session session kernelspec)))
-               (ein:$notebook-kernel nb))))))
+;;;###autoload
+(when (featurep 'org)
+  (let* ((orig (get 'org-babel-load-languages 'custom-type))
+         (orig-cdr (cdr orig))
+         (choices (plist-get orig-cdr :key-type)))
+    (push '(const :tag "Ein" ein) (nthcdr 1 choices))
+    (put 'org-babel-load-languages 'custom-type
+         (cons (car orig) (plist-put orig-cdr :key-type choices)))))
 
 (provide 'ob-ein)
- ;;; ob-ein.el ends here

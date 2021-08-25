@@ -1,5 +1,4 @@
-
-;;; ein-traceback.el --- Traceback module
+;;; ein-traceback.el --- Traceback module       -*- lexical-binding:t -*-
 
 ;; Copyright (C) 2012- Takafumi Arakaki
 
@@ -26,12 +25,15 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
 (require 'eieio)
 (require 'ewoc)
 (require 'ansi-color)
 
 (require 'ein-core)
+(require 'ein-shared-output)
+
+(declare-function ein:get-notebook "ein-notebook")
+(declare-function ein:notebook-buffer "ein-notebook")
 
 (defclass ein:traceback ()
   ((tb-data :initarg :tb-data :type list)
@@ -51,7 +53,7 @@
                  :buffer-name buffer-name
                  :source-notebook notebook))
 
-(defmethod ein:tb-get-buffer ((traceback ein:traceback))
+(cl-defmethod ein:tb-get-buffer ((traceback ein:traceback))
   (unless (and (slot-boundp traceback :buffer)
                (buffer-live-p (slot-value traceback 'buffer)))
     (let ((buf (get-buffer-create (slot-value traceback 'buffer-name))))
@@ -61,7 +63,7 @@
 (defun ein:tb-pp (ewoc-data)
   (insert (ansi-color-apply ewoc-data)))
 
-(defmethod ein:tb-render ((traceback ein:traceback) tb-data)
+(cl-defmethod ein:tb-render ((traceback ein:traceback) tb-data)
   (with-current-buffer (ein:tb-get-buffer traceback)
     (setq ein:%traceback% traceback)
     (setq buffer-read-only t)
@@ -73,7 +75,7 @@
       (mapc (lambda (data) (ewoc-enter-last ewoc data)) tb-data))
     (ein:traceback-mode)))
 
-(defmethod ein:tb-popup ((traceback ein:traceback) tb-data)
+(cl-defmethod ein:tb-popup ((traceback ein:traceback) tb-data)
   (ein:tb-render traceback tb-data)
   (pop-to-buffer (ein:tb-get-buffer traceback)))
 
@@ -94,43 +96,40 @@
         t)
     (error "No traceback is available.")))
 
-(defmethod ein:tb-range-of-node-at-point ((traceback ein:traceback))
+(cl-defmethod ein:tb-range-of-node-at-point ((traceback ein:traceback))
   (let* ((ewoc (slot-value traceback 'ewoc))
          (ewoc-node (ewoc-locate ewoc))
          (beg (ewoc-location ewoc-node))
          (end (ein:aand (ewoc-next ewoc ewoc-node) (ewoc-location it))))
     (list beg end)))
 
-(defmethod ein:tb-file-path-at-point ((traceback ein:traceback))
-  (destructuring-bind (beg end)
+(cl-defmethod ein:tb-file-path-at-point ((traceback ein:traceback))
+  (cl-destructuring-bind (beg end)
       (ein:tb-range-of-node-at-point traceback)
     (let* ((file-tail
-            (if (>= emacs-major-version 24)
-                (next-single-property-change beg 'font-lock-face nil end)
-              ;; For Emacs 23.x:
-              (next-single-property-change beg 'face nil end)))
+            (next-single-property-change beg 'font-lock-face nil end))
            (file (when file-tail
                    (buffer-substring-no-properties beg file-tail))))
       (if (string-match "\\.pyc$" file)
           (concat (file-name-sans-extension file) ".py")
         file))))
 
-(defmethod ein:tb-file-lineno-at-point ((traceback ein:traceback))
-  (destructuring-bind (beg end)
+(cl-defmethod ein:tb-file-lineno-at-point ((traceback ein:traceback))
+  (cl-destructuring-bind (beg end)
       (ein:tb-range-of-node-at-point traceback)
     (when (save-excursion
             (goto-char beg)
             (search-forward-regexp "^[-]+> \\([0-9]+\\)" end t))
       (string-to-number (match-string 1)))))
 
-(defmethod ein:tb-jump-to-source-at-point ((traceback ein:traceback)
-                                           &optional select)
+(cl-defmethod ein:tb-jump-to-source-at-point ((traceback ein:traceback)
+                                              &optional select)
   (let ((file (ein:tb-file-path-at-point traceback))
         (lineno (ein:tb-file-lineno-at-point traceback)))
     (if (string-match "<ipython-input-\\([0-9]+\\)-.*" file)
         (let* ((cellnum (string-to-number (match-string 1 file)))
                (nb (slot-value traceback 'notebook))
-               (ws (first (ein:$notebook-worksheets nb)))
+               (ws (cl-first (ein:$notebook-worksheets nb)))
                (cells (ein:worksheet-get-cells ws))
                (it (cl-find cellnum cells :key #'(lambda (x)
                                                 (if (same-class-p x 'ein:codecell)
@@ -147,7 +146,7 @@
          (t (ein:tb-jtsap--remote url-or-port file lineno select)))))))
 
 (defun ein:tb-jtsap--local (file lineno select)
-  (assert (file-exists-p file) nil "File %s does not exist." file)
+  (cl-assert (file-exists-p file) nil "File %s does not exist." file)
   (let ((buf (find-file-noselect file))
         (scroll (lambda ()
                   (goto-char (point-min))
@@ -167,9 +166,6 @@
 (defun ein:tb-jump-to-source-at-point-command (&optional select)
   (interactive "P")
   (ein:tb-jump-to-source-at-point ein:%traceback% select))
-
-
-;;; ein:traceback-mode
 
 (defun ein:tb-prev-item ()
   (interactive)

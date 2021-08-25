@@ -202,6 +202,9 @@
 (require 'init-transient)
 (require 'init-with-editor)
 (require 'init-emojify)
+(require 'init-anaphora)
+(require 'init-polymode)
+(require 'init-ein)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -1454,6 +1457,9 @@ With numeric ARG, display the images if and only if ARG is positive."
   (progn 
     (setq org-file-apps
           (append
+           '(("doc" . "libreoffice %s"))
+           '(("docx" . "libreoffice %s"))
+           '(("odt" . "libreoffice %s"))
            '(("png" . "feh %s"))
            '(("pdf" . "evince %s"))
            '(("svg" . "inkscape %s"))
@@ -1486,7 +1492,11 @@ With numeric ARG, display the images if and only if ARG is positive."
         ))
 
 
-(setq org-latex-pdf-process '("pdflatex --shell-escape"))
+(setq org-latex "lualatex")
+(setq org-latex-pdf-process '(
+  "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"
+  "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"
+  "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"))
 
 ;; Don't jump when curser reaches end of terminal.
 (setq scroll-conservatively 10000)
