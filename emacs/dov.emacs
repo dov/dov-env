@@ -56,7 +56,7 @@
       (setq system-time-locale "C")
 
       ;; Load windows utilities
-      (load (concat emacs-git "/win-utils.el")))
+      (load (concat emacs-git "win-utils.el")))
   (progn
 ;    (setq my-default-family "Liberation Mono")
     (setq my-default-family "InconsolataDov")
@@ -251,7 +251,7 @@
 (autoload 'ps-mode "ps-mode" nil t)
 (autoload 'meson-mode "meson-mode" nil t)
 (autoload 'pyvenv-workon "pyvenv" nil t)
-
+(autoload 'asy-mode "asy-mode" nil t)
 
 ;(icy-mode)
 ;(load "icicles-xmas")
@@ -1309,6 +1309,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.was?t$" 'wat-mode))
        (list (cons "\\.robot$" 'robot-mode))
        (list (cons "\\.(conf|ini)$" 'conf-mode))
+       (list (cons "\\.(asy)$" 'asy-mode))
        auto-mode-alist))
 
 ;; macros for nxc code

@@ -64,6 +64,7 @@ maincl expand	Dov's standard template for command line main.
 #include <stdlib.h>
 #include <string.h>
 
+
 static void die(const char *fmt, ...)
 {
     va_list ap;
@@ -308,6 +309,9 @@ maincl expand	Dov's standard template for command line main.
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fmt/core.h>
+
+using namespace fmt;
 
 static void die(const char *fmt, ...)
 {
@@ -472,6 +476,32 @@ iifd	expand	#ifdef/#endif (prompts for condition)
 #
 
 #######
+# MODE:	python-mode
+#######
+sconstruct	expand	comment block for the top of a sconstruct file
+env = Environment(CPPFLAGS=['-Wall','-g','-std=c++2a'])
+env.ParseConfig('pkg-config --cflags --libs fmt')
+env.Program('foo',
+            ['foo.cc'])
+#
+#######
+argparse expand	Add a basic argparse template
+import argparse
+
+parser = argparse.ArgumentParser(description='Process a file')
+parser.add_argument('-o', '--output',
+                    dest='output',
+                    action='store',
+                    type=str,
+                    default='-',
+                    help='Output filename')
+
+args = parser.parse_args()
+Output = args.output
+~@
+#
+
+#######
 # MODE:	makefile-mode
 #######
 
@@ -626,19 +656,6 @@ fn  = "out.svg"
 fig.savefig(fn)
 return fn
 #+end_src
-#
-
-#######
-# MODE:	python-mode
-#######
-
-#####
-sconstruct	expand	comment block for the top of a sconstruct file
-env = Environment(CPPFLAGS=['-Wall','-g','-std=c++1y'])
-
-env.Program('foo',
-            ['foo.cc'])
-
 #
 
 #######

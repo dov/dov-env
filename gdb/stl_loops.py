@@ -13,7 +13,7 @@
 #   - [ ] Support printing of map elements in a similar way.
 
 from libstdcxx.v6 import printers 
-import re,sys,imp
+import re,sys
 import shlex
 from optparse import OptionParser
 
