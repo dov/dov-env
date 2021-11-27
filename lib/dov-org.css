@@ -859,7 +859,8 @@ ul {
 
 .title {
     margin: .8em auto;
-    color: #000
+    font-variant: small-caps;
+    color: #a5573e;
 }
 
 .subtitle,

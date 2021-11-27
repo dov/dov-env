@@ -5,7 +5,7 @@
 ;; Author: Iqbal Ansari <iqbalansari02@yahoo.com>
 ;; Keywords: multimedia, convenience
 ;; URL: https://github.com/iqbalansari/emacs-emojify
-;; Version: 1.0
+;; Version: 1.2
 ;; Package-Requires: ((seq "1.11") (ht "2.0") (emacs "24.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -57,9 +57,11 @@
 (declare-function org-list-get-item-begin "org-list")
 (declare-function org-at-heading-p "org")
 
-;; Required to determine point is in an org-src block
+;; Required to determine the context is in an org-src block
 (declare-function org-element-type "org-element")
+(declare-function org-element-property "org-element")
 (declare-function org-element-at-point "org-element")
+(declare-function org-src--get-lang-mode "org-src")
 
 ;; Required for integration with company-mode
 (declare-function company-pseudo-tooltip-unhide "company")
@@ -136,6 +138,16 @@ backported here for compatibility with older Emacsen."
   (if (fboundp 'string-join)
       (apply #'string-join (list strings separator))
     (mapconcat 'identity strings separator)))
+
+(defun emojify-provided-mode-derived-p (mode &rest modes)
+  "Non-nil if MODE is derived from one of MODES.
+Uses the `derived-mode-parent' property of the symbol to trace backwards.
+If you just want to check `major-mode', use `derived-mode-p'."
+  (if (fboundp 'provided-mode-derived-p)
+      (apply #'provided-mode-derived-p mode modes)
+    (while (and (not (memq mode modes))
+                (setq mode (get mode 'derived-mode-parent))))
+    mode))
 
 
 
@@ -496,35 +508,56 @@ of the emoji text in the buffer.  The arguments IGNORED are ignored."
        (equal text "8)")
        (equal (org-list-get-item-begin) beg)))
 
-(defun emojify-valid-program-context-p (emoji beg end)
+(defun emojify-program-context-at-point-per-syntax-table (beg end)
+  "Determine the progamming context between BEG and END using the the syntax table."
+  (let ((syntax-beg (syntax-ppss beg))
+        (syntax-end (syntax-ppss end)))
+    (cond ((and (nth 3 syntax-beg) (nth 3 syntax-end)) 'string)
+          ((and (nth 4 syntax-beg) (nth 4 syntax-end)) 'comments)
+          (t 'code))))
+
+(defun emojify-program-context-at-point-per-face (beg _end)
+  "Determine the progamming context between BEG and END using the the face.
+
+Used when the major mode for which we need to check the program context is not
+the same as the current buffer's major mode, currently only used when displaying
+emojis in org source blocks."
+  (let* ((face-at-point (get-text-property beg 'face))
+         (faces-at-point (if (listp face-at-point)
+                             face-at-point
+                           (list face-at-point))))
+    (cond ((memql 'font-lock-doc-face faces-at-point) 'string)
+          ((memql 'font-lock-string-face faces-at-point) 'string)
+          ((memql 'font-lock-comment-face faces-at-point) 'comments)
+          (t 'code))))
+
+
+(defun emojify-valid-program-context-p (emoji beg end &optional use-faces)
   "Determine if EMOJI should be displayed for text between BEG and END.
 
-This returns non-nil if the region is valid according to `emojify-program-contexts'"
+If the optional USE-FACES is true, the programming context is determined using
+faces.  This returns non-nil if the region is valid according to
+`emojify-program-contexts'"
   (when emojify-program-contexts
-    (let* ((syntax-beg (syntax-ppss beg))
-           (syntax-end (syntax-ppss end))
-           (context (cond ((and (nth 3 syntax-beg)
-                                (nth 3 syntax-end))
-                           'string)
-                          ((and (nth 4 syntax-beg)
-                                (nth 4 syntax-end))
-                           'comments)
-                          (t 'code))))
+    (let ((context (if use-faces
+                      (emojify-program-context-at-point-per-face beg end)
+                    (emojify-program-context-at-point-per-syntax-table beg end))))
       (and (memql context emojify-program-contexts)
            (if (equal context 'code)
                (and (string= (ht-get emoji "style") "unicode")
                     (memql 'unicode emojify-emoji-styles))
              t)))))
 
-(defun emojify-inside-org-src-p (point)
-  "Return non-nil if POINT is inside `org-mode' src block.
+(defun emojify-org-src-lang-at-point (point)
+  "Return the `major-mode' for the org source block at POINT.
 
-This is used to inhibit display of emoji's in `org-mode' src blocks
-since our mechanisms do not work in it."
+Returns nil if the point is not at an org source block"
   (when (eq major-mode 'org-mode)
     (save-excursion
       (goto-char point)
-      (eq (org-element-type (org-element-at-point)) 'src-block))))
+      (let ((element (org-element-at-point)))
+        (when (eq (org-element-type element) 'src-block)
+          (org-src--get-lang-mode (org-element-property :language element)))))))
 
 (defun emojify-looking-at-end-of-list-maybe (point)
   "Determine if POINT is end of a list.
@@ -613,7 +646,9 @@ Does nothing if the value is anything else."
   :group 'emojify)
 
 (defcustom emojify-reveal-on-isearch t
-  "Should underlying emoji be displayed when point enters emoji while in isearch mode.")
+  "Should underlying emoji be displayed when point enters emoji while in isearch mode."
+  :type 'bool
+  :group 'emojify)
 
 (defcustom emojify-show-help t
   "If non-nil the underlying text is displayed in a popup when mouse moves over it."
@@ -703,12 +738,16 @@ Example -
 The following assumes that custom images are at ~/.emacs.d/emojis/trollface.png and
 ~/.emacs.d/emojis/neckbeard.png
 
-'((\":troll:\"     . ((\"name\" . \"Troll\")
+'((\":troll:\"    . ((\"name\" . \"Troll\")
                     (\"image\" . \"~/.emacs.d/emojis/trollface.png\")
                     (\"style\" . \"github\")))
   (\":neckbeard:\" . ((\"name\" . \"Neckbeard\")
                     (\"image\" . \"~/.emacs.d/emojis/neckbeard.png\")
-                    (\"style\" . \"github\"))))")
+                    (\"style\" . \"github\"))))"
+  :type '(alist :key-type string
+                :value-type (alist :key-type string
+                                   :value-type string))
+  :group 'emojify)
 
 (defvar emojify--user-emojis nil
   "User specified custom emojis.")
@@ -853,18 +892,26 @@ and then `emojify-emojis'."
     (goto-char point)
     (cons (current-column) (line-number-at-pos))))
 
+(defun emojify--get-characters-for-composition (composition)
+  "Extract the characters from COMPOSITION."
+  (if (nth 3 composition)
+      (nth 2 composition)
+    (let ((index -1))
+      (seq-filter #'identity
+                  (seq-map (lambda (elt)
+                             (cl-incf index)
+                             (when (cl-evenp index) elt))
+                           (nth 2 composition))))))
+
 (defun emojify--get-composed-text (point)
   "Get the text used as composition property at POINT.
 
 This does not check if there is composition property at point the callers should
 make sure the point has a composition property otherwise this function will
 fail."
-  (emojify--string-join (mapcar #'char-to-string
-                                (decode-composition-components (nth 2
-                                                                    (find-composition point
-                                                                                      nil
-                                                                                      nil
-                                                                                      t))))))
+  (let* ((composition (find-composition point nil nil t))
+         (characters (emojify--get-characters-for-composition composition)))
+    (emojify--string-join (seq-map #'char-to-string characters))))
 
 (defun emojify--inside-rectangle-selection-p (beg end)
   "Check if region marked by BEG and END is inside a rectangular selection.
@@ -919,7 +966,9 @@ This returns nil if the emojis between BEG and END do not fall in region."
   (or (emojify--region-background-maybe beg end)
       (save-excursion
         (goto-char beg)
-        (background-color-at-point))))
+        (condition-case nil
+            (background-color-at-point)
+          (wrong-type-argument nil)))))
 
 (defvar emojify--imagemagick-support-cache (ht-create))
 
@@ -930,9 +979,9 @@ This function caches the result of the check since the naive check
 
     (memq format (imagemagick-types))
 
-can be expensive if imagemagick-types returns a large list, this is
+can be expensive if `imagemagick-types' returns a large list, this is
 especially problematic since this check is potentially called during
-very redisplay. See https://github.com/iqbalansari/emacs-emojify/issues/41"
+very redisplay.  See https://github.com/iqbalansari/emacs-emojify/issues/41"
   (when (fboundp 'imagemagick-types)
     (when (equal (ht-get emojify--imagemagick-support-cache format 'unset) 'unset)
       (ht-set emojify--imagemagick-support-cache format (memq format (imagemagick-types))))
@@ -1029,10 +1078,13 @@ For explanation of TARGET see the documentation of
                                          'emojify-text text)
                                    buffer-props)))))
 
-(defun emojify-display-emojis-in-region (beg end)
+(defun emojify-display-emojis-in-region (beg end &optional target)
   "Display emojis in region.
 
-BEG and END are the beginning and end of the region respectively.
+BEG and END are the beginning and end of the region respectively.  TARGET
+is used to determine the background color and size of emojis, by default
+the current buffer is used to determine these, see
+`emojify--get-text-display-props' for more details.
 
 Displaying happens in two phases, first search based phase displays actual text
 appearing in buffer as emojis.  In the next phase composed text is searched for
@@ -1064,8 +1116,7 @@ should not be a problem 🤞."
               (when (and emoji
                          (not (or (get-text-property match-beginning 'emojify-inhibit)
                                   (get-text-property match-end 'emojify-inhibit)))
-                         (memql (intern (ht-get emoji "style"))
-                                emojify-emoji-styles)
+                         (memql (intern (ht-get emoji "style")) emojify-emoji-styles)
                          ;; Skip displaying this emoji if the its bounds are
                          ;; already part of an existing emoji. Since the emojis
                          ;; are searched in descending order of length (see
@@ -1074,10 +1125,22 @@ should not be a problem 🤞."
                          ;; ones
                          (not (or (get-text-property match-beginning 'emojified)
                                   (get-text-property (1- match-end) 'emojified)))
-                         ;; Display unconditionally in non-prog mode
-                         (or (not (derived-mode-p 'prog-mode 'tuareg--prog-mode 'comint-mode 'smalltalk-mode))
-                             ;; In prog mode enable respecting `emojify-program-contexts'
-                             (emojify-valid-program-context-p emoji match-beginning match-end))
+
+                         ;; Validate the context in a programming major-mode, if
+                         ;; the buffer is in org-mode we determine the major
+                         ;; mode is picked from the language/babel block if any
+                         ;; at point
+                         (let ((major-mode-at-point (if (eq major-mode 'org-mode)
+                                                        (or (emojify-org-src-lang-at-point match-beginning) 'org-mode)
+                                                      major-mode)))
+                           ;; Display unconditionally in non-prog mode
+                           (or (not (emojify-provided-mode-derived-p major-mode-at-point
+                                                                     'prog-mode 'tuareg--prog-mode 'comint-mode 'smalltalk-mode))
+                               ;; In prog mode enable respecting `emojify-program-contexts'
+                               (emojify-valid-program-context-p emoji
+                                                                match-beginning
+                                                                match-end
+                                                                (not (eq major-mode-at-point major-mode)))))
 
                          ;; Display ascii emojis conservatively, since they have potential
                          ;; to be annoying consider d: in head:, except while executing apropos
@@ -1085,9 +1148,6 @@ should not be a problem 🤞."
                          (or (not (string= (ht-get emoji "style") "ascii"))
                              force-display
                              (emojify-valid-ascii-emoji-context-p match-beginning match-end))
-
-                         (or force-display
-                             (not (emojify-inside-org-src-p match-beginning)))
 
                          ;; Inhibit possibly inside a list
                          ;; 41 is ?) but packages get confused by the extra closing paren :)
@@ -1097,7 +1157,7 @@ should not be a problem 🤞."
                                        (emojify-looking-at-end-of-list-maybe match-end))))
 
                          (not (run-hook-with-args-until-success 'emojify-inhibit-functions match match-beginning match-end)))
-                (emojify--propertize-text-for-emoji emoji match buffer match-beginning match-end)))
+                (emojify--propertize-text-for-emoji emoji match buffer match-beginning match-end target)))
             ;; Stop a bit to let `with-timeout' kick in
             (sit-for 0 t))))
 
@@ -1131,7 +1191,7 @@ should not be a problem 🤞."
               ;; Display only composed text that is unicode char
               (when (and emoji
                          (string= (ht-get emoji "style") "unicode"))
-                (emojify--propertize-text-for-emoji emoji match (current-buffer) compose-start compose-end))
+                (emojify--propertize-text-for-emoji emoji match (current-buffer) compose-start compose-end target))
               ;; Setup the next loop
               (setq compose-start (and compose-end (next-single-property-change compose-end
                                                                                 'composition
@@ -1227,37 +1287,10 @@ TARGET can either be a buffer object or a special value mode-line.  It is used
 to indicate where EMOJI would be displayed, properties like font-height are
 inherited from TARGET if provided.  See also `emojify--get-text-display-props'."
   (emojify-create-emojify-emojis)
-  (let ((target (or target (current-buffer))))
+  (let ((emojify-emoji-styles (or styles emojify-emoji-styles)))
     (with-temp-buffer
       (insert string)
-      (let ((beg (point-min))
-            (end (point-max))
-            (styles (or styles '(unicode))))
-        (seq-doseq (regexp (apply #'append
-                                  (when emojify--user-emojis-regexp
-                                    (list emojify--user-emojis-regexp))
-                                  (list emojify-regexps)))
-          (goto-char beg)
-          (while (and (> end (point))
-                      (search-forward-regexp regexp end t))
-            (let* ((match-beginning (match-beginning 0))
-                   (match-end (match-end 0))
-                   (match (match-string-no-properties 0))
-                   (buffer (current-buffer))
-                   (emoji (emojify-get-emoji match)))
-              (when (and emoji
-                         (not (or (get-text-property match-beginning 'emojify-inhibit)
-                                  (get-text-property match-end 'emojify-inhibit)))
-                         (memql (intern (ht-get emoji "style")) styles)
-                         ;; Skip displaying this emoji if the its bounds are
-                         ;; already part of an existing emoji. Since the emojis
-                         ;; are searched in descending order of length (see
-                         ;; construction of emojify-regexp in `emojify-set-emoji-data'),
-                         ;; this means larger emojis get precedence over smaller
-                         ;; ones
-                         (not (or (get-text-property match-beginning 'emojified)
-                                  (get-text-property (1- match-end) 'emojified))))
-                (emojify--propertize-text-for-emoji emoji match buffer match-beginning match-end target))))))
+      (emojify-display-emojis-in-region (point-min) (point-max) target)
       (buffer-string))))
 
 
@@ -1395,7 +1428,7 @@ non-interactive mode and `emojify-download-emojis-p' is set to `ask'."
                             (secure-hash 'sha256 (current-buffer)))))
       (if (string= downloaded-sha (ht-get data "sha256"))
           destination
-        (error "cannot download from \"%s\" as %s != %s"
+        (error "Failed to download emojis from \"%s\", hash does not match %s (expected %s)"
                (ht-get data "url") downloaded-sha (ht-get data "sha256"))))))
 
 (defun emojify--extract-emojis (file)
@@ -1430,7 +1463,7 @@ do not prompt the user to download emojis multiple times."
     ;; Skip the prompt if we are in noninteractive mode or the user has already
     ;; denied us permission to download once
     (unless (or noninteractive emojify--refused-image-download-p)
-      (let ((download-confirmed-p (yes-or-no-p "[emojify] Emoji images not available should I download them now?")))
+      (let ((download-confirmed-p (yes-or-no-p "[emojify] Emoji images not available should I download them now? ")))
         (setq emojify--refused-image-download-p (not download-confirmed-p))
         download-confirmed-p))))
 
@@ -1517,9 +1550,14 @@ run the command `emojify-download-emoji'")))
   ;; Remove style change hooks
   (remove-hook 'emojify-emoji-style-change-hook #'emojify-redisplay-emojis-in-region))
 
+;; define a emojify-mode-map to enable defining keys specifically for emojify-mode
+(defvar emojify-mode-map (make-sparse-keymap)
+  "Keymap for `emojify-mode'.")
+
 ;;;###autoload
 (define-minor-mode emojify-mode
   "Emojify mode"
+  :keymap emojify-mode-map
   :init-value nil
   (if emojify-mode
       ;; Turn on
@@ -2078,7 +2116,7 @@ displayed."
            (disp (or (overlay-get ov 'display)
                      (overlay-get ov 'after-string)))
            (emojified-display (when disp
-                                (emojify-string disp)))
+                                (emojify-string disp '(unicode))))
            (emojified-p (when emojified-display
                           (text-property-any 0 (1- (length emojified-display))
                                              'emojified t

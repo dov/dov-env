@@ -1,0 +1,66 @@
+#!/usr/bin/python
+
+######################################################################
+#  This script converts html with references and css to
+#  a fully inline version of the html suitable for pasting into an
+#  email message.
+#
+#  Dependencies:
+#    - `npm install -g inliner`
+#    - `pip install premailer`
+######################################################################
+
+import sys,os,io,codecs
+from premailer import Premailer
+import tempfile
+import re
+import argparse
+
+parser = argparse.ArgumentParser(description='Inline html')
+parser.add_argument('--stdout', action='store_true', dest='stdout',
+                    help='Optional filename. Default is stdin')
+
+parser.add_argument('filename', nargs='?',
+                    help='Optional filename. Default is stdin')
+args = parser.parse_args()
+
+if args.filename is None:
+  html = sys.stdin.read()
+else:
+  html = io.open(args.filename,encoding='UTF-8').read().encode('utf-8')
+
+# Create temporary file
+tf = tempfile.NamedTemporaryFile(mode='w',suffix='.html')
+tf.write(html)
+tf.flush()
+nhtml = os.popen(f'inliner -n < ' + tf.name + ' 2>/dev/null').read()
+instance = Premailer(disable_validation=True)
+tr_html = instance.transform(nhtml)
+tf.close()
+
+# Some other translations needed for outlook!
+tr_html = re.sub('<ul class="org-ul" style=".*?">',
+                 '<ul class="org-ul">',
+                 tr_html)
+tr_html = re.sub('<ol class="org-ol" style=".*?">',
+                 '<ol class="org-ol">',
+                 tr_html)
+               
+tr_html = re.sub(r'href="(xjet|XJET|NF)',
+                 r'href="https://xjetsw.atlassian.net/browse/\1',
+                 tr_html,
+                 flags = re.IGNORECASE)
+
+tr_html = re.sub(r'href="/?(?:can)/(\d+)',
+                 r'href="https://app.comeet.co/app/index.html#/can/\1',
+                 tr_html,
+                 flags = re.IGNORECASE)
+
+if args.stdout:
+  print(tr_html)
+else:
+  with codecs.open('/tmp/pm.html','w',encoding='utf-8') as fh:
+    fh.write(tr_html)
+  
+  os.system('firefox /tmp/pm.html')
+  

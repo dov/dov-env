@@ -1,6 +1,6 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "/packages/default-text-scale-20190107.2018/"))
+                  (concat emacs-git "/packages/default-text-scale-20191226.2234/"))
                  load-path))
 (load "default-text-scale-autoloads.el")
 

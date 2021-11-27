@@ -203,6 +203,7 @@
 (require 'init-with-editor)
 (require 'init-emojify)
 (require 'init-anaphora)
+(require 'init-markdown)
 (require 'init-polymode)
 (require 'init-ein)
 
@@ -296,8 +297,6 @@
 (setq magit-push-always-verify nil)
 (setq git-commit-summary-max-length 80)
 (autoload 'magit-blame "magit-blame" nil t)
-(autoload 'markdown-mode "markdown-mode" nil t)
-(setq markdown-command "MultiMarkdown.pl")
 (setq magit-diff-options '("-w"))
 (autoload 'mo-git-blame-file "mo-git-blame" nil t)
 (autoload 'mo-git-blame-current "mo-git-blame" nil t)
