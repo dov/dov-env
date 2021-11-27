@@ -495,7 +495,11 @@ parser.add_argument('-o', '--output',
                     type=str,
                     default='-',
                     help='Output filename')
-
+parser.add_argument('-v', '--verbose',
+                    dest='verbose',
+                    action='store_true',
+                    help='Verbose editing')
+parser.add_argument('filename', nargs='?', help='Input. Default is stdin')
 args = parser.parse_args()
 Output = args.output
 ~@
