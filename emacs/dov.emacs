@@ -6,7 +6,8 @@
 ;; windows:
 ;;
 ;;  (setq emacs-git "d:/git/dov/dov-env/emacs")
-;;  (setq my-default-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
+;;  (setq my-default-family "DejaVu Sans Mono")
+;;  (setq my-default-font "DejaVu Sans Mono 12")
 ;;  (setq default-notes-file "w:/users/Dov/git/xjet-git/notes/notes.org")
 ;;  (setq tramp-default-method "plink")
 ;;  ; Point ediff to the diff path.
@@ -26,7 +27,7 @@
 ;;   (setenv "SJQT" "/home/dov/git/SolarJet/XjetApps/MetalJet/Apps/Project/qt/")
 ;;   (setenv "PE_HOME" "/home/dov/git/SolarJet/")
 ;;   (setq emacs-git "/home/dov/git/dov-env/emacs/")
-;;   (setq my-default-family "InconsolataDov 11")
+;;   (setq my-default-family "InconsolataDov")
 ;;   (setq my-default-font "InconsolataDov 11")
 ;;   (load-file (concat emacs-git "dov.emacs"))
 ;;   (setq default-notes-file "/home/dov/org/notebooks-groovy.org")
@@ -59,7 +60,7 @@
       (load (concat emacs-git "win-utils.el")))
   (progn
 ;    (setq my-default-family "Liberation Mono")
-    (setq my-default-family "InconsolataDov")
+    (setq my-default-family my-default-family)
     (setq temp-dir "/tmp/")
     (setq explicit-shell-file-name "/bin/zsh")
     (setq browse-url-generic-program "firefox")
@@ -83,7 +84,7 @@
 ;     (set-frame-font "lucidasanstypewriter-bold-14")
 ;     (set-frame-font "lucidasanstypewriter-bold-12")
 ;       (set-frame-font "Bitstream Vera Sans Mono-11")
-;     (set-frame-font "InconsolataDov")
+;     (set-frame-font my-default-family)
 ;     (set-frame-font "Fira Mono OT")
 ;     (set-frame-font "Droid sans Mono")
 ;     (set-frame-font "Source Code Pro")
@@ -2774,7 +2775,7 @@ Does not delete the prompt."
   (lambda ()
     (if (or (string= window-system "x") (string= window-system "w32"))
         (custom-set-faces
-         '(font-lock-function-name-face ((t (:foreground "blue" :family "InconsolataDov"))))
+         '(font-lock-function-name-face ((t (:foreground "blue" :family my-default-family))))
          '(link ((t (:foreground "RoyalBlue3" :underline t))))
          '(helm-selection ((t (:background "#b5ffd1" :distant-foreground "black" :foreground "black"))))
          '(font-lock-builtin-face ((t (:foreground "dark slate blue"))))
@@ -2798,16 +2799,16 @@ Does not delete the prompt."
       (custom-set-faces
        '(default ((t (:foreground "white"))))
        '(font-lock-constant-face ((t (:foreground "Orange"))))
-       '(font-lock-function-name-face ((t (:foreground "Yellow" :family "InconsolataDov"))))
+       '(font-lock-function-name-face ((t (:foreground "Yellow" :family my-default-family))))
        '(font-lock-comment-face ((t (:foreground "#db4545"))))
-       '(font-lock-keyword-face ((t (:foreground "Orange" :family "InconsolataDov"))))
-       '(font-lock-string-face ((t (:foreground "green" :family "InconsolataDov"))))
-       '(font-lock-type-face ((t (:foreground "maroon2" :family "InconsolataDov"))))
-       '(font-lock-builtin-face ((t (:foreground "Orange" :family "InconsolataDov"))))
+       '(font-lock-keyword-face ((t (:foreground "Orange" :family my-default-family))))
+       '(font-lock-string-face ((t (:foreground "green" :family my-default-family))))
+       '(font-lock-type-face ((t (:foreground "maroon2" :family my-default-family))))
+       '(font-lock-builtin-face ((t (:foreground "Orange" :family my-default-family))))
        '(org-verbatim ((t (:foreground "green"))))
        '(org-code ((t (:foreground "green"))))
   
-       '(py-builtins-face ((t (:foreground "#f84" :family "InconsolataDov"))) t)
+       '(py-builtins-face ((t (:foreground "#f84" :family my-default-family))) t)
        '(minibuffer-prompt ((t (:foreground "green"))))
        '(show-paren-match ((t (:background "#228"))))
        '(region ((t (:background "#501280"))))
