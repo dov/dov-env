@@ -15,6 +15,7 @@ from premailer import Premailer
 import tempfile
 import re
 import argparse
+from urllib.parse import unquote
 
 parser = argparse.ArgumentParser(description='Inline html')
 parser.add_argument('--stdout', action='store_true', dest='stdout',
@@ -29,10 +30,24 @@ if args.filename is None:
 else:
   html = io.open(args.filename,encoding='UTF-8').read().encode('utf-8')
 
+html = html.decode()
+
+# Remove datasegments that premailer cannot deal with.
+if m:=re.search(r'<link rel="stylesheet" href="data:text/css,(.*)"\s*/>',html):
+  style_sheet = unquote(m.group(1))
+  html = html[:m.start(0)] + '<style>\n' + style_sheet + '\n</style>\n' + html[m.end(0):]
+
+  html = re.sub(r'</style>\s*</style>','',html)
+  with open('/tmp/bar.html','w') as fh:
+    fh.write(html)
+
 # Create temporary file
 tf = tempfile.NamedTemporaryFile(mode='w',suffix='.html')
 tf.write(html)
 tf.flush()
+
+
+
 nhtml = os.popen(f'inliner -n < ' + tf.name + ' 2>/dev/null').read()
 instance = Premailer(disable_validation=True)
 tr_html = instance.transform(nhtml)
