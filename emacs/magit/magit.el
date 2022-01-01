@@ -133,6 +133,11 @@ This face is only used in logs and it gets combined
 and/or `magit-branch-remote-head'."
   :group 'magit-faces)
 
+(defface magit-branch-warning
+  '((t :inherit warning))
+  "Face for warning about (missing) branch."
+  :group 'magit-faces)
+
 (defface magit-head
   '((((class color) (background light)) :inherit magit-branch-local)
     (((class color) (background  dark)) :inherit magit-branch-local))
@@ -366,7 +371,7 @@ Also see info node `(magit)Commands for Buffers Visiting Files'."
    ("g" "       refresh current buffer"   magit-refresh)
    ("<tab>" "   toggle section at point"  magit-section-toggle)
    ("<return>" "visit thing at point"     magit-visit-thing)
-   ("C-h m" "   show all key bindings"    describe-mode)])
+   ("C-x m" "   show all key bindings"    describe-mode)])
 
 ;;; Git Popup
 
@@ -498,7 +503,7 @@ and Emacs to it."
     (unless (and toplib
                  (member (file-name-nondirectory toplib)
                          '("magit.el" "magit.el.gz")))
-      (let ((load-suffixes '(".el")))
+      (let ((load-suffixes (reverse load-suffixes))) ; prefer .el than .elc
         (setq toplib (locate-library "magit"))))
     (setq toplib (and toplib (magit--straight-chase-links toplib)))
     (push toplib debug)
