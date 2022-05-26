@@ -12,8 +12,9 @@
 ;;  (setq tramp-default-method "plink")
 ;;  ; Point ediff to the diff path.
 ;;  (setq ediff-diff-program "c:/Program Files/Git/usr/bin/diff.exe")
-;;  (setenv "GIT_SSH" "c:/Program Files/PuTTY/plink.exe") ; For remote access
-;;  (setenv "PATH" (concat (getenv "PATH") ";D:\\DevTools\\git\\bin;D:\\DevTools\\git\\usr\\bin"))
+;;  (setq ediff-diff3-program "c:/Program Files/Git/usr/bin/diff.exe")
+;;  (setenv "GIT_SSH" "C:/Windows/System32/OpenSSH/ssh.exe")
+;;  (setenv "PATH" (concat (getenv "PATH") ";c:/Program Files/Git/usr/bin/"))
 ;;  (setenv "SJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
 ;;  (load (concat emacs-git "/dov.emacs"))
 ;;
@@ -207,6 +208,7 @@
 (require 'init-markdown)
 (require 'init-polymode)
 (require 'init-ein)
+(require 'init-all-the-icons)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -568,8 +570,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (load "dired-details")
 (load "dired-details+")
 
-(autoload 'matlab-shell "matlab" "matlab.el" nil t)
-(autoload 'matlab-load "matlab" "matlab.el" nil t)
+;(autoload 'matlab-shell "matlab" "matlab.el" nil t)
+;(autoload 'matlab-load "matlab" "matlab.el" nil t)
 
 (require 'color-moccur)
 ;; TeX
@@ -615,6 +617,15 @@ Optional argument ARG is the same as for `backward-kill-word'."
             (define-key ein:notebook-mode-map [(return)] 'newline-and-indent)
             (define-key ein:notebook-mode-map [(control c) ?t] 'ein:worksheet-change-cell-type)
             (setq ein:worksheet-enable-undo t)))
+
+(add-hook 'ein:notebook-mode-hook
+          (lambda()
+            (define-key ein:notebook-mode-map [(control up)] 'scroll-up-line)
+            (define-key ein:notebook-mode-map [(control down)] 'scroll-down-line)
+            (define-key ein:notebook-mode-map [(return)] 'newline-and-indent)
+            (define-key ein:notebook-mode-map [(control c) ?t] 'ein:worksheet-change-cell-type)
+            (setq ein:worksheet-enable-undo t)))
+
 ;(add-hook 'LaTeX-mode-hook #'my-latex-mode-hook)
 ;(defun my-latex-mode-hook ()
 ;  (add-to-list 'TeX-command-list
@@ -757,6 +768,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (local-set-key "\C-c\C-pi" 'org-toggle-iimage-in-org)
   (local-set-key "\C-c\C-pl" 'org-toggle-link-display)
   (local-set-key "\C-c\C-x," 'org-insert-structure-template)
+  (local-set-key "\C-co" 'org-mark-ring-goto)
   (local-set-key (kbd "C-M-=") 'calc-eval-region)
 
   ;; variable pitch mode makes emacs rescale!
@@ -821,10 +833,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;        (cons '("+" '(:strike-through t :foreground "gray30"))
 ;              (delete* "+" org-emphasis-alist :key 'car :test 'equal))))
   (custom-set-variables
-   ;; custom-set-variables was added by Custom.
-   ;; If you edit it by hand, you could mess it up, so be careful.
-   ;; Your init file should contain only one such instance.
-   ;; If there is more than one, they won't work right.
    '(org-emphasis-alist
      (quote
       (("*" bold)
@@ -1310,6 +1318,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.robot$" 'robot-mode))
        (list (cons "\\.(conf|ini)$" 'conf-mode))
        (list (cons "\\.(asy)$" 'asy-mode))
+       (list (cons "\\.(tar)$" 'tar-mode))
        auto-mode-alist))
 
 ;; macros for nxc code
@@ -1474,6 +1483,7 @@ With numeric ARG, display the images if and only if ARG is positive."
            '(("html" . "firefox %s"))
            '(("xopp" . "xournalpp %s"))
            '(("ora" . "krita %s"))
+           '(("kra" . "krita %s"))
            org-file-apps))))
 
 (setq org-src-lang-modes
@@ -1767,6 +1777,10 @@ With numeric ARG, display the images if and only if ARG is positive."
   (kill-new (buffer-name))
   (message "%s" (buffer-name)))
 
+(add-hook 'magit-mode-hook 
+  (lambda()
+    (define-key magit-mode-map (kbd "i") 'magit-gitignore-in-topdir)))
+
 ;; Hide unregistered files from vc-buffer.
 ;; Copied from: http://groups.google.com/group/gnu.emacs.bug/msg/4a58d078b4aae650
 (defun my-vc-dir-hide-some (states)
@@ -1963,8 +1977,20 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control c) (control s)] 'dov-git-grep-here)
 
 ;; neo-tree configuration
-(setq neo-theme (if (display-graphic-p) 'nerd 'arrow))  ; Can't get classic to work!
+(eval-after-load "neotree"
+  '(setq neo-hidden-regexp-list
+         '(
+           "^\\."
+           "\\.pyc$"
+           "~$"
+           "^#.*#$"
+           "\\.elc$"
+           "\\.bak$")))
+(load "neotree.el")
+(setq neo-theme (if (display-graphic-p) 'icons 'arrow))
 (setq neo-smart-open t)
+(autoload 'neotree-toogle "neotree" nil t)
+(global-set-key [f8] 'neotree-toggle)
 
 ;; Shortcuts to go to special buffers
 (global-set-key [(alt meta d)] 'goto-end-of-gud-buffer)
@@ -2072,7 +2098,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(meta next)] '(lambda () (interactive) (scroll-other-window nil)))
 (global-set-key [f5] 'open-notes-file)
 (global-set-key [(meta f5)] 'open-work-notes-file)
-(global-set-key [f8] 'neotree-toggle)
+
 (global-set-key "\C-cT" 'toggle-truncate-lines)
 (define-key global-map " " 'space-or-undo)
 (define-key global-map "\C-x\C-m" 'save-buffers-dont-ask)
@@ -2485,6 +2511,18 @@ Does not delete the prompt."
           (goto-char (cdr myBoundaries)))))
 
 (global-set-key [(control x) (control ?\\)] 'toggle-backslash-line)
+
+(defun jenkins-mangle ()
+  "Mangle the Jenkins data path to its backup location. (XJet specific)"
+  (interactive)
+  (save-excursion
+    (if (use-region-p)
+        (setq myBoundaries (cons (region-beginning) (region-end)))
+        (setq myBoundaries (bounds-of-thing-at-point 'line)))
+      
+    (save-restriction
+      (toggle-backslash-line)
+      (while (search-forward "D:/Jenkins/workspace/DeveloperBuild/RunningEnv" nil t) (replace-match "file://sshx:dov@dovg:/mnt/Software-Temp/MetalJetData")))))
 
 (add-hook 'comint-mode-hook
   (lambda()

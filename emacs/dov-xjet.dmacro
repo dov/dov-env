@@ -124,13 +124,13 @@ int main(int argc, char **argv)
     while(argp < argc && argv[argp][0] == '-') {
         char *S_ = argv[argp++];
 
-        CASE("-help") {
+        CASE("--help") {
             printf("~(pwdleaf) - ~@\n\n"
                    "Syntax:\n"
                    "    ~(pwdleaf) [] ...\n"
                    "\n"
                    "Options:\n"
-                   "    -x x    Foo\n");
+                   "    --foo x    Foo\n");
             exit(0);
         }
         die("Unknown option %s!\n", S_);

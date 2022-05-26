@@ -691,6 +691,8 @@
   (puthash ":." "⋮" xmsi-abrvs)
   (puthash "vellipsis" "⋮" xmsi-abrvs)
   (puthash "vspace" "⌴" xmsi-abrvs)
+  (puthash "redx" "⌴❌" xmsi-abrvs)
+  (puthash "greenvee" "⌴✅" xmsi-abrvs)
   )
 
 (defun xmsi-hash-to-list (hashtable)

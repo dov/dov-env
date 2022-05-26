@@ -112,7 +112,7 @@ my %config;
 # override these where present.
 $default_opts{desktop} = $desktopName;
 $default_opts{auth} = $xauthorityFile;
-$default_opts{rfbwait} = 30000;
+#$default_opts{rfbwait} = 30000;
 $default_opts{rfbauth} = "$vncUserDir/passwd";
 $default_opts{rfbport} = $vncPort;
 $default_opts{fp} = $fontPath if ($fontPath);
@@ -278,8 +278,8 @@ warn "\nNew '$desktopName' desktop is $host:$displayNumber\n\n";
 
 warn "Starting desktop session $sessionname\n";
 print join(" ", @cmd), "\n";
-exec(@cmd);
-
+#exec(@cmd);
+die("@cmd");
 die "Failed to start session.\n";
 
 ###############################################################################
