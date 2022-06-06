@@ -198,6 +198,7 @@
 (setq package-user-dir (concat emacs-git "/packages"))
 (require 'init-multiple-cursors)
 (require 'init-helm)
+(require 'init-cmake)
 (require 'init-default-text-scale)
 ;(require 'init-telega)
 (require 'sticky-w)
@@ -242,7 +243,6 @@
 (setq backup-by-copying t)
 
 ;; Get newer private versions of standard libraries
-(load "cmake-mode")
 (autoload 'cc-mode "cc-mode" nil t)
 (autoload 'rec-mode "rec-mode" nil t)
 (autoload 'robot-mode "robot-mode" nil t)
@@ -699,6 +699,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 				  ("SConstruct" . sconstruct)
 				  ("SConscript" . sconscript)
 				  ("meson.build" . mesonbuild)
+                                  ("CMakeLists.txt" . cmakebuild)
                                   )
 				  auto-dmacro-alist))
 
@@ -744,6 +745,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
     (setq org-descriptive-links t)))
 
 (require 'org-crypt)
+(require 'org-habit)
 (defun my-org-hook ()
   (load "org-git-hyperlink.el")
   (load "org-comeet-hyperlink.el")
@@ -832,6 +834,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;  (setq org-emphasis-alist
 ;        (cons '("+" '(:strike-through t :foreground "gray30"))
 ;              (delete* "+" org-emphasis-alist :key 'car :test 'equal))))
+
   (custom-set-variables
    '(org-emphasis-alist
      (quote
@@ -840,8 +843,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
        ("_" underline)
        ("=" org-verbatim verbatim)
        ("~" org-code verbatim)
-       ("+" (:strike-through t :foreground "gray30"))
-       ("!" (:foreground "red"))))))
+       ("+" (:strike-through t :foreground "gray30")))))
+   )
   )
 
 ;; Don't ever make Return accept a competion as that may insert
@@ -2227,6 +2230,13 @@ With numeric ARG, display the images if and only if ARG is positive."
   (setq my-topmost-intro 0)
   (update-indent-mode))
 
+(defun agg-indent-mode ()
+  "Set indent tabs to 4 as style I use at WIS."
+  (interactive)
+  (setq my-indent 3)
+  (setq my-topmost-intro 0)
+  (update-indent-mode))
+
 (defun xjet-indent-mode ()
   "Set indent tabs to the xjet indent mode"
   (interactive)
@@ -2325,6 +2335,17 @@ With numeric ARG, display the images if and only if ARG is positive."
 (add-hook 'c-mode-hook   (lambda() (my-cmode-stuff c-mode-map)))
 (add-hook 'c++-mode-hook (lambda() (my-cmode-stuff c++-mode-map)))
 (add-hook 'tcl-mode-hook (lambda() (do-return-indent tcl-mode-map)))
+
+;; Turn on horizontal scrolling with mouse wheel
+(global-set-key (kbd "<mouse-7>") '(lambda () (interactive) (scroll-left 8)))
+(global-set-key (kbd "<mouse-6>") '(lambda () (interactive) (scroll-right 8)))
+(global-set-key (kbd "<M-mouse-7>") '(lambda () (interactive) (scroll-left 32)))
+(global-set-key (kbd "<M-mouse-6>") '(lambda () (interactive) (scroll-right 32)))
+
+(global-set-key (kbd "<mouse-5>") '(lambda () (interactive) (scroll-up 4)))
+(global-set-key (kbd "<mouse-4>") '(lambda () (interactive) (scroll-down 4)))
+(global-set-key (kbd "<M-mouse-5>") '(lambda () (interactive) (scroll-up 16)))
+(global-set-key (kbd "<M-mouse-4>") '(lambda () (interactive) (scroll-down 16)))
 
 (defun rhino-js-eval-region-or-buffer ()
   "Evaluate the current buffer (or region if mark-active),
@@ -2516,10 +2537,6 @@ Does not delete the prompt."
   "Mangle the Jenkins data path to its backup location. (XJet specific)"
   (interactive)
   (save-excursion
-    (if (use-region-p)
-        (setq myBoundaries (cons (region-beginning) (region-end)))
-        (setq myBoundaries (bounds-of-thing-at-point 'line)))
-      
     (save-restriction
       (toggle-backslash-line)
       (while (search-forward "D:/Jenkins/workspace/DeveloperBuild/RunningEnv" nil t) (replace-match "file://sshx:dov@dovg:/mnt/Software-Temp/MetalJetData")))))
