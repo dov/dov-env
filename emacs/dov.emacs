@@ -2694,7 +2694,8 @@ Does not delete the prompt."
       (progn
         (setq filename (concat temporary-file-directory "/buffer.py"))
         (write-region (point-min) (point-max) filename))
-    (setq filename (buffer-file-name)))
+    (setq filename (replace-regexp-in-string "^/sshx:groxjet:" "" buffer-file-name))
+    )
     
   (xjet-remote-python-file filename))
 
