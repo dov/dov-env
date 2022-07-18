@@ -110,10 +110,12 @@ xkb_keymap "dovhebrew" {
 			[  Alt_L ] };
     key <LALT> {        [  Meta_L ],
 			[  Meta_L ] };
-    key <MENU> {        [  ISO_Next_Group], [ISO_Next_Group] };
-    key <RWIN>  {       [  ISO_Next_Group], [ISO_Next_Group] };
+    key <RALT> {        [  Multi_key, ISO_Next_Group ],
+			[  Multi_key, ISO_Next_Group ] };
+    key <RWIN> {        [  Multi_key, ISO_Next_Group ],
+			[  Multi_key, ISO_Next_Group ] };
     key <LWIN>  {       [  Super_L], [Super_L] };
-    key <RALT> {        [ Multi_key ], [Multi_key ] };
+    key <MENU> {        [ Multi_key ], [Multi_key ] };
     // Begin "Keypad" section
     key <NMLK> {	[  Num_Lock,	Pointer_EnableKeys	]	};
     key <KPEQ> {	[  equal				]	};
@@ -137,16 +139,26 @@ xkb_keymap "dovhebrew" {
     key  <KP0> {	[  KP_Insert		]	};
     key <KPDL> { 	[  KP_Delete		]	};
 
+    // There is no insert key on this laptop
+    key <DELE> { 	[  Insert		]	};
+
     // Volume control keys
     key <MUTE> { 	[  XF86AudioMute		]	};
     key <VOL+> { 	[  XF86AudioRaiseVolume		]	};
     key <VOL-> { 	[  XF86AudioLowerVolume		]	};
 
+    key <I232> {        [ XF86Launch2 ] };
+    key <I233> {        [ XF86Launch3 ] };
+
+//    key <I237> {        [ XF86Launch0 ] };
+//    key <I238> {        [ XF86Launch1 ] };
+
     // Sleep key
     key <I150> {        [ XF86Sleep ] };
 
     key <I235> {        [ XF86Display ] };
-    key <I156> {        [ XF86Launch0 ] };
+//    key <I156> {        [ XF86Launch0 ] };
+    key <I199> {        [ XF86Launch0 ] };
 
    // Begin modifier mappings 
 
