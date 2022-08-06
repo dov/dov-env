@@ -187,7 +187,7 @@ INFO is a plist used as a communication channel."
   (let* ((fn-alist (org-export-collect-footnote-definitions
                     info (plist-get info :parse-tree)))
          (fn-alist
-          (loop for (n type raw) in fn-alist collect
+          (cl-loop for (n type raw) in fn-alist collect
                 (cons n (if (eq (org-element-type raw) 'org-data)
                             (org-trim (org-export-data raw info))
                           (format "%s"
@@ -568,7 +568,7 @@ INFO is a plist used as a communication channel."
   "Transcode a TABLE element from Org to HTML.
 CONTENTS is the contents of the table.  INFO is a plist holding
 contextual information."
-  (case (org-element-property :type table)
+  (cl-case (org-element-property :type table)
     ;; Case 1: table.el table.  Convert it using appropriate tools.
     (table.el (org-mw-table--table.el-table table info))
     ;; Case 2: Standard table.

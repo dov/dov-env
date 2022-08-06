@@ -715,8 +715,9 @@ translate to its Emacs equivalent:
 - `ibuffer-do-replace-regexp'
 
 Also alters the behavior of `isearch-mode' when searching by regexp."
-  nil " PCRE"
-  nil
+  :init-value nil
+  :lighter " PCRE"
+  :keymap nil
   :global t
 
   (if pcre-mode
@@ -1247,7 +1248,7 @@ the kill ring; see the two functions named above for details."
 
 ;;;###autoload
 (define-minor-mode rxt-mode
-  "Regex translation utilities." nil nil)
+  "Regex translation utilities." :init-value nil :lighter nil)
 
 ;;;###autoload
 (defun turn-on-rxt-mode ()
@@ -1914,8 +1915,8 @@ Example:
                  (let* ((split-point (/ (+ start end) 2))
                         (left (recur start split-point))
                         (right (recur (1+ split-point) end)))
-                   (merge left right))))))
-         (merge (left right)
+                   (cl-merge left right))))))
+         (cl-merge (left right)
            (cond ((null left) right)
                  ((null right) left)
                  (t

@@ -776,9 +776,9 @@ Negative prefix argument turns off the mode.
 
 Key bindings:
 \\{yas-minor-mode-map}"
-  nil
+  :init-value nil
   ;; The indicator for the mode line.
-  " yas"
+  :lighter " yas"
   :group 'yasnippet
   (cond ((and yas-minor-mode (featurep 'yasnippet))
          ;; Install the direct keymaps in `emulation-mode-map-alists'
@@ -1164,7 +1164,7 @@ Return TEMPLATE."
           (group (yas--template-group template)))
       ;; Remove from menu keymap
       ;;
-      (assert menu-keymap)
+      (cl-assert menu-keymap)
       (yas--delete-from-keymap menu-keymap (yas--template-uuid template))
 
       ;; Add necessary subgroups as necessary.
@@ -2241,7 +2241,7 @@ Common gateway for `yas-expand-from-trigger-key' and
                 (yas-minor-mode nil)
                 (beyond-yasnippet (yas--keybinding-beyond-yasnippet)))
            (yas--message 4 "Falling back to %s"  beyond-yasnippet)
-           (assert (or (null beyond-yasnippet) (commandp beyond-yasnippet)))
+           (cl-assert (or (null beyond-yasnippet) (commandp beyond-yasnippet)))
            (setq this-command beyond-yasnippet)
            (when beyond-yasnippet
              (call-interactively beyond-yasnippet))))

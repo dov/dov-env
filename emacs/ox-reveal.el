@@ -793,7 +793,7 @@ holding export options."
 (defun org-reveal-parse-token (key &optional value)
   "Return HTML tags or perform SIDE EFFECT according to key.
 Use the previous section tag as the tag of the split section. "
-  (case (intern key)
+  (cl-case (intern key)
     (split (format "</section>\n%s" org-reveal--last-slide-section-tag))))
 
 (defun org-reveal-parse-keyword-value (value)
@@ -819,7 +819,7 @@ Use the previous section tag as the tag of the split section. "
 			  (and checkbox " ")))
 	(br (org-html-close-tag "br" nil info)))
     (concat
-     (case type
+     (cl-case type
        (ordered
 	(let* ((counter term-counter-id)
 	       (extra (if counter (format " value=\"%s\"" counter) "")))
@@ -841,7 +841,7 @@ Use the previous section tag as the tag of the split section. "
 		 (format "<dd%s>" attr-html)))))
      (unless (eq type 'descriptive) checkbox)
      (and contents (org-trim contents))
-     (case type
+     (cl-case type
        (ordered "</li>")
        (unordered "</li>")
        (descriptive "</dd>")))))
@@ -869,7 +869,7 @@ and may change custom variables as SIDE EFFECT.
 CONTENTS is nil. INFO is a plist holding contextual information."
   (let ((key (org-element-property :key keyword))
         (value (org-element-property :value keyword)))
-    (case (intern key)
+    (cl-case (intern key)
       (REVEAL (org-reveal-parse-keyword-value value))
       (REVEAL_HTML value)
       (HTML value))))
@@ -950,7 +950,7 @@ CONTENTS is the contents of the list. INFO is a plist holding
 contextual information.
 
 Extract and set `attr_html' to plain-list tag attributes."
-  (let ((tag (case (org-element-property :type plain-list)
+  (let ((tag (cl-case (org-element-property :type plain-list)
                (ordered "ol")
                (unordered "ul")
                (descriptive "dl")))

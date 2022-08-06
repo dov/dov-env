@@ -81,7 +81,7 @@ If this is undesirable, one can remove them with
 ;;;###autoload
 (define-minor-mode org-bullets-mode
   "UTF-8 bullets for `org-mode'."
-  nil nil nil
+  :init-value nil :lighter nil :keymap nil
   (let* ((keyword
 	  `((,org-outline-regexp-bol
 	     (0 (let (( level (- (match-end 0) (match-beginning 0) 1)))

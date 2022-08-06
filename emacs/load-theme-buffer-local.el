@@ -94,7 +94,7 @@
                   (mapcar 'symbol-name (custom-available-themes))))
          (read-buffer "on Buffer: " (current-buffer) t)))
   (or buffer (setq buffer (current-buffer)))
-  (flet ((custom-theme-recalc-face
+  (cl-flet ((custom-theme-recalc-face
           (symbol) (custom-theme-buffer-local-recalc-face symbol buffer))
          (custom-theme-recalc-variable
           (symbol) (custom-theme-buffer-local-recalc-variable symbol buffer)))

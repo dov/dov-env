@@ -214,7 +214,7 @@
 (require 'sticky-w)
 (require 'init-transient)
 (require 'init-with-editor)
-(require 'init-emojify)
+;(require 'init-emojify)
 (require 'init-anaphora)
 (require 'init-markdown)
 (require 'init-polymode)
@@ -1290,6 +1290,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.mf$" 'metafont-mode))
        (list (cons "\\.cmake$" 'cmake-mode))
        (list (cons "CMakeLists.txt" 'cmake-mode))
+       (list (cons "\\.R$" 'ess-r-mode))
        (list (cons "SConstruct" 'python-mode))
        (list (cons "SConscript" 'python-mode))
        (list (cons "\\.md$" 'markdown-mode))
@@ -1820,7 +1821,7 @@ With numeric ARG, display the images if and only if ARG is positive."
                  (ewoc-map (lambda (item)
                              (let ((state (vc-dir-fileinfo->state item)))
                                (when state
-                                 (pushnew state possible-states))
+                                 (cl-pushnew state possible-states))
                                nil))
                            vc-ewoc)
                  (mapcar 'symbol-name possible-states))
@@ -1908,12 +1909,12 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(super kp-insert)] 'move-to-middle-window-line)
 (global-set-key [(begin)] 'move-to-middle-window-line)
 (global-set-key [(super kp-add)] 'scroll-up-line)
-(global-set-key [(button5)] '(lambda () (interactive) (scroll-up 5)))
-(global-set-key [(button4)] '(lambda () (interactive) (scroll-down 5)))
-(global-set-key [(shift button5)] '(lambda () (interactive) (scroll-up 1)))
-(global-set-key [(shift button4)] '(lambda () (interactive) (scroll-down 1)))
-(global-set-key [(control button5)] '(lambda () (interactive) (scroll-up)))
-(global-set-key [(control button4)] '(lambda () (interactive) (scroll-down)))
+(global-set-key [(button5)] (lambda () (interactive) (scroll-up 5)))
+(global-set-key [(button4)] (lambda () (interactive) (scroll-down 5)))
+(global-set-key [(shift button5)] (lambda () (interactive) (scroll-up 1)))
+(global-set-key [(shift button4)] (lambda () (interactive) (scroll-down 1)))
+(global-set-key [(control button5)] (lambda () (interactive) (scroll-up)))
+(global-set-key [(control button4)] (lambda () (interactive) (scroll-down)))
 (global-set-key [(super kp-enter)] 'scroll-down-line)
 (global-set-key [(control meta ?S)] 'vr/isearch-forward)
 (global-set-key [(control meta ?R)] 'vr/isearch-backward)
@@ -1937,12 +1938,12 @@ With numeric ARG, display the images if and only if ARG is positive."
 
 ;; Make shift-backspace erase subword
 (global-set-key [(control shift backspace)]
-                '(lambda ()
-                   (interactive)
-                   (progn
-                     (set-mark-command nil)
-                     (subword-backward)
-                     (kill-region (mark) (point)))))
+                (lambda ()
+                  (interactive)
+                  (progn
+                    (set-mark-command nil)
+                    (subword-backward)
+                    (kill-region (mark) (point)))))
 
 
 ;; Find first and return first buffer matching a given pattern
@@ -1957,7 +1958,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (dolist (f buffers)
     (let ((case-fold-search nil)) ;; case-sensitive
       (when (string-match pattern (buffer-name f))
-        (return f)))))
+        (cl-return f)))))
 
 (defun find-most-recent-pattern-buffer (pattern)
   "find the most recent code buffer in the history and switch to it"
@@ -2025,25 +2026,25 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control c) ?b ?p] 'find-most-recent-python-buffer)
 (global-set-key [(control c) ?b ?m] 'find-most-recent-magit-buffer)
 (global-set-key [(control c) ?b ?o] 'find-most-recent-org-buffer)
-(global-set-key [(control c) ?b ?j] '(lambda () (interactive) 
+(global-set-key [(control c) ?b ?j] (lambda () (interactive) 
   (switch-to-buffer (find-most-recent-pattern-buffer "\\*ein: http"))))
 (global-set-key [(alt meta m)] 'find-most-recent-magit-buffer)
 (global-set-key [(alt meta y)] 'find-most-recent-python-buffer)
-(global-set-key [(alt meta n)] '(lambda () (interactive) 
+(global-set-key [(alt meta n)] (lambda () (interactive) 
   (switch-to-buffer (find-most-recent-pattern-buffer "notes.*\\.org"))))
-(global-set-key [(alt meta h)] '(lambda () (interactive) 
+(global-set-key [(alt meta h)] (lambda () (interactive) 
   (switch-to-buffer (find-most-recent-pattern-buffer "\\*shell"))
   ; prepare for user input
   (end-of-buffer)))
-(global-set-key [(alt meta o)] '(lambda () (interactive) 
+(global-set-key [(alt meta o)] (lambda () (interactive) 
   (switch-to-buffer "*Inferior Octave*")
   ; prepare for user input
   (end-of-buffer)))
-(global-set-key [(alt meta s)] '(lambda () (interactive) 
+(global-set-key [(alt meta s)] (lambda () (interactive) 
   (switch-to-buffer "*scratch*")))
-(global-set-key [(alt meta p)] '(lambda () (interactive) 
+(global-set-key [(alt meta p)] (lambda () (interactive) 
   (switch-to-buffer "*Python*")))
-(global-set-key [(alt meta j)] '(lambda () (interactive) 
+(global-set-key [(alt meta j)] (lambda () (interactive) 
   (switch-to-buffer (find-most-recent-pattern-buffer "\\*ein:notebook"))))
 
 (global-set-key [(control up)] 'scroll-up-line)
@@ -2112,13 +2113,14 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control ?8)] 'call-last-kbd-macro)
 (global-set-key [(control ?9)] 'start-kbd-macro)
 (global-set-key [(control ?0)] 'end-kbd-macro)
+(global-set-key "\C-x&" 'call-last-kbd-macro)
 (global-set-key [(find)] 'toolbar-mail)
 (global-set-key [(meta \`)] 'next-error)
-(global-set-key [(meta \~)] '(lambda () (interactive) (next-error -1)))
-(global-set-key [(control meta up)] '(lambda () (interactive) (scroll-other-window 1)))
-(global-set-key [(control meta down)] '(lambda () (interactive) (scroll-other-window -1)))
-(global-set-key [(meta prior)] '(lambda () (interactive) (scroll-other-window-down nil)))
-(global-set-key [(meta next)] '(lambda () (interactive) (scroll-other-window nil)))
+(global-set-key [(meta \~)] (lambda () (interactive) (next-error -1)))
+(global-set-key [(control meta up)] (lambda () (interactive) (scroll-other-window 1)))
+(global-set-key [(control meta down)] (lambda () (interactive) (scroll-other-window -1)))
+(global-set-key [(meta prior)] (lambda () (interactive) (scroll-other-window-down nil)))
+(global-set-key [(meta next)] (lambda () (interactive) (scroll-other-window nil)))
 (global-set-key [f5] 'open-notes-file)
 (global-set-key [(meta f5)] 'open-work-notes-file)
 
@@ -2361,15 +2363,15 @@ With numeric ARG, display the images if and only if ARG is positive."
 (add-hook 'tcl-mode-hook (lambda() (do-return-indent tcl-mode-map)))
 
 ;; Turn on horizontal scrolling with mouse wheel
-(global-set-key (kbd "<mouse-7>") '(lambda () (interactive) (scroll-left 8)))
-(global-set-key (kbd "<mouse-6>") '(lambda () (interactive) (scroll-right 8)))
-(global-set-key (kbd "<M-mouse-7>") '(lambda () (interactive) (scroll-left 32)))
-(global-set-key (kbd "<M-mouse-6>") '(lambda () (interactive) (scroll-right 32)))
+(global-set-key (kbd "<mouse-7>") (lambda () (interactive) (scroll-left 8)))
+(global-set-key (kbd "<mouse-6>") (lambda () (interactive) (scroll-right 8)))
+(global-set-key (kbd "<M-mouse-7>") (lambda () (interactive) (scroll-left 32)))
+(global-set-key (kbd "<M-mouse-6>") (lambda () (interactive) (scroll-right 32)))
 
-(global-set-key (kbd "<mouse-5>") '(lambda () (interactive) (scroll-up 4)))
-(global-set-key (kbd "<mouse-4>") '(lambda () (interactive) (scroll-down 4)))
-(global-set-key (kbd "<M-mouse-5>") '(lambda () (interactive) (scroll-up 16)))
-(global-set-key (kbd "<M-mouse-4>") '(lambda () (interactive) (scroll-down 16)))
+(global-set-key (kbd "<mouse-5>") (lambda () (interactive) (scroll-up 4)))
+(global-set-key (kbd "<mouse-4>") (lambda () (interactive) (scroll-down 4)))
+(global-set-key (kbd "<M-mouse-5>") (lambda () (interactive) (scroll-up 16)))
+(global-set-key (kbd "<M-mouse-4>") (lambda () (interactive) (scroll-down 16)))
 
 (defun rhino-js-eval-region-or-buffer ()
   "Evaluate the current buffer (or region if mark-active),
@@ -2400,11 +2402,11 @@ With numeric ARG, display the images if and only if ARG is positive."
             (setq js2-strict-missing-semi-warning nil)
             ))
 
-;(add-hook 'py-mode-hook '(lambda() 
+;(add-hook 'py-mode-hook (lambda() 
 ;                           (define-key py-mode-map [(control m)] 'py-newline-and-indent)
 ;                           ))
 (add-hook 'python-mode-hook
-  '(lambda() 
+  (lambda() 
      (local-set-key (kbd "RET") 'py-newline-and-indent)
      (remove-dos-eol)
      (setq py-indent-offset my-indent)
@@ -2431,20 +2433,20 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-eldoc-mode -1) ;; Don't use this at the moment...
 
 (setq company-global-modes '(not python-mode))
-(add-hook 'diff-mode-hook '(lambda() 
+(add-hook 'diff-mode-hook (lambda() 
                              (remove-dos-eol)))
-(add-hook 'csv-mode-hook '(lambda() 
+(add-hook 'csv-mode-hook (lambda() 
                            (setq truncate-lines t)
                            (setq word-wrap nil)
                            ))
 (add-hook 'mediawiki-mode-hook
-          '(lambda() 
+          (lambda() 
              (local-set-key [(control x) (control s)] 'mediawiki-save)
              (local-set-key [(control up)] 'scroll-up-line)
              (local-set-key [(control down)] 'scroll-down-line)
              ))
 
-(add-hook 'change-log-mode-hook '(lambda() 
+(add-hook 'change-log-mode-hook (lambda() 
                                    (setq indent-tabs-mode nil)
                                    ))
 ;(add-hook 'vm-mode-hook  (lambda() (my-vm-bindings vm-mode-map)))
@@ -2560,6 +2562,20 @@ Does not delete the prompt."
           (goto-char (cdr myBoundaries)))))
 
 (global-set-key [(control x) (control ?\\)] 'toggle-backslash-line)
+
+(defun tilde-expand-line ()
+  "Do shell exansion of a tilde"
+  (interactive)
+  (if (use-region-p)
+      (setq myBoundaries (cons (region-beginning) (region-end)))
+    (setq myBoundaries (bounds-of-thing-at-point 'line)))
+  (let*((reg-beg (car myBoundaries))
+        (reg-end (cdr myBoundaries))
+        (res (expand-file-name (buffer-substring-no-properties reg-beg reg-end))))
+    (kill-region reg-beg reg-end)
+    (insert res)))
+
+(global-set-key [(control x) ?~] 'tilde-expand-line)
 
 (defun jenkins-mangle ()
   "Mangle the Jenkins data path to its backup location. (XJet specific)"
@@ -2847,7 +2863,7 @@ Does not delete the prompt."
 (if (featurep 'compile)
     (ad-activate 'compile)
   (if xemacs
-      (eval-when (WHEN load) '(ad-activate 'compile))
+      (cl-eval-when (WHEN load) '(ad-activate 'compile))
     (eval-after-load "compile" '(ad-activate 'compile))))
 
 ;; eww - Use google search by default

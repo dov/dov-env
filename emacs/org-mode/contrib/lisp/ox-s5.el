@@ -283,7 +283,7 @@ If a containing headline has the property :INCREMENTAL,
 then the \"incremental\" class will be added to the to the list,
 which will make the list into a \"build\"."
   (let* ((type (org-element-property :type plain-list))
-        (tag (case type
+        (tag (cl-case type
                (ordered "ol")
                (unordered "ul")
                (descriptive "dl"))))

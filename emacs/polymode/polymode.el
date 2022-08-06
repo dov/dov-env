@@ -657,7 +657,8 @@ most frequently used slots are:
 
 (define-minor-mode polymode-minor-mode
   "Polymode minor mode, used to make everything work."
-  nil " PM")
+  :init-value nil
+  :lighter " PM")
 
 (define-derived-mode poly-head-tail-mode prog-mode "HeadTail"
   "Default major mode for polymode head and tail spans."

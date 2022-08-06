@@ -111,7 +111,9 @@ an exceedingly quick way of adding multiple cursors to multiple lines."
 ;;;###autoload
 (define-minor-mode rectangular-region-mode
   "A mode for creating a rectangular region to edit"
-  nil " rr" rectangular-region-mode-map
+  :init-value nil
+  :lighter " rr"
+  :keymap rectangular-region-mode-map
   (if rectangular-region-mode
       (progn
         (add-hook 'after-change-functions 'rrm/switch-to-multiple-cursors t t)

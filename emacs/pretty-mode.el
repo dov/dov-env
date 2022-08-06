@@ -118,7 +118,9 @@
 
 (define-minor-mode pretty-mode
   "Indicate where only a single space has been used."
-  nil " λ" nil
+  :init-value nil
+  :lighter " λ"
+  :keymap nil
   (cond ((not pretty-mode)
          (jit-lock-unregister 'pretty-fontify)
          (pretty-unfontify (point-min) (point-max)))

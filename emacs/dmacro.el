@@ -748,12 +748,12 @@ text to be indented in a way appropriate to the buffer's major mode."
 	  ;; 2nd time through list dmacro names and their documentation
 	  ;; (or expansion if documentation is nil).
 	  (mapcar 
-	   '(lambda (x) 
-	      (format "\n%s:\t%s" x
-		      (let ((dm (dmacro-lookup x dmacro-major-mode)))
-			(or (dmacro-doc  dm)
-			    (dmacro-text dm)))
-		      ))
+	   (lambda (x) 
+	     (format "\n%s:\t%s" x
+		     (let ((dm (dmacro-lookup x dmacro-major-mode)))
+		       (or (dmacro-doc  dm)
+			   (dmacro-text dm)))
+		     ))
 	   lis)
 	;; 1st time through, just list dmacro names.
 	(progn

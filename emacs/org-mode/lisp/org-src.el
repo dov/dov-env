@@ -679,7 +679,9 @@ This minor mode is turned on in two situations:
 \\{org-src-mode-map}
 
 See also `org-src-mode-hook'."
-  nil " OrgSrc" nil
+  :init-value nil
+  :lighter " OrgSrc"
+  :keymap nil
   (when org-edit-src-persistent-message
     (setq header-line-format
 	  (substitute-command-keys

@@ -2304,7 +2304,9 @@ is an integer, 0 means `-', 1 means `+' etc.  If WHICH is
 ;;;###autoload
 (define-minor-mode org-list-checkbox-radio-mode
   "When turned on, use list checkboxes as radio buttons."
-  nil " CheckBoxRadio" nil
+  :init-value nil
+  :lighter " CheckBoxRadio"
+  :keymap nil
   (unless (eq major-mode 'org-mode)
     (user-error "Cannot turn this mode outside org-mode buffers")))
 

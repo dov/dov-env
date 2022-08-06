@@ -500,7 +500,9 @@ This may be useful when columns have been shrunk."
 ;;;###autoload
 (define-minor-mode org-table-header-line-mode
   "Display the first row of the table at point in the header line."
-  nil " TblHeader" nil
+  :init-value nil
+  :lighter " TblHeader"
+  :keymap nil
   (unless (eq major-mode 'org-mode)
     (user-error "Cannot turn org table header mode outside org-mode buffers"))
   (if org-table-header-line-mode
@@ -1982,7 +1984,9 @@ lines."
 When this mode is active, the field editor window will always show the
 current field.  The mode exits automatically when the cursor leaves the
 table (but see `org-table-exit-follow-field-mode-when-leaving-table')."
-  nil " TblFollow" nil
+  :init-value nil
+  :lighter " TblFollow"
+  :keymap nil
   (if org-table-follow-field-mode
       (add-hook 'post-command-hook 'org-table-follow-fields-with-editor
 		'append 'local)

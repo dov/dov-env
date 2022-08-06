@@ -766,6 +766,7 @@ See `xmsi-mode'."
     )
   )
 
+
 (define-minor-mode xmsi-mode
   "Toggle math symbol input (minor) mode.
 
@@ -791,7 +792,7 @@ If optional argument is 0, turn it off.
 
 For full documentation, see: 
 URL `http://xahlee.org/emacs/xmsi-math-symbols-input.html'"
-  nil
+  :init-value nil
   :global t
   :lighter " ∑"
   :keymap xmsi-keymap

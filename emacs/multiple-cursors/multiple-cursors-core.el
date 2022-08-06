@@ -530,7 +530,9 @@ They are temporarily disabled when multiple-cursors are active.")
 ;;;###autoload
 (define-minor-mode multiple-cursors-mode
   "Mode while multiple cursors are active."
-  nil mc/mode-line mc/keymap
+  :init-value nil
+  :lighter mc/mode-line
+  :keymap mc/keymap
   (if multiple-cursors-mode
       (progn
         (mc/temporarily-disable-unsupported-minor-modes)

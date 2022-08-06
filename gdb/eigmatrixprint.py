@@ -1,6 +1,6 @@
 # Print variables by python
 
-import gdb,re
+import gdb,re, pdb
 class EigMatrixPrint (gdb.Command):
   "A command for printing variables via python"
 
