@@ -194,6 +194,16 @@
                   )
                  load-path))
 
+;; Use a visible bell through the ring-bell-function
+(setq visible-bell nil
+      ring-bell-function (lambda ()
+        (let ((orig-fg (face-foreground 'mode-line)))
+          (set-face-foreground 'mode-line "#F2804F")
+          (run-with-idle-timer 0.1 nil
+                               (lambda (fg) (set-face-foreground 'mode-line fg))
+                               orig-fg))))
+
+
 ;; packages - tbd as much as possible there!
 (setq package-user-dir (concat emacs-git "/packages"))
 (require 'init-multiple-cursors)
@@ -417,14 +427,14 @@ Nice for copying"
   (call-interactively 'minibuffer-keyboard-quit))
 
 (defun name-of-the-file ()
-  "Gets the name of the file the current buffer is based on."
+  "Gets the shell quoted name of the file the current buffer is based on."
   (interactive)
-  (insert (buffer-file-name (window-buffer (minibuffer-selected-window)))))
+  (insert (shell-quote-argument (buffer-file-name (window-buffer (minibuffer-selected-window))))))
 
 (defun name-nondirectory-of-the-file ()
-  "Gets the name of the file the current buffer is based on."
+  "Gets the shell quoted name of the file the current buffer is based on."
   (interactive)
-  (insert (file-name-nondirectory (buffer-file-name (window-buffer (minibuffer-selected-window))))))
+  (insert (shell-quote-argument (file-name-nondirectory (buffer-file-name (window-buffer (minibuffer-selected-window)))))))
 
 (defun name-of-the-buffer ()
   "Gets the name of current buffer."
@@ -900,6 +910,12 @@ Optional argument ARG is the same as for `backward-kill-word'."
   ))
 
 (add-hook 'org-mode-hook 'my-org-hook)
+
+
+(defun my-markdown-hook ()
+  (variable-pitch-mode t))
+
+(add-hook 'markdown-mode-hook 'my-markdown-hook)
 
 (org-crypt-use-before-save-magic)
 (setq org-tags-exclude-from-inheritance (quote ("crypt")))
@@ -1440,6 +1456,10 @@ With numeric ARG, display the images if and only if ARG is positive."
 (defun browse-current-file ()
   (interactive)
   (browse-url (buffer-file-name)))
+
+(defun etan-indent-mode ()
+  (interactive)
+  (setq web-mode-markup-indent-offset 4))
 
 (defun my-web-mode ()
   (interactive)
@@ -2253,7 +2273,11 @@ With numeric ARG, display the images if and only if ARG is positive."
 
   ;; Json
   (setq js2-basic-offset 2)
-  (setq js-indent-level 2))
+  (setq js-indent-level 2)
+
+  ;; web-mode
+  (setq web-mode-markup-indent-offset 2)
+  )
 
 (defun standard-python-indent ()
   """Setup standard python indentation"""
@@ -2391,6 +2415,10 @@ With numeric ARG, display the images if and only if ARG is positive."
      (local-set-key [(alt ?f)] 'right-word)
      (local-set-key [(control c) (control c)] 'shell-python-on-buffer)
      (local-set-key [(control c) (control j)] 'xjet-python-buffer)
+     (local-set-key [(control up)] 'scroll-up-line)
+     (local-set-key [(control down)] 'scroll-down-line)
+     (local-set-key [(control right)] 'forward-word)
+     (local-set-key [(control left)] 'backward-word)
      ;; I don't like interactive shell for python commands by default
      (setq py-fast-process-p nil)
      (eldoc-mode 0)

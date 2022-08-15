@@ -1,6 +1,6 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "/packages/all-the-icons-20211108.7/")
+                  (concat emacs-git "/packages/all-the-icons-20220521.816/")
                   emacs-git
                   )
                  load-path))

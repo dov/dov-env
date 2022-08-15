@@ -9,9 +9,9 @@
 ;; Created: Sep 17 2004
 ;; Keywords: mediawiki wikipedia network wiki
 ;; URL: https://github.com/hexmode/mediawiki-el
-;; Last Modified: <2017-08-13 01:53:37 mah>
+;; Last Modified: <2020-07-11 22:45:06 mah>
 
-(defconst mediawiki-version "2.2.9"
+(defconst mediawiki-version "2.3.1"
   "Current version of mediawiki.el.")
 
 ;; This file is NOT (yet) part of GNU Emacs.
@@ -156,7 +156,7 @@
 (eval-when-compile
   (require 'cl)
   (require 'mml)
-;; Below copied from url-http to avoid compilation warnings
+  ;; Below copied from url-http to avoid compilation warnings
   (defvar url-http-extra-headers)
   (defvar url-http-target-url)
   (defvar url-http-proxy)
@@ -190,7 +190,7 @@
 (when (fboundp 'url-http-create-request)
   (if (string= "GET / HTTP/1.0\r\nMIME-Version: 1.0\r\nConnection: close\r\nHost: example.com\r\nAccept: */*\r\nUser-Agent: URL/Emacs\r\nContent-length: 4\r\n\r\ntest"
 	       (let ((url-http-target-url (url-generic-parse-url "http://example.com/"))
-		     (url-http-data "test") (url-http-version "1.0")
+		     (url-http-data "test") (url-http-version "1.0") (url-http-referer "test")
 		     url-http-method url-http-attempt-keepalives url-extensions-header
 		     url-http-extra-headers url-http-proxy url-mime-charset-string)
 		 (url-http-create-request)))
@@ -212,7 +212,7 @@
 			       (url-get-authentication url-http-target-url nil 'any nil))))
 	       (real-fname (concat (url-filename url-http-target-url)
 				   (with-no-warnings
-                                    (url-recreate-url-attributes url-http-target-url))))
+                                     (url-recreate-url-attributes url-http-target-url))))
 	       (host (url-host url-http-target-url))
 	       (auth (if (cdr-safe (assoc "Authorization" url-http-extra-headers))
 			 nil
@@ -276,7 +276,7 @@
 			"Connection: " (if (or using-proxy
 					       (not url-http-attempt-keepalives))
 					   "close" "keep-alive") "\r\n"
-					   ;; HTTP extensions we support
+			;; HTTP extensions we support
 			(if url-extensions-header
 			    (format
 			     "Extension: %s\r\n" url-extensions-header))
@@ -378,7 +378,7 @@
                            "\r\n")))
 
                        ((stringp (car data))
-                                ;; For each pair
+                        ;; For each pair
 
                         (concat
                          ;; Encode the name
@@ -414,10 +414,13 @@ Some provision is made for different versions of Emacs version.
 POST-PROCESS is the function to call for post-processing.
 BUFFER is the buffer to store the result in.  CALLBACK will be
 called in BUFFER with CBARGS, if given."
-  (let ((url-user-agent (concat (string-trim (if (functionp url-user-agent)
-                                                 (funcall url-user-agent)
-                                               url-user-agent))
-                                " mediawiki.el " mediawiki-version "\r\n")))
+  (let ((url-user-agent (concat
+                         (if (not (eq url-user-agent 'default))
+                             (string-trim (if (functionp url-user-agent)
+                                              (funcall url-user-agent)
+                                            url-user-agent))
+                           "")
+                         " mediawiki.el " mediawiki-version "\r\n")))
     (cond ((boundp 'url-be-asynchronous) ; Sniff w3 lib capability
            (if callback
                (setq url-be-asynchronous t)
@@ -489,7 +492,7 @@ given."
       (cons "Connection" "close")
       (cons "Content-Type" content-type)))
 
-     (url-compat-retrieve url url-http-post-post-process
+    (url-compat-retrieve url url-http-post-post-process
 			 buffer callback cbargs)))
 
 (defun url-http-response-post-process (status &optional buffer
@@ -583,7 +586,7 @@ Can be used to to open the whole buffer."
   "Assoc list of visited pages on this MW site.")
 
 (defvar mediawiki-enumerate-with-terminate-paragraph nil
-"*Before insert enumerate/itemize do \\[mediawiki-terminate-paragraph].")
+  "*Before insert enumerate/itemize do \\[mediawiki-terminate-paragraph].")
 
 (defvar mediawiki-english-or-german t
   "*Variable in order to set the english (t) or german (nil) environment.")
@@ -651,7 +654,7 @@ recorded somewhere by that function."
   :group 'mediawiki-draft)
 
 (defvar mediawiki-reply-with-hline nil
-"*Whether to use a hline as a header seperator in the reply.")
+  "*Whether to use a hline as a header seperator in the reply.")
 
 (defvar mediawiki-reply-with-quote nil
   "*Whether to use a quotation tempalate or not.")
@@ -727,113 +730,125 @@ as group and page name.")
   "Face to use for text in verbatim macros or environments.")
 
 (defface font-mediawiki-bold-face
-  (let ((font (cond ((assq :inherit custom-face-attributes) '(:inherit bold))
-		    ((assq :weight custom-face-attributes) '(:weight bold))
-		    (t '(:bold t)))))
     `((((class grayscale) (background light))
-       (:foreground "DimGray" ,@font))
+       :foreground "DimGray"
+       :weight bold)
       (((class grayscale) (background dark))
-       (:foreground "LightGray" ,@font))
+       :foreground "LightGray"
+       :weight bold)
       (((class color) (background light))
-       (:foreground "DarkOliveGreen" ,@font))
+       :foreground "DarkOliveGreen"
+       :weight bold)
       (((class color) (background dark))
-       (:foreground "OliveDrab" ,@font))
-      (t (,@font))))
+       :foreground "OliveDrab"
+       :weight bold)
+      (t
+       :weight bold))
   "Face used to highlight text to be typeset in bold."
   :group 'font-mediawiki-highlighting-faces)
 
 (defface font-mediawiki-italic-face
-  (let ((font (cond ((assq :inherit custom-face-attributes) '(:inherit italic))
-		    ((assq :slant custom-face-attributes) '(:slant italic))
-		    (t '(:italic t)))))
-    `((((class grayscale) (background light))
-       (:foreground "DimGray" ,@font))
-      (((class grayscale) (background dark))
-       (:foreground "LightGray" ,@font))
-      (((class color) (background light))
-       (:foreground "DarkOliveGreen" ,@font))
-      (((class color) (background dark))
-       (:foreground "OliveDrab" ,@font))
-      (t (,@font))))
+  `((((class grayscale) (background light))
+     :foreground "DimGray"
+     :slant italic)
+    (((class grayscale) (background dark))
+     :foreground "LightGray"
+     :slant italic)
+    (((class color) (background light))
+     :foreground "DarkOliveGreen"
+     :slant italic)
+    (((class color) (background dark))
+     :foreground "OliveDrab"
+     :slant italic)
+    (t
+     :slant italic))
   "Face used to highlight text to be typeset in italic."
   :group 'font-mediawiki-highlighting-faces)
 
 (defface font-mediawiki-math-face
-  (let ((font (cond ((assq :inherit custom-face-attributes)
-		     '(:inherit underline))
-		    (t '(:underline t)))))
-    `((((class grayscale) (background light))
-       (:foreground "DimGray" ,@font))
-      (((class grayscale) (background dark))
-       (:foreground "LightGray" ,@font))
-      (((class color) (background light))
-       (:foreground "SaddleBrown"))
-      (((class color) (background dark))
-       (:foreground "burlywood"))
-      (t (,@font))))
+  `((((class grayscale) (background light))
+     :foreground "DimGray"
+     :underline t)
+    (((class grayscale) (background dark))
+     :foreground "LightGray"
+     :underline t)
+    (((class color) (background light))
+     :foreground "SaddleBrown"
+     :underline t)
+    (((class color) (background dark))
+     :foreground "burlywood"
+     :underline t)
+    (t
+     :underline t))
   "Face used to highlight math."
   :group 'font-mediawiki-highlighting-faces)
 
 (defface font-mediawiki-sedate-face
-  '((((class grayscale) (background light)) (:foreground "DimGray"))
-    (((class grayscale) (background dark))  (:foreground "LightGray"))
-    (((class color) (background light)) (:foreground "DimGray"))
-    (((class color) (background dark))  (:foreground "LightGray"))
-   ;;;(t (:underline t))
-    )
+  '((((class grayscale) (background light))
+     :foreground "DimGray")
+    (((class grayscale) (background dark))
+     :foreground "LightGray")
+    (((class color) (background light))
+     :foreground "DimGray")
+    (((class color) (background dark))
+     :foreground "LightGray"))
   "Face used to highlight sedate stuff."
   :group 'font-mediawiki-highlighting-faces)
 
 (defface font-mediawiki-string-face
-  (let ((font (cond ((assq :inherit custom-face-attributes) '(:inherit italic))
-		    ((assq :slant custom-face-attributes) '(:slant italic))
-		    (t '(:italic t)))))
-    `((((type tty) (class color))
-       (:foreground "green"))
-      (((class grayscale) (background light))
-       (:foreground "DimGray" ,@font))
-      (((class grayscale) (background dark))
-       (:foreground "LightGray" ,@font))
-      (((class color) (background light))
-       (:foreground "RosyBrown"))
-      (((class color) (background dark))
-       (:foreground "LightSalmon"))
-      (t (,@font))))
+  `((((type tty) (class color))
+     :foreground "green"
+     :slant italic)
+    (((class grayscale) (background light))
+     :foreground "DimGray"
+     :slant italic)
+    (((class grayscale) (background dark))
+     :foreground "LightGray"
+     :slant italic)
+    (((class color) (background light))
+     :foreground "RosyBrown"
+     :slant italic)
+    (((class color) (background dark))
+     :foreground "LightSalmon"
+     :slant italic)
+    (t
+     :slant italic))
   "Face used to highlight strings."
   :group 'font-mediawiki-highlighting-faces)
 
 (defface font-mediawiki-warning-face
-  (let ((font (cond ((assq :inherit custom-face-attributes) '(:inherit bold))
-		    ((assq :weight custom-face-attributes) '(:weight bold))
-		    (t '(:bold t)))))
-    `((((class grayscale)(background light))
-       (:foreground "DimGray" ,@font))
-      (((class grayscale)(background dark))
-       (:foreground "LightGray" ,@font))
-      (((class color)(background light))
-       (:foreground "red" ,@font))
-      (((class color)(background dark))
-       (:foreground "red" ,@font))
-      (t (,@font))))
+  `((((class grayscale)(background light))
+     :foreground "DimGray"
+     :weight bold)
+    (((class grayscale)(background dark))
+     :foreground "LightGray"
+     :weight bold)
+    (((class color)(background light))
+     :foreground "red"
+     :weight bold)
+    (((class color)(background dark))
+     :foreground "red"
+     :weight bold)
+    (t
+     :weight bold))
   "Face for important keywords."
   :group 'font-mediawiki-highlighting-faces)
 
 (defface font-mediawiki-verbatim-face
-  (let ((font (if (and (assq :inherit custom-face-attributes)
-		       (if (fboundp 'find-face)
-			   (find-face 'fixed-pitch)
-			 (facep 'fixed-pitch)))
-		  '(:inherit fixed-pitch)
-		'(:family "courier"))))
-    `((((class grayscale) (background light))
-       (:foreground "DimGray" ,@font))
-      (((class grayscale) (background dark))
-       (:foreground "LightGray" ,@font))
-      (((class color) (background light))
-       (:foreground "SaddleBrown" ,@font))
-      (((class color) (background dark))
-       (:foreground "burlywood" ,@font))
-      (t (,@font))))
+  `((((class grayscale) (background light))
+     :foreground "DimGray"
+     :inherit fixed-pitch)
+    (((class grayscale) (background dark))
+     :foreground "LightGray"
+     :inherit fixed-pitch)
+    (((class color) (background light))
+     :foreground "SaddleBrown"
+     :inherit fixed-pitch)
+    (((class color) (background dark))
+     :foreground "burlywood"
+     :inherit fixed-pitch)
+    (t
+     :inherit fixed-pitch))
   "Face used to highlight TeX verbatim environments."
   :group 'font-mediawiki-highlighting-faces)
 
@@ -951,7 +966,7 @@ as group and page name.")
    (cons "^ .*$" '(0 font-lock-constant-face t t))
 
    ;; Math environment (uniform highlight only, no TeX markup)
-   (list "<math>\\(\\(\n?.\\)*\\)</math>"
+   (list "<math>\\(\\(\n?.\\)*?\\)</math>"
          '(1 font-lock-keyword-face t t))))
 
 (defvar mediawiki-draft-send-archive t
@@ -961,23 +976,33 @@ as group and page name.")
 
 (defvar mediawiki-debug-buffer " *MediaWiki Debug*")
 
+(defun mediawiki-debug-line (line)
+  "Log a LINE to BUFFER."
+  (when mediawiki-debug
+    (with-current-buffer (get-buffer-create mediawiki-debug-buffer)
+      (goto-char (point-max))
+      (insert "\n")
+      (insert line))))
+
 (defun mediawiki-debug (buffer function)
   "The debug handler.
 When debugging is turned on, log the name of the BUFFER with the
 FUNCTION that called the debugging function, so it can be
 examined.  If debugging is off, just kill the buffer.  This
 allows you to see what is being sent to and from the server."
-  (if (not mediawiki-debug)
-      (kill-buffer buffer)
-    (with-current-buffer (get-buffer-create mediawiki-debug-buffer)
-      (goto-char (point-max))
-      (insert "\n")
-      (insert-buffer-substring buffer))))
+  (when mediawiki-debug
+    (mediawiki-debug-line
+     (concat
+      "\n\n=-=-=-=-=-=-=-=\n"
+      function "\n\n"
+      (with-current-buffer buffer
+        (buffer-string)))))
+  (kill-buffer buffer))
 
 (defun mediawiki-translate-pagename (name)
   "Given NAME, return the typical name that MediaWiki would use.
 Right now, this only means replacing \"_\" with \" \"."
-  (if (not name)
+  (if (or (not name) (string= name ""))
       "Main Page"
     (mapconcat 'identity (split-string name "_" t) " ")))
 
@@ -986,10 +1011,10 @@ Right now, this only means replacing \"_\" with \" \"."
   (format (let* ((my-parsed (url-generic-parse-url
                              (mediawiki-site-url (or sitename mediawiki-site))))
                  (my-path (url-filename my-parsed)))
-	 (when (or (string= my-path "") (not (string= (substring my-path -1) "/")))
-	   (setq my-path (concat my-path "/")))
-	 (setf (url-filename my-parsed) (concat my-path "api.php"))
-	 (url-recreate-url my-parsed))))
+	    (when (or (string= my-path "") (not (string= (substring my-path -1) "/")))
+	      (setq my-path (concat my-path "/")))
+	    (setf (url-filename my-parsed) (concat my-path "api.php"))
+	    (url-recreate-url my-parsed))))
 
 (defun mediawiki-raise (result type notif)
   "Show a TYPE of information from the RESULT to the user using NOTIF"
@@ -999,7 +1024,8 @@ Right now, this only means replacing \"_\" with \" \"."
                              (car err)))
                   (info (or (cdr (assq 'info err))
                             (cddr err))))
-              (funcall notif label info)))
+              (when info
+                (funcall notif label info))))
 
           ;; Poor man's attempt at backward compatible xml form handling
           (if (listp (cdr (assq type (cddr result))))
@@ -1009,13 +1035,16 @@ Right now, this only means replacing \"_\" with \" \"."
 (defun mediawiki-api-call (sitename action &optional args)
   "Wrapper for making an API call to SITENAME.
 ACTION is the API action.  ARGS is a list of arguments."
+  (mediawiki-debug-line (format "\n\n----\nFor %s (action=%s):\n\n %s\n" sitename action
+                                (mm-url-encode-multipart-form-data
+                                 (delq nil args) "==")))
   (let* ((raw (url-http-post (mediawiki-make-api-url sitename)
                              (append args (list (cons "format" "xml")
                                                 (cons "action" action)))))
          (result (assoc 'api
-                            (with-temp-buffer
-                              (insert raw)
-                              (xml-parse-region (point-min) (point-max))))))
+                        (with-temp-buffer
+                          (insert raw)
+                          (xml-parse-region (point-min) (point-max))))))
     (unless result
       (error "There was an error parsing the result of the API call"))
 
@@ -1050,7 +1079,7 @@ ACTION is the API action.  ARGS is a list of arguments."
 (defun mediawiki-open (name)
   "Open a wiki page specified by NAME from the mediawiki engine."
   (interactive
-   (let ((hist (cdr (assoc-string mediawiki-site mediawiki-page-history))))
+   (let* ((hist (cdr (assoc-string mediawiki-site mediawiki-page-history))))
      (list (read-string "Wiki Page: " nil 'hist))))
   (when (or (not (stringp name))
             (string-equal "" name))
@@ -1060,6 +1089,8 @@ ACTION is the API action.  ARGS is a list of arguments."
 (defun mediawiki-reload ()
   "Reload the page from the server."
   (interactive)
+  (when (not mediawiki-site)
+    (setq mediawiki-site (mediawiki-prompt-for-site)))
   (let ((title mediawiki-page-title))
     (if title
 	(mediawiki-open title)
@@ -1083,11 +1114,11 @@ ACTION is the API action.  ARGS is a list of arguments."
     (with-current-buffer (get-buffer-create
                           (concat sitename ": " pagetitle))
       (unless (mediawiki-logged-in-p sitename)
-        (mediawiki-do-login sitename)
-        (setq mediawiki-site sitename))
+        (mediawiki-do-login sitename))
       (ring-insert mediawiki-page-ring (current-buffer))
       (delete-region (point-min) (point-max))
       (mediawiki-mode)
+      (setq mediawiki-site sitename)
       (set-buffer-file-coding-system 'utf-8)
       (insert (or (mediawiki-get sitename pagetitle) ""))
 
@@ -1190,13 +1221,18 @@ variables it sets there will be local to that buffer."
 SITENAME is the site to use.  TITLE is a string containing one
 title or a list of titles.  PROPS are the revision properites to
 fetch.  LIMIT is the upper bound on the number of results to give."
-  (cddr (mediawiki-api-call sitename "query"
-                      (list (cons "prop" (mediawiki-api-param (list "info" "revisions")))
-                            (cons "intoken" (mediawiki-api-param "edit"))
-                            (cons "titles" (mediawiki-api-param title))
-                            (when limit
-                              (cons "rvlimit" (mediawiki-api-param limit)))
-                            (cons "rvprop" (mediawiki-api-param props))))))
+  (when (or (eq nil title) (string= "" title))
+      (error "No title passed!"))
+  (let ((qresult (mediawiki-api-call
+         sitename "query"
+         (list (cons "prop" (mediawiki-api-param (list "info" "revisions")))
+               (cons "titles" (mediawiki-api-param title))
+               (when limit
+                 (cons "rvlimit" (mediawiki-api-param limit)))
+               (cons "rvprop" (mediawiki-api-param props))))))
+    (if (eq t qresult)
+        (error "No results for revision query.")
+      (cddr qresult))))
 
 (defun mediawiki-page-get-title (page)
   "Given a PAGE from a pagelist structure, extract the title."
@@ -1352,11 +1388,15 @@ Prompt for a SUMMARY if one isn't given."
 
 (defun mediawiki-site-domain (sitename)
   "Get the LDAP domain for a given SITENAME."
-  (mediawiki-site-extract sitename 4))
+  (let ((domain (mediawiki-site-extract sitename 4)))
+    (when (and domain (not (string= "" domain)))
+      domain)))
 
 (defun mediawiki-site-first-page (sitename)
   "Get the first page for a given SITENAME."
-  (mediawiki-site-extract sitename 5))
+  (let ((page (mediawiki-site-extract sitename 5)))
+    (if (or (not page) (string= page ""))
+        "Main Page")))
 
 (defun mediawiki-site-get-token (sitename type)
   "Get token(s) for SITENAME of TYPE type."
@@ -1420,19 +1460,23 @@ Store cookies for future authentication."
   ;; FIXME error checking, conflicts!
   (when (and trynum (< trynum 0))
     (error "Too many tries."))
-  (let ((trynum (or trynum 3)))
+  (let ((trynum (or trynum 3))
+        (token (mediawiki-site-get-token sitename "csrf")))
     (condition-case err
-        (mediawiki-api-call sitename "edit"
-                            (list (cons "title"
-                                        (mediawiki-translate-pagename title))
-                                  (cons "text" content)
-                                  (cons "summary" summary)
-                                  (cons "token" mediawiki-edittoken)
-                                  (cons "basetimestamp"
-                                        (or mediawiki-basetimestamp ""))
-                                  (cons "starttimestamp"
-                                        (or mediawiki-starttimestamp ""))))
-      (error (progn (message (concat trynum "Retry because of error: " err))
+        (progn
+          (mediawiki-api-call sitename "edit"
+                              (list (cons "title"
+                                          (mediawiki-translate-pagename title))
+                                    (cons "text" content)
+                                    (cons "summary" summary)
+                                    (cons "token" token)
+                                    (cons "basetimestamp"
+                                          (or mediawiki-basetimestamp "now"))
+                                    (cons "starttimestamp"
+                                          (or mediawiki-starttimestamp "now"))))
+          (message "Saved %s to %s" title sitename))
+      (error (progn (message "try #%d: %s " trynum
+                             (concat "Retry because of error: " (cadr err)))
                     (mediawiki-retry-save-page
                      sitename title summary content trynum)))))
   (set-buffer-modified-p nil))
@@ -2152,6 +2196,84 @@ latter retrieval, and possible indexing.
   (define-key mediawiki-draft-mode-map "\C-c\C-k" 'mediawiki-draft-buffer)
   (define-key mediawiki-draft-mode-map "\C-c\C-d" 'mediawiki-draft-buffer))
 
+(defvar mediawiki-mode-map nil "Keymap for `mediawiki-mode'.")
+(progn
+  (setq mediawiki-mode-map (make-sparse-keymap "mediawiki"))
+  (define-key mediawiki-mode-map [menu-bar mediawiki]
+    (cons "MediaWiki" mediawiki-mode-map))
+  (define-key mediawiki-mode-map [unfill-article]
+    '("Unfill article" . mediawiki-unfill-article))
+  (define-key mediawiki-mode-map [fill-article]
+    '("Fill article" . mediawiki-fill-article))
+  (define-key mediawiki-mode-map [separator-fill] '("--"))
+  (define-key mediawiki-mode-map [next-header]
+    '("Next header" . mediawiki-next-header))
+  (define-key mediawiki-mode-map [prev-header]
+    '("Previous header" . mediawiki-prev-header))
+  (define-key mediawiki-mode-map [separator-header] '("--"))
+  (define-key mediawiki-mode-map [outline]
+    '("Toggle Outline Mode..." . outline-minor-mode))
+
+  (define-key mediawiki-mode-map "\M-n" 'mediawiki-next-header)
+  (define-key mediawiki-mode-map "\C-c\C-n" 'mediawiki-next-long-line)
+  (define-key mediawiki-mode-map "\M-p" 'mediawiki-prev-header)
+  (define-key mediawiki-mode-map [(meta down)] 'mediawiki-next-header)
+  (define-key mediawiki-mode-map [(meta up)]   'mediawiki-prev-header)
+  (define-key mediawiki-mode-map "\C-j" 'mediawiki-terminate-paragraph)
+
+  (define-key mediawiki-mode-map "\C-c\C-q" 'mediawiki-unfill-article)
+  (define-key mediawiki-mode-map "\C-c\M-q" 'mediawiki-fill-article)
+  (define-key mediawiki-mode-map "\C-c\M-u" 'mediawiki-unfill-paragraph-or-region)
+  (define-key mediawiki-mode-map "\C-c\C-u" 'mediawiki-unfill-paragraph-simple)
+  (define-key mediawiki-mode-map "\C-c\C-f\C-s" 'mediawiki-insert-strong-emphasis)
+  (define-key mediawiki-mode-map "\C-c\C-f\C-b" 'mediawiki-insert-bold)
+  (define-key mediawiki-mode-map "\C-c\C-f\C-i" 'mediawiki-insert-italics)
+  (define-key mediawiki-mode-map "\C-c\C-f\C-e" 'mediawiki-insert-header)
+  (define-key mediawiki-mode-map "\C-c\C-f\C-l" 'mediawiki-insert-link)
+  (define-key mediawiki-mode-map "\C-c\C-f\C-u" 'mediawiki-insert-user)
+  (define-key mediawiki-mode-map "\C-c\C-f\C-q" 'mediawiki-insert-quotation)
+  (define-key mediawiki-mode-map "\C-c\C-f\C-v" 'mediawiki-insert-bible-verse-template)
+  (define-key mediawiki-mode-map "\C-c\C-w" 'mediawiki-insert-signature)
+  (define-key mediawiki-mode-map "\C-c\C-l" 'mediawiki-insert-hline)
+  (define-key mediawiki-mode-map [(meta f7)] 'mediawiki-draft)
+  (define-key mediawiki-mode-map [(meta f8)] 'mediawiki-reply-at-point-simple)
+  (define-key mediawiki-mode-map [(meta f9)] 'mediawiki-draft-view-draft)
+  (define-key mediawiki-mode-map "\C-c\C-r" 'mediawiki-reply-at-point-simple)
+  (define-key mediawiki-mode-map "\C-cr" 'mediawiki-draft-region)
+  (define-key mediawiki-mode-map [(meta r)] 'mediawiki-draft-reply)
+  (define-key mediawiki-mode-map "\C-c\C-m" 'mediawiki-draft)
+  (define-key mediawiki-mode-map "\C-c\C-b" 'mediawiki-draft-region)
+  (define-key mediawiki-mode-map "\C-c\C-d" 'mediawiki-draft-buffer)
+  (define-key mediawiki-mode-map "\C-c\C-k" 'mediawiki-draft-buffer)
+  (define-key mediawiki-mode-map "\C-c\C-p" 'mediawiki-draft-copy-page-to-register)
+  (define-key mediawiki-mode-map "\C-c\C-c" 'mediawiki-draft-send)
+  (define-key mediawiki-mode-map "\C-c\C-s" 'mediawiki-draft-yank-page-to-register)
+
+  (define-key mediawiki-mode-map [(control meta prior)] 'mediawiki-enhance-indent)
+  (define-key mediawiki-mode-map [(control meta next)] 'mediawiki-yank-prefix)
+  (define-key mediawiki-mode-map [(meta return)] 'mediawiki-insert-enumerate)
+  (define-key mediawiki-mode-map [(meta control return)] 'mediawiki-insert-enumerate-nonewline)
+  ;; private setting
+  (define-key mediawiki-mode-map [(shift return)] 'newline-and-indent)
+  (define-key mediawiki-mode-map "\C-\\" 'mediawiki-insert-itemize)
+  (define-key mediawiki-mode-map [(control return)] 'mediawiki-insert-itemize)
+  (define-key mediawiki-mode-map "\C-ca" 'auto-capitalize-mode)
+  ;; (define-key mediawiki-mode-map "\C-ci" 'set-input-method)
+  ;; (define-key mediawiki-mode-map "\C-ct" 'toggle-input-method)
+
+  (define-key mediawiki-mode-map [(backtab)] 'mediawiki-goto-prev-link)
+  (define-key mediawiki-mode-map [(tab)]     'mediawiki-goto-next-link)
+  (define-key mediawiki-mode-map "\M-g"      'mediawiki-reload)
+  (define-key mediawiki-mode-map "\C-x\C-s"  'mediawiki-save)
+  (define-key mediawiki-mode-map "\C-c\C-c"  'mediawiki-save-and-bury)
+  (define-key mediawiki-mode-map "\C-x\C-w"  'mediawiki-save-as)
+  (define-key mediawiki-mode-map "\C-c\C-o"  'mediawiki-open)
+  (define-key mediawiki-mode-map "\M-p"
+    'mediawiki-goto-previous-page)
+  (define-key mediawiki-mode-map "\M-n"      'mediawiki-goto-next-page)
+  (define-key mediawiki-mode-map [(control return)]
+    'mediawiki-open-page-at-point))
+
 (define-derived-mode mediawiki-mode text-mode "MW"
   "Major mode for editing articles written in the markup language
 used by Mediawiki.
@@ -2243,84 +2365,8 @@ Some simple editing commands.
          mediawiki-imenu-generic-expression)
     (imenu-add-to-menubar "Contents"))
 
-  (let ((map (make-sparse-keymap "mediawiki")))
-    (define-key mediawiki-mode-map [menu-bar mediawiki]
-      (cons "MediaWiki" map))
-    (define-key map [unfill-article]
-      '("Unfill article" . mediawiki-unfill-article))
-    (define-key map [fill-article]
-      '("Fill article" . mediawiki-fill-article))
-    (define-key map [separator-fill] '("--"))
-    (define-key map [next-header]
-      '("Next header" . mediawiki-next-header))
-    (define-key map [prev-header]
-      '("Previous header" . mediawiki-prev-header))
-    (define-key map [separator-header] '("--"))
-    (define-key map [outline]
-      '("Toggle Outline Mode..." . outline-minor-mode))
-
-    (modify-syntax-entry ?< "(>" mediawiki-mode-syntax-table)
-    (modify-syntax-entry ?> ")<" mediawiki-mode-syntax-table)
-
-    (define-key mediawiki-mode-map "\M-n" 'mediawiki-next-header)
-    (define-key mediawiki-mode-map "\C-c\C-n" 'mediawiki-next-long-line)
-    (define-key mediawiki-mode-map "\M-p" 'mediawiki-prev-header)
-    (define-key mediawiki-mode-map [(meta down)] 'mediawiki-next-header)
-    (define-key mediawiki-mode-map [(meta up)]   'mediawiki-prev-header)
-    (define-key mediawiki-mode-map "\C-j" 'mediawiki-terminate-paragraph)
-
-    (define-key mediawiki-mode-map "\C-c\C-q" 'mediawiki-unfill-article)
-    (define-key mediawiki-mode-map "\C-c\M-q" 'mediawiki-fill-article)
-    (define-key mediawiki-mode-map "\C-c\M-u" 'mediawiki-unfill-paragraph-or-region)
-    (define-key mediawiki-mode-map "\C-c\C-u" 'mediawiki-unfill-paragraph-simple)
-    (define-key mediawiki-mode-map "\C-c\C-f\C-s" 'mediawiki-insert-strong-emphasis)
-    (define-key mediawiki-mode-map "\C-c\C-f\C-b" 'mediawiki-insert-bold)
-    (define-key mediawiki-mode-map "\C-c\C-f\C-i" 'mediawiki-insert-italics)
-    (define-key mediawiki-mode-map "\C-c\C-f\C-e" 'mediawiki-insert-header)
-    (define-key mediawiki-mode-map "\C-c\C-f\C-l" 'mediawiki-insert-link)
-    (define-key mediawiki-mode-map "\C-c\C-f\C-u" 'mediawiki-insert-user)
-    (define-key mediawiki-mode-map "\C-c\C-f\C-q" 'mediawiki-insert-quotation)
-    (define-key mediawiki-mode-map "\C-c\C-f\C-v" 'mediawiki-insert-bible-verse-template)
-    (define-key mediawiki-mode-map "\C-c\C-w" 'mediawiki-insert-signature)
-    (define-key mediawiki-mode-map "\C-c\C-l" 'mediawiki-insert-hline)
-    (define-key mediawiki-mode-map [(meta f7)] 'mediawiki-draft)
-    (define-key mediawiki-mode-map [(meta f8)] 'mediawiki-reply-at-point-simple)
-    (define-key mediawiki-mode-map [(meta f9)] 'mediawiki-draft-view-draft)
-    (define-key mediawiki-mode-map "\C-c\C-r" 'mediawiki-reply-at-point-simple)
-    (define-key mediawiki-mode-map "\C-cr" 'mediawiki-draft-region)
-    (define-key mediawiki-mode-map [(meta r)] 'mediawiki-draft-reply)
-    (define-key mediawiki-mode-map "\C-c\C-m" 'mediawiki-draft)
-    (define-key mediawiki-mode-map "\C-c\C-b" 'mediawiki-draft-region)
-    (define-key mediawiki-mode-map "\C-c\C-d" 'mediawiki-draft-buffer)
-    (define-key mediawiki-mode-map "\C-c\C-k" 'mediawiki-draft-buffer)
-    (define-key mediawiki-mode-map "\C-c\C-p" 'mediawiki-draft-copy-page-to-register)
-    (define-key mediawiki-mode-map "\C-c\C-c" 'mediawiki-draft-send)
-    (define-key mediawiki-mode-map "\C-c\C-s" 'mediawiki-draft-yank-page-to-register)
-
-    (define-key mediawiki-mode-map [(control meta prior)] 'mediawiki-enhance-indent)
-    (define-key mediawiki-mode-map [(control meta next)] 'mediawiki-yank-prefix)
-    (define-key mediawiki-mode-map [(meta return)] 'mediawiki-insert-enumerate)
-    (define-key mediawiki-mode-map [(meta control return)] 'mediawiki-insert-enumerate-nonewline)
-    ;; private setting
-    (define-key mediawiki-mode-map [(shift return)] 'newline-and-indent)
-    (define-key mediawiki-mode-map "\C-\\" 'mediawiki-insert-itemize)
-    (define-key mediawiki-mode-map [(control return)] 'mediawiki-insert-itemize)
-    (define-key mediawiki-mode-map "\C-ca" 'auto-capitalize-mode)
-;    (define-key mediawiki-mode-map "\C-ci" 'set-input-method)
-;    (define-key mediawiki-mode-map "\C-ct" 'toggle-input-method)
-
-    (define-key mediawiki-mode-map [(backtab)] 'mediawiki-goto-prev-link)
-    (define-key mediawiki-mode-map [(tab)]     'mediawiki-goto-next-link)
-    (define-key mediawiki-mode-map "\M-g"      'mediawiki-reload)
-    (define-key mediawiki-mode-map "\C-x\C-s"  'mediawiki-save)
-    (define-key mediawiki-mode-map "\C-c\C-c"  'mediawiki-save-and-bury)
-    (define-key mediawiki-mode-map "\C-x\C-w"  'mediawiki-save-as)
-    (define-key mediawiki-mode-map "\C-c\C-o"  'mediawiki-open)
-    (define-key mediawiki-mode-map "\M-p"
-      'mediawiki-goto-previous-page)
-    (define-key mediawiki-mode-map "\M-n"      'mediawiki-goto-next-page)
-    (define-key mediawiki-mode-map [(control return)]
-      'mediawiki-open-page-at-point)))
+  (modify-syntax-entry ?< "(>" mediawiki-mode-syntax-table)
+  (modify-syntax-entry ?> ")<" mediawiki-mode-syntax-table))
 
 ;; (defvar mw-pagelist-mode-map
 ;;   (let ((map (make-sparse-keymap)))

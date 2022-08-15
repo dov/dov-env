@@ -373,6 +373,7 @@
   (puthash "O~" "Õ" xmsi-abrvs)
   (puthash ":-)" "☺" xmsi-abrvs)
   (puthash ":-(" "☹" xmsi-abrvs)
+  (puthash "cherry" "🍒" xmsi-abrvs)
 
 ;; 2010-12-10
 
