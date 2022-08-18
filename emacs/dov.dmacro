@@ -751,14 +751,18 @@ pkg_check_modules(FMT REQUIRED fmt)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core)
-qt_standard_project_setup()
+find_package(Qt5 REQUIRED COMPONENTS Core)
+
+# Uncomment these for Qt6
+#find_package(Qt6 REQUIRED COMPONENTS Core)
+#qt_standard_project_setup()
 
 add_executable(~(pwdleaf)
     ~(pwdleaf).cpp
 )
 
-target_link_libraries(~(pwdleaf) PRIVATE Qt6::Core ${FMT_LIBRARIES})
+# Change to Qt6 for qt6
+target_link_libraries(~(pwdleaf) PRIVATE Qt5::Core ${FMT_LIBRARIES})
 
 #
 
