@@ -220,6 +220,7 @@
 (require 'init-polymode)
 (require 'init-ein)
 ;(require 'init-all-the-icons)
+(require 'init-eglot)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
