@@ -214,12 +214,12 @@
 (require 'sticky-w)
 (require 'init-transient)
 (require 'init-with-editor)
-;(require 'init-emojify)
+(require 'init-emojify)
 (require 'init-anaphora)
 (require 'init-markdown)
 (require 'init-polymode)
 (require 'init-ein)
-(require 'init-all-the-icons)
+;(require 'init-all-the-icons)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -246,6 +246,12 @@
 
 (menu-bar-mode 't)
 (tool-bar-mode 'nil)
+
+; New options for emacs 28
+(setq use-short-answers t)
+(setq next-error-message-highlight t)
+(global-set-key (kbd "\C-x t T") 'toggle-frame-tab-bar)
+(setq dired-kill-when-opening-new-dired-buffer t)
 
 ;; See if this helps with timeout issue when editing the notes on
 ;; on a CIFS.
@@ -512,19 +518,15 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (ad-activate 'js2-parse-statement)
 
 (add-to-list 'load-path (concat emacs-git "/pde"))
+
 ;(when (>= emacs-major-version 24)
 ;  (load "pde-load")
 ;  ; pde turns this on, which I don't like
 ;  (ido-mode nil))
 
-(add-to-list 'load-path
-              (concat emacs-git "yasnippet"))
-(load "yasnippet/yasnippet")
-(yas-global-mode 1)
-(setq yas-snippet-dirs (list (concat emacs-git "yasnippet/snippets")
-                             (concat emacs-git "snippets")))
 
-(yas-reload-all)
+(require 'init-yassnippet)
+
 (global-set-key "\C-ci" nil)
 (global-set-key "\C-cii" 'magit-status)
 (global-set-key "\C-cif" 'magit-file-popup)
@@ -785,6 +787,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
   ;; variable pitch mode makes emacs rescale!
   (variable-pitch-mode t)
+  (emojify-mode)
   (set-face-attribute 'org-table nil :family my-default-family)
   (set-face-attribute 'org-checkbox nil :family my-default-family)
   (set-face-attribute 'org-block nil :family my-default-family)
@@ -1194,7 +1197,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
                 (font-lock-mode 1))))
 (add-hook 'vala-mode-hook
           (lambda ()
-            (define-key c-mode-map [(return)] 'newline-and-indent)))
+            (define-key c-mode-map [(return)] 'newline-and-indent)
+            (setq indent-tabs-mode nil)))
 
 ; Example of how to read argument from minibuffer or use default params.
 (defun my-message (&optional arg)
@@ -2280,6 +2284,25 @@ With numeric ARG, display the images if and only if ARG is positive."
   ;; web-mode
   (setq web-mode-markup-indent-offset 2)
   )
+
+(defun xjet4-indent-mode ()
+  "Similar to xjet-mode but with four spaces"
+  (interactive)
+  ;; C++-python
+  (setq my-indent 4)
+  (setq my-substatement 2)
+  (setq my-substatement-open 0)
+  (setq my-access-label 0)
+  (setq my-topmost-intro 0)
+  (update-indent-mode)
+
+  ;; Python
+  (setq py-indent-offset 2)
+
+  ;; Json
+  (setq js2-basic-offset 2)
+  (setq js-indent-level 2))
+
 
 (defun standard-python-indent ()
   """Setup standard python indentation"""
