@@ -219,6 +219,7 @@
 (require 'init-markdown)
 (require 'init-polymode)
 (require 'init-ein)
+(require 'init-compat)
 ;(require 'init-all-the-icons)
 (require 'init-eglot)
 
@@ -346,6 +347,10 @@
 
 ;; case fold by default
 (setq isearch-case-fold-search nil)
+
+;; Don't ask async questions by default
+
+(setq async-shell-command-buffer "rename-buffer")
 
 (defun pcre-re-search-forward (re)
   """Search forward for a pcre regular expression"""
@@ -562,7 +567,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (setq sourcepair-source-extensions (append (list ".cu") sourcepair-source-extensions))
 
 (define-key global-map "\C-xc" 'sourcepair-load)
-
 
 (autoload 'octave-help "octave-hlp" nil t)
 (autoload 'python-mode "python" nil t)
@@ -1103,15 +1107,11 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 ;; Python use python-mode
 (setq ipython-command "ipython")
-;(require 'ipython)
-;(setq py-python-command-args '("-pylab" "-p" "pylab" "-colors" "LightBG"))
-;(setq py-python-command "python2")
-;(setq py-python-command "python")
-;(setq py-python-command-args nil)
 
 ; View pkl files by running an external executable
 (define-derived-mode pkl-mode fundamental-mode "pkl"
   "Major mode for viewing pkl files."
+  (setq buffer-read-only nil)
   (delete-region (point-min) (point-max))
   (call-process "python3" nil t t (concat emacs-git  "scripts/pkl-cat.py") buffer-file-name)
   (set-buffer-modified-p nil)
@@ -1119,11 +1119,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (toggle-truncate-lines)
   (setq scroll-preserve-screen-position 'always)
   (beginning-of-buffer))
-
-(setq auto-mode-alist
-      (append
-       (list (cons "\\.pkl$" 'pkl-mode))
-       (list (cons "\\.pickle$" 'pkl-mode))))
 
 ; ediff options
 (setq ediff-patch-options "")
@@ -1137,7 +1132,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
                     (ediff-get-region-contents ediff-current-difference 'B ediff-control-buffer))))
 (defun add-d-to-ediff-mode-map () (define-key ediff-mode-map "d" 'ediff-copy-both-to-C))
 (add-hook 'ediff-keymap-setup-hook 'add-d-to-ediff-mode-map)
-
 
 
 (setq mode-compile-expert-p t)
@@ -1344,6 +1338,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.(conf|ini)$" 'conf-mode))
        (list (cons "\\.(asy)$" 'asy-mode))
        (list (cons "\\.(tar)$" 'tar-mode))
+       (list (cons "\\.pkl$" 'pkl-mode))
+       (list (cons "\\.pickle$" 'pkl-mode))
+
        auto-mode-alist))
 
 ;; macros for nxc code
