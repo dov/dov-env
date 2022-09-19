@@ -15,11 +15,16 @@
 
 ; TBD - put this in a generic place
 (add-to-list 'eglot-server-programs
-             `(lua-mode . ("/space3/pub-repos/lua-language-server/bin/lua-language-server")))
+  `(lua-mode . ("/space3/pub-repos/lua-language-server/bin/lua-language-server")))
+
+(add-to-list 'eglot-server-programs '((c++-mode c-mode) "clangd"))
+(add-to-list 'eglot-server-programs '(vala-mode "vala-language-server"))
 
 ; Do I want this?
 ;(add-hook 'eglot-managed-mode-hook
 ;          (lambda ()
 ;            (remove-hook 'flymake-diagnostic-functions 'eglot-flymake-backend)))
+;(add-hook 'c-mode-hook 'eglot-ensure)
+;(add-hook 'c++-mode-hook 'eglot-ensure)
 
 (provide 'init-eglot)

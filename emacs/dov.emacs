@@ -222,6 +222,7 @@
 (require 'init-compat)
 ;(require 'init-all-the-icons)
 (require 'init-eglot)
+(require 'init-magit-imerge)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)

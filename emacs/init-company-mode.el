@@ -5,5 +5,6 @@
 
 ; Load the emacs for statistics package
 (load "company")
+(define-key company-active-map (kbd "C-i") 'company-complete-selection)
 
 (provide 'init-company-mode)
