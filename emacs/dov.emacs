@@ -5,11 +5,8 @@
 ;; To use this file, add lines similar to the following to ~/.emacs on
 ;; windows:
 ;;
-;;  (setq emacs-git "d:/git/dov/dov-env/emacs")
+;;  (setq emacs-git "c:/users/dovg/git/dov-env/emacs")
 ;;  ;; Change to "DejaVu Sans Mono" after installing fonts
-;;  (setq my-default-family "Consolas")  
-;;  (setq my-variable-font "Arial")
-;;  (setq my-default-font (concat my-default-family " 12"))
 ;;  (setq default-notes-file "w:/users/Dov/git/xjet-git/notes/notes.org")
 ;;  (setq tramp-default-method "plink")
 ;;  ; Point ediff to the diff path.
@@ -59,7 +56,7 @@
       (setq system-time-locale "C")
 
       ;; Load windows utilities
-      (load (concat emacs-git "win-utils.el")))
+      (load (concat emacs-git "/win-utils.el")))
   (progn
 ;    (setq my-default-family "Liberation Mono")
     (setq temp-dir "/tmp/")
@@ -71,7 +68,7 @@
         (setq emacs-persistance-dir "/home/dov/.emacs.d"))
 
     ;; Add conversion scripts to path
-    (setenv "PATH" (concat emacs-git "scripts:" (getenv "PATH")))
+    (setenv "PATH" (concat emacs-git "/scripts:" (getenv "PATH")))
 
     ;; Default scripts that are the same across most of my environments
     (if (eq (getenv "WORKON_HOME") nil)
@@ -163,9 +160,9 @@
 ;; windows with and without my prefered fonts installed
 (defun get-first-font-from-list (font-name-list)
   "Given a list of font names, return the first that exists"
-  (dolist (name font-name-list)
+  (cl-dolist (name font-name-list)
     (if (find-font (font-spec :name name))
-        (return name))))
+        (cl-return name))))
 
 (if (or (not (boundp 'my-variable-font))
         (not (find-font (font-spec :name my-variable-font))))
@@ -187,7 +184,7 @@
     (setq my-default-font (concat my-default-family " 12")))
 
 (setq Info-default-directory-list
-      (append (list (concat emacs-git "info"))
+      (append (list (concat emacs-git "/info"))
               Info-default-directory-list))
 
 ;; Font for all frames
@@ -240,14 +237,14 @@
 (require 'init-transient)
 (require 'init-with-editor)
 (require 'init-emojify)
-(ignore-errors
-   (require 'init-anaphora))
+(require 'init-anaphora)
 (require 'init-markdown)
 (require 'init-polymode)
 (require 'init-ein)
 (require 'init-compat)
 ;(require 'init-all-the-icons)
-(require 'init-eglot)
+(ignore-errors
+  (require 'init-eglot))
 (require 'init-magit-imerge)
 
 ;; Emacs 24 support
