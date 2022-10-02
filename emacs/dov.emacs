@@ -6,13 +6,15 @@
 ;; windows:
 ;;
 ;;  (setq emacs-git "d:/git/dov/dov-env/emacs")
-;;  (setq my-default-family "DejaVu Sans Mono")
-;;  (setq my-default-font "DejaVu Sans Mono 12")
+;;  ;; Change to "DejaVu Sans Mono" after installing fonts
+;;  (setq my-default-family "Consolas")  
+;;  (setq my-variable-font "Arial")
+;;  (setq my-default-font (concat my-default-family " 12"))
 ;;  (setq default-notes-file "w:/users/Dov/git/xjet-git/notes/notes.org")
 ;;  (setq tramp-default-method "plink")
 ;;  ; Point ediff to the diff path.
 ;;  (setq ediff-diff-program "c:/Program Files/Git/usr/bin/diff.exe")
-;;  (setq ediff-diff3-program "c:/Program Files/Git/usr/bin/diff.exe")
+;;  (setq ediff-diff3-program "c:/Program Files/Git/usr/bin/diff3.exe")
 ;;  (setenv "GIT_SSH" "C:/Windows/System32/OpenSSH/ssh.exe")
 ;;  (setenv "PATH" (concat (getenv "PATH") ";c:/Program Files/Git/usr/bin/"))
 ;;  (setenv "SJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
@@ -21,20 +23,20 @@
 ;;   Other customization (for windows):
 ;;      ;; Set initial frame size 
 ;;      (set-frame-size (selected-frame) 1500 1110 1)
-;;      ;; turn off bell
-;;      (setq visible-bell t)
 ;;
 ;; On Linux the following should be enough:
-;;   (setenv "SJQT" "/home/dov/git/SolarJet/XjetApps/MetalJet/Apps/Project/qt/")
-;;   (setenv "PE_HOME" "/home/dov/git/SolarJet/")
-;;   (setq emacs-git "/home/dov/git/dov-env/emacs/")
-;;   (setq my-default-family "InconsolataDov")
-;;   (setq my-default-font "InconsolataDov 11")
-;;   (load-file (concat emacs-git "dov.emacs"))
-;;   (setq default-notes-file "/home/dov/org/notebooks-groovy.org")
-;;   (find-file default-notes-file)
-;;   (setq my-git-repos (make-hash-table :test 'equal))
-;;   (puthash "xjet" "~/hd/xjet/SolarJet/" my-git-repos)
+;;
+;; (setenv "MJQT" "/home/dov/git/SolarJet/XjetApps/MetalJet/Apps/Project/qt/")
+;; (setenv "PE_HOME" "/home/dov/git/MetalJet/")
+;; (setq emacs-git "/home/dov/git/dov-env/emacs/")
+;; (setq my-default-family "InconsolataDov")
+;; (setq my-variable-font "Sans")
+;; (setq my-default-font "InconsolataDov 12")
+;; (load-file (concat emacs-git "dov.emacs"))
+;; (setq default-notes-file "/home/dov/org/notebooks-groovy.org")
+;; (find-file default-notes-file)
+;; (setq my-git-repos (make-hash-table :test 'equal))
+;; (puthash "xjet" "~/hd/xjet/MetalJet/" my-git-repos)
 ;;
 ;;  More customizations (for non-standard places):
 ;;    - (setenv "WORKON_HOME" "$HOME/anaconda3/envs/" t)
@@ -52,7 +54,6 @@
 ;      (set-frame-font "-*-Lucida Console-*-*-*-*-15-*-*-*-*-*-*")
 ;      (set-frame-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
       (setq browse-url-generic-program "C:\\Program Files\\Mozilla Firefox\\firefox.exe")
-      (setq my-default-family "DejaVu Sans Mono")
 
       ;; don't use Hebrew locale!
       (setq system-time-locale "C")
@@ -61,7 +62,6 @@
       (load (concat emacs-git "win-utils.el")))
   (progn
 ;    (setq my-default-family "Liberation Mono")
-    (setq my-default-family my-default-family)
     (setq temp-dir "/tmp/")
     (setq explicit-shell-file-name "/bin/zsh")
     (setq browse-url-generic-program "firefox")
@@ -69,8 +69,6 @@
         (setq emacs-git "/home/dov/.config/emacs"))
     (if (not (boundp 'emacs-persistance-dir))
         (setq emacs-persistance-dir "/home/dov/.emacs.d"))
-    (if (not (boundp 'my-default-font))
-        (setq my-default-font "Inconsolata 11"))
 
     ;; Add conversion scripts to path
     (setenv "PATH" (concat emacs-git "scripts:" (getenv "PATH")))
@@ -106,8 +104,8 @@
                              "/usr/local/share/emacs/site-lisp/rtags/"
 			     emacs-git
                              (concat emacs-git "/company")
-                             (concat emacs-git "/flycheck")
-                             ) load-path))
+                             (concat emacs-git "/flycheck"))
+                            load-path))
 ;    (load "vm")
     (load "dash")
 
@@ -160,6 +158,33 @@
       (interactive "P")
       (message "rtags-diagnostics has scalability issues and has been disabled."))
     ))
+
+;; Setup my prefered font. This should work on both linux and
+;; windows with and without my prefered fonts installed
+(defun get-first-font-from-list (font-name-list)
+  "Given a list of font names, return the first that exists"
+  (dolist (name font-name-list)
+    (if (find-font (font-spec :name name))
+        (return name))))
+
+(if (or (not (boundp 'my-variable-font))
+        (not (find-font (font-spec :name my-variable-font))))
+    (setq my-variable-font (get-first-font-from-list
+                            (list
+                             "DejaVu Sans"
+                             "Arial"))))
+
+(if (or (not (boundp 'my-default-family))
+        (not (find-font (font-spec :name my-default-family))))
+    (setq my-default-family (get-first-font-from-list
+                             (list
+                              "InconsolataDov"
+                              "Inconsolata"
+                              "DejaVu Sans Mono"
+                              "Consolas"))))
+
+(if (not (boundp 'my-default-font))
+    (setq my-default-font (concat my-default-family " 12")))
 
 (setq Info-default-directory-list
       (append (list (concat emacs-git "info"))
@@ -215,7 +240,8 @@
 (require 'init-transient)
 (require 'init-with-editor)
 (require 'init-emojify)
-(require 'init-anaphora)
+(ignore-errors
+   (require 'init-anaphora))
 (require 'init-markdown)
 (require 'init-polymode)
 (require 'init-ein)
@@ -519,7 +545,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
 						(while (eolp)
 							(forward-line 1)
 							(back-to-indentation))
-						(point)) 1) js2-ts-cursor))
+						(point))
+                               1)
+                            js2-ts-cursor))
 		(setq ad-return-value (js2-parse-assign-expr))
 		ad-do-it))
 (ad-activate 'js2-parse-statement)
@@ -671,8 +699,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (setq tramp-remote-path
       (append (list
                "/data/data/com.termux/files/usr/bin"
-               "/data/data/com.termux/files/usr/bin/applets"
-               ) tramp-remote-path))
+               "/data/data/com.termux/files/usr/bin/applets")
+              tramp-remote-path))
 
 ;; Text mode stuff
 (add-hook 'text-mode-hook 'visual-line-mode)
@@ -1603,7 +1631,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (setq vm-mime-max-message-size 100000000)
 (setq mime-editor/split-message nil)
 (setq vm-reply-ignored-addresses '("^dov@orbotechcom.com"
-                                   "[ \<]dov@orbotech.com"))
+                                   "[ <]dov@orbotech.com"))
 
 (defun perl-execute-buffer()
   "Execute perl on the region or the buffer"
@@ -1631,7 +1659,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (defun run-eperl-maybe-and-preview-html()
   "Runs eperl for phtml files and then runs the preview."
   (interactive)
-  (if (string-match "\.phtml" buffer-file-name)
+  (if (string-match "\\.phtml" buffer-file-name)
       (let ((htmlfilename (concat (file-name-sans-extension buffer-file-name) ".html")))
 	(if (shell-command (concat "eperl " buffer-file-name "> " htmlfilename))
 	    (browse-url-of-file htmlfilename)))
@@ -1640,7 +1668,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (defun run-asciidoc-maybe-and-preview-html()
   "Runs asciidoc for txt files and then runs the preview."
   (interactive)
-  (if (string-match "\.txt" buffer-file-name)
+  (if (string-match "\\.txt" buffer-file-name)
       (let ((htmlfilename (concat (file-name-sans-extension buffer-file-name) ".html")))
 	(if (shell-command (concat "asciidoc " buffer-file-name "> " htmlfilename))
 	    (browse-url-of-file htmlfilename)))
@@ -2909,6 +2937,31 @@ Does not delete the prompt."
          '(font-mediawiki-bold-face ((((class color) (background light)) (:inherit bold :foreground "Midnight blue"))))
          '(font-mediawiki-italic-face ((((class color) (background light)) (:inherit italic :foreground "Midnightblue"))))
          '(font-mediawiki-sedate-face ((((class color) (background light)) (:foreground "Black" :weight bold))))
+         (list 'org-level-2 (list (list t (list
+                                           :family my-variable-font
+                                           :inherit 'outline-2
+                                           :weight 'bold
+                                           :height 1.4))))
+         (list 'org-level-3 (list (list t (list
+                                           :family my-variable-font
+                                           :inherit 'outline-3
+                                           :weight 'bold
+                                           :height 1.2))))
+         (list 'org-level-4 (list (list t (list
+                                           :family my-variable-font
+                                           :inherit 'outline-4
+                                           :weight 'bold
+                                           :height 1.1))))
+         (list 'org-level-5 (list (list t (list
+                                           :family my-variable-font
+                                           :inherit 'outline-5
+                                           :weight 'bold
+                                           :height 1.05))))
+         (list 'org-level-6 (list (list t (list
+                                           :family my-variable-font
+                                           :inherit 'outline-6
+                                           :weight 'bold
+                                           :height 1.03))))
          '(show-paren-match ((((class color) (background light)) (:background "#b4eeb4"))))
          '(region ((t (:background "#e0e8ff"))))
          '(org-hide ((((background light)) (:foreground "gray85"))))
