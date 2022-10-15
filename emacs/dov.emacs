@@ -462,20 +462,39 @@ Nice for copying"
   (call-interactively 'kill-line)
   (call-interactively 'minibuffer-keyboard-quit))
 
+(defun get-referenced-filename ()
+  "Get the filename of the buffer or the file pointed to by dired"
+  (let* ((winbuf (window-buffer (minibuffer-selected-window))))
+    (if (eq (buffer-local-value 'major-mode winbuf)
+            'dired-mode)
+        (save-window-excursion
+          (switch-to-buffer winbuf)
+          (dired-get-filename))
+      (buffer-file-name winbuf))))
+
 (defun name-of-the-file ()
   "Gets the shell quoted name of the file the current buffer is based on."
   (interactive)
-  (insert (shell-quote-argument (buffer-file-name (window-buffer (minibuffer-selected-window))))))
+  (insert (shell-quote-argument (get-referenced-filename))))
 
 (defun name-nondirectory-of-the-file ()
   "Gets the shell quoted name of the file the current buffer is based on."
   (interactive)
-  (insert (shell-quote-argument (file-name-nondirectory (buffer-file-name (window-buffer (minibuffer-selected-window)))))))
+  (insert (shell-quote-argument (file-name-nondirectory (get-referenced-filename)))))
 
 (defun name-of-the-buffer ()
   "Gets the name of current buffer."
   (interactive)
   (insert (buffer-name (window-buffer (minibuffer-selected-window)))))
+
+;; Experiment area for new keybindings
+(defun dov-test ()
+  "dov-test"
+  (interactive)
+  (insert (shell-quote-argument (file-name-nondirectory (get-referenced-filename)))))
+
+(global-set-key (kbd "C-c C-M-d") 'dov-test)
+;;--------------
 
 (define-key minibuffer-local-map [(control c) (control k)] 'mb-expand-tilde-and-copy)
 (define-key minibuffer-local-map (kbd "C-c f") 'name-of-the-file)
