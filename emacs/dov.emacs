@@ -6,7 +6,6 @@
 ;; windows:
 ;;
 ;;  (setq emacs-git "c:/users/dovg/git/dov-env/emacs")
-;;  ;; Change to "DejaVu Sans Mono" after installing fonts
 ;;  (setq default-notes-file "w:/users/Dov/git/xjet-git/notes/notes.org")
 ;;  (setq tramp-default-method "plink")
 ;;  ; Point ediff to the diff path.
@@ -14,21 +13,18 @@
 ;;  (setq ediff-diff3-program "c:/Program Files/Git/usr/bin/diff3.exe")
 ;;  (setenv "GIT_SSH" "C:/Windows/System32/OpenSSH/ssh.exe")
 ;;  (setenv "PATH" (concat (getenv "PATH") ";c:/Program Files/Git/usr/bin/"))
-;;  (setenv "SJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
+;;  (setenv "MJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
 ;;  (load (concat emacs-git "/dov.emacs"))
 ;;
 ;;   Other customization (for windows):
 ;;      ;; Set initial frame size 
 ;;      (set-frame-size (selected-frame) 1500 1110 1)
 ;;
-;; On Linux the following should be enough:
+;; Here is a sample linux stup
 ;;
 ;; (setenv "MJQT" "/home/dov/git/SolarJet/XjetApps/MetalJet/Apps/Project/qt/")
 ;; (setenv "PE_HOME" "/home/dov/git/MetalJet/")
 ;; (setq emacs-git "/home/dov/git/dov-env/emacs/")
-;; (setq my-default-family "InconsolataDov")
-;; (setq my-variable-font "Sans")
-;; (setq my-default-font "InconsolataDov 12")
 ;; (load-file (concat emacs-git "dov.emacs"))
 ;; (setq default-notes-file "/home/dov/org/notebooks-groovy.org")
 ;; (find-file default-notes-file)
