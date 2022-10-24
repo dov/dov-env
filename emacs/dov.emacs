@@ -242,6 +242,7 @@
 (require 'init-polymode)
 (require 'init-ein)
 (require 'init-compat)
+(require 'cl-macs)
 ;(require 'init-all-the-icons)
 (ignore-errors
   (require 'init-eglot))
