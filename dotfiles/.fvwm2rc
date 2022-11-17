@@ -33,6 +33,11 @@ ButtonStyle 4 4 50x65@1 35x35@1 65x35@1 50x65@0
 # 2 stacked rectangular panels like stills of a window being maximized
 #ButtonStyle 2 11 95x10@0 95x75@0 25x75@0 65x75@0 65x90@0 10x90@0 10x55@1 25x55@1 25x75@1 25x10@1 95x10@1
 
+# Environment variables that work for all programs and not just shells
+SetEnv PATH /usr/local/bin:$HOME/scripts:$HOME/Scripts:$HOME/hd/scripts:$HOME/bin:$HOME/hd/bin:$HOME/go/bin:/usr/bin:/bin:/usr/sbin:/sbin:/space/Android/Sdk/platform-tools:/space/gradle-4.4-rc-6/bin
+SetEnv ANDROID_HOME /space/Android/Sdk
+SetEnv GRADLE_USER_HOME /space/dov/.gradle
+
 # ButtonStyle All -- Flat
 
 TitleStyle -- Flat
@@ -44,7 +49,7 @@ EdgeResistance 250 10
 #DefaultFont		"xft:Sans"
 #IconFont		-adobe-helvetica-medium-r-*-*-10-*-*-*-*-*-*-*
 #WindowFont		"xft:Sans:size=12"
-IconFont		"xft:Monotype:size=10"
+IconFont		"xft:Monotype:size=12"
 EdgeScroll 0 0
 
 #ModulePath /usr/libexec/fvwm/2.4.17
@@ -52,7 +57,7 @@ ImagePath /home/dov/git/dov-env/lib/pixmaps:/home/dov/git/dov-env/lib/fvwm/icons
 
 HilightColor black turquoise3
 DeskTopSize 2x2
-MenuStyle * "fvwm", Foreground "maroon4", Background "grey60", Greyed "grey40", Font "xft:DejaVu:size=8:encoding=iso10646-1"
+MenuStyle * "fvwm", Foreground "maroon4", Background "grey60", Greyed "grey40", Font "xft:DejaVu:size=12:encoding=iso10646-1"
 ClickTime 150
 OpaqueMoveSize 70
 
@@ -67,12 +72,12 @@ Colorset 4 fg white, bg #F0F0F0
 #######################################################################
 #  New look
 ######################################################################
-Style * Font "xft:Arial Narrow:size=8:bold:encoding=iso10646-1"
+Style * Font "xft:sans:size=12:encoding=iso10646-1"
 
 #Style "*" 	ForeColor black
 #Style "*" 	BackColor grey60
 #HilightColor	White grey60
-MenuStyle * "fvwm", Foreground "black", Background "grey60", Greyed "grey30", Font "xft:Arial Narrow:size=8:encoding=iso10646-1", "AnimationOff"
+MenuStyle * "fvwm", Foreground "black", Background "grey60", Greyed "grey30", Font "xft:sans:size=12:encoding=iso10646-1", "AnimationOff"
 
 # General Window Setings
 
@@ -151,9 +156,14 @@ Style "*"           Icon unknown1.xpm, Color Black/deepskyblue3
 Style "*"           RandomPlacement, SmartPlacement
 Style "*"           MWMFunctions,MWMDecor,HintOverride
 Style "*"           DecorateTransient,IconBox -70 36 -1 -140
+#Style "*"           StaysPut
 
 Style "Fvwm*"       NoTitle, NoHandles, Sticky, WindowListSkip,
+Style "Guvcview*" NoTitle,NoBorder
+Style "*gst-launch-1.0*" NoTitle,NoBorder
+Style "Steam*"       NoTitle, NoHandles, NoBorder, BorderWidth 0
 Style "Mate-panel"  NoTitle, NoHandles, Sticky, WindowListSkip, NoBorder, BorderWidth 0
+Style "Cairo-clock"  NoTitle, NoHandles, Sticky, WindowListSkip, NoBorder, BorderWidth 0
 Style "Fvwm*"       BorderWidth 0,CirculateSkipIcon
 Style "FvwmPager"   BorderWidth 5
 Style "FvwmBanner"  StaysOnTop
@@ -179,12 +189,29 @@ Style "xv"       NoTitle, HandleWidth 5, MiniIcon mini.xv.xpm
 Style "*Firefox*"     Icon mozicon50.xpm, MiniIcon mini.mozicon50.xpm
 Style "*wmCalClock*" geometry +500-0
 Style "*Windows 2000*" MiniIcon mini-win2000.xpm
-Style "*emacs*" MiniIcon mini-xemacs.xpm
+Style "*emacs*" MiniIcon mini-xemacs.xpm,Borders
 Style "evince" !MwmFunctions
+Style "*teams*" HandleWidth 5,BorderWidth 5,BoundaryWidth 5,usedecor linux_term,,!MwmFunctions,NoTitle,NoDecorHint,GNOMEIgnoreHints
+Style "*" NoDecorHint,GNOMEIgnoreHints
+Style "Android Emulator - G*" !MwmFunctions
+
+# The "WindowPeer" is used by Android studio for tooltips. This command removes the
+# titles from it
+Style "*WindowPeer*" NoTitle, NoHandles, WindowListSkip, NoBorder, BorderWidth 0
+Style "*Emulator*" NoTitle, NoHandles, WindowListSkip, NoBorder, BorderWidth 0
+Style "*google-chrome-beta*" !MwmFunctions,Borders,Title,Handles,HandleWidth 50,BorderWidth 50
 Style "nautilus" !MwmFunctions
 Style "gthumb" !MwmFunctions
+Style * FPLenient
+Style "xpad" StaysOnTop
+
+Style * SloppyFocus
+#Style * MouseFocus
+#Style * ClickToFocus
+Style "*Android*" !MwmFunctions,!WindowListSkip,BorderWidth 5
 
 Key Left	A	C4	CursorMove -1 0
+Key Right	A	24	CursorMove +15 0
 Key Right	A	C4	CursorMove +1 +0
 Key Up		A	C4	CursorMove +0   -1
 Key Down	A	C4	CursorMove +0   +1
@@ -196,6 +223,8 @@ Key F15		FTIWS	A	RaiseLower
 Key F13		A	A	Exec prompt-xterm &
 Key F17		A	A	Iconify
 Key F11		A	4	Recapture
+Key F10         A       4       Module	FvwmIdent
+#Key F12         A       A       Layer 6
 Key UE032       A       A       Exec prompt-xterm &
 Key UE068       A	A	Iconify
 Key A           A	4	RaiseLower
@@ -206,17 +235,24 @@ Key E           A	4	WindowShade
 Key E           A	S4	Exec emacs &
 Key F           A       4       VerMaximize
 Key J           A	4	Recapture
-Key K           A	4	UpdateDecor
+Key K           A	4	exec /home/dov/scripts/krita-scratch
 Key L           A	4	exec xscreensaver-command -lock
 Key M           A	4	Maximize 0 100
 Key M           A	S4	Maximize 100 100
 Key N           A	4	Maximize 0 100
 Key I           A	4	Iconify
-Key P           A	4	exec xterm  -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12 -e ipython --no-banner&
+#Key P           A	4	exec xterm  -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12 -e ipython --no-banner&
+Key P           A	4	lower-to-bottom
+Key 0           A	4	send-to-zero
+Key 4           A	4	send-to-four
+Key 8           A	4	send-to-eight
+Key F           A       4       ToggleFrame
 Key T           A       4       ToggleTitle
-Key X           A	4	exec xterm  -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 &
-Key X           A	S4	exec xterm  -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12 &
+Key X           A	4	Popup XInput-Popup
 Key R           A	4	Restart fvwm2
+Key Q           A	4	scrot-and-krita
+Key Q           A	S4	scrot-select-and-krita
+Key Q           A	C4	scrot-focused-window-and-krita
 Key S           A	4	exec xscreensaver-command -activate
 Key V           A	4	Menu RootMenu Root c c CurrentPage
 Key W           A	4	WindowList Root c c CurrentPage, NoGeometry, CurrentAtEnd 
@@ -228,16 +264,32 @@ Key Down	A	4	Scroll +0   +100
 Key Left	A	M4	Scroll -50 +0  
 Key Right	A	M4	Scroll +50 +0  
 Key Tab         A       M       -
-Key Right       A       S4      Move w+1 w+0
-Key Left        A       S4      Move w-1 w+0
-Key Up          A       S4      Move w+0 w-1
-Key Down        A       S4      Move w+0 w+1
+Key Right       A       S4      Move w+1 w+0 Warp
+Key Left        A       S4      Move w-1 w+0 Warp
+Key Up          A       S4      Move w+0 w-1 Warp
+Key Down        A       S4      Move w+0 w+1 Warp
+Key Right       A       CS4     Move -0 w0 Warp
+Key Left        A       CS4     Move +0 w0 Warp
+Key Up          A       CS4     Move w0 +0 Warp
+Key Down        A       CS4     Move w0 -0 Warp
 Key Space       A       4       WindowList Root c c CurrentPage, NoGeometry, CurrentAtEnd 
 Key Escape      A       4       exec systemctl suspend -i
-Key E           A       S4      Next ("Emacs") WarpToWindow 99 90
-Key F           A       S4      Next ("Firefox") WarpToWindow 99 90
-Key T           A       S4      Next ("Alacritty") WarpToWindow 99 90
-Key G           A       4       Exec telegram-desktop
+Key Tab         A       4 WindowList Root c c "Prev SwitchToWindow"
+Key E           A       S4      Next ("Emacs") SelectWindow
+Key F           A       S4      Next ("firefox") SelectWindow
+Key K           A       S4      Next ("krita") SelectWindow
+Key T           A       S4      Next ("Alacritty|Mate-terminal") SelectWindow
+Key S           A       S4      Next ("MetalJet") SelectWindow
+Key G           A       4       Exec /usr/local/Telegram/Telegram
+Key L           A       C4      Exec mate-screensaver-command -l
+Key W           A       S4      Close
+
+DestroyFunc SelectWindow
+AddToFunc SelectWindow
++ I Focus
++ I Iconify false
++ I Raise
++ I WarpToWindow -40p 8p
 
 # Gray keys 
 Key UE067       A	A	Recapture
@@ -245,12 +297,6 @@ Key UE010	A	A	Scroll -100 +0
 Key UE053	A	A	Scroll +100 +0
 Key UE024	A	A	Scroll +0   -100
 Key UE022	A	A	Scroll +0   +100
-
-Key XF86Launch0 A       A       exec /home/dov/scripts/keyboard_backlight down
-Key XF86Launch1 A       A       exec /home/dov/scripts/keyboard_backlight up
-
-# TBD Create a script for doing this increamentally
-# xrandr --output eDP-1 --brightness 0.5
 
 
 ############################################################################
@@ -302,36 +348,52 @@ DestroyFunc UrgencyFunc
 AddToFunc InitFunction 	  "I" Module FvwmPager *
 +			  "I" Module FvwmBanner
 +                         "I" exec xcompmgr -c &
+#+                         "I" exec xrandr --output DP-1 --mode 1920x1080 --right-of DVI-D-0
 +                         "I" exec xrdb /home/dov/.Xdefaults
-+                         "I" exec mate-panel --sm-disable &
-+			  "I" exec telegram-desktop &
++                         "I" exec env QT_QPA_PLATFORMTHEME=qt5ct mate-panel --sm-disable &
++                         "I" exec /usr/libexec/mate-settings-daemon &
 +                         "I" exec xset s 300 s blank dpms 300
 +                         "I" exec xset r rate 200 30
 +                         "I" exec xset fp+ /home/dov/git/dov-env/lib/X11fonts
-+                         "I" exec xset b 100 10000 10
++                         "I" exec xset b 100 8300 10
 +                         "I" exec xkbcomp /home/dov/.xkbmap $DISPLAY
++                         "I" exec swteam:/home/dov /home/dov/swteam
 +                         "I" exec feh --bg-tile /home/dov/git/dov-env/lib/tiles/Sister-Bluebird-1.png 
-+                         "I" exec cairo-clock &
-+                         "I" exec env PULSE_LATENCY_MSEC=30 skype &
++                         "I" exec cairo-clock -y 2038 -x 0&
++                         "I" exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 1 1.2 0 0 0 0 1
++                         "I" exec xinput set-button-map "Logitech USB Receiver Mouse" 3 2 1
 
 AddToFunc RestartFunction "I" Module FvwmPager
 +                         "I" exec feh --bg-tile /home/dov/git/dov-env/lib/tiles/Sister-Bluebird-1.png 
-+                         "I" exec xset s 300 s blank dpms 300
-+                         "I" exec xset r rate 200 30
 +                         "I" exec xkbcomp /home/dov/.xkbmap $DISPLAY
++                         "I" exec xset s 300 s blank dpms 300
++                         "I" exec xset b 100 8300 10
++                         "I" exec xset r rate 200 30
++                         "I" exec blueman-applet &
++                         "I" exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 1 1.2 0 0 0 0 1
++                         "I" exec xinput set-button-map "Logitech USB Receiver Mouse" 3 2 1
 
 ########################Menus ########################################
 AddToMenu RootMenu	"RootMenu"	Title 	
-+			"Xterm"%mini-xterm.xpm%		exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8&
-+			"Tmux Xterm"%mini-xterm.xpm%		exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -e tmux&
-+			"firefox"%/usr/share/icons/hicolor/16x16/apps/firefox.png%	Exec  exec firefox  &
-+			"google-chrome"%/usr/share/icons/hicolor/16x16/apps/google-chrome.png%	Exec  exec google-chrome &
-+			"emacs"%/usr/share/icons/hicolor/16x16/apps/emacs.png%	        Exec  exec env -u XMODIFIERS ssh-agent emacs &
-+                        ""
-+			"skype"%/usr/share/icons/hicolor/16x16/apps/skypeforlinux.png%	        Exec  exec skypeforlinux &
+#+			"Xterm"%mini.xterm.xpm%		exec xterm -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8&
++			"Tmux"%mini.xterm.xpm%		exec alacritty -e tmux -u2 attach &
++			"alacritty"%mini.xterm.xpm%		exec alacritty &
 +			"gimp"%mini.gimp.xpm%		Exec  exec gimp &
-+			"inkscape"%/usr/share/icons/hicolor/16x16/apps/inkscape.png%		Exec  exec gimp &
-+			"VirtualBox"%/usr/share/icons/hicolor/16x16/apps/virtualbox.png%	Exec  exec VirtualBox &
++			"firefox"	Exec  exec /usr/bin/firefox  &
++			"google-chrome"	Exec  exec google-chrome &
++                       "gthumb"        Exec gthumb &
++			"skype"	        Exec  exec skypeforlinux &
++			"emacs"	        Exec  exec emacs &
++			"Telegram"      Exec  /usr/local/Telegram/Telegram &
++			"Signal"        Exec  signal-desktop &
++			"Zoom"          Exec  env zoom --no-sandbox &
++			"Blender"	Exec  blender&
++			"Krita"	        Exec  exec /usr/local/krita/bin/krita &
++			"HexChat"       Exec  exec hexchat &
++			"VirtualBox"	Exec  exec virtualbox &
++			"WebCam"	Exec  exec  gst-launch v4l2src device=/dev/video0 ! 'video/x-raw-yuv,width=320,height=240,framerate=10/1' ! xvimagesink &
++			""		Nop
++			"XInput"	Popup XInput-Popup
 +			""		Nop
 +			"Modules"	Popup Module-Popup
 +			""		Nop		
@@ -372,6 +434,13 @@ AddToMenu Music-Popup "Music" Title
 +        "gqmpeg"	Exec gqmpeg &
 +        "rhythmbox"	Exec rhythmbox &
 
+AddToMenu XInput-Popup  "XInput"        Title
++                       "Right-Half Screen" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 1 1.2 0 0 0 0 1
++                       "Left-Half Screen" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 0.5 2.8 0 0 0 0 1
++                       "Full Screen" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -1 1 2.8 0 0 0 0 1
++                       "Landscape Connector Left" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
++                       "Landscape Connector Right" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" -1 0 1  0 -1 1  0 0 1
+
 AddToMenu Module-Popup	"Modules"	Title	
 +			"Button-Bar"	Module	FvwmButtons
 +			"Identify"	Module	FvwmIdent
@@ -387,21 +456,13 @@ AddToMenu Module-Popup	"Modules"	Title
 
 AddToMenu Quit-Verify 	"Really Quit Fvwm?" Title	
 +		      	"Yes, Really Quit"  Quit	
-+		      	"Restart Fvwm2"	    Restart fvwm2	
-+		      	"Restart Fvwm95"    Restart fvwm95-2
-+		      	"Restart Wmaker"    Restart wmaker
++		      	"Restart Fvwm"	    Restart fvwm
++		      	"Restart /usr/local/bin/Fvwm"	    Restart /usr/local/bin/fvwm2
 +		      	"Start Fvwm"	    Restart fvwm	
-+		      	"Start Enlightment" Restart /opt/enlightenment/bin/enlightenment
-+		      	"Start mwm"    	    Restart mwm
-+	      	      	"Start olwm"        Restart /usr/openwin/bin/olwm
 +		      	""		    Nop	
 +		      	"No, Don't Quit"    Nop	
 
 ########################Functions ########################################
-
-AddToFunc MailFunction	   "I" Next [$0] Iconify -1
-+		           "I" Next [$0] focus
-+			   "I" None [$0] Exec $0 $1
 
 AddToFunc Move-or-Raise		"I" Raise
 +				"M" Move
@@ -450,6 +511,42 @@ AddToFunc PrintFunction		"I" Raise
 AddToFunc Iconify-and-Raise     "I" Iconify
 +                               "I" Raise
 
+AddToFunc scrot-and-krita
++ I All ("krita") Iconify false
++ I Exec /home/dov/scripts/scrot-and-krita
+
+AddToFunc scrot-select-and-krita
++ I All ("krita") Iconify false
++ I Exec /home/dov/scripts/scrot-select-and-krita
+
+AddToFunc scrot-focused-window-and-krita
++ I All ("krita") Iconify false
++ I Exec /home/dov/scripts/scrot-focused-window-and-krita
+
+AddToFunc lower-to-bottom
++ I Layer 0 0
++ I Lower
++ I Raise
+
+AddToFunc scrot-and-open-krita
++ I exec /home/dov/scripts/krita-scrot
++ I Next ("Krita") SelectWindow
+
+AddToFunc send-to-zero
++ I Layer 0 0
++ I Lower
++ I Raise
+
+AddToFunc send-to-four
++ I Layer 0 4
++ I Lower
++ I Raise
+
+AddToFunc send-to-eight
++ I Layer 0 8
++ I Lower
++ I Raise
+
 AddToFunc "Raise/Move/Shade"
 + 			"M" Raise
 +                      	"M" Move
@@ -462,6 +559,12 @@ AddToFunc ToggleTitle
 + I Current (State 1) WindowStyle NoTitle
 + I TestRc (NoMatch) WindowStyle Title
 
+DestroyFunc ToggleFrame
+AddToFunc ToggleFrame
++ I State 1 toggle
++ I Current (State 1) WindowStyle !Borders
++ I TestRc (NoMatch) WindowStyle Borders
+
 ################## FvwmButtons button-bar ################################
 # Colors
 *FvwmButtonsFore Black
@@ -469,7 +572,7 @@ AddToFunc ToggleTitle
 
 # Font
 #*FvwmButtonsFont -adobe-helvetica-bold-r-*-*-10-*-*-*-*-*-*-*
-*FvwmButtonsFont xft:Sans:size=10
+*FvwmButtonsFont xft:Sans:size=12
 # Geometry - really likes to pick its own size, but giving a position is OK
 *FvwmButtonsGeometry -1-1
 
@@ -481,20 +584,20 @@ AddToFunc ToggleTitle
 *FvwmIdentBack MidnightBlue
 *FvwmIdentFore Yellow
 #*FvwmIdentFont -adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*
-*FvwmIdentFont "xft:Sans:size=7"
+*FvwmIdentFont "xft:Sans:size=12"
 
 ########################### Pager #########################################
 #*FvwmPagerBack #908090
 *FvwmPagerBack #4e7b9b
 *FvwmPagerFore #484058
 #*FvwmPagerFont -adobe-helvetica-bold-r-*-*-10-*-*-*-*-*-*-*
-*FvwmPagerFont "xft:Sans:size=7"
+*FvwmPagerFont "xft:Sans:size=12"
 #*FvwmPagerHilight #b0a0b0
 *FvwmPagerHilight #7d9ed8
 *FvwmPagerDeskTopScale 20
-*FvwmPagerGeometry 220x100-0-0
+*FvwmPagerGeometry 500x200-0-0
 *FvwmPagerLabel 0 Pager
-*FvwmPagerSmallFont 5x8
+*FvwmPagerSmallFont "xft:Sans:size=8"
 *FvwmPagerLabel 0 All
 *FvwmPagerLabel 1 Work
 *FvwmPagerLabel 2 No
@@ -535,7 +638,7 @@ AddToFunc ToggleTitle
 *FvwmIconBoxGeometry    5x1+0+0
 *FvwmIconBoxMaxIconSize 64x38
 #*FvwmIconBoxFont        -adobe-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*
-*FvwmIconBoxFont        "xft:Sans:size=6"
+*FvwmIconBoxFont        "xft:Sans:size=12"
 *FvwmIconBoxSortIcons   IconName
 *FvwmIconBoxPadding     4
 *FvwmIconBoxLines       10

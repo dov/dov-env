@@ -487,11 +487,23 @@ Nice for copying"
   (interactive)
   (insert (buffer-name (window-buffer (minibuffer-selected-window)))))
 
+(defun browse-upstream-url ()
+  "For a github cloned repo, this function opens a browser to the github page of the upstream"
+  (interactive)
+  (let* ((cmd (format "git rev-parse --abbrev-ref --symbolic-full-name '@{u}'"))
+         (remote-branch (shell-command-to-string cmd))
+         (remote (car (split-string remote-branch "/")))
+         (remote-url (shell-command-to-string (format "git config --get remote.%s.url" remote)))
+         (https-url
+          (string-trim
+           (replace-regexp-in-string (pcre-to-elisp "git@github.com:(\\w+)") "https://github.com/\\1" remote-url))))
+    (browse-url https-url)))
+
 ;; Experiment area for new keybindings
 (defun dov-test ()
   "dov-test"
   (interactive)
-  (insert (shell-quote-argument (file-name-nondirectory (get-referenced-filename)))))
+  (message "tbd"))
 
 (global-set-key (kbd "C-c C-M-d") 'dov-test)
 ;;--------------
@@ -1348,6 +1360,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.cu$" 'c++-mode))
        (list (cons "\\.cuh$" 'c++-mode))
        (list (cons "\\.cc$" 'c++-mode))
+       (list (cons "\\.vert$" 'c++-mode))
+       (list (cons "\\.frag$" 'c++-mode))
+       (list (cons "\\.geom$" 'c++-mode))
        (list (cons "\\.[hc]pp$" 'c++-mode))
        (list (cons "\\.glsl$" 'c++-mode))
        (list (cons "\\.cpp$" 'c++-mode))
@@ -2393,6 +2408,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (update-indent-mode)
 
   (setq indent-tabs-mode nil)
+  (setq tab-width 2)
   (define-key map [return] 'newline-and-indent)
   (define-key map [(control c) (control e)] 'compile)
   (define-key map (kbd "C-?") 'c-comment-selection-or-word)
