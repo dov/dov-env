@@ -1,0 +1,5 @@
+#!/usr/bin/sh
+
+scrot /tmp/fs.png
+/usr/local/krita/bin/krita /tmp/fs.png
+

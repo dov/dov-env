@@ -1,5 +1,10 @@
 #######################################################################
 #  Dov's fvwm-2 setup.
+#
+#  Extra packages needed for proper functioning:
+#
+#     xinput xrandr scrot alacritty xscreensaver
+# 
 #######################################################################
 
 ButtonStyle All           VGradient 64 2 turquoise2 80 turquoise3 20 turquoise4 4 -- flat
@@ -34,7 +39,7 @@ ButtonStyle 4 4 50x65@1 35x35@1 65x35@1 50x65@0
 #ButtonStyle 2 11 95x10@0 95x75@0 25x75@0 65x75@0 65x90@0 10x90@0 10x55@1 25x55@1 25x75@1 25x10@1 95x10@1
 
 # Environment variables that work for all programs and not just shells
-SetEnv PATH /usr/local/bin:$HOME/scripts:$HOME/Scripts:$HOME/hd/scripts:$HOME/bin:$HOME/hd/bin:$HOME/go/bin:/usr/bin:/bin:/usr/sbin:/sbin:/space/Android/Sdk/platform-tools:/space/gradle-4.4-rc-6/bin
+SetEnv PATH /usr/local/bin:$HOME/scripts:$HOME/git/dov-env/scripts:$HOME/Scripts:$HOME/hd/scripts:$HOME/bin:$HOME/hd/bin:$HOME/go/bin:/usr/bin:/bin:/usr/sbin:/sbin:/space/Android/Sdk/platform-tools:/space/gradle-4.4-rc-6/bin
 SetEnv ANDROID_HOME /space/Android/Sdk
 SetEnv GRADLE_USER_HOME /space/dov/.gradle
 
@@ -220,12 +225,10 @@ Key Right	A	M4	CursorMove +10 +0
 Key Up		A	M4	CursorMove +0   -10
 Key Down	A	M4	CursorMove +0   +10
 Key F15		FTIWS	A	RaiseLower
-Key F13		A	A	Exec prompt-xterm &
 Key F17		A	A	Iconify
 Key F11		A	4	Recapture
 Key F10         A       4       Module	FvwmIdent
 #Key F12         A       A       Layer 6
-Key UE032       A       A       Exec prompt-xterm &
 Key UE068       A	A	Iconify
 Key A           A	4	RaiseLower
 Key B           A	4	Menu Window-Ops Nop
@@ -235,13 +238,12 @@ Key E           A	4	WindowShade
 Key E           A	S4	Exec emacs &
 Key F           A       4       VerMaximize
 Key J           A	4	Recapture
-Key K           A	4	exec /home/dov/scripts/krita-scratch
+Key K           A	4	exec krita-scratch
 Key L           A	4	exec xscreensaver-command -lock
 Key M           A	4	Maximize 0 100
 Key M           A	S4	Maximize 100 100
 Key N           A	4	Maximize 0 100
 Key I           A	4	Iconify
-#Key P           A	4	exec xterm  -fn -bolkhov-vga-medium-r-normal--16-160-75-75-c-80-iso10646-1  -bg grey10 -fg green -cr green -sb -sl 10000 -u8 -geometry 80x12 -e ipython --no-banner&
 Key P           A	4	lower-to-bottom
 Key 0           A	4	send-to-zero
 Key 4           A	4	send-to-four
@@ -372,6 +374,9 @@ AddToFunc RestartFunction "I" Module FvwmPager
 +                         "I" exec blueman-applet &
 +                         "I" exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 1 1.2 0 0 0 0 1
 +                         "I" exec xinput set-button-map "Logitech USB Receiver Mouse" 3 2 1
+# Note: do `xinput -q` to find device name for a new mouse
++                         "I" exec xinput set-button-map "CX 2.4G Receiver Mouse" 3 2 1
+
 
 ########################Menus ########################################
 AddToMenu RootMenu	"RootMenu"	Title 	
@@ -394,6 +399,7 @@ AddToMenu RootMenu	"RootMenu"	Title
 +			"WebCam"	Exec  exec  gst-launch v4l2src device=/dev/video0 ! 'video/x-raw-yuv,width=320,height=240,framerate=10/1' ! xvimagesink &
 +			""		Nop
 +			"XInput"	Popup XInput-Popup
++			"Share Monitor"	Popup XMonitor-Popup
 +			""		Nop
 +			"Modules"	Popup Module-Popup
 +			""		Nop		
@@ -440,6 +446,10 @@ AddToMenu XInput-Popup  "XInput"        Title
 +                       "Full Screen" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -1 1 2.8 0 0 0 0 1
 +                       "Landscape Connector Left" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
 +                       "Landscape Connector Right" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" -1 0 1  0 -1 1  0 0 1
+
+AddToMenu XMonitor-Popup "External Monitor" Title
++                       "Mirror to HDMI-1" Exec xrandr --output HDMI-1 --mode 1920x1080 --same-as eDP-1
++                       "Mirror through the Dell docking" Exec xrandr --output DP-2-3 --mode 1920x1080 --same-as eDP-1
 
 AddToMenu Module-Popup	"Modules"	Title	
 +			"Button-Bar"	Module	FvwmButtons

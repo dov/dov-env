@@ -17,7 +17,7 @@
 (add-to-list 'eglot-server-programs
   `(lua-mode . ("/space3/pub-repos/lua-language-server/bin/lua-language-server")))
 
-(add-to-list 'eglot-server-programs '((c++-mode c-mode) "clangd"))
+(add-to-list 'eglot-server-programs '((c++-mode c-mode) "clangd" "-j" "1" "--log=verbose"))
 (add-to-list 'eglot-server-programs '(vala-mode "vala-language-server"))
 
 ; Do I want this?
