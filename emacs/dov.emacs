@@ -2657,6 +2657,11 @@ Does not delete the prompt."
     (kill-region reg-beg reg-end)
     (insert res)))
 
+(defun set-cod ()
+  "Set the current default compilation directory environment variable"
+  (interactive)
+  (setenv "COD" (expand-file-name default-directory)))
+
 (global-set-key [(control x) ?~] 'tilde-expand-line)
 
 (defun jenkins-mangle ()
@@ -3033,6 +3038,23 @@ Does not delete the prompt."
       (set-face-attribute 'org-hide nil :foreground "gray30")
       )
     )))
+
+;; -*- lexical-binding:t -*-
+(defun my-clone-frame ()
+  """Clone the selected frame"""
+  (interactive)
+  (let* ((src (selected-window))
+         (src-point (copy-marker (window-point)))
+         (src-start (copy-marker (window-start)))
+         (clone (frame-root-window (make-frame))))
+    (add-hook 'post-command-hook
+              (lambda ()
+                (unless (= src-point (window-point src))
+                  (move-marker src-point (window-point src))
+                  (set-window-point clone src-point))
+                (unless (= src-start (window-start src))
+                  (move-marker src-start (window-start src))
+                  (set-window-start clone src-start))))))
 
 (custom-set-variables
  '(blink-cursor-mode nil)
