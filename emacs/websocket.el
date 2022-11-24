@@ -45,6 +45,7 @@
 (require 'bindat)
 (require 'url-parse)
 (require 'url-cookie)
+(require 'cl-macs)
 (eval-when-compile (require 'cl))
 
 ;;; Code:
@@ -90,10 +91,10 @@ same for the protocols.
   (server-p nil :read-only t)
 
   ;; Other data - clients should not have to access this.
-  (url (assert nil) :read-only t)
+  (url (cl-assert nil) :read-only t)
   (protocols nil :read-only t)
   (extensions nil :read-only t)
-  (conn (assert nil) :read-only t)
+  (conn (cl-assert nil) :read-only t)
   ;; Only populated for servers, this is the server connection.
   server-conn
   accept-string
@@ -281,7 +282,7 @@ many bytes were consumed from the string."
 
 (defun websocket-frame-text (frame)
   "Given FRAME, return the payload as a utf-8 encoded string."
-  (assert (websocket-frame-p frame))
+  (cl-assert (websocket-frame-p frame))
   (decode-coding-string (websocket-frame-payload frame) 'utf-8))
 
 (defun websocket-mask (key data)
@@ -294,7 +295,7 @@ This is used to both mask and unmask data."
   ;; chars).
   (string-make-unibyte (apply
                         'string
-                        (loop for b across data
+                        (cl-loop for b across data
                               for i from 0 to (length data)
                               collect
                               (logxor (websocket-get-bytes (substring key (mod i 4)) 1) b)))))
@@ -512,7 +513,7 @@ has connection termination."
     (while (setq current-frame (websocket-read-frame
                                 (substring text start-point)))
       (push (websocket-process-frame websocket current-frame) processing-queue)
-      (incf start-point (websocket-frame-length current-frame)))
+      (cl-incf start-point (websocket-frame-length current-frame)))
     (when (> (length text) start-point)
       (setf (websocket-inflight-input websocket)
             (substring text start-point)))
@@ -591,7 +592,7 @@ connecting or open."
 (defun websocket-ensure-connected (websocket)
   "If the WEBSOCKET connection is closed, open it."
   (unless (and (websocket-conn websocket)
-               (ecase (process-status (websocket-conn websocket))
+               (cl-ecase (process-status (websocket-conn websocket))
                  ((run open listen) t)
                  ((stop exit signal closed connect failed nil) nil)))
     (websocket-close websocket)
@@ -1012,25 +1013,25 @@ Unlike `websocket-verify-headers', this is a quieter routine.  We
 don't want to error due to a bad client, so we just print out
 messages and a plist containing `:key', the websocket key,
 `:protocols' and `:extensions'."
-  (block nil
+  (cl-block nil
     (let ((case-fold-search t)
           (plist))
       (unless (string-match "HTTP/1.1" output)
         (message "Websocket client connection: HTTP/1.1 not found")
-        (return nil))
+        (cl-return nil))
       (unless (string-match "^Host: " output)
         (message "Websocket client connection: Host header not found")
-        (return nil))
+        (cl-return nil))
       (unless (string-match "^Upgrade: websocket\r\n" output)
         (message "Websocket client connection: Upgrade: websocket not found")
-        (return nil))
+        (cl-return nil))
       (if (string-match "^Sec-WebSocket-Key: \\([[:graph:]]+\\)\r\n" output)
           (setq plist (plist-put plist :key (match-string 1 output)))
         (message "Websocket client connect: No key sent")
-        (return nil))
+        (cl-return nil))
       (unless (string-match "^Sec-WebSocket-Version: 13" output)
         (message "Websocket client connect: Websocket version 13 not found")
-        (return nil))
+        (cl-return nil))
       (when (string-match "^Sec-WebSocket-Protocol:" output)
         (setq plist (plist-put plist :protocols (websocket-parse-repeated-field
                                                  output

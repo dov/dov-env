@@ -35,6 +35,8 @@
 ;;    - (setenv "WORKON_HOME" "$HOME/anaconda3/envs/" t)
 ;;----------------------------------------------------------------------
 
+(require 'cl-macs)
+
 (if (or (string-match "mingw-nt" system-configuration)
         (string-match "i686-pc-mingw32" system-configuration)
         (string-match "x86_64-w64-mingw32" system-configuration))
@@ -238,7 +240,6 @@
 (require 'init-polymode)
 (require 'init-ein)
 (require 'init-compat)
-(require 'cl-macs)
 ;(require 'init-all-the-icons)
 (ignore-errors
   (require 'init-eglot))
