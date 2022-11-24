@@ -56,7 +56,7 @@
       ;; Load windows utilities
       (load (concat emacs-git "/win-utils.el")))
   (progn
-;    (setq my-default-family "Liberation Mono")
+;    (setq my-fixed-font "Liberation Mono")
     (setq temp-dir "/tmp/")
     (setq explicit-shell-file-name "/bin/zsh")
     (setq browse-url-generic-program "firefox")
@@ -73,7 +73,7 @@
         (setenv "WORKON_HOME" "$HOME/anaconda3/envs" t))
 
     (condition-case err
-     (set-frame-font my-default-font)
+     (set-frame-font my-fixed-font)
 ;    (set-frame-font "Consolas 12") 
 ;     (set-frame-font "lucidasanstypewriter-bold-14")
 ;     (set-frame-font "lucidasanstypewriter-bold-12")
@@ -169,25 +169,24 @@
                              "DejaVu Sans"
                              "Arial"))))
 
-(if (or (not (boundp 'my-default-family))
-        (not (find-font (font-spec :name my-default-family))))
-    (setq my-default-family (get-first-font-from-list
-                             (list
-                              "InconsolataDov"
-                              "Inconsolata"
-                              "DejaVu Sans Mono"
-                              "Consolas"))))
+(if (or (not (boundp 'my-fixed-font))
+        (not (find-font (font-spec :name my-fixed-font))))
+    (setq my-fixed-font (get-first-font-from-list
+                         (list
+                          "InconsolataDov"
+                          "Inconsolata"
+                          "DejaVu Sans Mono"
+                          "Consolas"))))
 
 (if (not (boundp 'my-default-font))
-    (setq my-default-font (concat my-default-family " 12")))
+    (setq my-default-font (concat my-fixed-font " 12")))
 
 (setq Info-default-directory-list
       (append (list (concat emacs-git "/info"))
               Info-default-directory-list))
 
 ;; Font for all frames
-(set-frame-font my-default-font)
-(set-frame-font my-default-font)
+(set-frame-font my-fixed-font)
 (add-to-list 'default-frame-alist
              (cons 'font my-default-font))
 
@@ -848,10 +847,10 @@ Optional argument ARG is the same as for `backward-kill-word'."
   ;; variable pitch mode makes emacs rescale!
   (variable-pitch-mode t)
   (emojify-mode)
-  (set-face-attribute 'org-table nil :family my-default-family)
-  (set-face-attribute 'org-checkbox nil :family my-default-family)
-  (set-face-attribute 'org-block nil :family my-default-family)
-  (set-face-attribute 'org-verbatim nil :family my-default-family :foreground "green4")
+  (set-face-attribute 'org-table nil :family my-fixed-font)
+  (set-face-attribute 'org-checkbox nil :family my-fixed-font)
+  (set-face-attribute 'org-block nil :family my-fixed-font)
+  (set-face-attribute 'org-verbatim nil :family my-fixed-font :foreground "green4")
   (setq truncate-lines nil)
   (setq org-export-allow-bind-keywords t)
   (setq org-html-doctype "html5")
@@ -1003,7 +1002,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
                 font-lock-type-face 	
                 font-lock-variable-name-face
                 font-lock-warning-face))
-  (set-face-attribute face nil :family my-default-family))
+  (set-face-attribute face nil :family my-fixed-font))
 
 (defun org-toggle-iimage-in-org ()
   "display images in your org file"
@@ -2960,7 +2959,7 @@ Does not delete the prompt."
   (lambda ()
     (if (or (string= window-system "x") (string= window-system "w32"))
         (custom-set-faces
-         '(font-lock-function-name-face ((t (:foreground "blue" :family my-default-family))))
+         '(font-lock-function-name-face ((t (:foreground "blue" :family my-fixed-font))))
          '(link ((t (:foreground "RoyalBlue3" :underline t))))
          '(helm-selection ((t (:background "#b5ffd1" :distant-foreground "black" :foreground "black"))))
          '(font-lock-builtin-face ((t (:foreground "dark slate blue"))))
@@ -2972,6 +2971,15 @@ Does not delete the prompt."
          '(font-mediawiki-bold-face ((((class color) (background light)) (:inherit bold :foreground "Midnight blue"))))
          '(font-mediawiki-italic-face ((((class color) (background light)) (:inherit italic :foreground "Midnightblue"))))
          '(font-mediawiki-sedate-face ((((class color) (background light)) (:foreground "Black" :weight bold))))
+         (list 'org-code (list (list t (list
+                                        :family my-fixed-font
+                                        :foreground "darkgreen"))))
+         (list 'markdown-code-face (list (list t (list
+                                                  :family my-fixed-font
+                                                  :foreground "darkgreen"))))
+         (list 'org-block (list (list t (list
+                                        :family my-fixed-font
+                                        :foreground "darkgreen"))))
          (list 'org-level-2 (list (list t (list
                                            :family my-variable-font
                                            :inherit 'outline-2
@@ -3009,16 +3017,16 @@ Does not delete the prompt."
       (custom-set-faces
        '(default ((t (:foreground "white"))))
        '(font-lock-constant-face ((t (:foreground "Orange"))))
-       '(font-lock-function-name-face ((t (:foreground "Yellow" :family my-default-family))))
+       '(font-lock-function-name-face ((t (:foreground "Yellow" :family my-fixed-font))))
        '(font-lock-comment-face ((t (:foreground "#db4545"))))
-       '(font-lock-keyword-face ((t (:foreground "Orange" :family my-default-family))))
-       '(font-lock-string-face ((t (:foreground "green" :family my-default-family))))
-       '(font-lock-type-face ((t (:foreground "maroon2" :family my-default-family))))
-       '(font-lock-builtin-face ((t (:foreground "Orange" :family my-default-family))))
+       '(font-lock-keyword-face ((t (:foreground "Orange" :family my-fixed-font))))
+       '(font-lock-string-face ((t (:foreground "green" :family my-fixed-font))))
+       '(font-lock-type-face ((t (:foreground "maroon2" :family my-fixed-font))))
+       '(font-lock-builtin-face ((t (:foreground "Orange" :family my-fixed-font))))
        '(org-verbatim ((t (:foreground "green"))))
        '(org-code ((t (:foreground "green"))))
   
-       '(py-builtins-face ((t (:foreground "#f84" :family my-default-family))) t)
+       '(py-builtins-face ((t (:foreground "#f84" :family my-fixed-font))) t)
        '(minibuffer-prompt ((t (:foreground "green"))))
        '(show-paren-match ((t (:background "#228"))))
        '(region ((t (:background "#501280"))))
