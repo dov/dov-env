@@ -46,8 +46,6 @@
       (setq temp-dir "c:/Temp/")
       (if (not (boundp 'emacs-persistance-dir))
           (setq emacs-persistance-dir "c:/Document and Settings/dovg"))
-;      (set-frame-font "-*-Lucida Console-*-*-*-*-15-*-*-*-*-*-*")
-;      (set-frame-font "-*-DejaVu Sans Mono-normal-r-normal-normal-14-*-*-*-*-*-iso10646-1")
       (setq browse-url-generic-program "C:\\Program Files\\Mozilla Firefox\\firefox.exe")
 
       ;; don't use Hebrew locale!
@@ -72,19 +70,6 @@
     (if (eq (getenv "WORKON_HOME") nil)
         (setenv "WORKON_HOME" "$HOME/anaconda3/envs" t))
 
-    (condition-case err
-     (set-frame-font my-fixed-font)
-;    (set-frame-font "Consolas 12") 
-;     (set-frame-font "lucidasanstypewriter-bold-14")
-;     (set-frame-font "lucidasanstypewriter-bold-12")
-;       (set-frame-font "Bitstream Vera Sans Mono-11")
-;     (set-frame-font my-default-family)
-;     (set-frame-font "Fira Mono OT")
-;     (set-frame-font "Droid sans Mono")
-;     (set-frame-font "Source Code Pro")
-;     (set-frame-font "Menlo:pixelsize=12")
-     (error "No such font, but who cares"))
-
                                         ; Use Miriam mono font for Hebrew
 ;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "David CLM")
 ;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Nachlieli CLM")
@@ -98,61 +83,11 @@
                              "/usr/local/share/emacs/site-lisp/vm"
                              "/usr/local/share/emacs/site-lisp/rtags/"
 			     emacs-git
-                             (concat emacs-git "/company")
                              (concat emacs-git "/flycheck"))
                             load-path))
 ;    (load "vm")
     (load "dash")
-
-    (if (and (getenv "HOSTNAME") (string-match "orbotech.com" (getenv "HOSTNAME")))
-        (setq add-log-mailing-address "dov@orbotech.com")
-      (setq add-log-mailing-address "dov.grobgeld@gmail.com"))
-  
-    (require 'smtpmail)
-
-    ;; only run this if rtags is installed
-    (when (require 'rtags nil :noerror)
-      (defun setup-flycheck-rtags ()
-        (interactive)
-        (flycheck-select-checker 'rtags)
-        ;; RTags creates more accurate overlays.
-        (setq-local flycheck-highlighting-mode nil)
-        (setq-local flycheck-check-syntax-automatically nil))
-
-      ;; make sure you have company-mode installed
-      (require 'company)
-      (require 'company-rtags)
-      (require 'flycheck-rtags)
-      (define-key c-mode-base-map (kbd "M-.")
-        (function rtags-find-symbol-at-point))
-      (define-key c-mode-base-map (kbd "M-,")
-        (function rtags-find-references-at-point))
-      (add-hook 'rtags-find-symbol-at-point 'rtags-start-process-unless-running)
-      (add-hook 'rtags-find-references-at-point 'rtags-start-process-unless-running)
-      ;; disable prelude's use of C-c r, as this is the rtags keyboard prefix
-;      (define-key prelude-mode-map (kbd "C-c r") nil)
-      ;; install standard rtags keybindings. Do M-. on the symbol below to
-      ;; jump to definition and see the keybindings.
-      (rtags-enable-standard-keybindings)
-      ;; comment this out if you don't have or don't use helm
-      (setq rtags-use-helm t)
-      ;; company completion setup
-      (setq rtags-autostart-diagnostics t)
-      (rtags-diagnostics)
-      (setq rtags-completions-enabled t)
-      (push 'company-rtags company-backends)
-;      (global-company-mode)
-      (define-key c-mode-base-map (kbd "<C-tab>") (function company-complete))
-      ;; use rtags flycheck mode -- clang warnings shown inline
-      (require 'flycheck-rtags)
-      ;; c-mode-common-hook is also called by c++-mode
-      (add-hook 'c-mode-common-hook #'setup-flycheck-rtags))
-
-    ; See: https://github.com/Andersbakken/rtags/issues/1131
-    (defun rtags-diagnostics (&optional restart nodirty)
-      (interactive "P")
-      (message "rtags-diagnostics has scalability issues and has been disabled."))
-    ))
+    (setq add-log-mailing-address "dov.grobgeld@gmail.com")))
 
 ;; Setup my prefered font. This should work on both linux and
 ;; windows with and without my prefered fonts installed
