@@ -171,6 +171,7 @@
 (require 'init-emojify)
 (require 'init-anaphora)
 (require 'init-markdown)
+(require 'init-literate-calc)
 (require 'init-polymode)
 (require 'init-ein)
 (require 'init-compat)
@@ -764,6 +765,18 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (load "ox-slidy.el")
   (load "screenshot.el")
   (load "org-man.el")
+
+   (autoload 'org-present "org-present" nil t)
+
+   (add-hook 'org-present-mode-hook
+             (lambda ()
+               (org-present-big)
+               (org-display-inline-images)))
+
+   (add-hook 'org-present-mode-quit-hook
+             (lambda ()
+               (org-present-small)
+               (org-remove-inline-images)))
 
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
