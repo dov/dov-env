@@ -29,7 +29,7 @@ setenv() { export $1=$2 }  # csh compatibility
 if [[ $TERM == "xterm" || $TERM == "xterm-256color" || $TERM == "rxvt" || $TERM == "screen" ]]; then
     # Change title when switching directories
     chpwd () { print -Pn "\e]0;(Z) $USER@$HOST: [%~]\a" }
-    PROMPT="> "
+#    PROMPT="> "
     alias ls="ls -F --color=auto"
 elif [[ $TERM == "screen-256color" ]]; then
 #    chpwd () { print -Pn "\e]0;<Z> $USER@$HOST: [%~]\a" }
