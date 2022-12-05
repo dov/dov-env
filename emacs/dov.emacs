@@ -2099,8 +2099,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control backspace)] 'backward-kill-word)
 (global-set-key [(meta backspace)] 'backward-kill-word)
 (global-set-key [delete] 'delete-char)
-(global-set-key "\C-c\C-e" 'compile)
-(global-set-key [(control ?') (control e)] 'compile)
 ;(global-set-key [(control j)] 'isearch-forward)
 (global-set-key "\C-xw" 'write-region)
 (global-set-key "\C-x\C-r" 'revert-buffer)
@@ -2134,7 +2132,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key "\C-cT" 'toggle-truncate-lines)
 (define-key global-map " " 'space-or-undo)
 (define-key global-map "\C-x\C-m" 'save-buffers-dont-ask)
-(define-key c++-mode-map [(control c) (control e)] 'compile)
 (define-key lisp-mode-map [return] 'newline-and-indent)
 (define-key emacs-lisp-mode-map [return] 'newline-and-indent)
 ;(define-key tex-mode-map [return] 'newline-and-indent)
@@ -2355,7 +2352,8 @@ With numeric ARG, display the images if and only if ARG is positive."
   (setq indent-tabs-mode nil)
   (setq tab-width 2)
   (define-key map [return] 'newline-and-indent)
-  (define-key map [(control c) (control e)] 'compile)
+  (define-key map [(control c) (control e)] 'goto-compilation-directory-and-compile)
+  (define-key map  [(control ?') (control e)] 'goto-compilation-directory-and-compile)
   (define-key map (kbd "C-?") 'c-comment-selection-or-word)
   (define-key map [(alt ? )] 'gud-break)
   (define-key map [(control x) (control ? )] 'gud-break)
@@ -2606,6 +2604,17 @@ Does not delete the prompt."
   "Set the current default compilation directory environment variable"
   (interactive)
   (setenv "COD" (expand-file-name default-directory)))
+
+(defun goto-compilation-directory-and-compile()
+  "chdir to the COD (compilation directory) and compile"
+  (interactive)
+  (if (equal current-prefix-arg nil)
+    (let ((default-directory (getenv "COD")))
+      (call-interactively #'compile))
+    (call-interactively #'compile)))
+
+(global-set-key [(control c) (control e)] 'goto-compilation-directory-and-compile)
+(global-set-key [(control ?') (control e)] 'goto-compilation-directory-and-compile)
 
 (global-set-key [(control x) ?~] 'tilde-expand-line)
 
