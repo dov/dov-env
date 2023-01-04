@@ -1184,7 +1184,7 @@ redefined, 'newname' will behave like the old 'oldname'."
 
 
 
-(global-set-key [f11] '(lambda () (interactive)
+(global-set-key [f11] #'(lambda () (interactive)
   (mark-innermost-lparen)
 ;  (princ (find-innermost-delims 5 're-search-backward "[[({]"))
 ;  (princ (find-innermost-lparens 5))
@@ -1257,7 +1257,7 @@ redefined, 'newname' will behave like the old 'oldname'."
 ;(princ my-ext)
 
 
-;(global-set-key [f12] '(lambda () (interactive)
+;(global-set-key [f12] #'(lambda () (interactive)
 ;  (goto-char (find-innermost-lparen))
 ;  (princ (point))
 ;))
@@ -3407,7 +3407,7 @@ if something is selected, change that."
 
 ; this binding at the global level helps me tell whether the
 ; local map bindings above are working correctly
-(global-set-key [(control kp-add)] '(lambda () (interactive)
+(global-set-key [(control kp-add)] #'(lambda () (interactive)
   (princ "You pressed Ctrl+keypad-plus")))
 
 
@@ -3463,7 +3463,7 @@ if something is selected, change that."
 ; (global-set-key [? ] 'self-insert-command)
 
 ; (global-set-key [(control ? )]
-;   '(lambda () (interactive)
+;   #'(lambda () (interactive)
 ;      (toggle-space-is-underscore)
 ;      (princ (format "toggle-space-is-underscore is now %s" space-is-underscore))
 ;    ))
@@ -3997,11 +3997,11 @@ This is a wrapper around `orig-yes-or-no'."
 (global-unset-key [(control ?8)])
 (global-unset-key [(control ?9)])
 ;(global-set-key [(control x) (control x)] 'no-op)
-;(global-set-key [(control /)] '(lambda () (interactive)     ; normally undo
+;(global-set-key [(control /)] #'(lambda () (interactive)     ; normally undo
 ;  (princ "Use Alt-Backsp or Ctl-Backsp for Undo")))
 
 
-;(global-set-key [f12] '(lambda () (interactive)
+;(global-set-key [f12] #'(lambda () (interactive)
 ;  (noninteractive-replace "foo" "bar")))
 
 
