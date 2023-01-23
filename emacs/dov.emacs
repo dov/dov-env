@@ -2182,38 +2182,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (add-to-list 'interpreter-mode-alist '("miniperl" . cperl-mode))
 ; (load "perl-mode")   ; old mode
 
-; This currently doesn't work!
-(when (eq emacs-major-version 999923)
-  ;;; Cedet - Note! Run make in cedet file!
-  (load-file (concat emacs-git "/cedet/common/cedet.el"))
-  (global-ede-mode t)
-  (require 'cedet/semantic/sb)
-  (semantic-load-enable-minimum-features)
-  (require 'semantic-ia)
-
-  ;; Support Qt
-  (add-to-list 'semantic-lex-c-preprocessor-symbol-map '("Q_GUI_EXPORT" . ""))
-  (add-to-list 'semantic-lex-c-preprocessor-symbol-map '("Q_CORE_EXPORT" . ""))
-  
-  (setq qt4-base-dir "/usr/include")
-  (setq qt4-gui-dir "/usr/include/QtGui") 
-  (semantic-add-system-include qt4-base-dir 'c++-mode)
-  (semantic-add-system-include qt4-gui-dir 'c++-mode) 
-;  (add-to-list 'auto-mode-alist (cons qt4-base-dir 'c++-mode))
-  (add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qconfig.h"))
-  (add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qconfig-dist.h"))
-  (add-to-list 'semantic-lex-c-preprocessor-symbol-file (concat qt4-base-dir "/Qt/qglobal.h"))
-
-  (defun my-cedet-hook ()
-    (local-set-key "\M-/" 'semantic-ia-complete-symbol)
-    (local-set-key [(control ?.)] 'semantic-ia-complete-symbol)
-    (local-set-key "\C-c?" 'semantic-ia-complete-symbol-menu)
-    (local-set-key "\C-c>" 'semantic-complete-analyze-inline)
-    (local-set-key "\C-cp" 'semantic-analyze-proto-impl-toggle)
-    )
-
-  (add-hook 'c-mode-common-hook 'my-cedet-hook))
-
 ;; qt docs lookup
 (load "qtdoc")
 (setq qtdoc-html-root "file:///usr/share/doc/qt5/qtwidgets") 
