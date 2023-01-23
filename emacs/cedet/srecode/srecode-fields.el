@@ -114,7 +114,7 @@ The overlay will crossreference this object.")
   "An object that gets automatically bound to an overlay.
 Has virtual :start and :end initializers.")
 
-(defmethod initialize-instance ((olaid srecode-overlaid) &optional args)
+(cl-defmethod initialize-instance ((olaid srecode-overlaid) &optional args)
   "Initialize OLAID, being sure it archived."
   ;; Extract :start and :end from the olaid list.
   (let ((newargs nil)
@@ -151,7 +151,7 @@ Has virtual :start and :end initializers.")
 
     ))
 
-(defmethod srecode-overlaid-activate ((olaid srecode-overlaid))
+(cl-defmethod srecode-overlaid-activate ((olaid srecode-overlaid))
   "Activate the overlaid area."
   (let* ((ola (oref olaid overlay))
 	 (start (srecode-overlay-start ola))
@@ -168,23 +168,23 @@ Has virtual :start and :end initializers.")
 
     ))
 
-(defmethod srecode-delete ((olaid srecode-overlaid))
+(cl-defmethod srecode-delete ((olaid srecode-overlaid))
   "Delete the overlay from OLAID."
   (srecode-overlay-delete (oref olaid overlay))
   (slot-makeunbound olaid 'overlay)
   )
 
-(defmethod srecode-empty-region-p ((olaid srecode-overlaid))
+(cl-defmethod srecode-empty-region-p ((olaid srecode-overlaid))
   "Return non-nil if the region covered by OLAID is of length 0."
   (= 0 (srecode-region-size olaid)))
 
-(defmethod srecode-region-size ((olaid srecode-overlaid))
+(cl-defmethod srecode-region-size ((olaid srecode-overlaid))
   "Return the length of region covered by OLAID."
   (let ((start (srecode-overlay-start (oref olaid overlay)))
 	(end (srecode-overlay-end (oref olaid overlay))))
     (- end start)))
 
-(defmethod srecode-point-in-region-p ((olaid srecode-overlaid))
+(cl-defmethod srecode-point-in-region-p ((olaid srecode-overlaid))
   "Return non-nil if point is in the region of OLAID."
   (let ((start (srecode-overlay-start (oref olaid overlay)))
 	(end (srecode-overlay-end (oref olaid overlay))))
@@ -201,7 +201,7 @@ Has virtual :start and :end initializers.")
       (setq ol (cdr ol)))
     (car (nreverse ret))))
 
-(defmethod srecode-overlaid-text ((olaid srecode-overlaid) &optional set-to)
+(cl-defmethod srecode-overlaid-text ((olaid srecode-overlaid) &optional set-to)
   "Return the text under OLAID.
 If SET-TO is a string, then replace the text of OLAID wit SET-TO."
   (let* ((ol (oref olaid overlay))
@@ -231,7 +231,7 @@ If SET-TO is a string, then replace the text of OLAID wit SET-TO."
    )
   "Manage a buffer region in which fields exist.")
 
-(defmethod initialize-instance ((ir srecode-template-inserted-region)
+(cl-defmethod initialize-instance ((ir srecode-template-inserted-region)
 				&rest args)
   "Initialize IR, capturing the active fields, and creating the overlay."
   ;; Fill in the fields
@@ -242,7 +242,7 @@ If SET-TO is a string, then replace the text of OLAID wit SET-TO."
   (call-next-method)
   )
 
-(defmethod srecode-overlaid-activate ((ir srecode-template-inserted-region))
+(cl-defmethod srecode-overlaid-activate ((ir srecode-template-inserted-region))
   "Activate the template area for IR."
   ;; Activate all our fields
 
@@ -263,7 +263,7 @@ If SET-TO is a string, then replace the text of OLAID wit SET-TO."
   (add-hook 'post-command-hook 'srecode-field-post-command t t)
   )
 
-(defmethod srecode-delete ((ir srecode-template-inserted-region))
+(cl-defmethod srecode-delete ((ir srecode-template-inserted-region))
   "Call into our base, but also clear out the fields."
   ;; Clear us out of the baseclass.
   (oset ir active-region nil)
@@ -326,13 +326,13 @@ Try to use this to provide useful completion when available.")
     km)
   "Keymap applied to field overlays.")
 
-(defmethod initialize-instance ((field srecode-field) &optional args)
+(cl-defmethod initialize-instance ((field srecode-field) &optional args)
   "Initialize FIELD, being sure it archived."
   (add-to-list 'srecode-field-archive field t)
   (call-next-method)
   )
 
-(defmethod srecode-overlaid-activate ((field srecode-field))
+(cl-defmethod srecode-overlaid-activate ((field srecode-field))
   "Activate the FIELD area."
   (call-next-method)
 
@@ -355,7 +355,7 @@ Try to use this to provide useful completion when available.")
     )
   )
 
-(defmethod srecode-delete ((olaid srecode-field))
+(cl-defmethod srecode-delete ((olaid srecode-field))
   "Delete our secondary overlay."
   ;; Remove our spare overlay
   (srecode-overlay-delete (oref olaid tail))
@@ -420,7 +420,7 @@ PRE-LEN is used in the after mode for the length of the changed text."
       (srecode-field-mod-hook ol after start end pre-len))
     ))
 
-(defmethod srecode-field-goto ((field srecode-field))
+(cl-defmethod srecode-field-goto ((field srecode-field))
   "Goto the FIELD."
   (goto-char (srecode-overlay-start (oref field overlay))))
 

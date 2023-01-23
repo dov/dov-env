@@ -601,7 +601,7 @@ Optional argument HISTORYVAR is the variable to use as history."
       (when
 	  (re-search-forward
 	   ;; Regexp for searching methods.
-	   (concat "(defmethod[ \t\r\n]+" method
+	   (concat "(cl-defmethod[ \t\r\n]+" method
 		   "\\([ \t\r\n]+:[a-zA-Z]+\\)?"
 		   "[ \t\r\n]+(\\s-*(\\(\\sw\\|\\s_\\)+\\s-+"
 		   class

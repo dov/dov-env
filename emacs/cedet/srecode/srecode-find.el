@@ -96,7 +96,7 @@ all template files for that application will be loaded."
 ;;
 ;; Find if a template table has a project set, and if so, is the
 ;; current buffer in that project.
-(defmethod srecode-template-table-in-project-p ((tab srecode-template-table))
+(cl-defmethod srecode-template-table-in-project-p ((tab srecode-template-table))
   "Return non-nil if the table TAB can be used in the current project.
 If TAB has a :project set, check that the directories match.
 If TAB is nil, then always return t."
@@ -113,7 +113,7 @@ If TAB is nil, then always return t."
 ;;
 ;; Find a given template based on name, and features of the current
 ;; buffer.
-(defmethod srecode-template-get-table ((tab srecode-template-table)
+(cl-defmethod srecode-template-get-table ((tab srecode-template-table)
 				       template-name &optional
 				       context application)
   "Find in the template in table TAB, the template with TEMPLATE-NAME.
@@ -130,7 +130,7 @@ The APPLICATION argument is unused."
       (gethash template-name (oref tab namehash)))))
 
 ;;;###autoload
-(defmethod srecode-template-get-table ((tab srecode-mode-table)
+(cl-defmethod srecode-template-get-table ((tab srecode-mode-table)
 				       template-name &optional
 				       context application)
   "Find in the template in mode table TAB, the template with TEMPLATE-NAME.
@@ -158,7 +158,7 @@ tables that do not belong to an application will be searched."
 ;;
 ;; Find a given template based on a key binding.
 ;;
-(defmethod srecode-template-get-table-for-binding
+(cl-defmethod srecode-template-get-table-for-binding
   ((tab srecode-template-table) binding &optional context)
   "Find in the template name in table TAB, the template with BINDING.
 Optional argument CONTEXT specifies that the template should part
@@ -192,7 +192,7 @@ of a particular context."
       keyout)))
 
 ;;;###autoload
-(defmethod srecode-template-get-table-for-binding
+(cl-defmethod srecode-template-get-table-for-binding
   ((tab srecode-mode-table) binding &optional context application)
   "Find in the template name in mode table TAB, the template with BINDING.
 Optional argument CONTEXT specifies a context a particular template

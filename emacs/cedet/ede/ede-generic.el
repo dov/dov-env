@@ -187,7 +187,7 @@ The class allocated value is replace by different sub classes.")
   "The baseclass for all generic EDE project types."
   :abstract t)
 
-(defmethod initialize-instance ((this ede-generic-project)
+(cl-defmethod initialize-instance ((this ede-generic-project)
 				&rest fields)
   "Make sure the targets slot is bound."
   (call-next-method)
@@ -195,7 +195,7 @@ The class allocated value is replace by different sub classes.")
     (oset this :targets nil))
   )
 
-(defmethod ede-generic-get-configuration ((proj ede-generic-project))
+(cl-defmethod ede-generic-get-configuration ((proj ede-generic-project))
   "Return the configuration for the project PROJ."
   (let ((config (oref proj config)))
     (when (not config)
@@ -215,11 +215,11 @@ The class allocated value is replace by different sub classes.")
 	(oset config project proj)))
     config))
 
-(defmethod ede-generic-setup-configuration ((proj ede-generic-project) config)
+(cl-defmethod ede-generic-setup-configuration ((proj ede-generic-project) config)
   "Default configuration setup method."
   nil)
 
-(defmethod ede-commit-project ((proj ede-generic-project))
+(cl-defmethod ede-commit-project ((proj ede-generic-project))
   "Commit any change to PROJ to its file."
   (let ((config (ede-generic-get-configuration proj)))
     (ede-commit config)))
@@ -267,7 +267,7 @@ All directories need at least one target.")
       ))
     match))
 
-(defmethod ede-find-target ((proj ede-generic-project) buffer)
+(cl-defmethod ede-find-target ((proj ede-generic-project) buffer)
   "Find an EDE target in PROJ for BUFFER.
 If one doesn't exist, create a new one for this directory."
   (let* ((ext (file-name-extension (buffer-file-name buffer)))
@@ -300,7 +300,7 @@ If one doesn't exist, create a new one for this directory."
     ans))
 
 ;;; C/C++ support
-(defmethod ede-preprocessor-map ((this ede-generic-target-c-cpp))
+(cl-defmethod ede-preprocessor-map ((this ede-generic-target-c-cpp))
   "Get the pre-processor map for some generic C code."
   (let* ((proj (ede-target-parent this))
 	 (root (ede-project-root proj))
@@ -322,7 +322,7 @@ If one doesn't exist, create a new one for this directory."
     filemap
     ))
 
-(defmethod ede-system-include-path ((this ede-generic-target-c-cpp))
+(cl-defmethod ede-system-include-path ((this ede-generic-target-c-cpp))
   "Get the system include path used by project THIS."
   (let* ((proj (ede-target-parent this))
 	(config (ede-generic-get-configuration proj)))
@@ -330,19 +330,19 @@ If one doesn't exist, create a new one for this directory."
 
 ;;; Commands
 ;;
-(defmethod project-compile-project ((proj ede-generic-project) &optional command)
+(cl-defmethod project-compile-project ((proj ede-generic-project) &optional command)
   "Compile the entire current project PROJ.
 Argument COMMAND is the command to use when compiling."
   (let* ((config (ede-generic-get-configuration proj))
 	 (comp (oref config :build-command)))
     (compile comp)))
 
-(defmethod project-compile-target ((obj ede-generic-target) &optional command)
+(cl-defmethod project-compile-target ((obj ede-generic-target) &optional command)
   "Compile the current target OBJ.
 Argument COMMAND is the command to use for compiling the target."
   (project-compile-project (ede-current-project) command))
 
-(defmethod project-debug-target ((target ede-generic-target))
+(cl-defmethod project-debug-target ((target ede-generic-target))
   "Run the current project derived from TARGET in a debugger."
   (let* ((proj (ede-target-parent target))
 	 (config (ede-generic-get-configuration proj))
@@ -357,7 +357,7 @@ Argument COMMAND is the command to use for compiling the target."
 	 (cmdsym (intern-soft (car cmdsplit))))
     (call-interactively cmdsym t)))
 
-(defmethod project-run-target ((target ede-generic-target))
+(cl-defmethod project-run-target ((target ede-generic-target))
   "Run the current project derived from TARGET."
   (require 'ede-shell)
   (let* ((proj (ede-target-parent target))
@@ -368,17 +368,17 @@ Argument COMMAND is the command to use for compiling the target."
 
 ;;; Customization
 ;;
-(defmethod ede-customize ((proj ede-generic-project))
+(cl-defmethod ede-customize ((proj ede-generic-project))
   "Customize the EDE project PROJ."
   (let ((config (ede-generic-get-configuration proj)))
     (eieio-customize-object config)))
 
-(defmethod ede-customize ((target ede-generic-target))
+(cl-defmethod ede-customize ((target ede-generic-target))
   "Customize the EDE TARGET."
   ;; Nothing unique for the targets, use the project.
   (ede-customize-project))
 
-(defmethod eieio-done-customizing ((config ede-generic-config))
+(cl-defmethod eieio-done-customizing ((config ede-generic-config))
   "Called when EIEIO is done customizing the configuration object.
 We need to go back through the old buffers, and update them with
 the new configuration."
@@ -394,7 +394,7 @@ the new configuration."
 	  (set-buffer b)
 	  (ede-apply-target-options)))))))
 
-(defmethod ede-commit ((config ede-generic-config))
+(cl-defmethod ede-commit ((config ede-generic-config))
   "Commit all changes to the configuration to disk."
   (eieio-persistent-save config))
 
@@ -446,7 +446,7 @@ the class `ede-generic-project' project."
    )
   "Generic Project for makefiles.")
 
-(defmethod ede-generic-setup-configuration ((proj ede-generic-makefile-project) config)
+(cl-defmethod ede-generic-setup-configuration ((proj ede-generic-makefile-project) config)
   "Setup a configuration for Make."
   (oset config build-command "make -k")
   (oset config debug-command "gdb ")
@@ -459,7 +459,7 @@ the class `ede-generic-project' project."
    )
   "Generic Project for scons.")
 
-(defmethod ede-generic-setup-configuration ((proj ede-generic-scons-project) config)
+(cl-defmethod ede-generic-setup-configuration ((proj ede-generic-scons-project) config)
   "Setup a configuration for SCONS."
   (oset config build-command "scons")
   (oset config debug-command "gdb ")
@@ -472,7 +472,7 @@ the class `ede-generic-project' project."
    )
   "Generic Project for cmake.")
 
-(defmethod ede-generic-setup-configuration ((proj ede-generic-cmake-project) config)
+(cl-defmethod ede-generic-setup-configuration ((proj ede-generic-cmake-project) config)
   "Setup a configuration for CMake."
   (oset config build-command "cmake")
   (oset config debug-command "gdb ")

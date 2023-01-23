@@ -343,7 +343,7 @@ Each directory needs a project file to control it.")
 ;; find previous copies of this project, and make sure that one of the
 ;; objects is deleted.
 
-(defmethod initialize-instance ((this ede-cpp-root-project)
+(cl-defmethod initialize-instance ((this ede-cpp-root-project)
 				&rest fields)
   "Make sure the :file is fully expanded."
   ;; Add ourselves to the master list
@@ -375,7 +375,7 @@ Each directory needs a project file to control it.")
 ;; This is a way to allow a subdirectory to point back to the root
 ;; project, simplifying authoring new single-point projects.
 
-(defmethod ede-find-subproject-for-directory ((proj ede-cpp-root-project)
+(cl-defmethod ede-find-subproject-for-directory ((proj ede-cpp-root-project)
 					      dir)
   "Return PROJ, for handling all subdirs below DIR."
   proj)
@@ -385,7 +385,7 @@ Each directory needs a project file to control it.")
 ;; Creating new targets on a per directory basis is a good way to keep
 ;; files organized.  See ede-emacs for an example with multiple file
 ;; types.
-(defmethod ede-find-target ((proj ede-cpp-root-project) buffer)
+(cl-defmethod ede-find-target ((proj ede-cpp-root-project) buffer)
   "Find an EDE target in PROJ for BUFFER.
 If one doesn't exist, create a new one for this directory."
   (let* ((targets (oref proj targets))
@@ -410,7 +410,7 @@ If one doesn't exist, create a new one for this directory."
 ;;
 ;; This tools also uses the ede-locate setup for augmented file name
 ;; lookup using external tools.
-(defmethod ede-expand-filename-impl ((proj ede-cpp-root-project) name)
+(cl-defmethod ede-expand-filename-impl ((proj ede-cpp-root-project) name)
   "Within this project PROJ, find the file NAME.
 This knows details about or source tree."
   ;; The slow part of the original is looping over subprojects.
@@ -439,11 +439,11 @@ This knows details about or source tree."
 	  )))
     (or ans (call-next-method))))
 
-(defmethod ede-project-root ((this ede-cpp-root-project))
+(cl-defmethod ede-project-root ((this ede-cpp-root-project))
   "Return my root."
   this)
 
-(defmethod ede-project-root-directory ((this ede-cpp-root-project))
+(cl-defmethod ede-project-root-directory ((this ede-cpp-root-project))
   "Return my root."
   (file-name-directory (oref this file)))
 
@@ -452,12 +452,12 @@ This knows details about or source tree."
 ;; The following code is specific to setting up header files,
 ;; include lists, and Preprocessor symbol tables.
 
-(defmethod ede-cpp-root-header-file-p ((proj ede-cpp-root-project) name)
+(cl-defmethod ede-cpp-root-header-file-p ((proj ede-cpp-root-project) name)
   "Non nil if in PROJ the filename NAME is a header."
   (save-match-data
     (string-match (oref proj header-match-regexp) name)))
 
-(defmethod ede-cpp-root-translate-file ((proj ede-cpp-root-project) filename)
+(cl-defmethod ede-cpp-root-translate-file ((proj ede-cpp-root-project) filename)
   "For PROJ, translate a user specified FILENAME.
 This is for project include paths and spp source files."
   ;; Step one: Root of this project.
@@ -473,7 +473,7 @@ This is for project include paths and spp source files."
 
     filename))
 
-(defmethod ede-set-project-variables ((project ede-cpp-root-project) &optional buffer)
+(cl-defmethod ede-set-project-variables ((project ede-cpp-root-project) &optional buffer)
   "Set variables local to PROJECT in BUFFER.
 Also set up the lexical preprocessor map."
   (call-next-method)
@@ -482,11 +482,11 @@ Also set up the lexical preprocessor map."
 	  (semantic-lex-make-spp-table (oref project spp-table)))
     ))
 
-(defmethod ede-system-include-path ((this ede-cpp-root-project))
+(cl-defmethod ede-system-include-path ((this ede-cpp-root-project))
   "Get the system include path used by project THIS."
   (oref this system-include-path))
   
-(defmethod ede-preprocessor-map ((this ede-cpp-root-project))
+(cl-defmethod ede-preprocessor-map ((this ede-cpp-root-project))
   "Get the pre-processor map for project THIS."
   (let ((spp (oref this spp-table))
 	(root (ede-project-root this))
@@ -505,11 +505,11 @@ Also set up the lexical preprocessor map."
      (oref this spp-files))
     spp))
 
-(defmethod ede-system-include-path ((this ede-cpp-root-target))
+(cl-defmethod ede-system-include-path ((this ede-cpp-root-target))
   "Get the system include path used by project THIS."
   (ede-system-include-path (ede-target-parent this)))
   
-(defmethod ede-preprocessor-map ((this ede-cpp-root-target))
+(cl-defmethod ede-preprocessor-map ((this ede-cpp-root-target))
   "Get the pre-processor map for project THIS."
   (ede-preprocessor-map  (ede-target-parent this)))
 

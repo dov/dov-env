@@ -173,7 +173,7 @@
 (require 'init-markdown)
 (require 'init-literate-calc)
 (require 'init-polymode)
-(require 'init-ein)
+;(require 'init-ein)
 (require 'init-compat)
 ;(require 'init-all-the-icons)
 (ignore-errors
@@ -314,6 +314,11 @@
   (interactive)
   (search-forward-regexp (rxt-pcre-to-elisp re)))
 
+(defun pcre-re-search-backward (re)
+  """Search forward for a pcre regular expression"""
+  (interactive)
+  (search-backward-regexp (rxt-pcre-to-elisp re)))
+
 ;; Note that substrings may be extracted with
 ;; etc (match-string 2 s)
 (defun pcre-string-match (re string)
@@ -436,7 +441,8 @@ Nice for copying"
 (defun dov-test ()
   "dov-test"
   (interactive)
-  (message "tbd"))
+  (let* ((bounds (bounds-of-date-at-point)))
+         (message (format "%s" bounds))))
 
 (global-set-key (kbd "C-c C-M-d") 'dov-test)
 ;;--------------
@@ -756,6 +762,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (defun my-org-hook ()
   (load "org-git-hyperlink.el")
   (load "org-comeet-hyperlink.el")
+  (load "org-clickup-hyperlink.el")
   (load "org-redmine-hyperlink.el")
   (load "org-jira-hyperlink.el")
   (load "org-pydoc-hyperlink.el")
@@ -791,6 +798,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (local-set-key "\C-c\C-x," 'org-insert-structure-template)
   (local-set-key "\C-co" 'org-mark-ring-goto)
   (local-set-key (kbd "C-M-=") 'calc-eval-region)
+  (local-set-key (kbd "C-c M-/") 'toggle-date-iso)
 
   ;; variable pitch mode makes emacs rescale!
   (variable-pitch-mode t)
@@ -957,8 +965,8 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (interactive)
   (clear-image-cache nil)
   (if iimage-mode
-      (set-face-underline-p 'org-link t)
-      (set-face-underline-p 'org-link nil))
+      (set-face-underline 'org-link t)
+      (set-face-underline 'org-link nil))
   (call-interactively 'iimage-mode))
 
 (defun refresh-iimages ()
@@ -1270,6 +1278,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'elisp-mode "elisp-mode.el" "ELisp" t nil)
 (autoload 'wat-mode "wat-mode.el")
 (load "python-mode.el")
+;(load "python.el")
 
 (add-hook 'lua-mode-hook
           (lambda ()
@@ -2588,6 +2597,48 @@ Does not delete the prompt."
 
 (global-set-key [(control x) (control ?\\)] 'toggle-backslash-line)
 
+(defun replace-region (bounds new-string)
+  """Replace the region given by bounds with new-string"""
+  (kill-region (car bounds) (cdr bounds))
+  (insert new-string))
+
+(defun bounds-of-date-at-point ()
+  "Return the bounds of the date like string at the point. It recognizes
+   dashes and slashes, but not periods yet (because they may be put
+   after the date as a real period)"
+  (interactive)
+  (save-excursion
+    (let* ((org-point (point))
+           (non-date-chars "[^/-9A-Z_a-z-]")
+           (bound-start (+ (search-forward-regexp non-date-chars) 1)))
+      (goto-char org-point)
+      (let* ((bound-end (- (search-backward-regexp non-date-chars) 1)))
+        (cons bound-start bound-end)))))
+
+(defun toggle-date-iso ()
+  "Toggle iso dates to hebrew dates and vise verse"
+  (interactive)
+  (save-excursion
+    (let* ((bounds (bounds-of-date-at-point))
+           (word (current-word)))
+      (if (pcre-string-match "(\\d{4})-(\\d{2})-(\\d{2})" word )
+          (let* ((year (match-string 1 word))
+                 (month (match-string 2 word))
+                 (day (match-string 3 word)))
+            (replace-region bounds (format "%d/%d/%s"
+              (string-to-number day)
+              (string-to-number month)
+              year))
+            )
+          (if (pcre-string-match "(\\d{1,2})/(\\d{1,2})/(\\d{4})" word )
+              (let* ((day (match-string 1 word))
+                     (month (match-string 2 word))
+                     (year (match-string 3 word)))
+                (replace-region bounds
+                  (format "%s-%02d-%02d"
+                    year (string-to-number month) (string-to-number day))))
+              (error "no match"))))))
+
 (defun tilde-expand-line ()
   "Do shell exansion of a tilde"
   (interactive)
@@ -2632,7 +2683,8 @@ Does not delete the prompt."
     (define-key comint-mode-map [(meta n)] 'comint-next-matching-input-from-input)
     (define-key comint-mode-map [(control c) (control o)] 'comint-kill-output-to-kill-ring)
     (define-key comint-mode-map [(control x) (control ?\\)] 'toggle-backslash-line)
-    (define-key comint-mode-map [(tab)] 'comint-dynamic-complete)
+;    (define-key comint-mode-map [(tab)] 'comint-dynamic-complete)
+    (define-key comint-mode-map [(tab)] 'completion-at-point)
 
     ; Save history when the shell is killed
     (make-local-variable 'comint-input-ring-file-name)

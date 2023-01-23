@@ -73,7 +73,7 @@ that they are willing to use.")
 
 ;;; Methods
 ;;
-(defmethod initialize-instance :AFTER ((this ede-sourcecode) &rest fields)
+(cl-defmethod initialize-instance :AFTER ((this ede-sourcecode) &rest fields)
   "Make sure that all ede compiler objects are cached in 
 `ede-compiler-list'."
   (let ((lst ede-sourcecode-list))
@@ -86,39 +86,39 @@ that they are willing to use.")
       ;; Add to the beginning of the list.
       (setq ede-sourcecode-list (cons this ede-sourcecode-list)))))
 
-(defmethod ede-want-file-p ((this ede-sourcecode) filename)
+(cl-defmethod ede-want-file-p ((this ede-sourcecode) filename)
   "Return non-nil if sourcecode definition THIS will take FILENAME."
   (or (ede-want-file-source-p this filename)
       (ede-want-file-auxiliary-p this filename)))
 
-(defmethod ede-want-file-source-p ((this ede-sourcecode) filename)
+(cl-defmethod ede-want-file-source-p ((this ede-sourcecode) filename)
   "Return non-nil if THIS will take FILENAME as an auxiliary ."
   (let ((case-fold-search nil))
     (string-match (oref this sourcepattern) filename)))
 
-(defmethod ede-want-file-auxiliary-p ((this ede-sourcecode) filename)
+(cl-defmethod ede-want-file-auxiliary-p ((this ede-sourcecode) filename)
   "Return non-nil if THIS will take FILENAME as an auxiliary ."
   (let ((case-fold-search nil))
     (and (slot-boundp this 'auxsourcepattern)
 	 (oref this auxsourcepattern)
 	 (string-match (oref this auxsourcepattern) filename))))
 
-(defmethod ede-want-any-source-files-p ((this ede-sourcecode) filenames)
+(cl-defmethod ede-want-any-source-files-p ((this ede-sourcecode) filenames)
   "Return non-nil if THIS will accept any source files in FILENAMES."
   (ede-or (mapcar (lambda (c) (ede-want-file-source-p this c))
 		  filenames)))
 
-(defmethod ede-want-any-auxiliary-files-p ((this ede-sourcecode) filenames)
+(cl-defmethod ede-want-any-auxiliary-files-p ((this ede-sourcecode) filenames)
   "Return non-nil if THIS will accept any aux files in FILENAMES."
   (ede-or (mapcar (lambda (c) (ede-want-file-auxiliary-p this c))
 		  filenames)))
 
-(defmethod ede-want-any-files-p ((this ede-sourcecode) filenames)
+(cl-defmethod ede-want-any-files-p ((this ede-sourcecode) filenames)
   "Return non-nil if THIS will accept any files in FILENAMES."
   (ede-or (mapcar (lambda (c) (ede-want-file-p this c))
 		  filenames)))
 
-(defmethod ede-buffer-header-file ((this ede-sourcecode) filename)
+(cl-defmethod ede-buffer-header-file ((this ede-sourcecode) filename)
   "Return a list of file names of header files for THIS with FILENAME.
 Used to guess header files, but uses the auxsource regular expression."
   (let ((dn (file-name-directory filename))

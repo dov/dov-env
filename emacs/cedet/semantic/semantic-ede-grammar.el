@@ -115,7 +115,7 @@ parsing different languages.")
 (require 'semantic-grammar)
 
 ;;; Target options.
-(defmethod ede-buffer-mine ((this semantic-ede-proj-target-grammar) buffer)
+(cl-defmethod ede-buffer-mine ((this semantic-ede-proj-target-grammar) buffer)
   "Return t if object THIS lays claim to the file in BUFFER.
 Lays claim to all -by.el, and -wy.el files."
   ;; We need to be a little more careful than this, but at the moment it
@@ -125,7 +125,7 @@ Lays claim to all -by.el, and -wy.el files."
     (call-next-method) ; The usual thing.
     ))
 
-(defmethod project-compile-target ((obj semantic-ede-proj-target-grammar))
+(cl-defmethod project-compile-target ((obj semantic-ede-proj-target-grammar))
   "Compile all sources in a Lisp target OBJ."
   (let* ((cb (current-buffer))
 	 (proj (ede-target-parent obj))
@@ -144,13 +144,13 @@ Lays claim to all -by.el, and -wy.el files."
 
 ;;; Makefile generation functions
 ;;
-(defmethod ede-proj-makefile-sourcevar ((this semantic-ede-proj-target-grammar))
+(cl-defmethod ede-proj-makefile-sourcevar ((this semantic-ede-proj-target-grammar))
   "Return the variable name for THIS's sources."
   (cond ((ede-proj-automake-p)
 	 (error "No Automake support for Semantic Grammars"))
 	(t (concat (ede-pmake-varname this) "_SEMANTIC_GRAMMAR"))))
 
-(defmethod ede-proj-makefile-insert-variables :AFTER ((this semantic-ede-proj-target-grammar))
+(cl-defmethod ede-proj-makefile-insert-variables :AFTER ((this semantic-ede-proj-target-grammar))
   "Insert variables needed by target THIS."
   (ede-proj-makefile-insert-loadpath-items
    (ede-proj-elisp-packages-to-loadpath
@@ -169,7 +169,7 @@ Lays claim to all -by.el, and -wy.el files."
 		" ")))
   )
 
-(defmethod ede-proj-makefile-insert-rules ((this semantic-ede-proj-target-grammar))
+(cl-defmethod ede-proj-makefile-insert-rules ((this semantic-ede-proj-target-grammar))
   "Insert rules needed by THIS target."
   ;; Add in some dependencies.
 ;;  (mapc (lambda (src)
@@ -182,7 +182,7 @@ Lays claim to all -by.el, and -wy.el files."
   (call-next-method)
   )
 
-(defmethod ede-proj-makefile-insert-dist-dependencies ((this semantic-ede-proj-target-grammar))
+(cl-defmethod ede-proj-makefile-insert-dist-dependencies ((this semantic-ede-proj-target-grammar))
   "Insert dist dependencies, or intermediate targets.
 This makes sure that all grammar lisp files are created before the dist
 runs, so they are always up to date.

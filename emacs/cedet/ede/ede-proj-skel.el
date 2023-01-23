@@ -95,25 +95,25 @@
    :autoconf '("AC_%COMPILER-MACRO-FOR-AUTONAME-OR-nil%"))
   "Compiler that can be used with `ede-proj-target-%NAME%'.")
 
-;;(defmethod ede-proj-tweak-autoconf ((this ede-compiler-%NAME%))
+;;(cl-defmethod ede-proj-tweak-autoconf ((this ede-compiler-%NAME%))
 ;;  "Tweak the configure file (current buffer) to accomodate THIS."
 ;;  (%do-stuff%)
 ;;  (call-next-method)
 ;;  (%do-other-stuff%))
 ;;
-;;(defmethod ede-proj-flush-autoconf ((this ede-compiler-%NAME%))
+;;(cl-defmethod ede-proj-flush-autoconf ((this ede-compiler-%NAME%))
 ;;  "Flush the configure file (current buffer) to accomodate THIS."
 ;;  (%do-stuff%)
 ;;  (call-next-method)
 ;;  (%do-other-stuff%))
 ;;
-;;(defmethod ede-proj-makefile-insert-variables ((this ede-compiler-%NAME%))
+;;(cl-defmethod ede-proj-makefile-insert-variables ((this ede-compiler-%NAME%))
 ;;  "Insert variables needed by the compiler THIS."
 ;;  (call-next-method)
 ;;  (ede-compiler-only-once
 ;;     (%do-stuff%)))
 ;;
-;;(defmethod ede-proj-makefile-insert-rules ((this ede-compiler-%NAME%))
+;;(cl-defmethod ede-proj-makefile-insert-rules ((this ede-compiler-%NAME%))
 ;;  "Insert rules needed for THIS compiler object."
 ;;  (call-next-method)
 ;;  (ede-compiler-only-once
@@ -121,7 +121,7 @@
 ;;
 ;; This is the method you are most likely to need to override if
 ;; you need to create your own compiler class.
-;;(defmethod ede-proj-makefile-insert-commands ((this ede-compiler-%NAME%))
+;;(cl-defmethod ede-proj-makefile-insert-commands ((this ede-compiler-%NAME%))
 ;;  "Insert the commands needed to use compiler THIS."
 ;;  (%do-stuff%)
 ;;  (call-next-method)
@@ -133,7 +133,7 @@
 ;; The chances of needing to implement this are near zero, but if
 ;; you need to perform some action when the user hits "apply", this
 ;; is the way to do it.
-;;(defmethod eieio-done-customizing ((target ede-proj-target-%NAME%))
+;;(cl-defmethod eieio-done-customizing ((target ede-proj-target-%NAME%))
 ;;  "Called when a user finishes customizing this target."
 ;;  (call-next-method)
 ;;  (%do-my-stuff%))
@@ -146,7 +146,7 @@
 ;; This function lets you define what types of files you want to claim.
 ;; Defining this provides a convenience for uses by not offering your
 ;; target type for files you don't care about.
-;; (defmethod ede-want-file-p ((obj ede-proj-target-%NAME%) file)
+;; (cl-defmethod ede-want-file-p ((obj ede-proj-target-%NAME%) file)
 ;;  "Return t if OBJ wants to own FILE."
 ;;  (string-match "\\.%MYEXTENSION%$" file))
 
@@ -155,7 +155,7 @@
 ;; the file name against the list of known source files.
 ;; If your target has additional source files stored elsewhere,
 ;; this is how you will check.
-;;(defmethod ede-buffer-mine ((this ede-proj-target-%NAME%) buffer)
+;;(cl-defmethod ede-buffer-mine ((this ede-proj-target-%NAME%) buffer)
 ;;  "Return non-nil if object THIS lays claim to the file in BUFFER."
 ;;  (or (call-next-method)
 ;;      (%additional-checks-here%)
@@ -166,14 +166,14 @@
 ;; compilable sources and auxiliary files related to compilation that
 ;; do not directly get compiled.  (Although in that case, you probably
 ;; want to extend `ede-proj-target-makefile-objectcode'
-;;(defmethod project-add-file ((this ede-proj-target-%NAME%) file)
+;;(cl-defmethod project-add-file ((this ede-proj-target-%NAME%) file)
 ;;  "Add to target THIS the current buffer represented as FILE."
 ;;  (if (not (%do-something-special%))
 ;;	(call-next-method)
 ;;    (%do-my-special-stuff%)))
 
 ;; Reverse tactic as above.
-;;(defmethod project-remove-file  ((target ede-proj-target-makefile-objectcode)
+;;(cl-defmethod project-remove-file  ((target ede-proj-target-makefile-objectcode)
 ;;				  file)
 ;;  "For TARGET, remove FILE."
 ;;  (if (not (%do-something-special%))
@@ -182,7 +182,7 @@
 
 ;; Provides a simple hook to do cleanup work if this target is deleted
 ;; from a project.
-;;(defmethod project-delete-target ((this ede-proj-target-%NAME%))
+;;(cl-defmethod project-delete-target ((this ede-proj-target-%NAME%))
 ;;  "Delete THIS target from its parent project."
 ;;  (%cleanup%)
 ;;  (call-next-method))
@@ -194,7 +194,7 @@
 ;; wants to compile your target.  If you inherit from a makefile
 ;; target, then you can use "call-next-method" with a new
 ;; command if needed, or just comment this out.
-;;(defmethod project-compile-target ((obj ede-proj-target-%NAME%)
+;;(cl-defmethod project-compile-target ((obj ede-proj-target-%NAME%)
 ;;				     &optional command)
 ;;  "Compile the current target OBJ.
 ;;Argument COMMAND is the command to use for compiling the target
@@ -207,11 +207,11 @@
 ;; command.  Comment this out if you do not support a debugger.
 ;; If you don't support debugging, don't forget to also remove
 ;; any specialized keybindings and menu items in the class definition.
-(defmethod project-debug-target ((obj ede-proj-target-%NAME%))
+(cl-defmethod project-debug-target ((obj ede-proj-target-%NAME%))
   "Run the current target OBJ in an debugger."
   (%do-stuff%))
 
-(defmethod project-run-target ((obj ede-proj-target-%NAME%))
+(cl-defmethod project-run-target ((obj ede-proj-target-%NAME%))
   "Run the current target OBJ in an debugger."
   (%do-stuff%))
 
@@ -221,33 +221,33 @@
 ;; The name of the variable used in a Makefile for your main sources.
 ;; Attempt to use automake conventions so that your target is easy to
 ;; port when/if automake is supported by ede-proj.
-(defmethod ede-proj-makefile-sourcevar ((this ede-proj-target-%NAME%))
+(cl-defmethod ede-proj-makefile-sourcevar ((this ede-proj-target-%NAME%))
   "Return the variable name for THIS's sources."
   (concat (ede-pmake-varname this) "_%AUTOMAKE-VARIABLE-CONVENTION%"))
 
 ;; Your main target in the Makefile may depend on additional source
 ;; dependencies.  Use this to add more stuff.
-;;(defmethod ede-proj-makefile-dependency-files ((this ede-proj-target-%NAME%))
+;;(cl-defmethod ede-proj-makefile-dependency-files ((this ede-proj-target-%NAME%))
 ;;  "Return a list of source files to convert to dependencies.
 ;;Argument THIS is the target to get sources from."
 ;;  (append (call-next-method) (%get-more-dependencies%)))
 
 ;; This is a clever way of packing more files into your main source
 ;; variable.  Only works if your "next" method is ede-proj-target.
-;;(defmethod ede-proj-makefile-insert-source-variables
+;;(cl-defmethod ede-proj-makefile-insert-source-variables
 ;;           ((this ede-proj-target-%NAME%) &optional moresource)
 ;;  "Insert variables needed by target THIS."
 ;;  (call-next-method this (oref this %moresourceslotname%))
 
 ;; This method lets you add more variables specific to your type of target.
-;;(defmethod ede-proj-makefile-insert-variables ((this ede-proj-target-%NAME%)
+;;(cl-defmethod ede-proj-makefile-insert-variables ((this ede-proj-target-%NAME%)
 ;;                                                &optional moresource)
 ;;  "Insert variables needed by target THIS."
 ;;  (call-next-method)
 ;;  (insert "other variable thing"))
 
 ;; This returns a string for the dependencies as they 
-(defmethod ede-proj-makefile-dependencies ((this ede-proj-target-%NAME%))
+(cl-defmethod ede-proj-makefile-dependencies ((this ede-proj-target-%NAME%))
   "Return a string representing the dependencies for THIS."
   (or (call-next-method)
       (%do-some-stuff%)))
@@ -261,7 +261,7 @@
 ;; is a secondary build method (for a distribution, for example.)
 ;; It can also contain auxiliary make commands in addition to
 ;; the main rules needed if not covered by the compiler object.
-;;(defmethod ede-proj-makefile-insert-rules ((this ede-proj-target-%NAME%))
+;;(cl-defmethod ede-proj-makefile-insert-rules ((this ede-proj-target-%NAME%))
 ;;  "Insert rules needed by THIS target."
 ;;  (insert ... ;; Create aux rules here
 ;;        )
@@ -276,7 +276,7 @@
 ;;
 ;; See the autoconf editing routines, most of which are safe
 ;; to call multiple times.
-;(defmethod ede-proj-tweak-autoconf ((this ede-proj-target-%NAME%))
+;(cl-defmethod ede-proj-tweak-autoconf ((this ede-proj-target-%NAME%))
 ;  "Tweak the configure file (current buffer) to accomodate THIS."
 ;  (autoconf-...)
 ;  )
@@ -286,7 +286,7 @@
 ;;     you can remove it with this one.
 ;; A subsequent call to `ede-proj-tweak-autoconf' will restore
 ;; any changes if needed.
-;(defmethod ede-proj-flush-autoconf ((this ede-proj-%NAME%))
+;(cl-defmethod ede-proj-flush-autoconf ((this ede-proj-%NAME%))
 ;  "Flush the configure file (current buffer) to accomodate THIS."
 ;  nil)
 
@@ -295,14 +295,14 @@
 ;; of behavior is useful.  This feature is used mainly by tools
 ;; using the SEMANTIC BOVINATOR http://cedet.sourceforge.net/semantic.shtml
 ;; to perform advanced language specific actions.
-;;(defmethod ede-buffer-header-file((this ede-proj-target-%NAME%) buffer)
+;;(cl-defmethod ede-buffer-header-file((this ede-proj-target-%NAME%) buffer)
 ;;  "Return the name of a file in which prototypes go."
 ;;  (oref this ...))
 
 ;; This function is used to return documentation files.  If this target
 ;; contains documentation files, then return those files.  If this target
 ;; does not provide documentation, delete this method.
-;;(defmethod ede-documentation ((this ede-target-%NAME%))
+;;(cl-defmethod ede-documentation ((this ede-target-%NAME%))
 ;;  "Return a list of files that provides documentation.
 ;;Documentation is not for object THIS, but is provided by THIS for other
 ;;files in the project."
@@ -319,7 +319,7 @@
 ;; You will need to tweak the functions used when clicking on the
 ;; expand icon (maybe) and the item name (maybe). Leave those alone
 ;; if they are simple source files.
-;;(defmethod eieio-speedbar-child-make-tag-lines ((this ede-proj-target-%NAME%))
+;;(cl-defmethod eieio-speedbar-child-make-tag-lines ((this ede-proj-target-%NAME%))
 ;;  "Create buttons for items belonging to THIS."
 ;;  (call-next-method) ;; get the default buttons inserted.
 ;;  (with-slots (%SOME-SLOTS%) this

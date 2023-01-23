@@ -79,7 +79,7 @@ show up in a top level parse, but must be searched anyway.")
   "Base class for semantic-supported language completion displays.")
 
 ;;; Methods:
-(defmethod quickpeek-thing-bounds ((obj quickpeek-default) &optional thing)
+(cl-defmethod quickpeek-thing-bounds ((obj quickpeek-default) &optional thing)
   "For OBJ, get the bounds of the THING at/near point.
 Uses `thing-at-point' library, version safe."
   (if (not thing) (setq thing 'sexp))
@@ -89,7 +89,7 @@ Uses `thing-at-point' library, version safe."
     (let ((newsym (intern (concat "thing-" (symbol-name thing)))))
       (funcall newsym (point)))))
 
-(defmethod quickpeek-thing ((obj quickpeek-default) &optional type)
+(cl-defmethod quickpeek-thing ((obj quickpeek-default) &optional type)
   "For OBJ, get the THING at the current point."
   ;; Note: current-word is another good function
   (let ((b (quickpeek-thing-bounds obj type)))
@@ -97,18 +97,18 @@ Uses `thing-at-point' library, version safe."
 	(buffer-substring-no-properties (car b) (cdr b))
       nil)))
 
-(defmethod quickpeek-thing-beginning ((obj quickpeek-default) &optional type)
+(cl-defmethod quickpeek-thing-beginning ((obj quickpeek-default) &optional type)
   "For OBJ, move to the beginning of the THING point is on."
   (let ((b (quickpeek-thing-bounds obj type)))
     (goto-char (car b))))
 
-(defmethod quickpeek-collect ((obj quickpeek-default))
+(cl-defmethod quickpeek-collect ((obj quickpeek-default))
   "Collect information from the current point.
 Store it in OBJ for use during display."
   
   )
 
-(defmethod quickpeek-display ((obj quickpeek-default))
+(cl-defmethod quickpeek-display ((obj quickpeek-default))
   "Display information from the current context.
 The information is stored in OBJ, and must be output and formatted
 in the current buffer.
@@ -120,7 +120,7 @@ The default object has no purpose, so display YOW information."
       (put-text-property (match-beginning 1) (match-end 1) 'face 'bold))))
 
 ;;; Language type
-(defmethod quickpeek-beginning-of-defun ((obj quickpeek-language))
+(cl-defmethod quickpeek-beginning-of-defun ((obj quickpeek-language))
   "Go to the beginning of a defun.
 Is safe against bad formatting."
   ;; This irritating combo works on multiple situations
@@ -135,7 +135,7 @@ Is safe against bad formatting."
 	(goto-char (point-min))))
   )
 
-(defmethod quickpeek-current-function ((obj quickpeek-language))
+(cl-defmethod quickpeek-current-function ((obj quickpeek-language))
   "Get the current function signature, and store it in OBJ."
   (save-excursion
     (quickpeek-beginning-of-defun obj)
@@ -144,32 +144,32 @@ Is safe against bad formatting."
     (buffer-substring (point) (progn (end-of-line) (point)))
     ))
 
-(defmethod quickpeek-save-current-thing ((obj quickpeek-language))
+(cl-defmethod quickpeek-save-current-thing ((obj quickpeek-language))
   "Get the current thing under/near point, and store it in OBJ."
   (quickpeek-thing obj)
   )
 
-(defmethod quickpeek-collect ((obj quickpeek-language))
+(cl-defmethod quickpeek-collect ((obj quickpeek-language))
   "Collect information from the current point for OBJ."
   (oset obj current-thing (quickpeek-save-current-thing obj))
   (oset obj current-fn (quickpeek-current-function obj))
   )
 
-(defmethod quickpeek-insert-context ((obj quickpeek-language))
+(cl-defmethod quickpeek-insert-context ((obj quickpeek-language))
   "Insert a description of our current context."
   (quickpeek-plain-string-insert (oref obj current-fn)))
 
-(defmethod quickpeek-insert-description ((obj quickpeek-language))
+(cl-defmethod quickpeek-insert-description ((obj quickpeek-language))
   "Insert a description of OBJ's current thing."
   (quickpeek-plain-string-insert (list '("Thing: " bold)
 				       (oref obj current-thing))))
 
-(defmethod quickpeek-insert-completions ((obj quickpeek-language))
+(cl-defmethod quickpeek-insert-completions ((obj quickpeek-language))
   "Insert a collection of completions for the OBJ's current thing."
   (let ((c (quickpeek-tags-completion (oref obj current-thing))))
     (quickpeek-insert-completions c)))
 
-(defmethod quickpeek-display ((obj quickpeek-default))
+(cl-defmethod quickpeek-display ((obj quickpeek-default))
   "Display information in a quickpeek buffer.
 Assume the buffer is current."
   ;; Current context/function
@@ -183,36 +183,36 @@ Assume the buffer is current."
 
 
 ;;; Semantic support
-(defmethod quickpeek-beginning-of-defun ((obj quickpeek-semantic))
+(cl-defmethod quickpeek-beginning-of-defun ((obj quickpeek-semantic))
   "Go to the beginning of defun."
   (let ((o (semantic-current-nonterminal)))
     (goto-char (semantic-token-start o))))
 
-(defmethod quickpeek-current-function ((obj quickpeek-semantic))
+(cl-defmethod quickpeek-current-function ((obj quickpeek-semantic))
   "Return information about the current function."
   ;; Optional force refresh here??
   (semantic-current-nonterminal))
 
-(defmethod quickpeek-current-context ((obj quickpeek-semantic))
+(cl-defmethod quickpeek-current-context ((obj quickpeek-semantic))
   "Return a list of all current local variables in semantic token form."
   nil
   )
 
-(defmethod quickpeek-collect ((obj quickpeek-semantic))
+(cl-defmethod quickpeek-collect ((obj quickpeek-semantic))
   "Get the current context, in addition to language items."
   (call-next-method)
   (oset obj local-context (quickpeek-current-context obj)))
 
-(defmethod quickpeek-insert-token ((obj quickpeek-semantic) token)
+(cl-defmethod quickpeek-insert-token ((obj quickpeek-semantic) token)
   "For OBJ, insert TOKEN into the quickpeek buffer.
 Uses default token knowledge to perform colorization."
   )
 
-(defmethod quickpeek-insert-context ((obj quickpeek-semantic))
+(cl-defmethod quickpeek-insert-context ((obj quickpeek-semantic))
   "Insert a description of our current defun."
   (quickpeek-insert-token obj (oref obj current-thing)))
 
-(defmethod quickpeek-insert-description ((obj quickpeek-semantic))
+(cl-defmethod quickpeek-insert-description ((obj quickpeek-semantic))
   "Insert a description of OBJ's stored thing."
   (let ((lc (oref obj local-context)))
     (cond ((stringp lc) (insert lc))
@@ -220,14 +220,14 @@ Uses default token knowledge to perform colorization."
 	  (t (insert (format "%S" lc)))))
   )
 
-(defmethod quickpeek-calc-context-completions ((obj quickpeek-semantic))
+(cl-defmethod quickpeek-calc-context-completions ((obj quickpeek-semantic))
   "Calculate special completions for OBJ.
 Special completions exist if we are completing symbols in structs,
 classes, or something of that nature."
   nil
   )
 
-(defmethod quickpeek-insert-completions ((obj quickpeek-semantic))
+(cl-defmethod quickpeek-insert-completions ((obj quickpeek-semantic))
   "Insert completions for OBJ's stored thing.
 If OBJ has structure or type information for trimming back use that
 to provide useful details.  If not, call the old method."

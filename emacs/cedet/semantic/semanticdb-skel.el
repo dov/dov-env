@@ -72,7 +72,7 @@ the omniscience database.")
 
 ;;; Filename based methods
 ;;
-(defmethod semanticdb-get-database-tables ((obj semanticdb-project-database-SKEL))
+(cl-defmethod semanticdb-get-database-tables ((obj semanticdb-project-database-SKEL))
   "For a SKEL database, there are no explicit tables.
 Create one of our special tables that can act as an intermediary."
   ;; NOTE: This method overrides an accessor for the `tables' slot in 
@@ -89,20 +89,20 @@ Create one of our special tables that can act as an intermediary."
       ))
   (call-next-method))
 
-(defmethod semanticdb-file-table ((obj semanticdb-project-database-SKEL) filename)
+(cl-defmethod semanticdb-file-table ((obj semanticdb-project-database-SKEL) filename)
   "From OBJ, return FILENAME's associated table object."
   ;; NOTE: See not for `semanticdb-get-database-tables'.
   (car (semanticdb-get-database-tables obj))
   )
 
-(defmethod semanticdb-get-tags ((table semanticdb-table-SKEL ))
+(cl-defmethod semanticdb-get-tags ((table semanticdb-table-SKEL ))
   "Return the list of tags belonging to TABLE."
   ;; NOTE: Omniscient databases probably don't want to keep large tabes
   ;;       lolly-gagging about.  Keep internal Emacs tables empty and
   ;;       refer to alternate databases when you need something.
   nil)
 
-(defmethod semanticdb-equivalent-mode ((table semanticdb-table-SKEL) &optional buffer)
+(cl-defmethod semanticdb-equivalent-mode ((table semanticdb-table-SKEL) &optional buffer)
   "Return non-nil if TABLE's mode is equivalent to BUFFER.
 Equivalent modes are specified by by `semantic-equivalent-major-modes'
 local variable."
@@ -143,7 +143,7 @@ database (if available.)"
 ;; NOTE WHEN IMPLEMENTING: Be sure to add doc-string updates explaining
 ;; how your new search routines are implemented.
 ;;
-(defmethod semanticdb-find-tags-by-name-method
+(cl-defmethod semanticdb-find-tags-by-name-method
   ((table semanticdb-table-SKEL) name &optional tags)
   "Find all tags named NAME in TABLE.
 Return a list of tags."
@@ -153,7 +153,7 @@ Return a list of tags."
     ;; YOUR IMPLEMENTATION HERE
     ))
 
-(defmethod semanticdb-find-tags-by-name-regexp-method
+(cl-defmethod semanticdb-find-tags-by-name-regexp-method
   ((table semanticdb-table-SKEL) regex &optional tags)
   "Find all tags with name matching REGEX in TABLE.
 Optional argument TAGS is a list of tags to search.
@@ -162,7 +162,7 @@ Return a list of tags."
     ;; YOUR IMPLEMENTATION HERE    
     ))
 
-(defmethod semanticdb-find-tags-for-completion-method
+(cl-defmethod semanticdb-find-tags-for-completion-method
   ((table semanticdb-table-SKEL) prefix &optional tags)
   "In TABLE, find all occurances of tags matching PREFIX.
 Optional argument TAGS is a list of tags to search.
@@ -171,7 +171,7 @@ Returns a table of all matching tags."
     ;; YOUR IMPLEMENTATION HERE
     ))
 
-(defmethod semanticdb-find-tags-by-class-method
+(cl-defmethod semanticdb-find-tags-by-class-method
   ((table semanticdb-table-SKEL) class &optional tags)
   "In TABLE, find all occurances of tags of CLASS.
 Optional argument TAGS is a list of tags to search.
@@ -192,21 +192,21 @@ Returns a table of all matching tags."
 ;; alone, otherwise replace with implementations similar to those
 ;; above. 
 ;;
-(defmethod semanticdb-deep-find-tags-by-name-method
+(cl-defmethod semanticdb-deep-find-tags-by-name-method
   ((table semanticdb-table-SKEL) name &optional tags)
   "Find all tags name NAME in TABLE.
 Optional argument TAGS is a list of tags t
 Like `semanticdb-find-tags-by-name-method' for SKEL."
   (semanticdb-find-tags-by-name-method table name tags))
 
-(defmethod semanticdb-deep-find-tags-by-name-regexp-method
+(cl-defmethod semanticdb-deep-find-tags-by-name-regexp-method
   ((table semanticdb-table-SKEL) regex &optional tags)
   "Find all tags with name matching REGEX in TABLE.
 Optional argument TAGS is a list of tags to search.
 Like `semanticdb-find-tags-by-name-method' for SKEL."
   (semanticdb-find-tags-by-name-regexp-method table regex tags))
 
-(defmethod semanticdb-deep-find-tags-for-completion-method
+(cl-defmethod semanticdb-deep-find-tags-for-completion-method
   ((table semanticdb-table-SKEL) prefix &optional tags)
   "In TABLE, find all occurances of tags matching PREFIX.
 Optional argument TAGS is a list of tags to search.
@@ -215,7 +215,7 @@ Like `semanticdb-find-tags-for-completion-method' for SKEL."
 
 ;;; Advanced Searches
 ;;
-(defmethod semanticdb-find-tags-external-children-of-type-method
+(cl-defmethod semanticdb-find-tags-external-children-of-type-method
   ((table semanticdb-table-SKEL) type &optional tags)
   "Find all nonterminals which are child elements of TYPE
 Optional argument TAGS is a list of tags to search.

@@ -227,7 +227,7 @@ template class-tag :el :indent :blank
 template method :el :ctxt :indent :blank
 "Insert a new method."
 ----
-(defmethod $?NAME$ ((this $?PARENT$))
+(cl-defmethod $?NAME$ ((this $?PARENT$))
   "$DOC$"
   $^$
   )
@@ -237,7 +237,7 @@ bind "m"
 template method-tag :el :ctxt :indent :blank
 "Insert a new method for tag inserter."
 ----
-(defmethod $NAME$ ($#ARGS$$#FIRST$($NAME$ $PARENT$)$/FIRST$$#NOTFIRST$ $NAME$$/NOTFIRST$$/ARGS$)
+(cl-defmethod $NAME$ ($#ARGS$$#FIRST$($NAME$ $PARENT$)$/FIRST$$#NOTFIRST$ $NAME$$/NOTFIRST$$/ARGS$)
   "$DOC$"
   $^$
   )

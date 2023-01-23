@@ -102,7 +102,7 @@ The server is on HOST via PORT."
 		   :port port
 		   :database database)))
 
-(defmethod dbif-get-table-info ((dbbuff psql-connection) tablename)
+(cl-defmethod dbif-get-table-info ((dbbuff psql-connection) tablename)
   "Return a psql-tuple object with information about tables in this database.
 Argument DBBUFF specifies the current connection.
 Argument TABLENAME is the name of the table to query."
@@ -113,14 +113,14 @@ Argument TABLENAME is the name of the table to query."
 		:values (reverse datalst)))
   (dbif-convert-tuple (pg:columns (oref dbbuff :pgconnection) tablename)))
 
-(defmethod dbif-get-table-list ((dbbuff psql-connection))
+(cl-defmethod dbif-get-table-list ((dbbuff psql-connection))
   "Get a list of available tables from the database specified in DBBUFF."
   (pg:exec (oref dbbuff :pgconnection)
 	   "select relname"
 	   ;; INCOMPLETE HERE
 	   ))
 
-(defmethod dbif-exec ((dbbuff psql-connection) command)
+(cl-defmethod dbif-exec ((dbbuff psql-connection) command)
   "Execute the SQL or PSQL command and grab its output.
 The output is checked, and if tabular data results, a psql-tuple object
 is returned.
@@ -135,11 +135,11 @@ is supplied by `comint-mode'"
 
 ;;; Tuple Accessors
 ;;
-(defmethod dbif-tuple-num-fields ((tuple psql-tuple))
+(cl-defmethod dbif-tuple-num-fields ((tuple psql-tuple))
   "Returns the number of fields in TUPLE"
   (length (pg:result (oref tuple :value) :attributes)))
 
-(defmethod dbif-tuple-field-index ((tuple psql-tuple) field)
+(cl-defmethod dbif-tuple-field-index ((tuple psql-tuple) field)
   "Returns the index (usable by command nth) of the field list.  This
 is equivalent to a column number."
   (let* ((f (pg:result (oref tuple :value) :attributes))
@@ -148,7 +148,7 @@ is equivalent to a column number."
       (setq f (cdr f)))
     (- l1 (length f))))
 
-(defmethod dbif-tuple-value ((tuple psql-tuple) field index)
+(cl-defmethod dbif-tuple-value ((tuple psql-tuple) field index)
   "Extracts from TUPLE the FIELD value in the INDEXED column"
   (nth (dbiff-tuple-field-index tuple field)
        (pg:result (oref tuple :value) :tuple index))

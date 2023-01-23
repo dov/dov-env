@@ -83,7 +83,7 @@ the omniscience database.")
 
 ; try this stuff from -el implementation instead
 
-(defmethod semanticdb-get-database-tables ((obj semanticdb-project-database-java))
+(cl-defmethod semanticdb-get-database-tables ((obj semanticdb-project-database-java))
   "For an Emacs Lisp database, there are no explicit tables.
 Create one of our special tables that can act as an intermediary."
   ;; We need to return something since there is always the "master table"
@@ -97,7 +97,7 @@ Create one of our special tables that can act as an intermediary."
       ))
   (call-next-method))
 
-(defmethod semanticdb-file-table ((obj semanticdb-project-database-java) filename)
+(cl-defmethod semanticdb-file-table ((obj semanticdb-project-database-java) filename)
   "From OBJ, return FILENAME's associated table object.
 For Emacs Lisp, creates a specialized table."
   (message "semanticdb-file-table java: %s %s" obj filename)  
@@ -109,13 +109,13 @@ For Emacs Lisp, creates a specialized table."
 
 
 
-(defmethod semanticdb-get-tags ((table semanticdb-table-java ))
+(cl-defmethod semanticdb-get-tags ((table semanticdb-table-java ))
   "Return the list of tags belonging to TABLE."
   ;; specialty table ?  Probably derive tags at request time?
   (message "semanticdb-get-tags %s" table)
   )
 
-(defmethod semanticdb-equivalent-mode ((table semanticdb-table-java) &optional buffer)
+(cl-defmethod semanticdb-equivalent-mode ((table semanticdb-table-java) &optional buffer)
   "Return non-nil if TABLE's mode is equivalent to BUFFER.
 Equivalent modes are specified by by `semantic-equivalent-major-modes'
 local variable."
@@ -127,7 +127,7 @@ local variable."
 ;	(eq major-mode 'jde-mode))))
 
     
-(defmethod semanticdb-find-tags-by-name-method
+(cl-defmethod semanticdb-find-tags-by-name-method
   ((table semanticdb-table-java) name  &optional tags)
   "Find all tags name NAME in TABLE.
 Return a list of tags."
@@ -139,7 +139,7 @@ Return a list of tags."
   ; this should only return a type, and then find-external should return a list of members
   ;(semantic-find-tags-by-name name (or tags (semanticdb-get-tags table)))  )
 
-(defmethod semanticdb-find-tags-by-name-regexp-method
+(cl-defmethod semanticdb-find-tags-by-name-regexp-method
   ((table semanticdb-table-java) regex  &optional tags)
   "Find all tags with name matching REGEX in TABLE.
 Return a list of tags."
@@ -147,7 +147,7 @@ Return a list of tags."
   (semantic-find-tags-by-name-regexp regexp (or tags (semanticdb-get-tags table)))
   )
 
-(defmethod semanticdb-find-tags-for-completion-method
+(cl-defmethod semanticdb-find-tags-for-completion-method
   ((table semanticdb-table-java) prefix  &optional tags)
   "In TABLE, find all occurances of tags matching PREFIX.
 Returns a table of all matching tags."
@@ -162,7 +162,7 @@ Returns a table of all matching tags."
 ;; alone, otherwise replace with implementations similar to those
 ;; above. 
 ;;
-(defmethod semanticdb-deep-find-tags-by-name-method
+(cl-defmethod semanticdb-deep-find-tags-by-name-method
   ((table semanticdb-table-java) name &optional tags)
   "Find all tags name NAME in TABLE.
 Optional argument TAGS is a list of tags t
@@ -170,7 +170,7 @@ Like `semanticdb-find-tags-by-name-method' for java."
   (message "semanticdb-deep-find-tags-by-name-method %s %s" name tags)
   (semanticdb-find-tags-by-name-method table name tags))
 
-(defmethod semanticdb-deep-find-tags-by-name-regexp-method
+(cl-defmethod semanticdb-deep-find-tags-by-name-regexp-method
   ((table semanticdb-table-java) regex &optional tags)
   "Find all tags with name matching REGEX in TABLE.
 Optional argument TAGS is a list of tags to search.
@@ -178,7 +178,7 @@ Like `semanticdb-find-tags-by-name-method' for java."
   (message " semanticdb-deep-find-tags-by-name-regexp-method %s %s" regex tags)
   (semanticdb-find-tags-by-name-regexp-method table regex tags))
 
-(defmethod semanticdb-deep-find-tags-for-completion-method
+(cl-defmethod semanticdb-deep-find-tags-for-completion-method
   ((table semanticdb-table-java) prefix &optional tags)
   "In TABLE, find all occurances of tags matching PREFIX.
 Optional argument TAGS is a list of tags to search.
@@ -189,7 +189,7 @@ Like `semanticdb-find-tags-for-completion-method' for java."
 ;;; Advanced Searches
 ;;
 
-(defmethod semanticdb-find-tags-external-children-of-type-method
+(cl-defmethod semanticdb-find-tags-external-children-of-type-method
   ((table semanticdb-table-java) type &optional tags)
   "Find all nonterminals which are child elements of TYPE
 Optional argument TAGS is a list of tags to search.

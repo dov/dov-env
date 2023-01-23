@@ -134,7 +134,7 @@ All directories need at least one target.")
   "Project Type for the Linux source code."
   :method-invocation-order :depth-first)
 
-(defmethod initialize-instance ((this ede-linux-project)
+(cl-defmethod initialize-instance ((this ede-linux-project)
 				&rest fields)
   "Make sure the targets slot is bound."
   (call-next-method)
@@ -143,16 +143,16 @@ All directories need at least one target.")
 
 ;;; File Stuff
 ;;
-(defmethod ede-project-root-directory ((this ede-linux-project)
+(cl-defmethod ede-project-root-directory ((this ede-linux-project)
 				       &optional file)
   "Return the root for THIS Linux project with file."
   (ede-up-directory (file-name-directory (oref this file))))
 
-(defmethod ede-project-root ((this ede-linux-project))
+(cl-defmethod ede-project-root ((this ede-linux-project))
   "Return my root."
   this)
 
-(defmethod ede-find-subproject-for-directory ((proj ede-linux-project)
+(cl-defmethod ede-find-subproject-for-directory ((proj ede-linux-project)
 					      dir)
   "Return PROJ, for handling all subdirs below DIR."
   proj)
@@ -169,7 +169,7 @@ All directories need at least one target.")
       ))
     match))
 
-(defmethod ede-find-target ((proj ede-linux-project) buffer)
+(cl-defmethod ede-find-target ((proj ede-linux-project) buffer)
   "Find an EDE target in PROJ for BUFFER.
 If one doesn't exist, create a new one for this directory."
   (let* ((ext (file-name-extension (buffer-file-name buffer)))
@@ -195,7 +195,7 @@ If one doesn't exist, create a new one for this directory."
 
 ;;; UTILITIES SUPPORT.
 ;;
-(defmethod ede-preprocessor-map ((this ede-linux-target-c))
+(cl-defmethod ede-preprocessor-map ((this ede-linux-target-c))
   "Get the pre-processor map for Linux C code.
 All files need the macros from lisp.h!"
   (let* ((proj (ede-target-parent this))
@@ -219,7 +219,7 @@ All files need the macros from lisp.h!"
   (let ((F (expand-file-name name (expand-file-name subdir root))))
     (when (file-exists-p F) F)))
 
-(defmethod ede-expand-filename-impl ((proj ede-linux-project) name)
+(cl-defmethod ede-expand-filename-impl ((proj ede-linux-project) name)
   "Within this project PROJ, find the file NAME.
 Knows about how the Linux source tree is organized."
   (let* ((ext (file-name-extension name))

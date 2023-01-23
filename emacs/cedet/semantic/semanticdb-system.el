@@ -85,7 +85,7 @@ Thus, C header files are useful to `c-mode', and to `c++-mode'.")
   "Database of file tables for system libraries saved to disk."
   :abstract t)
 
-(defmethod semanticdb-create-database :STATIC ((dbc semanticdb-project-database-system)
+(cl-defmethod semanticdb-create-database :STATIC ((dbc semanticdb-project-database-system)
 					       directory)
   "Create a new semantic database for DIRECTORY and return it.
 If a database for DIRECTORY has already been loaded, return it.
@@ -103,19 +103,19 @@ If DIRECTORY doesn't exist, create a new one."
     ;; Return it.
     new))
 
-(defmethod semanticdb-write-directory-p
+(cl-defmethod semanticdb-write-directory-p
   ((obj semanticdb-project-database-system))
   "Return non-nil if OBJ should be written to disk.
 Uses `semanticdb-persistent-path' to determine the return value."
   semanticdb-system-force-save)
 
-(defmethod semanticdb-file-name-non-directory :STATIC
+(cl-defmethod semanticdb-file-name-non-directory :STATIC
   ((dbclass semanticdb-project-database-system))
   "Return the file name DBCLASS will use.
 File name excludes any directory part."
   semanticdb-default-system-file-name)
 
-(defmethod semanticdb-cache-filename :STATIC
+(cl-defmethod semanticdb-cache-filename :STATIC
   ((dbclass semanticdb-project-database-system) path)
   "For DBCLASS, return a file to a cache file belonging to PATH.
 This could be a cache file in the current directory, or an encoded file
@@ -185,7 +185,7 @@ of symbol `semanticdb-project-database-system' are accepted."
 (defvar semanticdb-system-db-directory-search-recursed nil
   "Track if we recursed for directory files.")
 
-(defmethod semanticdb-load-system-database :STATIC
+(cl-defmethod semanticdb-load-system-database :STATIC
   ((dbclass semanticdb-project-database-system) path)
   "Load a system database of type DBCLASS starting at PATH.
 PATH should be a top level directory for a series of files containing

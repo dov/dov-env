@@ -176,7 +176,7 @@ It is either `window-height', or a minimum of 20 chars."
    )
   "Superclass for all charts to be displayed in an emacs buffer")
 
-(defmethod initialize-instance :AFTER ((obj chart) &rest fields)
+(cl-defmethod initialize-instance :AFTER ((obj chart) &rest fields)
   "Initialize the chart OBJ being created with FIELDS.
 Make sure the width/height is correct."
   (oset obj x-width (- (chart-width) 10))
@@ -221,7 +221,7 @@ Make sure the width/height is correct."
 	      :initform vertical))
   "Subclass for bar charts. (Vertical or horizontal)")
 
-(defmethod chart-draw ((c chart) &optional buff)
+(cl-defmethod chart-draw ((c chart) &optional buff)
   "Start drawing a chart object C in optional BUFF.
 Erases current contents of buffer"
   (save-excursion
@@ -241,19 +241,19 @@ Erases current contents of buffer"
     (message "Rendering chart...done")
     ))
 
-(defmethod chart-draw-title ((c chart))
+(cl-defmethod chart-draw-title ((c chart))
   "Draw a title upon the chart.
 Argument C is the chart object."
   (chart-display-label (oref c title) 'horizontal 0 0 (chart-width)
 		       (oref c title-face)))
 
-(defmethod chart-size-in-dir ((c chart) dir)
+(cl-defmethod chart-size-in-dir ((c chart) dir)
   "Return the physical size of chart C in direction DIR."
   (if (eq dir 'vertical)
       (oref c y-width)
     (oref c x-width)))
 
-(defmethod chart-draw-axis ((c chart))
+(cl-defmethod chart-draw-axis ((c chart))
   "Draw axis into the current buffer defined by chart C."
   (let ((ymarg (oref c y-margin))
 	(xmarg (oref c x-margin))
@@ -267,7 +267,7 @@ Argument C is the chart object."
 		     ymarg (+ ymarg xlen)))
   )
 
-(defmethod chart-axis-draw ((a chart-axis) &optional dir margin zone start end)
+(cl-defmethod chart-axis-draw ((a chart-axis) &optional dir margin zone start end)
   "Draw some axis for A in direction DIR at with MARGIN in boundry.
 ZONE is a zone specification.
 START and END represent the boundary."
@@ -277,7 +277,7 @@ START and END represent the boundary."
 					       1 0))
 		       start end (oref a name-face)))
 
-(defmethod chart-translate-xpos ((c chart) x)
+(cl-defmethod chart-translate-xpos ((c chart) x)
   "Translate in chart C the coordinate X into a screen column."
   (let ((range (oref (oref c x-axis) bounds)))
     (+ (oref c x-margin)
@@ -286,7 +286,7 @@ START and END represent the boundary."
 		    (float (- (cdr range) (car range))))))))
   )
 
-(defmethod chart-translate-ypos ((c chart) y)
+(cl-defmethod chart-translate-ypos ((c chart) y)
   "Translate in chart C the coordinate Y into a screen row."
   (let ((range (oref (oref c y-axis) bounds)))
     (+ (oref c x-margin)
@@ -296,7 +296,7 @@ START and END represent the boundary."
 		       (float (- (cdr range) (car range)))))))))
   )
 
-(defmethod chart-axis-draw ((a chart-axis-range) &optional dir margin zone start end)
+(cl-defmethod chart-axis-draw ((a chart-axis-range) &optional dir margin zone start end)
   "Draw axis information based upon a range to be spread along the edge.
 A is the chart to draw.  DIR is the direction.
 MARGIN, ZONE, START, and END specify restrictions in chart space."
@@ -333,7 +333,7 @@ MARGIN, ZONE, START, and END specify restrictions in chart space."
       (setq i (+ i j))))
 )
 
-(defmethod chart-translate-namezone ((c chart) n)
+(cl-defmethod chart-translate-namezone ((c chart) n)
   "Return a dot-pair representing a positional range for a name.
 The name in chart C of the Nth name resides.
 Automatically compensates for for direction."
@@ -349,7 +349,7 @@ Automatically compensates for for direction."
 	  (+ m -1 (round (* lpn (+ 1.0 (float n))))))
     ))
 
-(defmethod chart-axis-draw ((a chart-axis-names) &optional dir margin zone start end)
+(cl-defmethod chart-axis-draw ((a chart-axis-names) &optional dir margin zone start end)
   "Draw axis information based upon A range to be spread along the edge.
 Optional argument DIR the direction of the chart.
 Optional argument MARGIN , ZONE, START and END specify boundaries of the drawing."
@@ -388,7 +388,7 @@ Optional argument MARGIN , ZONE, START and END specify boundaries of the drawing
 	    s (cdr s))))
 )
 
-(defmethod chart-draw-data ((c chart-bar))
+(cl-defmethod chart-draw-data ((c chart-bar))
   "Display the data available in a bar chart C."
   (let* ((data (oref c sequences))
 	 (dir (oref c direction))
@@ -433,7 +433,7 @@ Optional argument MARGIN , ZONE, START and END specify boundaries of the drawing
       (setq data (cdr data))))
   )
 
-(defmethod chart-add-sequence ((c chart) &optional seq axis-label)
+(cl-defmethod chart-add-sequence ((c chart) &optional seq axis-label)
   "Add to chart object C the sequence object SEQ.
 If AXIS-LABEL, then the axis stored in C is updated with the bounds of SEQ,
 or is created with the bounds of SEQ."
@@ -465,7 +465,7 @@ or is created with the bounds of SEQ."
 
 ;;; Charting optimizers
 
-(defmethod chart-trim ((c chart) max)
+(cl-defmethod chart-trim ((c chart) max)
   "Trim all sequences in chart C to be at most MAX elements long."
   (let ((s (oref c sequences)))
     (while s
@@ -475,7 +475,7 @@ or is created with the bounds of SEQ."
       (setq s (cdr s))))
   )
 
-(defmethod chart-sort ((c chart) pred)
+(cl-defmethod chart-sort ((c chart) pred)
   "Sort the data in chart C using predicate PRED.
 See `chart-sort-matchlist' for more details"
   (let* ((sl (oref c sequences))

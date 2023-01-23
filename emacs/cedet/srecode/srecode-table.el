@@ -142,7 +142,7 @@ was not found."
 	
 	new))))
 
-(defmethod srecode-mode-table-find ((mt srecode-mode-table) file)
+(cl-defmethod srecode-mode-table-find ((mt srecode-mode-table) file)
   "Look in the mode table MT for a template table from FILE.
 Return nil if there was none."
   (object-assoc file 'file (oref mt tables)))
@@ -206,7 +206,7 @@ Use PREDICATE is the same as for the `sort' function."
 	(srecode-dump tmp))
       )))
 
-(defmethod srecode-dump ((tab srecode-mode-table))
+(cl-defmethod srecode-dump ((tab srecode-mode-table))
   "Dump the contents of the SRecode mode table TAB."
   (princ "MODE TABLE FOR ")
   (princ (oref tab :major-mode))
@@ -219,7 +219,7 @@ Use PREDICATE is the same as for the `sort' function."
       (setq subtab (cdr subtab)))
     ))
 
-(defmethod srecode-dump ((tab srecode-template-table))
+(cl-defmethod srecode-dump ((tab srecode-template-table))
   "Dump the contents of the SRecode template table TAB."
   (princ "Template Table for ")
   (princ (object-name-string tab))

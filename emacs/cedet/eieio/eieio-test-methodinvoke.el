@@ -88,23 +88,23 @@
 (defclass AA (A) ())
 (defclass AAA (AA) ())
 
-(defmethod F :BEFORE ((p A))
+(cl-defmethod F :BEFORE ((p A))
   (eieio-test-method-store))
-(defmethod F :BEFORE ((p AA))
+(cl-defmethod F :BEFORE ((p AA))
   (eieio-test-method-store))
-(defmethod F :BEFORE ((p AAA))
-  (eieio-test-method-store))
-
-(defmethod F ((p A))
-  (eieio-test-method-store))
-(defmethod F ((p AA))
+(cl-defmethod F :BEFORE ((p AAA))
   (eieio-test-method-store))
 
-(defmethod F :AFTER ((p A))
+(cl-defmethod F ((p A))
   (eieio-test-method-store))
-(defmethod F :AFTER ((p AA))
+(cl-defmethod F ((p AA))
   (eieio-test-method-store))
-(defmethod F :AFTER ((p AAA))
+
+(cl-defmethod F :AFTER ((p A))
+  (eieio-test-method-store))
+(cl-defmethod F :AFTER ((p AA))
+  (eieio-test-method-store))
+(cl-defmethod F :AFTER ((p AAA))
   (eieio-test-method-store))
 
 (let ((eieio-test-method-order-list nil)
@@ -123,17 +123,17 @@
   (setq eieio-test-method-order-list (nreverse eieio-test-method-order-list))
   (eieio-test-match ans))
 
-(defmethod G :BEFORE ((p A))
+(cl-defmethod G :BEFORE ((p A))
   (eieio-test-method-store))
-(defmethod G :BEFORE ((p AAA))
-  (eieio-test-method-store))
-
-(defmethod G ((p A))
+(cl-defmethod G :BEFORE ((p AAA))
   (eieio-test-method-store))
 
-(defmethod G :AFTER ((p A))
+(cl-defmethod G ((p A))
   (eieio-test-method-store))
-(defmethod G :AFTER ((p AAA))
+
+(cl-defmethod G :AFTER ((p A))
+  (eieio-test-method-store))
+(cl-defmethod G :AFTER ((p AAA))
   (eieio-test-method-store))
 
 
@@ -157,36 +157,36 @@
 (defclass B-base2 () ())
 (defclass B (B-base1 B-base2) ())
 
-(defmethod F :BEFORE ((p B-base1))
+(cl-defmethod F :BEFORE ((p B-base1))
   (eieio-test-method-store))
 
-(defmethod F :BEFORE ((p B-base2))
+(cl-defmethod F :BEFORE ((p B-base2))
   (eieio-test-method-store))
 
-(defmethod F :BEFORE ((p B))
+(cl-defmethod F :BEFORE ((p B))
   (eieio-test-method-store))
 
-(defmethod F ((p B))
+(cl-defmethod F ((p B))
   (eieio-test-method-store)
   (call-next-method))
 
-(defmethod F ((p B-base1))
+(cl-defmethod F ((p B-base1))
   (eieio-test-method-store)
   (call-next-method))
 
-(defmethod F ((p B-base2))
+(cl-defmethod F ((p B-base2))
   (eieio-test-method-store)
   (when (next-method-p)
     (call-next-method))
   )
 
-(defmethod F :AFTER ((p B-base1))
+(cl-defmethod F :AFTER ((p B-base1))
   (eieio-test-method-store))
 
-(defmethod F :AFTER ((p B-base2))
+(cl-defmethod F :AFTER ((p B-base2))
   (eieio-test-method-store))
 
-(defmethod F :AFTER ((p B))
+(cl-defmethod F :AFTER ((p B))
   (eieio-test-method-store))
 
 (let ((eieio-test-method-order-list nil)
@@ -211,7 +211,7 @@
 
 ;;; Test static invokation
 ;;
-(defmethod H :STATIC ((class A))
+(cl-defmethod H :STATIC ((class A))
   "No need to do work in here."
   'moose)
 
@@ -221,15 +221,15 @@
 
 ;;; Return value from :PRIMARY
 ;;
-(defmethod I :BEFORE ((a A))
+(cl-defmethod I :BEFORE ((a A))
   (eieio-test-method-store)
   ":before")
 
-(defmethod I :PRIMARY ((a A))
+(cl-defmethod I :PRIMARY ((a A))
   (eieio-test-method-store)
   ":primary")
 
-(defmethod I :AFTER ((a A))
+(cl-defmethod I :AFTER ((a A))
   (eieio-test-method-store)
   ":after")
 
@@ -248,17 +248,17 @@
 (defclass C-base2 () ())
 (defclass C (C-base1 C-base2) ())
 
-(defmethod constructor :STATIC ((p C-base1) &rest args)
+(cl-defmethod constructor :STATIC ((p C-base1) &rest args)
   (eieio-test-method-store)
   (if (next-method-p) (call-next-method))
   )
 
-(defmethod constructor :STATIC ((p C-base2) &rest args)
+(cl-defmethod constructor :STATIC ((p C-base2) &rest args)
   (eieio-test-method-store)
   (if (next-method-p) (call-next-method))
   )
 
-(defmethod constructor :STATIC ((p C) &rest args)
+(cl-defmethod constructor :STATIC ((p C) &rest args)
   (eieio-test-method-store)
   (call-next-method)
   )
@@ -284,24 +284,24 @@
 (defclass D-base2 (D-base0) () :method-invocation-order :depth-first)
 (defclass D (D-base1 D-base2) () :method-invocation-order :depth-first)
 
-(defmethod F ((p D))
+(cl-defmethod F ((p D))
   "D"
   (eieio-test-method-store)
   (call-next-method))
 
-(defmethod F ((p D-base0))
+(cl-defmethod F ((p D-base0))
   "D-base0"
   (eieio-test-method-store)
   ;; This should have no next
   ;; (when (next-method-p) (call-next-method))
   )
 
-(defmethod F ((p D-base1))
+(cl-defmethod F ((p D-base1))
   "D-base1"
   (eieio-test-method-store)
   (call-next-method))
 
-(defmethod F ((p D-base2))
+(cl-defmethod F ((p D-base2))
   "D-base2"
   (eieio-test-method-store)
   (when (next-method-p)
@@ -328,21 +328,21 @@
 (defclass E-base2 (E-base0) () :method-invocation-order :breadth-first)
 (defclass E (E-base1 E-base2) () :method-invocation-order :breadth-first)
 
-(defmethod F ((p E))
+(cl-defmethod F ((p E))
   (eieio-test-method-store)
   (call-next-method))
 
-(defmethod F ((p E-base0))
+(cl-defmethod F ((p E-base0))
   (eieio-test-method-store)
   ;; This should have no next
   ;; (when (next-method-p) (call-next-method))
   )
 
-(defmethod F ((p E-base1))
+(cl-defmethod F ((p E-base1))
   (eieio-test-method-store)
   (call-next-method))
 
-(defmethod F ((p E-base2))
+(cl-defmethod F ((p E-base2))
   (eieio-test-method-store)
   (when (next-method-p)
     (call-next-method))
@@ -366,7 +366,7 @@
 (defclass Ja ()
   ())
 
-(defmethod initialize-instance :after ((this Ja) &rest slots)
+(cl-defmethod initialize-instance :after ((this Ja) &rest slots)
   ;(message "+Ja")
   (when (next-method-p)
     (call-next-method))
@@ -376,7 +376,7 @@
 (defclass Jb ()
   ())
 
-(defmethod initialize-instance :after ((this Jb) &rest slots)
+(cl-defmethod initialize-instance :after ((this Jb) &rest slots)
   ;(message "+Jb")
   (when (next-method-p)
     (call-next-method))
@@ -389,7 +389,7 @@
 (defclass Jd (Jc Ja)
   ())
 
-(defmethod initialize-instance ((this Jd) &rest slots)
+(cl-defmethod initialize-instance ((this Jd) &rest slots)
   ;(message "+Jd")
   (when (next-method-p)
     (call-next-method))
@@ -413,27 +413,27 @@
 (defclass CNM-2 (CNM-1-1 CNM-1-2)
   ())
 
-(defmethod CNM-M ((this CNM-0) args)
+(cl-defmethod CNM-M ((this CNM-0) args)
   (push (cons 'CNM-0 (copy-sequence args))
 	eieio-test-call-next-method-arguments)
   (when (next-method-p)
     (call-next-method
      this (cons 'CNM-0 args))))
 
-(defmethod CNM-M ((this CNM-1-1) args)
+(cl-defmethod CNM-M ((this CNM-1-1) args)
   (push (cons 'CNM-1-1 (copy-sequence args))
 	eieio-test-call-next-method-arguments)
   (when (next-method-p)
     (call-next-method
      this (cons 'CNM-1-1 args))))
 
-(defmethod CNM-M ((this CNM-1-2) args)
+(cl-defmethod CNM-M ((this CNM-1-2) args)
   (push (cons 'CNM-1-2 (copy-sequence args))
 	eieio-test-call-next-method-arguments)
   (when (next-method-p)
     (call-next-method)))
 
-(defmethod CNM-M ((this CNM-2) args)
+(cl-defmethod CNM-M ((this CNM-2) args)
   (push (cons 'CNM-2 (copy-sequence args))
 	eieio-test-call-next-method-arguments)
   (when (next-method-p)

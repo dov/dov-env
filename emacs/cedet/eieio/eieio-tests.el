@@ -127,21 +127,21 @@
 (defun anormalfunction () "A plain function for error testing." nil)
 
 (if (condition-case nil
-	(defgeneric anormalfunction () 
+	(cl-defgeneric anormalfunction () 
 	  "Attempt to turn it into a generic.")
       (error nil))
     (error "Generic function created over an existing function."))
 
-(defgeneric generic1 () "First generic function")
+(cl-defgeneric generic1 () "First generic function")
 
 (if (not (generic-p 'generic1))
     (error "defgeneric did not make a generic method."))
 
-(defmethod generic1 ((c class-a))
+(cl-defmethod generic1 ((c class-a))
   "Method on generic1."
   'monkey)
 
-(defmethod generic1 (not-an-object)
+(cl-defmethod generic1 (not-an-object)
   "Method generic1 that can take a non-object."
   not-an-object)
 
@@ -160,7 +160,7 @@
 	      :documentation "A slot."))
   :documentation "A class used for testing static methods.")
 
-(defmethod static-method-class-method :STATIC ((c static-method-class) value)
+(cl-defmethod static-method-class-method :STATIC ((c static-method-class) value)
   "Test static methods.
 Argument C is the class bound to this static method."
   (if (eieio-object-p c) (setq c (object-class c)))
@@ -182,7 +182,7 @@ Argument C is the class bound to this static method."
   ()
   "A second class after the previous for static methods.")
 
-(defmethod static-method-class-method :STATIC ((c static-method-class-2) value)
+(cl-defmethod static-method-class-method :STATIC ((c static-method-class-2) value)
   "Test static methods.
 Argument C is the class bound to this static method."
   (if (eieio-object-p c) (setq c (object-class c)))
@@ -222,13 +222,13 @@ Argument C is the class bound to this static method."
   (error "make-instance error."))
 
 ;; Play with call-next-method
-(defmethod class-cn ((a class-a))
+(cl-defmethod class-cn ((a class-a))
   "Try calling `call-next-method' when there isn't one.
 Argument A is object of type symbol `class-a'."
   (call-next-method)
   )
 
-(defmethod no-next-method ((a class-a) &rest args)
+(cl-defmethod no-next-method ((a class-a) &rest args)
   "Override signal throwing for variable `class-a'.
 Argument A is the object of class variable `class-a'."
   'moose)
@@ -238,7 +238,7 @@ Argument A is the object of class variable `class-a'."
   (error "no-next-method return value failure."))
 
 ;; Non-existing methods.
-(defmethod no-applicable-method ((b class-b) method &rest args)
+(cl-defmethod no-applicable-method ((b class-b) method &rest args)
   "No need.
 Argument B is for booger.
 METHOD is the method that was attempting to be called."
@@ -249,11 +249,11 @@ METHOD is the method that was attempting to be called."
   (error "no-applicable-method return value failure."))
 
 ;;; play with methods and mi
-(defmethod class-fun ((a class-a))
+(cl-defmethod class-fun ((a class-a))
   "Fun with class A."
   'moose)
 
-(defmethod class-fun ((b class-b))
+(cl-defmethod class-fun ((b class-b))
   "Fun with class B."
   (error "Class B fun should not be called")
   )
@@ -262,7 +262,7 @@ METHOD is the method that was attempting to be called."
     nil
   (error "Inheritance method check."))
 
-(defmethod class-fun-foo ((b class-b))
+(cl-defmethod class-fun-foo ((b class-b))
   "Foo Fun with class B."
   'moose)
 
@@ -271,16 +271,16 @@ METHOD is the method that was attempting to be called."
   (error "Multiple inheritance method check."))
 
 ;; Play with next-method and mi
-(defmethod class-fun2 ((a class-a))
+(cl-defmethod class-fun2 ((a class-a))
   "More fun with class A."
   'moose)
 
-(defmethod class-fun2 ((b class-b))
+(cl-defmethod class-fun2 ((b class-b))
   "More fun with class B."
   (error "Class B fun2 should not be called")
   )
 
-(defmethod class-fun2 ((ab class-ab))
+(cl-defmethod class-fun2 ((ab class-ab))
   "More fun with class AB."
   (call-next-method))
 
@@ -289,11 +289,11 @@ METHOD is the method that was attempting to be called."
   (error "Call next method inheritance check failed."))
 
 ;; How about if B is the only slot?
-(defmethod class-fun3 ((b class-b))
+(cl-defmethod class-fun3 ((b class-b))
   "Even More fun with class B."
   'moose)
 
-(defmethod class-fun3 ((ab class-ab))
+(cl-defmethod class-fun3 ((ab class-ab))
   "Even More fun with class AB."
   (call-next-method))
 
@@ -315,17 +315,17 @@ METHOD is the method that was attempting to be called."
 ;;
 (defvar class-fun-value-seq '())
 
-(defmethod class-fun-value :BEFORE ((a class-a))
+(cl-defmethod class-fun-value :BEFORE ((a class-a))
   "Return `before', and push `before' in `class-fun-value-seq'."
   (push 'before class-fun-value-seq)
   'before)
 
-(defmethod class-fun-value :PRIMARY ((a class-a))
+(cl-defmethod class-fun-value :PRIMARY ((a class-a))
   "Return `primary', and push `primary' in `class-fun-value-seq'."
   (push 'primary class-fun-value-seq)
   'primary)
 
-(defmethod class-fun-value :AFTER ((a class-a))
+(cl-defmethod class-fun-value :AFTER ((a class-a))
   "Return `after', and push `after' in `class-fun-value-seq'."
   (push 'after class-fun-value-seq)
   'after)
@@ -342,14 +342,14 @@ METHOD is the method that was attempting to be called."
 
 ;;; Test initialization methods
 ;;
-(defmethod initialize-instance ((a class-a) &rest slots)
+(cl-defmethod initialize-instance ((a class-a) &rest slots)
   "Initialize the slots of class-a."
   (call-next-method)
   (if (/= (oref a test-tag) 1)
       (error "shared-initialize test failed."))
   (oset a test-tag 2))
 
-(defmethod shared-initialize ((a class-a) &rest slots)
+(cl-defmethod shared-initialize ((a class-a) &rest slots)
   "Shared initialize method for class-a."
   (call-next-method)
   (oset a test-tag 1))
@@ -368,7 +368,7 @@ METHOD is the method that was attempting to be called."
     nil
   (error "Slot checks failed"))
 
-(defmethod slot-missing ((ab class-ab) &rest foo)
+(cl-defmethod slot-missing ((ab class-ab) &rest foo)
   "If a slot in AB is unbound, return something cool.  FOO."
   'moose)
 
@@ -403,7 +403,7 @@ METHOD is the method that was attempting to be called."
   ((base-value :initarg :base-value))
   "Class has real slot :base-value and simulated slot :derived-value.")
 
-(defmethod slot-missing ((vsc virtual-slot-class)
+(cl-defmethod slot-missing ((vsc virtual-slot-class)
 			 slot-name operation &optional new-value)
   "Simulate virtual slot derived-value."
   (cond
@@ -443,7 +443,7 @@ METHOD is the method that was attempting to be called."
 (unless (= (oref vscb :derived-value) 5)
   (error "Wrong slot value."))
 
-(defmethod slot-unbound ((a class-a) &rest foo)
+(cl-defmethod slot-unbound ((a class-a) &rest foo)
   "If a slot in A is unbound, ignore FOO."
   'moose)
 
@@ -472,7 +472,7 @@ METHOD is the method that was attempting to be called."
     nil
   (error "oset-default, new instance value failed."))
 
-(defmethod slot-unbound ((a class-a) &rest foo)
+(cl-defmethod slot-unbound ((a class-a) &rest foo)
   "If a slot in A is unbound, ignore FOO."
   ;; Disable the old slot-unbound so we can run this test
   ;; more than once
@@ -727,7 +727,7 @@ METHOD is the method that was attempting to be called."
   ()
   "Protection testing baseclass.")
 
-(defmethod prot0-slot-2 ((s2 prot-0))
+(cl-defmethod prot0-slot-2 ((s2 prot-0))
   "Try to access slot-2 from this class which doesn't have it.
 The object S2 passed in will be of class prot-1, which does have
 the slot.  This could be allowed, and currently is in EIEIO.
@@ -750,24 +750,24 @@ Needed by the eieio persistant base class."
   nil
   "A class for testing the :protection option.")
 
-(defmethod prot1-slot-2 ((s2 prot-1))
+(cl-defmethod prot1-slot-2 ((s2 prot-1))
   "Try to access slot-2 in S2."
   (oref s2 slot-2))
 
-(defmethod prot1-slot-2 ((s2 prot-2))
+(cl-defmethod prot1-slot-2 ((s2 prot-2))
   "Try to access slot-2 in S2."
   (oref s2 slot-2))
 
-(defmethod prot1-slot-3-only ((s2 prot-1))
+(cl-defmethod prot1-slot-3-only ((s2 prot-1))
   "Try to access slot-3 in S2.
 Do not override for `prot-2'."
   (oref s2 slot-3))
 
-(defmethod prot1-slot-3 ((s2 prot-1))
+(cl-defmethod prot1-slot-3 ((s2 prot-1))
   "Try to access slot-3 in S2."
   (oref s2 slot-3))
 
-(defmethod prot1-slot-3 ((s2 prot-2))
+(cl-defmethod prot1-slot-3 ((s2 prot-2))
   "Try to access slot-3 in S2."
   (oref s2 slot-3))
 

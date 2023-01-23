@@ -179,7 +179,7 @@ All directories need at least one target.")
   :method-invocation-order :depth-first)
 
 
-(defmethod initialize-instance ((this ede-maven2-project)
+(cl-defmethod initialize-instance ((this ede-maven2-project)
                                 &rest fields)
   "Make sure the :targets is setup."
   (call-next-method)
@@ -196,7 +196,7 @@ All directories need at least one target.")
 (defvar ede-maven2-compile-command "mvn install"
   "Compile command for Maven2 project")
 
-(defmethod project-compile-project ((obj ede-maven2-project) &optional command)
+(cl-defmethod project-compile-project ((obj ede-maven2-project) &optional command)
   "Compile the entire current project OBJ.
 Argument COMMAND is the command to use when compiling."
   ;; we need to be in the proj root dir for this to work
@@ -204,13 +204,13 @@ Argument COMMAND is the command to use when compiling."
     (compile ede-maven2-compile-command)))
 
 
-(defmethod project-compile-target ((obj ede-maven2-target-java) &optional command)
+(cl-defmethod project-compile-target ((obj ede-maven2-target-java) &optional command)
   "Compile the current target OBJ.
 Argument COMMAND is the command to use for compiling the target."
   (let* ((default-directory (ede-maven2-project-root (oref obj :path))))
     (compile ede-maven2-compile-command)))
 
-(defmethod project-compile-target ((obj ede-maven2-target-misc) &optional command)
+(cl-defmethod project-compile-target ((obj ede-maven2-target-misc) &optional command)
   "Compile the current target OBJ.
 Argument COMMAND is the command to use for compiling the target."
   (let* ((default-directory (ede-maven2-project-root (oref obj :path))))
@@ -218,7 +218,7 @@ Argument COMMAND is the command to use for compiling the target."
 
 ;;; File Stuff
 ;;
- (defmethod ede-project-root-directory ((this ede-maven2-project)
+ (cl-defmethod ede-project-root-directory ((this ede-maven2-project)
                                        &optional file)
    "Return the root for THIS Maven project with file."
 ;;   (file-name-directory (oref this file))
@@ -226,11 +226,11 @@ Argument COMMAND is the command to use for compiling the target."
    )
 
 
- (defmethod ede-project-root ((this ede-maven2-project))
+ (cl-defmethod ede-project-root ((this ede-maven2-project))
    "Return my root."
    this)
 
- (defmethod ede-find-subproject-for-directory ((proj ede-maven2-project)
+ (cl-defmethod ede-find-subproject-for-directory ((proj ede-maven2-project)
                                               dir)
    "Return PROJ, for handling all subdirs below DIR."
    proj)
@@ -251,7 +251,7 @@ Argument COMMAND is the command to use for compiling the target."
       ))
     match))
 
-(defmethod ede-find-target ((proj ede-maven2-project) buffer)
+(cl-defmethod ede-find-target ((proj ede-maven2-project) buffer)
   "Find an EDE target in PROJ for BUFFER.
 If one doesn't exist, create a new one for this directory."
   (let* ((ext (file-name-extension (buffer-file-name buffer)))

@@ -291,7 +291,7 @@ distributed, and each should have a corresponding rule to build it.")
 ;; (defclass ede-step-target-aggregate (ede-target)
 ;;   () ;; this allow the parent to track subprojects in targets.
 ;;   "Dummy class for aggregate target, really a subprojet.")
-;; (defmethod project-rescan ((this ede-step-target-aggregate) &optional unused)
+;; (cl-defmethod project-rescan ((this ede-step-target-aggregate) &optional unused)
 ;;   "A dummy method. Do nothing." nil)
 
 ;;; XXX FIX: add files.make for inclusion (aka tool.make)
@@ -549,27 +549,27 @@ the PROJECT being read in is the root project."
 	(oset project file cfn)
 	(kill-buffer b)))))
 
-(defmethod ede-commit-local-variables ((proj ede-step-project))
+(cl-defmethod ede-commit-local-variables ((proj ede-step-project))
   "Commit change to local variables in PROJ."
   (ede-step-save proj))
 
-(defmethod eieio-done-customizing ((proj ede-step-project))
+(cl-defmethod eieio-done-customizing ((proj ede-step-project))
   "Call this when a user finishes customizing this object.
 Argument PROJ is the project to save."
   (call-next-method)
   (ede-step-save proj))
 
-(defmethod eieio-done-customizing ((target ede-step-target))
+(cl-defmethod eieio-done-customizing ((target ede-step-target))
   "Call this when a user finishes customizing this object.
 Argument TARGET is the project we are completing customization on."
   (call-next-method)
   (ede-step-save (ede-current-project)))
 
-(defmethod ede-commit-project ((proj ede-step-project))
+(cl-defmethod ede-commit-project ((proj ede-step-project))
   "Commit any change to PROJ to its file."
   (ede-step-save proj))
 
-(defmethod ede-buffer-mine ((this ede-step-project) buffer)
+(cl-defmethod ede-buffer-mine ((this ede-step-project) buffer)
   "Return t if object THIS lays claim to the file in BUFFER."
   (let ((f (ede-convert-path this (buffer-file-name buffer))))
     (or (string= (file-name-nondirectory (oref this file)) f)
@@ -578,7 +578,7 @@ Argument TARGET is the project we are completing customization on."
 	(string-match "Makefile\\(\\.\\(preamble\\|postamble\\)\\)?" f)
 	)))
 
-(defmethod ede-buffer-mine ((this ede-step-target) buffer)
+(cl-defmethod ede-buffer-mine ((this ede-step-target) buffer)
   "Return t if object THIS lays claim to the file in BUFFER."
   (or (call-next-method)
       (ede-target-buffer-in-sourcelist this buffer (oref this auxsource))))
@@ -586,7 +586,7 @@ Argument TARGET is the project we are completing customization on."
 
 ;;; Makefile Creation
 ;; XXX @TODO to use better gnustep-make, using standard variables an standard rule {before,internal,after}-*::
-(defmethod ede-proj-makefile-create ((this ede-step-project) mfilename)
+(cl-defmethod ede-proj-makefile-create ((this ede-step-project) mfilename)
   "Create a GNUmakefile for all Makefile targets in THIS.
 MFILENAME is the makefile to generate."
   (when (eq 'writer (oref this :project-mode))
@@ -781,7 +781,7 @@ MFILENAME is the makefile to generate."
 (defvar ede-step-target-history nil
   "History when querying for a target type.")
 
-(defmethod project-new-target ((this ede-step-project)
+(cl-defmethod project-new-target ((this ede-step-project)
 			       &optional name type autoadd)
   "Create a new target in THIS based on the current buffer."
   (if (eq (oref this :project-mode) 'scanner)
@@ -816,7 +816,7 @@ MFILENAME is the makefile to generate."
     ;; And save
     (ede-step-save this)))
 
-(defmethod project-new-target-custom ((this ede-step-project))
+(cl-defmethod project-new-target-custom ((this ede-step-project))
   "Create a new target in THIS for custom."
   (if (eq (oref this :project-mode) 'scanner)
       (warn "This ProjStep is in Scanner Mode, are u sure what are u doing?"))
@@ -827,7 +827,7 @@ MFILENAME is the makefile to generate."
 	     :path (ede-convert-path this default-directory)
 	     :source nil)))
 
-(defmethod project-delete-target ((this ede-step-target))
+(cl-defmethod project-delete-target ((this ede-step-target))
   "Delete the current target THIS from it's parent project."
   (if (eq (oref (ede-current-project (oref this :path)) :project-mode) 'scanner)
       (warn "This ProjStep is in Scanner Mode, are u sure what are u doing?"))
@@ -851,7 +851,7 @@ MFILENAME is the makefile to generate."
     (oset p targets (delq this (oref p targets)))
     (ede-step-save (ede-current-project))))
 
-(defmethod project-add-file ((this ede-step-target) file)
+(cl-defmethod project-add-file ((this ede-step-target) file)
   "Add to target THIS the current buffer represented as FILE."
   (if (eq (oref (ede-current-project (oref this :path)) :project-mode) 'scanner)
       (warn "This ProjStep is in Scanner Mode, are u sure what are u doing?"))
@@ -869,7 +869,7 @@ MFILENAME is the makefile to generate."
 	    (t (error "`project-add-file(ede-target)' source mismatch error")))
       (ede-step-save))))
 
-(defmethod project-remove-file ((target ede-step-target) file)
+(cl-defmethod project-remove-file ((target ede-step-target) file)
   "For TARGET, remove FILE.
 FILE must be massaged by `ede-convert-path'."
   (if (eq (oref (ede-current-project (oref this :path)) :project-mode) 'scanner)
@@ -879,11 +879,11 @@ FILE must be massaged by `ede-convert-path'."
   (object-remove-from-list target 'auxsource (ede-convert-path target file))
   (ede-step-save))
 
-(defmethod project-update-version ((this ede-step-project))
+(cl-defmethod project-update-version ((this ede-step-project))
   "The :version of project THIS has changed."
   (ede-step-save))
 
-(defmethod project-make-dist ((this ede-step-project))
+(cl-defmethod project-make-dist ((this ede-step-project))
   "Build a distribution for the project based on THIS target."
   ;; I'm a lazy bum, so I'll make a makefile for doing this sort
   ;; of thing, and rely only on that small section of code.
@@ -897,14 +897,14 @@ FILE must be massaged by `ede-convert-path'."
     (compile (concat "make -f " pm " dist"))
     ))
 
-(defmethod project-dist-files ((this ede-step-project))
+(cl-defmethod project-dist-files ((this ede-step-project))
   "Return a list of files that constitutes a distribution of THIS project."
   (list
    ;; Note to self, keep this first for the above fn to check against.
    (concat (oref this name) "-" (oref this version) ".tar.gz")
    ))
 
-(defmethod project-compile-project ((proj ede-step-project) &optional command)
+(cl-defmethod project-compile-project ((proj ede-step-project) &optional command)
   "Compile the entire current project PROJ.
 Argument COMMAND is the command to use when compiling."
   (let ((pm (ede-proj-dist-makefile proj))
@@ -915,24 +915,24 @@ Argument COMMAND is the command to use when compiling."
 
 ;;; Target type specific compilations/debug
 ;;
-(defmethod project-compile-target ((obj ede-step-target) &optional command)
+(cl-defmethod project-compile-target ((obj ede-step-target) &optional command)
   "Compile the current target OBJ.
 Argument COMMAND is the command to use for compiling the target."
   (ede-proj-setup-buildenvironment (ede-current-project))
   (compile (concat "make -f " (oref obj makefile) " "
 		   (ede-proj-makefile-target-name obj))))
 
-(defmethod project-debug-target ((obj ede-step-target))
+(cl-defmethod project-debug-target ((obj ede-step-target))
   "Run the current project target OBJ in a debugger."
   (error "Debug-target not supported by %s" (object-name obj)))
 
-(defmethod ede-proj-makefile-target-name ((this ede-step-target))
+(cl-defmethod ede-proj-makefile-target-name ((this ede-step-target))
   "Return the name of the main target for THIS target."
   (ede-name this))
 
 ;;; Compiler and source code generators
 ;;
-(defmethod ede-want-file-auxiliary-p ((this ede-target) file)
+(cl-defmethod ede-want-file-auxiliary-p ((this ede-target) file)
   "Return non-nil if THIS target wants FILE."
   ;; By default, all targets reference the source object, and let it decide.
   (let ((src (ede-target-sourcecode this)))
@@ -947,7 +947,7 @@ Argument COMMAND is the command to use for compiling the target."
   (require 'ede-pmake "ede-pmake.el")
   (require 'ede-pconf "ede-pconf.el"))
 
-(defmethod ede-proj-dist-makefile ((this ede-step-project))
+(cl-defmethod ede-proj-dist-makefile ((this ede-step-project))
   "Return the name of the Makefile with the DIST target in it for THIS."
   (or (ede-gnustep-get-topmost-makefile (oref this directory))
       (concat (file-name-directory (oref this file)) "GNUmakefile")))
@@ -959,7 +959,7 @@ Argument COMMAND is the command to use for compiling the target."
 ;;   (and (eq 'writer (oref (ede-current-project) :project-mode))
 ;;        (ede-proj-setup-buildenvironment (ede-current-project) t)))
 
-(defmethod ede-proj-makefile-create-maybe ((this ede-step-project) mfilename)
+(cl-defmethod ede-proj-makefile-create-maybe ((this ede-step-project) mfilename)
   "Create a Makefile for all Makefile targets in THIS if needed.
 MFILENAME is the makefile to generate."
   ;; For now, pass through until dirty is implemented.
@@ -968,7 +968,7 @@ MFILENAME is the makefile to generate."
 	  (file-newer-than-file-p (oref this file) mfilename))
       (ede-proj-makefile-create this mfilename)))
 
-(defmethod ede-proj-setup-buildenvironment ((this ede-step-project)
+(cl-defmethod ede-proj-setup-buildenvironment ((this ede-step-project)
 					    &optional force)
   "Setup the build environment for project THIS.
 Handles the Makefile, or a Makefile.am configure.in combination.
@@ -1014,7 +1014,7 @@ Optional argument FORCE will force items to be regenerated."
     found))
 
 ;; maybe require some makefile utils
-(defmethod project-rescan ((this ede-step-project))
+(cl-defmethod project-rescan ((this ede-step-project))
   "Rescan the EDE proj project THIS."
   (cond ((eq 'writer (oref this :project-mode))
 	 (ede-with-projectfile this
@@ -1158,7 +1158,7 @@ Optional argument FORCE will force items to be regenerated."
 		     (project-rescan SP)))
 	       ))))))
 
-(defmethod project-rescan ((this ede-step-target) &optional readstream)
+(cl-defmethod project-rescan ((this ede-step-target) &optional readstream)
   "Rescan target THIS from the read list READSTREAM."
   ;; use the root project to distinguish between scanner/writer mode.
   ;; FIX is better something like `ede-target-parent' ??? non force topmost.

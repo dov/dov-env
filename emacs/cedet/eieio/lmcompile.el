@@ -53,14 +53,14 @@
   "Linemark Group for one compile error highlight.
 Tracks additional information about the error.")
 
-(defmethod linemark-new-entry ((g linemark-group) &rest args)
+(cl-defmethod linemark-new-entry ((g linemark-group) &rest args)
   "Create a new entry for G using init ARGS."
   (let ((f (plist-get args :filename))
 	(l (plist-get args :line)))
     (apply 'lmcompile-linemark-entry (format "%s %d" f l)
 	   args)))
 
-(defmethod linemark-display ((e lmcompile-linemark-entry) active-p)
+(cl-defmethod linemark-display ((e lmcompile-linemark-entry) active-p)
   "Set object E to be active or inactive."
   ;; Do the rest of our work
   (call-next-method)

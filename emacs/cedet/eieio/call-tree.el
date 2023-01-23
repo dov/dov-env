@@ -47,7 +47,7 @@
   "Class used to define a tree node representing a lisp function.
 This function is assumed to have been called from it's parent node")
 
-(defmethod edit ((tn call-tree-node))
+(cl-defmethod edit ((tn call-tree-node))
   "Action to take when middle mouse button is clicked."
   (let* ((sym (oref tn symbol))
 	 (sff (locate-library (describe-function-find-file sym)))
@@ -60,7 +60,7 @@ This function is assumed to have been called from it's parent node")
 			       (symbol-name sym) "\\s-+"))
   ))
 
-(defmethod select ((tn call-tree-node))
+(cl-defmethod select ((tn call-tree-node))
   "Action to take when first mouse is clicked."
   (if (featurep 'eldoc)
       (eldoc-print-fnsym-args (oref tn symbol))

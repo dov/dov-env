@@ -1314,7 +1314,7 @@ return the value of the last form in the BODY.
 
 Summary:
 
- (defmethod mymethod [:before | :primary | :after | :static]
+ (cl-defmethod mymethod [:before | :primary | :after | :static]
                      ((typearg class-name) arg2 &optional opt &rest rest)
     \"doc-string\"
      body)"
@@ -2569,10 +2569,10 @@ parents.  This class is not stored in the `parent' slot of a class vector."
 
 (defalias 'standard-class 'eieio-default-superclass)
 
-(defgeneric constructor (class newname &rest slots)
+(cl-defgeneric constructor (class newname &rest slots)
   "Default constructor for CLASS `eieio-defualt-superclass'.")
 
-(defmethod constructor :static
+(cl-defmethod constructor :static
   ((class eieio-default-superclass) newname &rest slots)
   "Default constructor for CLASS `eieio-defualt-superclass'.
 NEWNAME is the name to be given to the constructed object.
@@ -2590,11 +2590,11 @@ calls `shared-initialize' on that object."
     ;; Return the created object.
     new-object))
 
-(defgeneric shared-initialize (obj slots)
+(cl-defgeneric shared-initialize (obj slots)
   "Set slots of OBJ with SLOTS which is a list of name/value pairs.
 Called from the constructor routine.")
 
-(defmethod shared-initialize ((obj eieio-default-superclass) slots)
+(cl-defmethod shared-initialize ((obj eieio-default-superclass) slots)
   "Set slots of OBJ with SLOTS which is a list of name/value pairs.
 Called from the constructor routine."
   (let ((scoped-class (aref obj object-class)))
@@ -2606,10 +2606,10 @@ Called from the constructor routine."
 	  (eieio-oset obj rn (car (cdr slots)))))
       (setq slots (cdr (cdr slots))))))
 
-(defgeneric initialize-instance (this &optional slots)
+(cl-defgeneric initialize-instance (this &optional slots)
     "Constructs the new object THIS based on SLOTS.")
 
-(defmethod initialize-instance ((this eieio-default-superclass)
+(cl-defmethod initialize-instance ((this eieio-default-superclass)
 				&optional slots)
     "Constructs the new object THIS based on SLOTS.
 SLOTS is a tagged list where odd numbered elements are tags, and
@@ -2641,10 +2641,10 @@ dynamically set from SLOTS."
     ;; Shared initialize will parse our slots for us.
     (shared-initialize this slots))
 
-(defgeneric slot-missing (object slot-name operation &optional new-value)
+(cl-defgeneric slot-missing (object slot-name operation &optional new-value)
   "Method invoked when an attempt to access a slot in OBJECT fails.")
 
-(defmethod slot-missing ((object eieio-default-superclass) slot-name
+(cl-defmethod slot-missing ((object eieio-default-superclass) slot-name
 			 operation &optional new-value)
   "Method invoked when an attempt to access a slot in OBJECT fails.
 SLOT-NAME is the name of the failed slot, OPERATION is the type of access
@@ -2656,10 +2656,10 @@ directly reference slots in EIEIO objects."
   (signal 'invalid-slot-name (list (object-name object)
 				   slot-name)))
 
-(defgeneric slot-unbound (object class slot-name fn)
+(cl-defgeneric slot-unbound (object class slot-name fn)
   "Slot unbound is invoked during an attempt to reference an unbound slot.")
 
-(defmethod slot-unbound ((object eieio-default-superclass)
+(cl-defmethod slot-unbound ((object eieio-default-superclass)
 			 class slot-name fn)
   "Slot unbound is invoked during an attempt to reference an unbound slot.
 OBJECT is the instance of the object being reference.  CLASS is the
@@ -2674,10 +2674,10 @@ EIEIO can only dispatch on the first argument, so the first two are swapped."
   (signal 'unbound-slot (list (class-name class) (object-name object)
 			      slot-name fn)))
 
-(defgeneric no-applicable-method (object method &rest args)
+(cl-defgeneric no-applicable-method (object method &rest args)
   "Called if there are no implementations for OBJECT in METHOD.")
 
-(defmethod no-applicable-method ((object eieio-default-superclass)
+(cl-defmethod no-applicable-method ((object eieio-default-superclass)
 				 method &rest args)
   "Called if there are no implementations for OBJECT in METHOD.
 OBJECT is the object which has no method implementation.
@@ -2688,10 +2688,10 @@ value becomes the return value of the original method call."
   (signal 'no-method-definition (list method (object-name object)))
   )
 
-(defgeneric no-next-method (object &rest args)
+(cl-defgeneric no-next-method (object &rest args)
 "Called from `call-next-method' when no additional methods are available.")
 
-(defmethod no-next-method ((object eieio-default-superclass)
+(cl-defmethod no-next-method ((object eieio-default-superclass)
 			   &rest args)
   "Called from `call-next-method' when no additional methods are available.
 OBJECT is othe object being called on `call-next-method'.
@@ -2702,14 +2702,14 @@ return value of `call-next-method'."
   (signal 'no-next-method (list (object-name object) args))
 )
 
-(defgeneric clone (obj &rest params)
+(cl-defgeneric clone (obj &rest params)
   "Make a copy of OBJ, and then supply PARAMS.
 PARAMS is a parameter list of the same form used by `initialize-instance'.
 
 When overloading `clone', be sure to call `call-next-method'
 first and modify the returned object.")
 
-(defmethod clone ((obj eieio-default-superclass) &rest params)
+(cl-defmethod clone ((obj eieio-default-superclass) &rest params)
   "Make a copy of OBJ, and then apply PARAMS."
   (let ((nobj (copy-sequence obj))
 	(nm (aref obj object-name))
@@ -2725,24 +2725,24 @@ first and modify the returned object.")
       (aset nobj object-name (car params)))
     nobj))
 
-(defgeneric destructor (this &rest params)
+(cl-defgeneric destructor (this &rest params)
   "Destructor for cleaning up any dynamic links to our object.")
 
-(defmethod destructor ((this eieio-default-superclass) &rest params)
+(cl-defmethod destructor ((this eieio-default-superclass) &rest params)
   "Destructor for cleaning up any dynamic links to our object.
 Argument THIS is the object being destroyed.  PARAMS are additional
 ignored parameters."
   ;; No cleanup... yet.
   )
 
-(defgeneric object-print (this &rest strings)
+(cl-defgeneric object-print (this &rest strings)
   "Pretty printer for object THIS.  Call function `object-name' with STRINGS.
 
 It is sometimes useful to put a summary of the object into the
 default #<notation> string when using eieio browsing tools.
 Implement this method to customize the summary.")
 
-(defmethod object-print ((this eieio-default-superclass) &rest strings)
+(cl-defmethod object-print ((this eieio-default-superclass) &rest strings)
   "Pretty printer for object THIS.  Call function `object-name' with STRINGS.
 The default method for printing object THIS is to use the
 function `object-name'.
@@ -2759,11 +2759,11 @@ to prepend a space."
 (defvar eieio-print-depth 0
   "When printing, keep track of the current indentation depth.")
 
-(defgeneric object-write (this &optional comment)
+(cl-defgeneric object-write (this &optional comment)
   "Write out object THIS to the current stream.
 Optional COMMENDS will add comments to the beginning of the output.")
 
-(defmethod object-write ((this eieio-default-superclass) &optional comment)
+(cl-defmethod object-write ((this eieio-default-superclass) &optional comment)
   "Write object THIS out to the current stream.
 This writes out the vector version of this object.  Complex and recursive
 object are discouraged from being written.

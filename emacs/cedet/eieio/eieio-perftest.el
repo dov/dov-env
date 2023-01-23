@@ -38,15 +38,15 @@
    )
   "Subclass for some performance tests.")
 
-(defmethod eieio-perftest-meth-1 ((this eieio-perftest-1))
+(cl-defmethod eieio-perftest-meth-1 ((this eieio-perftest-1))
   "Performance test method."
   (+ 1 1))
 
-(defmethod eieio-perftest-meth-1 ((this eieio-perftest-2))
+(cl-defmethod eieio-perftest-meth-1 ((this eieio-perftest-2))
   "Performance test method."
   (+ 1 (call-next-method)))
 
-(defmethod eieio-perftest-meth-2 ((this eieio-perftest-1))
+(cl-defmethod eieio-perftest-meth-2 ((this eieio-perftest-1))
   "Performance test method."
   (+ 1 1))
 

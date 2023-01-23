@@ -287,11 +287,11 @@ Optional argument POS is a postion."
    )
   "Base class for a tree node")
 
-(defmethod select ((tn tree-node))
+(cl-defmethod select ((tn tree-node))
   "Action to take when first mouse is clicked."
   (message "Clicked on node %s" (object-name tn))
   )
-(defmethod edit ((tn tree-node))
+(cl-defmethod edit ((tn tree-node))
   "Action to take when middle mouse button is clicked."
   (let ((nn (read-string "New name: ")))
     (oset tn name nn))
@@ -299,7 +299,7 @@ Optional argument POS is a postion."
   (tree-refresh-tree)
   (goto-char (oref tn currentpos))
   )
-(defmethod change-scope ((tn tree-node))
+(cl-defmethod change-scope ((tn tree-node))
   "Action to take when last mouse is clicked on this node"
   (if (oref tn children)
       (progn
@@ -476,12 +476,12 @@ Requires text-properties"
 	  :initform nil))
   "Tree node used to represent eieio classes")
 
-(defmethod edit ((etn eieio-tree-node))
+(cl-defmethod edit ((etn eieio-tree-node))
   "Don't really edit, but pull up details about the given widget using
 `eieio-describe-class'"
   (eieio-describe-class (oref etn class)))
 
-(defmethod select ((etn eieio-tree-node))
+(cl-defmethod select ((etn eieio-tree-node))
   "Display a tiny bit of info about this object which might be useful"
   (message "%s" (class-name (oref etn class)))
   )
@@ -529,16 +529,16 @@ Optional argument ROOT-CLASS is the starting point."
    )
   "A tree-node child class for displaying a directory.")
 
-(defmethod edit ((dtn dirtree-node))
+(cl-defmethod edit ((dtn dirtree-node))
   "Action to take when this node is clicked."
   (find-file (format "%s%s" (oref dtn pathname) (oref dtn name)))
 )
-(defmethod select ((dtn dirtree-node))
+(cl-defmethod select ((dtn dirtree-node))
   "Action to take when this node is clicked."
   (shell-command (format "ls -ld %s%s" (oref dtn pathname)
 			 (oref dtn name)))
 )
-(defmethod change-scope ((dtn dirtree-node))
+(cl-defmethod change-scope ((dtn dirtree-node))
   "Action to take when last mouse is clicked on this node"
   ;; check for new nodes...
   (if (equal (oref dtn haschildren) 'unknown)

@@ -510,7 +510,7 @@ is pretty easy.  Here is an example for supporting SCons:
    )
   "Generic Project for scons.")
 
-(defmethod ede-generic-setup-configuration ((proj ede-generic-scons-project) config)
+(cl-defmethod ede-generic-setup-configuration ((proj ede-generic-scons-project) config)
   "Setup a configuration for SCONS."
   (oset config build-command "scons")
   (oset config debug-command "gdb ")

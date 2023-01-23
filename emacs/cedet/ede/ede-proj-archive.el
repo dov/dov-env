@@ -45,7 +45,7 @@
    :objectextention "")
   "Linker object for creating an archive.")
 
-(defmethod ede-proj-makefile-insert-source-variables :BEFORE
+(cl-defmethod ede-proj-makefile-insert-source-variables :BEFORE
   ((this ede-proj-target-makefile-archive) &optional moresource)
   "Insert bin_PROGRAMS variables needed by target THIS.
 We aren't acutally inserting SOURCE details, but this is used by the
@@ -54,7 +54,7 @@ Makefile.am generator, so use it to add this important bin program."
       (concat "lib" (ede-name this) "_a_LIBRARIES")
     (insert (concat "lib" (ede-name this) ".a"))))
 
-(defmethod ede-proj-makefile-garbage-patterns
+(cl-defmethod ede-proj-makefile-garbage-patterns
   ((this ede-proj-target-makefile-archive))
   "Add archive name to the garbage patterns.
 This makes sure that the archive is removed with 'make clean'."

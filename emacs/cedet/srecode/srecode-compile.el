@@ -108,7 +108,7 @@ additional static argument data."))
 Plain text strings are not handled via this baseclass."
   :abstract t)
 
-(defmethod srecode-parse-input ((ins srecode-template-inserter)
+(cl-defmethod srecode-parse-input ((ins srecode-template-inserter)
 				tag input STATE)
   "For the template inserter INS, parse INPUT.
 Shorten input only by the amount needed.
@@ -116,15 +116,15 @@ Return the remains of INPUT.
 STATE is the current compilation state."
   input)
 
-(defmethod srecode-match-end ((ins srecode-template-inserter) name)
+(cl-defmethod srecode-match-end ((ins srecode-template-inserter) name)
   "For the template inserter INS, do I end a section called NAME?"
   nil)
 
-(defmethod srecode-inserter-apply-state ((ins srecode-template-inserter) STATE)
+(cl-defmethod srecode-inserter-apply-state ((ins srecode-template-inserter) STATE)
   "For the template inserter INS, apply information from STATE."
   nil)
 
-(defmethod srecode-inserter-prin-example :STATIC ((ins srecode-template-inserter)
+(cl-defmethod srecode-inserter-prin-example :STATIC ((ins srecode-template-inserter)
 						  escape-start escape-end)
   "Insert an example using inserter INS.
 Arguments ESCAPE-START and ESCAPE-END are the current escape sequences in use."
@@ -151,7 +151,7 @@ Arguments ESCAPE-START and ESCAPE-END are the current escape sequences in use."
    )
   "Current state of the compile.")
 
-(defmethod srecode-compile-add-prompt ((state srecode-compile-state)
+(cl-defmethod srecode-compile-add-prompt ((state srecode-compile-state)
 				       prompttag)
   "Add PROMPTTAG to the current list of prompts."
   (with-slots (prompts) state
@@ -576,7 +576,7 @@ A list of defined variables VARS provides a variable table."
 ;; Dump out information about the current srecoder compiled templates.
 ;;
 
-(defmethod srecode-dump ((tmp srecode-template))
+(cl-defmethod srecode-dump ((tmp srecode-template))
   "Dump the contents of the SRecode template tmp."
   (princ "== Template \"")
   (princ (object-name-string tmp))
@@ -622,7 +622,7 @@ Argument INDENT specifies the indentation level for the list."
 	(princ "\n"))))
   )
 
-(defmethod srecode-dump ((ins srecode-template-inserter) indent)
+(cl-defmethod srecode-dump ((ins srecode-template-inserter) indent)
   "Dump the state of the SRecode template inserter INS."
   (princ "INS: \"")
   (princ (object-name-string ins))

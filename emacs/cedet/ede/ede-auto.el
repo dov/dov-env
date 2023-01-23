@@ -86,12 +86,12 @@ type is required and the load function used.")
 
 ;;; EDE project-autoload methods
 ;;
-(defmethod ede-project-root ((this ede-project-autoload))
+(cl-defmethod ede-project-root ((this ede-project-autoload))
   "If a project knows its root, return it here.
 Allows for one-project-object-for-a-tree type systems."
   nil)
 
-(defmethod ede-project-root-directory ((this ede-project-autoload)
+(cl-defmethod ede-project-root-directory ((this ede-project-autoload)
 				       &optional file)
   "If a project knows its root, return it here.
 Allows for one-project-object-for-a-tree type systems.
@@ -108,7 +108,7 @@ the current buffer."
 	   (funcall rootfcn)))
 	))))
 
-(defmethod ede-dir-to-projectfile ((this ede-project-autoload) dir)
+(cl-defmethod ede-dir-to-projectfile ((this ede-project-autoload) dir)
   "Return a full file name of project THIS found in DIR.
 Return nil if the project file does not exist."
   (let* ((d (file-name-as-directory dir))

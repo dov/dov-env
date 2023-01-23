@@ -223,7 +223,7 @@ Argument OLDFUN is removed NEWFUN is substituted in."
   "The tool-bar used for COGRE mode.")
 
 
-(defmethod cogre-insert-class-list ((graph cogre-base-graph))
+(cl-defmethod cogre-insert-class-list ((graph cogre-base-graph))
   "Return a list of classes GRAPH will accept."
   (eieio-build-class-alist 'cogre-graph-element))
 

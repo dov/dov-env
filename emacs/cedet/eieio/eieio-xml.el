@@ -59,7 +59,7 @@
     ))
 
 ;;;###autoload
-(defmethod object-write-xml ((this eieio-default-superclass) &optional comment)
+(cl-defmethod object-write-xml ((this eieio-default-superclass) &optional comment)
   "Write object THIS out to the current stream as XML.
   If optional COMMENT is non-nil, include comments when outputting
 this object.

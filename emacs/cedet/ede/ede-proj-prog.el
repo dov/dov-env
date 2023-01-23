@@ -68,14 +68,14 @@ Note: Currently only used for Automake projects."
    )
    "This target is an executable program.")
 
-(defmethod ede-proj-makefile-insert-automake-pre-variables
+(cl-defmethod ede-proj-makefile-insert-automake-pre-variables
   ((this ede-proj-target-makefile-program))
   "Insert bin_PROGRAMS variables needed by target THIS."
   (ede-pmake-insert-variable-shared "bin_PROGRAMS"
     (insert (ede-name this)))
   (call-next-method))
 
-(defmethod ede-proj-makefile-insert-automake-post-variables
+(cl-defmethod ede-proj-makefile-insert-automake-post-variables
   ((this ede-proj-target-makefile-program))
   "Insert bin_PROGRAMS variables needed by target THIS."
   (ede-pmake-insert-variable-shared
@@ -87,7 +87,7 @@ Note: Currently only used for Automake projects."
     )
   (call-next-method))
 
-(defmethod ede-proj-makefile-insert-variables ((this ede-proj-target-makefile-program))
+(cl-defmethod ede-proj-makefile-insert-variables ((this ede-proj-target-makefile-program))
   "Insert variables needed by the compiler THIS."
   (call-next-method)
   (let ((lf (mapconcat 'identity (oref this ldflags) " ")))
@@ -99,7 +99,7 @@ Note: Currently only used for Automake projects."
     (when (and lf (not (string= "" lf)))
       (ede-pmake-insert-variable-once "LDDEPS" (insert lf)))))
 
-(defmethod project-debug-target ((obj ede-proj-target-makefile-program))
+(cl-defmethod project-debug-target ((obj ede-proj-target-makefile-program))
   "Debug a program target OBJ."
   (let ((tb (get-buffer-create " *padt*"))
 	(dd (if (not (string= (oref obj path) ""))
@@ -117,7 +117,7 @@ Note: Currently only used for Automake projects."
 	  (funcall ede-debug-program-function cmd))
       (kill-buffer tb))))
 
-(defmethod project-run-target ((obj ede-proj-target-makefile-program) &optional command)
+(cl-defmethod project-run-target ((obj ede-proj-target-makefile-program) &optional command)
   "Run a program target OBJ.
 Optional COMMAND is the command to run in place of asking the user."
   (require 'ede-shell)

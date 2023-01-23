@@ -41,7 +41,7 @@
    )
   "This target consists of scheme files.")
 
-(defmethod ede-proj-tweak-autoconf ((this ede-proj-target-scheme))
+(cl-defmethod ede-proj-tweak-autoconf ((this ede-proj-target-scheme))
   "Tweak the configure file (current buffer) to accomodate THIS."
   (autoconf-insert-new-macro "AM_INIT_GUILE_MODULE"))
 

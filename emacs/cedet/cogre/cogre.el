@@ -96,15 +96,15 @@ to be linked to other items in the system defined by the peers.
 Subclasses should define slots to store their data."
   :abstract t)
 
-(defmethod cogre-peer-update-from-source ((peer cogre-element-peer) element)
+(cl-defmethod cogre-peer-update-from-source ((peer cogre-element-peer) element)
   "Update the PEER object, and ELEMENT from environment."
   nil)
 
-(defmethod cogre-peer-update-from-element ((peer cogre-element-peer) element)
+(cl-defmethod cogre-peer-update-from-element ((peer cogre-element-peer) element)
   "Update the PEER object, from the ELEMENT data, changing the environment."
   nil)
 
-(defmethod cogre-peer-source-file ((peer cogre-element-peer))
+(cl-defmethod cogre-peer-source-file ((peer cogre-element-peer))
   "Does this peer have a source file?"
   nil)
 
@@ -166,7 +166,7 @@ A 3 means just the package and name.")
 a connected graph contains a series of nodes and links which are
 rendered in a buffer, or serialized to disk.")
 
-(defmethod initialize-instance ((G cogre-base-graph) fields)
+(cl-defmethod initialize-instance ((G cogre-base-graph) fields)
   "Initialize ELT's name before the main FIELDS are initialized."
   (call-next-method)
   (oset G buffer (current-buffer))
@@ -486,7 +486,7 @@ Returns a list of return values from each call of function."
   "The graph from which a custom buffer originated.")
 (make-variable-buffer-local 'cogre-custom-originating-graph-buffer)
 
-(defmethod cogre-activate ((element cogre-graph-element))
+(cl-defmethod cogre-activate ((element cogre-graph-element))
   "Activate ELEMENT.
 This could be as simple as displaying the current state,
 customizing the object, or performing some complex task."
@@ -496,7 +496,7 @@ customizing the object, or performing some complex task."
     (setq cogre-custom-originating-graph-buffer b))
   )
 
-(defmethod eieio-done-customizing ((element cogre-graph-element))
+(cl-defmethod eieio-done-customizing ((element cogre-graph-element))
   "Finish customizing a graph element."
   (cogre-set-dirty element t)
   (save-excursion
@@ -504,27 +504,27 @@ customizing the object, or performing some complex task."
     (cogre-render-buffer cogre-graph t))
   )
 
-(defmethod eieio-done-customizing ((g cogre-base-graph))
+(cl-defmethod eieio-done-customizing ((g cogre-base-graph))
   "Finish customizing a graph element."
   (save-excursion
     (set-buffer cogre-custom-originating-graph-buffer)
     (cogre-render-buffer g t))
   )
 
-(defmethod cogre-augment-element-menu ((node cogre-graph-element) menu)
+(cl-defmethod cogre-augment-element-menu ((node cogre-graph-element) menu)
   "For NODE, augment the current element MENU.
 Return the modified element."
   nil)
 
-(defmethod cogre-augment-element-menu ((node cogre-node) menu)
+(cl-defmethod cogre-augment-element-menu ((node cogre-node) menu)
   "For NODE, augment the current element MENU.
 Return the modified element." nil)
 
-(defmethod cogre-add-element ((graph cogre-base-graph) elt)
+(cl-defmethod cogre-add-element ((graph cogre-base-graph) elt)
   "Add to GRAPH a new element ELT."
   (object-add-to-list graph 'elements elt t))
 
-(defmethod cogre-delete-element ((graph cogre-base-graph) elt)
+(cl-defmethod cogre-delete-element ((graph cogre-base-graph) elt)
   "Delete from GRAPH the element ELT."
   (object-remove-from-list graph 'elements elt))
 
@@ -533,7 +533,7 @@ Return the modified element." nil)
 If GRAPH is nil, use the current graph."
   (object-assoc name :object-name (oref (or graph cogre-graph) elements)))
 
-(defmethod cogre-unique-name ((graph cogre-base-graph) name)
+(cl-defmethod cogre-unique-name ((graph cogre-base-graph) name)
   "Within GRAPH, make NAME unique."
   (let ((newname name)
 	(obj (cogre-find-node-by-name name graph))
@@ -544,23 +544,23 @@ If GRAPH is nil, use the current graph."
       (setq obj (cogre-find-node-by-name newname graph)))
     newname))
 
-(defmethod cogre-set-dirty ((element cogre-graph-element) dirty-state)
+(cl-defmethod cogre-set-dirty ((element cogre-graph-element) dirty-state)
   "Set the dirty state for ELEMENT to DIRTY-STATE."
   (oset element dirty dirty-state))
 
-(defmethod cogre-set-dirty ((node cogre-node) dirty-state)
+(cl-defmethod cogre-set-dirty ((node cogre-node) dirty-state)
   "Set the dirty state for NODE to DIRTY-STATE."
   (if dirty-state (oset node rectangle nil))
   (call-next-method))
 
-(defmethod initialize-instance ((elt cogre-graph-element) fields)
+(cl-defmethod initialize-instance ((elt cogre-graph-element) fields)
   "Initialize ELT's name before the main FIELDS are initialized."
   (unless cogre-loading-from-file
     (let ((n (oref elt name-default)))
       (object-set-name-string elt n)))
   (call-next-method))
 
-(defmethod initialize-instance :AFTER ((elt cogre-graph-element) fields)
+(cl-defmethod initialize-instance :AFTER ((elt cogre-graph-element) fields)
   "When creating a new element, add it to the current graph.
 Argument ELT is the element being created.
 Argument FIELDS are ignored."
@@ -572,7 +572,7 @@ Argument FIELDS are ignored."
 
 ;;; Buffer Rendering
 ;;
-(defmethod cogre-render-buffer ((graph cogre-base-graph) &optional erase)
+(cl-defmethod cogre-render-buffer ((graph cogre-base-graph) &optional erase)
   "Render the current graph GRAPH.
 If optional argument ERASE is non-nil, then erase the buffer,
 and render everything.  If ERASE is nil, then only redraw items
@@ -593,42 +593,42 @@ with dirty flags set."
     (unless oldmod (set-buffer-modified-p nil))
     (picture-goto-coordinate x y)))
 
-(defmethod cogre-render ((element cogre-graph-element))
+(cl-defmethod cogre-render ((element cogre-graph-element))
   "Render ELEMENT.
 By default, an ELEMENT has nothing to see, but assume we
 are called from `call-next-method', so reset our dirty flag."
   (cogre-set-dirty element nil))
 
-(defmethod cogre-erase ((element cogre-graph-element))
+(cl-defmethod cogre-erase ((element cogre-graph-element))
   "Erase ELEMENT.
 By default, an ELEMENT has nothing to erase, but assume we
 are called from `call-next-method', so set our dirty flag."
   (cogre-set-dirty element t))
 
-(defmethod cogre-element-pre-serialize ((elt cogre-graph-element))
+(cl-defmethod cogre-element-pre-serialize ((elt cogre-graph-element))
   "Prepare the current node to be serialized.
 Remove all pointers to objects (such as links), and replace
 with something reversable."
   )
 
-(defmethod cogre-element-post-serialize ((elt cogre-graph-element))
+(cl-defmethod cogre-element-post-serialize ((elt cogre-graph-element))
   "Restore object pointers after being loaded from disk.
 Also called after a graph was saved to restore all objects.
 Reverses `cogre-graph-pre-serialize'."
   )
 
-(defmethod cogre-entered ((element cogre-graph-element) start end)
+(cl-defmethod cogre-entered ((element cogre-graph-element) start end)
   "Method called when the cursor enters ELEMENT.
 START and END cover the region with the property."
   nil)
 
-(defmethod cogre-left ((element cogre-graph-element) start end)
+(cl-defmethod cogre-left ((element cogre-graph-element) start end)
   "Method called when the cursor exits ELEMENT.
 START and END cover the region with the property."
   nil)
 
 ;;; Nodes
-(defmethod cogre-erase ((node cogre-node))
+(cl-defmethod cogre-erase ((node cogre-node))
   "Erase NODE from the screen."
   (let ((position (oref node position))
 	(rectangle (cogre-node-rectangle node))
@@ -639,7 +639,7 @@ START and END cover the region with the property."
     (mapc 'cogre-erase links))
   (call-next-method))
 
-(defmethod cogre-node-links ((node cogre-node))
+(cl-defmethod cogre-node-links ((node cogre-node))
   "Return a list of links which reference NODE."
   (with-slots (elements) cogre-graph
     (let ((links nil))
@@ -650,12 +650,12 @@ START and END cover the region with the property."
 	    elements)
       links)))
 
-(defmethod cogre-node-rectangle  ((node cogre-node))
+(cl-defmethod cogre-node-rectangle  ((node cogre-node))
   "Fetch the rectangle representation for NODE."
   (or (oref node rectangle)
       (cogre-node-rebuild node)))
 
-(defmethod cogre-render ((node cogre-node))
+(cl-defmethod cogre-render ((node cogre-node))
   "Render NODE in the current graph."
   (cogre-node-rectangle node)
   (with-slots (position rectangle) node
@@ -664,7 +664,7 @@ START and END cover the region with the property."
     )
   (call-next-method))
 
-(defmethod cogre-node-rebuild ((node cogre-node))
+(cl-defmethod cogre-node-rebuild ((node cogre-node))
   "Create a new value for `:rectangle' in NODE.
 The `:rectangle' slot is inserted with rectangle commands.
 A Rectangle is basically a list of equal length strings.
@@ -678,7 +678,7 @@ setting``cogre-node-rebuild-method'."
       (funcall cogre-node-rebuild-method node)
     (cogre-node-rebuild-default node)))
 
-(defmethod cogre-node-rebuild-default ((node cogre-node))
+(cl-defmethod cogre-node-rebuild-default ((node cogre-node))
   "Create a new value for `:rectangle' in NODE.
 The `:rectangle' slot is inserted with rectangle commands.
 A Rectangle is basically a list of equal length strings.
@@ -746,30 +746,30 @@ Always make the width 2 greater than the widest string."
 	    bottom-lines (1- bottom-lines)))
     (oset node rectangle (nreverse rect))))
 
-(defmethod cogre-move-delta ((node cogre-node) dx dy)
+(cl-defmethod cogre-move-delta ((node cogre-node) dx dy)
   "Move NODE's position by DX, DY."
   (let ((p (oref node position)))
     (cogre-move node (+ (aref p 0) dx) (+ (aref p 1) dy))))
 
-(defmethod cogre-move ((node cogre-node) x y)
+(cl-defmethod cogre-move ((node cogre-node) x y)
   "Move NODE to position X, Y."
   (if (> 0 x) (setq x 0))
   (if (> 0 y) (setq y 0))
   (oset node position (vector x y))
   )
 
-(defmethod cogre-node-title ((node cogre-node))
+(cl-defmethod cogre-node-title ((node cogre-node))
   "Return a list of strings representing the title of the NODE.
 For example: ( \"Title\" ) or ( \"<Type>\" \"Title\" )"
   (list (oref node object-name)))
 
-(defmethod cogre-node-slots ((node cogre-node))
+(cl-defmethod cogre-node-slots ((node cogre-node))
   "For NODE, return a list of slot lists.
 Slots are individual lines of text appearing in the body of a node.
 Each list will be prefixed with a line before it."
   nil)
 
-(defmethod cogre-node-widest-string ((node cogre-node))
+(cl-defmethod cogre-node-widest-string ((node cogre-node))
   "Return the widest string in NODE."
   (let ((names (cogre-node-title node))
 	(slots (cogre-node-slots node))
@@ -872,7 +872,7 @@ The data returned is (X1 Y1 X2 Y2)."
 
 ;;; Links
 ;;
-(defmethod cogre-element-pre-serialize ((link cogre-link))
+(cl-defmethod cogre-element-pre-serialize ((link cogre-link))
   "Prepare the current node to be serialized.
 Remove all pointers to objects (such as links), and replace
 with something reversable."
@@ -885,7 +885,7 @@ with something reversable."
     )
   )
 
-(defmethod cogre-element-post-serialize ((link cogre-link))
+(cl-defmethod cogre-element-post-serialize ((link cogre-link))
   "Restore object pointers in LINK after being loaded from disk.
 Also called after a graph was saved to restore all objects.
 Reverses `cogre-graph-pre-serialize'."
@@ -903,7 +903,7 @@ Reverses `cogre-graph-pre-serialize'."
 (defvar cogre-erase-mode nil
   "Non nil means we are in erase mode while rendering this link.")
 
-(defmethod cogre-erase ((link cogre-link))
+(cl-defmethod cogre-erase ((link cogre-link))
   "Erase LINK from the screen."
   (let ((picture-rectangle-ctl ? )
 	(picture-rectangle-ctr ? )
@@ -918,7 +918,7 @@ Reverses `cogre-graph-pre-serialize'."
       (cogre-render link))
     (call-next-method)))
 
-(defmethod cogre-render ((link cogre-link))
+(cl-defmethod cogre-render ((link cogre-link))
   "Render LINK in the current graph."
   (with-slots (start end start-glyph end-glyph) link
     (let* ((hd (cogre-node-horizontal-distance start end))
@@ -993,7 +993,7 @@ Reverses `cogre-graph-pre-serialize'."
 ;;
 ;; Save and restore graphs to disk
 
-(defmethod cogre-save ((graph cogre-base-graph))
+(cl-defmethod cogre-save ((graph cogre-base-graph))
   "Save the current graph."
   (cogre-map-elements 'cogre-element-pre-serialize graph)
   (unwind-protect
@@ -1001,7 +1001,7 @@ Reverses `cogre-graph-pre-serialize'."
     (cogre-map-elements 'cogre-element-post-serialize graph))
   t)
 
-(defmethod cogre-write-save-text ((graph cogre-base-graph))
+(cl-defmethod cogre-write-save-text ((graph cogre-base-graph))
   "Write GRAPH to standard-output as save text."
   (cogre-map-elements 'cogre-element-pre-serialize graph)
   (unwind-protect

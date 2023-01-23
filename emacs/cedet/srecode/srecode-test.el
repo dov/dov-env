@@ -56,7 +56,7 @@ Place cursor on the ! and delete it.
 If there is a second !, the put the mark there."))
   "A single template test.")
 
-(defmethod srecode-utest-test ((o srecode-utest-output))
+(cl-defmethod srecode-utest-test ((o srecode-utest-output))
   "Perform the insertion and test the output.
 Assumes that the current buffer is the testing buffer."
   (with-slots (name (output-1 :output) dict-entries pre-fill) o

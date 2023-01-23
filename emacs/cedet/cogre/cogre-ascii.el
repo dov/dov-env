@@ -75,7 +75,7 @@ The string will have a box chars, such as | on either side."
 	  str
 	  (make-string 1 picture-rectangle-v)))
 
-(defmethod cogre-node-rebuild-ascii ((node cogre-node))
+(cl-defmethod cogre-node-rebuild-ascii ((node cogre-node))
   "Create a new value for `:rectangle' in NODE.
 The `:rectangle' slot is inserted with rectangle commands.
 A Rectangle is basically a list of equal length strings.
@@ -127,7 +127,7 @@ Always make the width 2 greater than the widest string."
     (oset node rectangle (nreverse rect))))
 
 
-(defmethod cogre-node-rebuild-ascii ((node cogre-package))
+(cl-defmethod cogre-node-rebuild-ascii ((node cogre-package))
   "Create the text rectangle for the COGRE package.
 Calls the base method, and takes the return argument and
 tweaks the faces."
@@ -148,7 +148,7 @@ tweaks the faces."
     ;; Return it.
     rect))
     
-(defmethod cogre-node-rebuild-ascii ((node cogre-note))
+(cl-defmethod cogre-node-rebuild-ascii ((node cogre-note))
   "Create the text rectangle for the COGRE package.
 Calls the base method, and takes the return argument and
 tweaks the faces."

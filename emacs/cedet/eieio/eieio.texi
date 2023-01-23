@@ -139,7 +139,7 @@ You can create methods against your classes.  A simple method may look
 like this:
 
 @example
-(defmethod call-record ((rec record) &optional scriptname)
+(cl-defmethod call-record ((rec record) &optional scriptname)
   "Dial the phone for the record REC.
 Execute the program SCRIPTNAME as to dial the phone."
   (message "Dialing the phone for %s"  (oref rec name))
@@ -914,7 +914,7 @@ function documentation.
 
 Only the @emph{first} argument may have a type specifier.
 @example
-(defmethod mymethod ((obj classname) secondarg)
+(cl-defmethod mymethod ((obj classname) secondarg)
   "Doc string" )
 @end example
 
@@ -1713,7 +1713,7 @@ to prepend a space.
    (value)
    "Object containing one data slot.")
 
-(defmethod object-print ((this data-object) &optional strings)
+(cl-defmethod object-print ((this data-object) &optional strings)
   "Return a string with a summary of the data object as part of the name."
   (apply 'call-next-method this 
          (cons (format " value: %s" (render this)) strings)))

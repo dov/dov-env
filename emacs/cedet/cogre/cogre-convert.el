@@ -164,7 +164,7 @@ DOT is a part of GraphVis."
       )))
 
 ;;;###autoload
-(defmethod cogre-export-dot-method ((g cogre-base-graph))
+(cl-defmethod cogre-export-dot-method ((g cogre-base-graph))
   "Convert G into DOT syntax of semantic tags."
   (save-excursion
     (set-buffer (oref g buffer))
@@ -198,7 +198,7 @@ This works similarly to `semantic-tag-put-attribute'."
     tag))
 
 ;;; NODES
-(defmethod cogre-export-dot-method ((node cogre-node))
+(cl-defmethod cogre-export-dot-method ((node cogre-node))
   "Convert NODE into DOT syntax of semantic tags."
   (semantic-tag
    (oref node :object-name)
@@ -231,7 +231,7 @@ DOT uses points, where as COGRE uses characters."
   :group 'cogre
   :type 'cons)
 
-(defmethod cogre-export-dot-pos ((node cogre-node))
+(cl-defmethod cogre-export-dot-pos ((node cogre-node))
   "Return a DOT compatible position."
   (let* ((pos (oref node position))
 	 (scalex (car cogre-dot-node-position-scale))
@@ -240,27 +240,27 @@ DOT uses points, where as COGRE uses characters."
 	    ;; Dot does stuff upside-down, so we need to invert Y
 	    (* scaley (- cogre-export-max-y (aref pos 1))))))
 
-(defmethod cogre-export-dot-shape ((node cogre-node))
+(cl-defmethod cogre-export-dot-shape ((node cogre-node))
   "Convert NODE into DOT syntax of semantic tags."
   "box")
 
-(defmethod cogre-export-dot-shape ((node cogre-class))
+(cl-defmethod cogre-export-dot-shape ((node cogre-class))
   "Convert NODE into DOT syntax of semantic tags."
   "record")
 
-(defmethod cogre-export-dot-shape ((node cogre-package))
+(cl-defmethod cogre-export-dot-shape ((node cogre-package))
   "Convert NODE into DOT syntax of semantic tags."
   "tab")
 
-(defmethod cogre-export-dot-shape ((node cogre-note))
+(cl-defmethod cogre-export-dot-shape ((node cogre-note))
   "Convert NODE into DOT syntax of semantic tags."
   "note")
 
-(defmethod cogre-export-dot-label ((node cogre-node))
+(cl-defmethod cogre-export-dot-label ((node cogre-node))
   "Convert NODE into DOT syntax of semantic tags."
   (mapconcat 'identity (cogre-node-title node) "\\n"))
 
-(defmethod cogre-export-dot-label ((node cogre-scoped-node))
+(cl-defmethod cogre-export-dot-label ((node cogre-scoped-node))
   "Convert NODE into DOT syntax of semantic tags."
   (let ((name (oref node :object-name))
 	(pack (oref node :package-name)))
@@ -269,21 +269,21 @@ DOT uses points, where as COGRE uses characters."
       (setq pack (concat "\\<\\<" pack "\\>\\>"))
       (concat pack "\\n" name))))
 
-(defmethod cogre-export-dot-label ((node cogre-class))
+(cl-defmethod cogre-export-dot-label ((node cogre-class))
   "Convert NODE into DOT syntax of semantic tags."
   (concat "{" (call-next-method) "|"
 	  (cogre-export-dot-fieldslist node) "|"
 	  (cogre-export-dot-methodlist node) "}"))
 
-(defmethod cogre-export-dot-methodlist ((node cogre-class))
+(cl-defmethod cogre-export-dot-methodlist ((node cogre-class))
   "Get a list of methods on NODE.  Return as \n separated list."
   (mapconcat (lambda (s) (cogre-uml-stoken->uml node s)) (oref node methods) "\\l"))
 
-(defmethod cogre-export-dot-fieldslist ((node cogre-class))
+(cl-defmethod cogre-export-dot-fieldslist ((node cogre-class))
   "Get a list of fields on NODE.  Return as \n separated list."
   (mapconcat (lambda (s) (cogre-uml-stoken->uml node s)) (oref node attributes) "\\l"))
 
-(defmethod cogre-export-dot-label ((node cogre-instance))
+(cl-defmethod cogre-export-dot-label ((node cogre-instance))
   "Convert NODE into DOT syntax of semantic tags."
   (let ((title (call-next-method)))
     (if (string-match "\\\\n" title)
@@ -291,7 +291,7 @@ DOT uses points, where as COGRE uses characters."
       (concat ":" title))))
 
 ;;; LINKS		  
-(defmethod cogre-export-dot-method ((link cogre-link))
+(cl-defmethod cogre-export-dot-method ((link cogre-link))
   "Convert LINK into DOT syntax of semantic tags."
   (let ((start (oref link start))
 	(end (oref link end)))
@@ -305,7 +305,7 @@ DOT uses points, where as COGRE uses characters."
 		    )
 		  )))
 		
-(defmethod cogre-export-dot-method ((link cogre-inherit))
+(cl-defmethod cogre-export-dot-method ((link cogre-inherit))
   "Convert LINK into DOT syntax of semantic tags."
   (let ((tag (call-next-method))
 	(end (oref link end)))
@@ -314,13 +314,13 @@ DOT uses points, where as COGRE uses characters."
     ;(cogre-tag-put-dot-attribute tag :sametail (oref end :object-name))
     tag))
 		
-(defmethod cogre-export-dot-method ((link cogre-aggregate))
+(cl-defmethod cogre-export-dot-method ((link cogre-aggregate))
   "Convert LINK into DOT syntax of semantic tags."
   (let ((tag (call-next-method)))
     (cogre-tag-put-dot-attribute tag "arrowhead" "diamond")
     tag))
 		
-(defmethod cogre-export-dot-method ((link cogre-arrow))
+(cl-defmethod cogre-export-dot-method ((link cogre-arrow))
   "Convert LINK into DOT syntax of semantic tags."
   (let ((tag (call-next-method)))
     (cogre-tag-put-dot-attribute tag "arrowhead" "open")
