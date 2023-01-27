@@ -1,7 +1,16 @@
 # Oh my 
+# Disable some plugins while running in Emacs
+if [[ -n "$INSIDE_EMACS" ]]; then
+  plugins=(git)
+else
+  plugins=(git
+           zsh-autosuggestions)
+
+fi
+
+ZSH_THEME=bira
 DISABLE_AUTO_UPDATE="true" 
 export ZSH=/home/dov/git/dov-env/zsh/oh-my-zsh
-plugins=(git)
 DISABLE_AUTO_TITLE="true"
 source $ZSH/oh-my-zsh.sh
 CASE_SENSITIVE="true"
@@ -31,14 +40,14 @@ if [[ $TERM == "xterm" || $TERM == "xterm-256color" || $TERM == "rxvt" || $TERM 
     chpwd () { print -Pn "\e]0;(Z) $USER@$HOST: [%~]\a" }
 #    PROMPT="> "
     alias ls="ls -F --color=auto"
-elif [[ $TERM == "screen-256color" ]]; then
+elif [[ $TERM == "screen-256color" || $TERM == "tmux-256color" ]]; then
 #    chpwd () { print -Pn "\e]0;<Z> $USER@$HOST: [%~]\a" }
      chpwd () { print -Pn "\ePtmux;\e\e]0;(Z) $USER@$HOST: [%~]\a\e\\" }
-    PROMPT="> "
+#    PROMPT="> "
     alias ls="ls -F --color=auto"
 elif [[ -n $INSIDE_EMACS ]]; then
     unsetopt zle
-    PROMPT="> "
+#    PROMPT="> "
     export PAGER=cat
 else 
     PROMPT="> "
@@ -65,7 +74,25 @@ stty erase 
 stty susp 
 stty -istrip
 
-: ${TERM_TITLE_SET_MULTIPLEXER:=1}
+
+# Make the title change after each command has been completed
+#[[ $EMACS = t ]] || precmd () { cd . } 
+
+# Filename suffixes to ignore during completion
+fignore=(.o .c~ .old .pro)
+
+# Completion control
+compctl -g '*(-/)' cd
+compctl -g '*.tex *(/)' tex
+compctl -g '*.tex *(/)' latex
+compctl -g '*.dpf *(/)' dpfview
+compctl -g '*.dpf *(/)' dpf2ps
+compctl -g '*.dvi *(/)' dvitops
+compctl -g '*.dvi *(/)' xdvi
+compctl -g '*.lyx *(/)' lyx
+compctl -g '*.mp *(/)' mp
+compctl -g '*.(<1-9>|man|n)' manm
+compctl -C -c -x 'C[0,*/*]' -g '*[^~](*)' + -c
 
 function term_set_title() {
 	emulate -L zsh
@@ -88,7 +115,7 @@ function term_set_title() {
 		$TERM_TITLE_SET_MULTIPLEXER -eq 1
 		&& $term_is_multi -eq 1
 	]] then
-		printf '\033k%s\033\\' ${1//[^[:print:]]/}
+#		printf '\033k%s\033\\' ${1//[^[:print:]]/}
 	fi
 }
 
@@ -138,10 +165,23 @@ function term_title_preexec() {
 	term_set_title '<'$USER@$HOST'>'\ $cmd:${(%)dir}
 }
 
-autoload -Uz add-zsh-hook
-add-zsh-hook precmd term_title_precmd
-add-zsh-hook preexec term_title_preexec
+# Check the devices by doing v4l2-ctl --list-devices
+function zoom-zoom-nice() {
+    v4l2-ctl -d1 --set-ctrl zoom_absolute=158
+    v4l2-ctl -d1 --set-ctrl pan_absolute=3600
+    v4l2-ctl -d1 --set-ctrl tilt_absolute=7200
+}
 
+function zoom-zoom-out() {
+    v4l2-ctl -d1 --set-ctrl zoom_absolute=100
+}
+
+autoload -Uz add-zsh-hook
+if [[ -n "$INSIDE_EMACS" ]]; then
+else
+  add-zsh-hook precmd term_title_precmd
+  add-zsh-hook preexec term_title_preexec
+fi
 
 # Make the title change after each command has been completed
 [[ $EMACS = t ]] || precmd () { cd . } 
@@ -166,7 +206,11 @@ compctl -C -c -x 'C[0,*/*]' -g '*[^~](*)' + -c
 alias lsd='ls -ld *(-/DN)'
 alias lsa='ls -ld .*'
 alias ls='ls -F --color=auto'
-alias visit="/usr/local.local/bin/visit"
+# Not sure which of these is less introsive
+xd() { mkdir -p $1 && cd $1 }
+mcd() { mkdir -p $1 && cd $1 }
+mkcd() { mkdir -p $1 && cd $1 }
+ccd() { mkdir -p $1 && cd $1 }
 alias less='less -R'
 grel() { grep --color=always $* | less -R }
 ackl() { ack --color $* | less -R }
@@ -189,24 +233,22 @@ alias xgraph='xgraph \=550x425'
 alias gsn="gs -sPAPERSIZE=a4 -DNODISPLAY"
 alias gs="gs -sPAPERSIZE=a4"
 alias gsx="gs -dNOPLATFONTS -sDEVICE=x11alpha -sPAPERSIZE=a4"
-alias gv='ghostview -arguments "-dNOPLATFONTS -sDEVICE=x11alpha" -geometry +100+0 -a4 -magstep -1'
-alias gvl="ghostview -geometry +30+100 -a4 -magstep -1 -landscape"
+alias oldgv='ghostview -arguments "-dNOPLATFONTS -sDEVICE=x11alpha" -geometry +100+0 -a4 -magstep -1'
+alias oldgvl="ghostview -geometry +30+100 -a4 -magstep -1 -landscape"
 alias pdf2ps="acroread -toPostScript"
 alias xterm="xterm -fn lucidasanstypewriter-bold-14 -bg grey20 -fg green -cr green -sb -sl 1000"
 alias cds=cd
 alias poehebfax="poe -rmarg 50 -nohead -tmarg 50 -stdout -columns 1 -portrait -fontscale 11 -font GamCour -reverse"
 alias cpan="perl -MCPAN -e shell"
-alias pilot-mail pilot-mail /dev/pilot -f dov@imagic.weizmann.ac.il -k keep -s my-pilot-sm -p /dev/pilot
 alias umask-g+w='umask 002'
 alias umask-default='umask 022'
 alias umask-g-w='umask 022'
 alias ps2pdf="ps2pdf -sPAPERSIZE=a4 "
 alias wdx="echo -n 'X <= '; pwd; pwd | perl -pe 'chomp' | xclip ; pwd | perl -pe 'chomp' | xclip -selection clip"
-alias aaaa='setxkbmap us'
+alias aaaa='setxkbmap -option grp:switch,grp:alt_shift_toggle,grp_led:scroll us,il'
 alias dvorak='xkbcomp -w0 ~/.xkbmap $DISPLAY; xset r rate 200 30'
 alias dddd='xkbcomp -w0  ~/.xkbmap $DISPLAY; xset r rate 200 30'
 alias sudo='sudo env PATH=$PATH'
-alias mount-prealpha='sudo mount //prealpha/d /mnt/prealpha/d -o user=machine,passw='Amag432!',dir_mode=0777,file_mode=0777'
 
 # solaris stuff
 if [[ `uname -s` == Solaris ]]; then
@@ -345,20 +387,25 @@ bindkey '[3D' back-to-whitespace
 bindkey '[3C' forward-to-whitespace
 
 # clipboard support
+copy-region-as-kill () {
+  zle kill-region
+  zle yank
+}
+
 x-copy-region-as-kill () {
-  zle copy-region-as-kill
-  print -rn $CUTBUFFER | xsel -i
+  copy-region-as-kill
+  print -rn -- $CUTBUFFER | xsel -i
 }
 zle -N x-copy-region-as-kill
 x-kill-end-of-line () {
   zle kill-line
-  print -rn $CUTBUFFER | xsel -i
+  print -rn -- $CUTBUFFER | xsel -i
 }
 zle -N x-kill-end-of-line
 
 x-kill-region () {
   zle kill-region
-  print -rn $CUTBUFFER | xsel -i
+  print -rn -- $CUTBUFFER | xsel -i
 }
 zle -N x-kill-region
 x-yank () {
@@ -367,15 +414,16 @@ x-yank () {
 }
 zle -N x-yank
 if [[ x$DISPLAY != x ]]; then
-    zle -N x-yank
-    bindkey -e '\eW' x-copy-region-as-kill
+    bindkey -e 'w' x-copy-region-as-kill
+    bindkey -e '\M-w' x-copy-region-as-kill
     bindkey -e '^W' x-kill-region
     bindkey -e '^Y' x-yank
     bindkey -e '^k' x-kill-end-of-line
 fi
 
 # path
-path=(/usr/local/bin 
+path=(/usr/local/bin
+      /usr/local/blender-2.80-linux-glibc217-x86_64
       /usr/java/jre1.5.0_06/bin
       /usr/X11R6/bin 
       $HOME/scripts
@@ -384,14 +432,13 @@ path=(/usr/local/bin
       $HOME/bin
       $HOME/hd/bin
       $HOME/go/bin
+      $HOME/.cargo/bin
       /usr/X11R6/bin
       /usr/bin
       /bin
       /usr/sbin
       /sbin
-      /space/dov/android/android-sdk-linux/platform-tools
-      /home/dov/hd/bin/adb
-      /usr/lib64/openmpi/bin/
+      /space/Android/Sdk/platform-tools
       )
 
 # environment variables
@@ -399,7 +446,7 @@ if [[ `uname -s` == Linux ]] {
     #setenv PERLVER `perl -MConfig -e 'print $Config{api_versionstring}'`
     setenv PERLVER "5.12.0"
     setenv PERLOS `perl -MConfig -e 'print $Config{archname}'`
-    setenv PERL5LIB /usr/local/lib/perl5:/usr/local/lib/perl5/${PERLVER}:/usr/local/lib/perl5/${PERLVER}/${PERLOS}:/usr/local/lib/perl5/site_perl/${PERLVER}:/usr/local/lib/perl5/site_perl/${PERLVER}/${PERLOS}:/usr/lib/perl5/vendor_perl/${PERLVER}:/usr/lib/vendor_perl/${PERLVER}/${PERLOS}:/usr/lib/vendor_perl/perl5/site_perl/${PERLVER}:/usr/lib/vendor_perl/perl5/site_perl/${PERLVER}/${PERLOS}:/nmr/dov/Projects/Lib/perl:/nmr/dov/Projects/Lib/perl/$OS/$PERLVER
+    setenv PERL5LIB /usr/local/lib/perl5/${PERLVER}:/usr/local/lib/perl5/${PERLVER}/${PERLOS}:/usr/local/lib/perl5/site_perl/${PERLVER}:/usr/local/lib/perl5/site_perl/${PERLVER}/${PERLOS}:/usr/lib/perl5/vendor_perl/${PERLVER}:/usr/lib/vendor_perl/${PERLVER}/${PERLOS}:/usr/lib/vendor_perl/perl5/site_perl/${PERLVER}:/usr/lib/vendor_perl/perl5/site_perl/${PERLVER}/${PERLOS}:/nmr/dov/Projects/Lib/perl:/nmr/dov/Projects/Lib/perl/$OS/$PERLVER
     
     setenv QTDIR /usr
 }
@@ -411,48 +458,17 @@ setenv PILOTPORT /etc/udev/devices/ttyUSB1
 setenv GS_LIB /usr/share/ghostscript/fonts
 setenv PGPLOT_DIR /usr/local/pgplot
 setenv PGPLOT_DEV      /xwindow
-export PYTHONIOENCODING=utf-8
-
-gtk-head-env() {
-    export PKG_CONFIG_PATH=/opt/gtk-head/lib/pkgconfig:$PKG_CONFIG_PATH 
-    export LD_LIBRARY_PATH=/opt/gtk-head/lib
-    export PATH=/opt/gtk-head/bin:$PATH
-    export GTK2_RC_FILES=/home/dov/.gtkrc-2.0.head
-}
 
 # Set up a public development enviroment. Works e.g. for gimp and gegl.
-pub-dev-env() {
-    export PKG_CONFIG_PATH=/usr/local/pub-dev/lib/pkgconfig 
-    export LD_LIBRARY_PATH=/usr/local/pub-dev/lib:$LD_LIBRARY_PATH 
-    export PATH=/usr/local/pub-dev/bin:$PATH 
-    export CPPFLAGS="-I/usr/local/pub-dev/include"
-    export LDFLAGS="-L/usr/local/pub-dev/lib"
-    export ACLOCAL_FLAGS="-I /usr/local/public-dev/share/aclocal -I /usr/share/aclocal"
-    export PYTHONPATH=/usr/local/public-dev/lib/python2.7/site-packages:$PYTHONPATH
-    export GI_TYPELIB_PATH=/usr/local/public-dev/lib/girepository-1.0
-}
-gtk210-env() {
-    export PKG_CONFIG_PATH=/opt/gtk-2.10/lib/pkgconfig:$PKG_CONFIG_PATH 
-    export LD_LIBRARY_PATH=/opt/gtk-2.10/lib
-    export PATH=/opt/gtk-2.10/bin:$PATH
-}
-mingw32env() {
-    TARGET=mingw32
-    export PREFIX="/usr/local/mingw32"
-    export CC="i686-w64-mingw32-gcc -mms-bitfields"
-    export CXX="i686-w64-mingw32-g++ -mms-bitfields"
-    export AR=i686-w64-mingw32-ar
-    export RANLIB=i686-w64-mingw32-ranlib
-    export CFLAGS="-O2 -march=i586 -mms-bitfields"
-    export CXXFLAGS="-O2 -march=i586 -mms-bitfields"
-    export PKG_CONFIG_PATH=$PREFIX/$TARGET/lib/pkgconfig
-    export PATH=$PREFIX/bin:$PREFIX/$TARGET/bin:/bin:/usr/bin
-    export LD_LIBRARY_PATH=$PREFIX/$TARGET/lib
-    export LDFLAGS=-L$PREFIX/$TARGET/lib
-    export OBJDUMP=$PREFIX/bin/mingw32-objdump
-    export HOST_CC=/usr/bin/gcc
-    export OBJSUFFIX=".obj"
-    export PROGSUFFIX=".exe"
+devl-env() {
+    export PKG_CONFIG_PATH=/usr/local/devl/lib/pkgconfig 
+    export LD_LIBRARY_PATH=/usr/local/devl/lib:$LD_LIBRARY_PATH 
+    export PATH=/usr/local/devl/bin:$PATH 
+    export CPPFLAGS="-I/usr/local/devl/include"
+    export LDFLAGS="-L/usr/local/devl/lib"
+    export ACLOCAL_FLAGS="-I /usr/local/devl/share/aclocal -I /usr/share/aclocal"
+#    export PYTHONPATH=/usr/local/devl/lib/python2.7/site-packages:$PYTHONPATH
+    export GI_TYPELIB_PATH=/usr/local/devl/lib/girepository-1.0
 }
 
 # Display an image from a webcam on the N900
@@ -462,7 +478,6 @@ vcam() {
   ssh groma "env DISPLAY=:0 ssh -X dov@usb gst-launch v4l2src device=/dev/video0 ! 'video/x-raw-yuv,width=320,height=240,framerate=25/1' ! videobalance brightness=0.25 ! aspectratiocrop aspect-ratio=16/9 ! videoflip method=horizontal-flip ! xvimagesink"
 }
 
-
 # Weizmann specific stuff
 if [[ $HOST == "echo" || $HOST == "mega" ]]; then
 # environment variables for zsh
@@ -471,38 +486,56 @@ if [[ $HOST == "echo" || $HOST == "mega" ]]; then
 fi
 
 # Hadassa Group development
-export DCMDICTPATH=/usr/local/lib/dicom.dic
+#export DCMDICTPATH=/usr/local/lib/dicom.dic
 
 export GDK_USE_XFT=1
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig
 export CVS_RSH=ssh
 export ALGLIBS=/home/dov/orbotech/alglibs
-export SVN_EDITOR=vim
-export PYTHONPATH=/usr/local/lib/python2.7/site-packages:/usr/local/lib64/python2.7/site-packages:/home/dov/Experiments/ExtLib
+export EDITOR=vim
+#export PYTHONPATH=/usr/local/lib/python2.7/site-packages:/usr/local/lib64/python2.7/site-packages:
+export PYTHONIOENCODING=utf-8
+python27path () {
+  export PYTHONPATH=/usr/local/lib/python2.7/site-packages:/usr/local/lib64/python2.7/site-packages:
+}
+python3path () {
+  export PYTHONPATH=/usr/local/lib/python3/site-packages:/usr/local/lib64/python3/site-packages:/usr/local/lib/python3.11/site-packages:/usr/local/lib64/python3.11/site-packages
+}
+alias dnfs='sudo dnf search'
+alias dnfi='sudo dnf -y install'
 #export _JAVA_OPTIONS="-Dawt.useSystemAAFontSettings=on"
 export POEFONTPATH=/home/dov/lib/psfonts
 export HALCONROOT=/usr/local/halcon
 unset SSH_ASKPASS
 alias mntsec='sudo /sbin/modprobe cryptoloop; sudo /sbin/modprobe blowfish; sudo losetup -e blowfish /dev/loop0 /space1/secure; sudo mount -t ext2 /dev/loop0 /mnt/loop'
 alias umntsec='sudo umount /dev/loop0; sudo losetup -d /dev/loop0; sudo sync'
-alias android-studio='/space/android-studio/bin/studio.sh'
+alias android-studio='/terra/space/android-studio/bin/studio.sh'
+alias ipython='env PYTHONPATH=/usr/local/lib/python3.11/site-packages:/usr/local/lib64/python3.11/site-packages:/usr/local/lib/python3/site-packages:/usr/local/lib64/python3/site-packages /usr/bin/ipython3'
+#alias pip='env PYTHONPATH=/usr/local/lib/python2.7/site-packages:/usr/local/lib64/python2.7/site-packages: /usr/bin/pip'
 setenv PERLVER `perl -MConfig -e 'print $Config{version}'`
 setenv PERLOS `perl -MConfig -e 'print $Config{archname}'`
 setenv PERL5LIB /usr/local/lib/perl5/${PERLVER}:/usr/local/lib/perl5/${PERLVER}/${PERLOS}:/usr/local/lib/perl5/site_perl/${PERLVER}:/usr/local/lib/perl5/site_perl/${PERLVER}/${PERLOS}:/usr/local.local/lib/perl5/${PERLVER}:/usr/local.local/lib/perl5/${PERLVER}/${PERLOS}:/usr/local.local/lib/perl5/site_perl/${PERLVER}:/usr/local.local/lib/perl5/site_perl/${PERLVER}/${PERLOS}:/usr/lib/perl5/vendor_perl/${PERLVER}:/usr/lib/vendor_perl/${PERLVER}/${PERLOS}:/usr/lib/vendor_perl/perl5/site_perl/${PERLVER}:/usr/lib/vendor_perl/perl5/site_perl/${PERLVER}/${PERLOS}:/nmr/dov/Projects/Lib/perl:/nmr/dov/Projects/Lib/perl/$OS/$PERLVER
 export LESSCHARSET=utf-8
-export CUDA_SDK_PATH=/usr/local/cuda-8.0
-export PATH=$CUDA_SDK_PATH/bin:$PATH
-export CUDA_NVCC_FLAGS=-ccbin=/usr/local/gcc-5.4.0/bin/g++
 export MJRP=XjetApps/MetalJet/Apps/Project/qt
-export MJQT=/home/dov/git/SolarJet/$MJRP
+export PE_HOME=/home/dov/git/MetalJet
+export THEONORC=/home/dov/.theanorc
+export MJQT=$PE_HOME/$MJRP
+export SJQT=$PE_HOME/$MJRP
+
+# Configure with debugging
+alias configuredebug='env CPPFLAGS=-DDEBUG CFLAGS="-g -O0" CXXFLAGS="-g -O0" ./configure'
+
 # Make perl stop complaining
 unset LANG
 setenv LC_ALL_C
 
 # Cuda
-export CUDA_SDK_ROOT_DIR=/usr/local/cuda-7.5
+export CUDA_SDK_PATH=/usr/local/cuda-11.1
+export CUDA_SDK_ROOT_DIR=$CUDA_SDK_PATH
+export PATH=$CUDA_SDK_PATH/bin:$PATH
+export CUDA_NVCC_FLAGS='-ccbin=/usr/local/gcc-8.5.0/bin/g++'
+export CYCLES_CUDA_EXTRA_CFLAGS="-ccbin /usr/local/gcc-8.5.0/bin/gcc"
 export PATH=${CUDA_SDK_ROOT_DIR}/bin:$PATH
-export CUDA_NVCC_FLAGS='-ccbin=/usr/local/gcc-5.4.0/bin/g++'
 
 # This should be the default for all cuda calculations...
 export PYCUDA_DEFAULT_NVCC_FLAGS=--std=c++11
@@ -514,55 +547,113 @@ export PYCUDA_DEFAULT_NVCC_FLAGS=--std=c++11
 alias aaaa="setxkbmap en_US"
 alias dvorak="xkbcomp ~/.xkbmap $DISPLAY"
 alias samiam=/usr/local/samiam/runsamiam 
+alias cl3="gcal -H '\e[42m\e[30m:\e[0;1m:\e[31;1m:\e[0m' -q IL ."
+alias hcal="gcal -H '\e[42m\e[30m:\e[0;1m:\e[31;1m:\e[0m' -q IL -n ."
+#alias krita=/usr/local/krita/bin/krita
+export RSHELL_PORT=/dev/ttyUSB0
+alias rshell='rshell -e vim'
 #export ANDROID_EMULATOR_FORCE_32BIT=1
-export ANDROID_HOME=/space/Android/Sdk
+export ANDROID_HOME=/terra/space/Android/Sdk
 export PATH=$ANDROID_HOME/platform-tools:$PATH
-export GRADLE_USER_HOME=/space/dov/.gradle
+export GRADLE_USER_HOME=/terra/space/dov/.gradle
+export QT_QPA_PLATFORMTHEME=qt5ct
 
-# xjet
-export QTDIR=/usr
-export QMAKE=qmake-qt5
-export QTWEBENGINE_REMOTE_DEBUGGING=7979
-export PE_HOME=/home/dov/git/SolarJet
-export SJQT=${PE_HOME}/XjetApps/MetalJet/Apps/Project/qt/
-alias svn2git="rsync -av --exclude='*.dll' --exclude='*.vcproj' --exclude='.svn' --exclude='*db' --exclude='*.obj' --include='*.cpp' --include='*.h' /mnt/fdrive/svn/Projects/* ."
-alias machine64bit='rdesktop-vrdp -x l -u "xjetdom\\machine" -p 123456 -g1024x768 machine64bit'
-alias printer2='rdesktop-vrdp -x l -u machine -p 123456 -g1024x768 printer2'
-alias minijet2='rdesktop-vrdp -x l -u minijet6 -p 123456 -g1280x1024 172.16.10.40'
-alias minijet5='rdesktop-vrdp -x l -u "xjetdom\\lab" -p 123456 -g1280x1024 minijet-5'
-alias mount-minijet6='mount //minijet6/D\$ -o user='xjetdom\machine',password=123456 /mnt/minijet6'
-alias electronics-lab=' rdesktop -x 0x80 -u 'XJETDOM\\\\lab' -p 123456 -g1680x1050 172.16.10.170'
-alias automatica='rdesktop-vrdp -u machine -p 123456 -g1024x768 automatica'
-export PRINTER=Samsung-SCX-5530FN
-alias mj7='rdesktop-vrdp -x l -u 'xjetdom\\\\machine' -p 123456 -g1600x1020 172.16.10.138'
-#alias hydra='rdesktop-vrdp -x l -u 'xjetdom\\\\machine' -p Amag432\! -g1600x1020 hydra'
-alias hydra='xfreerdp /cert-ignore /w:1600 /h:1020 /v:hydra /u:machine /p:Amag432\! +decorations +wallpaper +clipboard'
-machinerdp () {
-  xfreerdp /cert-ignore /w:1600 /h:1020 /v:$1 /u:machine /p:Amag432\! +decorations +wallpaper +clipboard
-}
-dovrdp () {
-  xfreerdp /cert-ignore /w:1600 /h:1020 /v:$1 /u:dovg /p:Toco43Nika +decorations +wallpaper +clipboard
-}
-machine-rdesktop () {
-    rdesktop -u machine -p Amag432\! -g 1600x1020 $1
-}
 
-alias alpha='xfreerdp /cert-ignore /w:1600 /h:1020 /v:alpha /u:machine /p:Amag432\! +decorations +wallpaper +clipboard'
-alias hydra-rdesktop='rdesktop-vrdp -x l -u "xjetdom\\machine" -p 123456 -g1600x1020 hydra'
-alias strobe='xfreerdp /w:1600 /h:1020 /v:172.16.10.193 /u:machine /p:Amag432\! +decorations +wallpaper +clipboard'
-autoload -U compinit && compinit
-hash -d mjqt=/home/dov/git/SolarJet/XjetApps/MetalJet/Apps/Project/qt
-alias mjqt='cd ~mjqt'
-alias tmux='tmux -u'
+# Go support
+export GOPATH=~/go
+export PATH=$PATH:$GOPATH/bin
+
+# Rust/Cargo support
+export PATH=$PATH:$HOME/.cargo/bin
+
+zstyle ':completion:*:manuals'    separate-sections true
+zstyle ':completion:*:manuals.*'  insert-sections   true
+zstyle ':completion:*:man:*'      menu yes select
+
+hash -d mjqt=/home/dov/git/MetalJet/XjetApps/MetalJet/Apps/Project/qt
 
 PERL5LIB="/home/dov/perl5/lib/perl5${PERL5LIB+:}${PERL5LIB}"; export PERL5LIB;
 PERL_LOCAL_LIB_ROOT="/home/dov/perl5${PERL_LOCAL_LIB_ROOT+:}${PERL_LOCAL_LIB_ROOT}"; export PERL_LOCAL_LIB_ROOT;
 PERL_MB_OPT="--install_base \"/home/dov/perl5\""; export PERL_MB_OPT;
 PERL_MM_OPT="INSTALL_BASE=/home/dov/perl5"; export PERL_MM_OPT;
 
-machinemount () {
-  sudo mount $1 $2 -o user=machine,domain=xjetdom,password='Amag432!',vers=2.1
+# Bsolar
+export TILREPO=/home/dov/hd/bsolar/db/tilrepo/
+export CLIMATO_DIR=/home/dov/hd/bsolar/ws/bsolar/db/CLIMATO/
+export ETS_TOOLKIT=qt4  
+
+#THIS MUST BE AT THE END OF THE FILE FOR SDKMAN TO WORK!!!
+export SDKMAN_DIR="/home/dov/.sdkman"
+[[ -s "/home/dov/.sdkman/bin/sdkman-init.sh" ]] && source "/home/dov/.sdkman/bin/sdkman-init.sh"
+
+
+[ -f ~/.zsh/condaprompt.zsh ] && source ~/.zsh/condaprompt.zsh
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+
+# My prompt for runnig anaconda
+conda_setup()
+{
+  export PATH=/home/dov/anaconda3/bin:$PATH
+  export LD_LIBRARY_PATH=/terra/space/Anaconda3/fastai/lib/:$LD_LIBRARY_PATH
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/home/dov/anaconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/home/dov/anaconda3/etc/profile.d/conda.sh" ]; then
+        . "/home/dov/anaconda3/etc/profile.d/conda.sh"
+    else
+        export PATH="/home/dov/anaconda3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+# <<< conda initialize <<<
 }
 
-# Get around warning "Couldn't register with accessibility bus"
-export NO_AT_BRIDGE=1
+# Vulkan
+
+# Copyright (c) 2015-2019 LunarG, Inc.
+
+# source this file into an existing shell.
+
+VULKAN_SDK=/usr/local/vulkan/1.2.170.0/x86_64
+export VULKAN_SDK
+export PATH="$VULKAN_SDK/bin:$PATH"
+export LD_LIBRARY_PATH="$VULKAN_SDK/lib:$LD_LIBRARY_PATH"
+export VK_LAYER_PATH="$VULKAN_SDK/etc/vulkan/explicit_layer.d"
+
+# For cuda
+export LD_LIBRARY_PATH=/usr/local/cuda-11.1/lib64/:/usr/local/cuda-11.1/targets/x86_64-linux/lib/:$LD_LIBRARY_PATH
+
+# For cross compilation
+export ESPDIDF=/terra/space/pub-repos/esp/esp-idf
+#export PATH=/terra/space/pub-repos/esp/crosstool-NG/builds/xtensa-esp32-elf/bin/:$PATH
+export PATH="$PATH:/terra/space/pub-repos/esp/xtensa-lx106-elf/bin"
+
+# mpremote shortcuts
+alias mpr-reset='mpremote exec "import machine; machine.reset()"'
+alias mpr-repl='mpremote repl'
+alias mpr-ls='mpremote ls'
+alias mpr-rm='mpremote rm'
+mpr-run() {
+    mpremote exec "import $1"
+}
+mpr-put() {
+   if [ -z "$2" ]
+   then
+       mpremote cp $1 :`basename $1`
+   else
+       mpremote cp $1 :$2
+   fi
+}
+mpr-get() {
+   if [ -z "$2" ]
+   then
+       mpremote cp :`basename $1` $1
+   else
+       mpremote cp :`basename $1` $2
+   fi
+}
