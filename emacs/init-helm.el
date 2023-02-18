@@ -7,17 +7,28 @@
                   )
                  load-path))
 		  
-(require 'helm)
-
 ;; override standard commands with their corresponding helm commands
 
 ; execute-extended-command → helm-M-x
 ;(global-set-key "\M-x" 'execute-extended-command)
 ;(global-set-key "\M-x" 'helm-M-x)
 
+(defun old-ff (&optional no-op) (interactive)
+       (call-interactively 'find-file))
+(require 'helm)
+
+;(helm-add-action-to-source "Fallback find-file"
+;                       'old-ff
+;                       helm-source-find-files)
+
+
 
 (load "helm-autoloads" nil t)
 (helm-mode 1)
+
+(eval-after-load 'helm-mode
+  '(add-to-list 'helm-completing-read-handlers-alist '(old-file)))
+
 ;(define-key global-map [remap find-file] 'helm-find-files)
 (define-key global-map [remap occur] 'helm-occur)
 (define-key global-map [remap list-buffers] 'helm-buffers-list)

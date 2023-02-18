@@ -89,6 +89,11 @@
     (load "dash")
     (setq add-log-mailing-address "dov.grobgeld@gmail.com")))
 
+;  add melpa to package list
+(require 'package)
+(add-to-list 'package-archives
+             '("melpa" . "http://melpa.org/packages/") t)
+
 ;; Setup my prefered font. This should work on both linux and
 ;; windows with and without my prefered fonts installed
 (defun get-first-font-from-list (font-name-list)
@@ -135,10 +140,6 @@
                  (list
                   (concat emacs-git "/wgrep")
                   (concat emacs-git "/ein/lisp")
-                  (concat emacs-git "/org-mode/lisp")
-                  (concat emacs-git "/org-mode/contrib/lisp")
-                  (concat emacs-git "/org-mode/contrib/lisp")
-                  (concat emacs-git "/magit")
                   (concat emacs-git "/skewer-mode")
                   (concat emacs-git "/company")
                   (concat emacs-git "/flycheck")
@@ -160,6 +161,8 @@
 
 ;; packages - tbd as much as possible there!
 (setq package-user-dir (concat emacs-git "/packages"))
+(require 'init-use-package)
+(require 'init-org)
 (require 'init-multiple-cursors)
 (require 'init-helm)
 (require 'init-cmake)
@@ -178,7 +181,9 @@
 ;(require 'init-all-the-icons)
 (ignore-errors
   (require 'init-eglot))
+(require 'init-magit)
 (require 'init-magit-imerge)
+;(require 'init-company-mode)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -210,7 +215,7 @@
 (setq use-short-answers t)
 (setq next-error-message-highlight t)
 (global-set-key (kbd "\C-x t T") 'toggle-frame-tab-bar)
-(setq dired-kill-when-opening-new-dired-buffer t)
+(setq dired-kill-when-opening-new-dired-buffer nil)
 
 ;; See if this helps with timeout issue when editing the notes on
 ;; on a CIFS.
@@ -252,7 +257,7 @@
 ;(load "with-editor")
 (load "magit-popup")
 (load "ghub")
-(load "magit")
+;(load "magit")
 ;(condition-case err
 ;    (progn
 ;      (require 'magit-gh-pulls)
@@ -261,18 +266,6 @@
 (autoload 'with-editor-file-name-history-exclude "with-editor" "with-editor" t nil)
 (autoload 'xjet-remote-python-file "xjet-remote-client" nil t)
 
-; magit-diff-file was written by me, but requsted to be merged into magit.
-; See: https://github.com/magit/magit/issues/2553
-(defun magit-diff-file (rev-or-range &optional file args)
-  "Show changes between a file from another branch"
-  (interactive (list (magit-diff-read-range-or-commit "File diff for range" nil current-prefix-arg)
-                     (if current-prefix-arg
-                       (read-file-name "File: ")
-                       buffer-file-name))) 
-  (magit-diff-setup rev-or-range nil args
-                    (list (replace-regexp-in-string (magit-toplevel) "" (expand-file-name file)))))
-
-(setq magit-push-always-verify nil)
 (setq git-commit-summary-max-length 80)
 (autoload 'magit-blame "magit-blame" nil t)
 (setq magit-diff-options '("-w"))
@@ -282,7 +275,7 @@
 ;(load "xml-rpc")
 (global-set-key [?\C-c ?j] 'ein:notebooklist-open)  ; j for jupyter
 
-(require 'org-loaddefs)
+;(require 'org-loaddefs)
 (require 'ein-loaddefs)
 (require 'wgrep)
 (require 'pretty-mode)
@@ -623,22 +616,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
     (quote ("displaymath" "floats" "graphics" "textmath" "showlabels" "sections" )))
      (TeX-global-PDF-mode t)))
 
-(add-hook 'ein:notebook-multilang-mode-hook
-          (lambda()
-            (define-key ein:notebook-mode-map [(control up)] 'scroll-up-line)
-            (define-key ein:notebook-mode-map [(control down)] 'scroll-down-line)
-            (define-key ein:notebook-mode-map [(return)] 'newline-and-indent)
-            (define-key ein:notebook-mode-map [(control c) ?t] 'ein:worksheet-change-cell-type)
-            (setq ein:worksheet-enable-undo t)))
-
-(add-hook 'ein:notebook-mode-hook
-          (lambda()
-            (define-key ein:notebook-mode-map [(control up)] 'scroll-up-line)
-            (define-key ein:notebook-mode-map [(control down)] 'scroll-down-line)
-            (define-key ein:notebook-mode-map [(return)] 'newline-and-indent)
-            (define-key ein:notebook-mode-map [(control c) ?t] 'ein:worksheet-change-cell-type)
-            (setq ein:worksheet-enable-undo t)))
-
 ;(add-hook 'LaTeX-mode-hook #'my-latex-mode-hook)
 ;(defun my-latex-mode-hook ()
 ;  (add-to-list 'TeX-command-list
@@ -720,10 +697,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 ;; org-mode
 
-; This is a bug work around
-(defun org-element-cache-reset (&optional all) (interactive))
-(setq org-babel-sh-command "zsh")
-
 ; The following solves an error with html export
 (add-hook 'nxml-mode-hook (lambda () (rng-validate-mode 0) )t)
 
@@ -759,121 +732,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 (require 'org-crypt)
 (require 'org-habit)
-(defun my-org-hook ()
-  (load "org-git-hyperlink.el")
-  (load "org-comeet-hyperlink.el")
-  (load "org-clickup-hyperlink.el")
-  (load "org-redmine-hyperlink.el")
-  (load "org-jira-hyperlink.el")
-  (load "org-pydoc-hyperlink.el")
-  (load "org-jira-hyperlink.el")
-  (load "org-wp.el")
-  (load "org-bullets.el")
-  (load "ox-slidy.el")
-  (load "screenshot.el")
-  (load "org-man.el")
-
-   (autoload 'org-present "org-present" nil t)
-
-   (add-hook 'org-present-mode-hook
-             (lambda ()
-               (org-present-big)
-               (org-display-inline-images)))
-
-   (add-hook 'org-present-mode-quit-hook
-             (lambda ()
-               (org-present-small)
-               (org-remove-inline-images)))
-
-  (local-set-key [(control c) (control ?.)] 'org-time-stamp)
-  (local-set-key "\M-I" 'org-toggle-iimage-in-org)
-  (local-set-key "\M-R" 'refresh-iimages)
-  (local-set-key "\C-c\M-c" 'org-screenshot)
-  (local-set-key "\C-c\C-pa" 'org-show-all)
-  (local-set-key "\C-c\C-ph" 'org-hide-all)
-  (local-set-key "\C-c\C-pe" 'org-toggle-emphasis-markers)
-  (local-set-key "\C-c\C-pp" 'org-toggle-pretty-entities)
-  (local-set-key "\C-c\C-pi" 'org-toggle-iimage-in-org)
-  (local-set-key "\C-c\C-pl" 'org-toggle-link-display)
-  (local-set-key "\C-c\C-x," 'org-insert-structure-template)
-  (local-set-key "\C-co" 'org-mark-ring-goto)
-  (local-set-key (kbd "C-M-=") 'calc-eval-region)
-  (local-set-key (kbd "C-c M-/") 'toggle-date-iso)
-
-  ;; variable pitch mode makes emacs rescale!
-  (variable-pitch-mode t)
-  (emojify-mode)
-  (set-face-attribute 'org-table nil :family my-fixed-font)
-  (set-face-attribute 'org-checkbox nil :family my-fixed-font)
-  (set-face-attribute 'org-block nil :family my-fixed-font)
-  (set-face-attribute 'org-verbatim nil :family my-fixed-font :foreground "green4")
-  (setq truncate-lines nil)
-  (setq org-export-allow-bind-keywords t)
-  (setq org-html-doctype "html5")
-  (setq org-format-latex-options (plist-put org-format-latex-options :scale 1.5))
-  ; Use this in order not to show subscript and superscripts. Curlies still forces sub and superscript behavior.
-  (setq org-use-sub-superscripts nil)
-  (if (or (string= window-system "x") (string= window-system "w32"))
-      (progn
-        (setq org-bullets-bullet-list
-          '("►"
-            "•"
-            "•"
-            "•"
-            "•"
-            "•"
-            "•"
-            ;; ♥ ● ◇ ✚ ✜ ☯ ◆ ♠ ♣ ♦ ☢ ❀ ◆ ◖ ▶
-            ;;; Small
-            ;; ► • ★ ▸
-            )
-          )
-        (org-bullets-mode)
-        )
-      (setq org-bullets-bullet-list
-        '("*" "*" "*" "*" "*" "*" "*"
-          ;; ♥ ● ◇ ✚ ✜ ☯ ◆ ♠ ♣ ♦ ☢ ❀ ◆ ◖ ▶
-          ;;; Small
-          ;; ► • ★ ▸
-      )))
-
-  (setq org-hide-emphasis-markers nil)
-  (setq org-confirm-babel-evaluate nil)
-  (setq org-src-fontify-natively nil)
-  (xmsi-mode)
-  (org-toggle-pretty-entities)
-  (setq bidi-paragraph-direction nil)
-  (setq org-export-html-postamble nil)
-  (setq org-export-html-validation-link "")
-    
-  ;; Use journal theme if requested
-  (setq org-entities-user '(
-    ("models" "\\models" t "&8872;" "[models]" "models" "⊨")
-    ("indf" "{\bf 1}" t "&#120128;" "[indf]" "indf" "𝟙")
-    ("ell" "\\ell" t "&#2113;" "[ell]" "indf" "ℓ")
-    ))
-  (require 'org-table)
-
-  ; Don't use company mode in "text" buffers
-;  (company-mode -1)
-
-  ;; Customize colors
-;  (require 'cl)   ; for delete*
-;  (setq org-emphasis-alist
-;        (cons '("+" '(:strike-through t :foreground "gray30"))
-;              (delete* "+" org-emphasis-alist :key 'car :test 'equal))))
-
-  (custom-set-variables
-   '(org-emphasis-alist
-     (quote
-      (("*" bold)
-       ("/" italic)
-       ("_" underline)
-       ("=" org-verbatim verbatim)
-       ("~" org-code verbatim)
-       ("+" (:strike-through t :foreground "gray30")))))
-   )
-  )
 
 ;; Don't ever make Return accept a competion as that may insert
 ;; something different than what you are typing!
@@ -881,66 +739,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (define-key company-active-map (kbd "RET") nil)
   (define-key company-active-map (kbd "<return>") nil)
   (define-key company-active-map (kbd "<C-return>") 'company-complete-selection))
-
-(eval-after-load 'org-export-latex
-  '(progn
-     (add-to-list 'org-latex-classes
-    '("moderncv"
-      "\\documentclass[11pt,a4paper,sans]{moderncv}"
-       ("\\section{%s}" . "\\section*{%s}")
-       ("\\subsection{%s}" . "\\subsection*{%s}")
-       ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-       ("\\paragraph{%s}" . "\\paragraph*{%s}")
-       ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
-
- ;; beamer class, for presentations
-     (add-to-list 'org-latex-classes
-    '("beamer"
-       "\\documentclass[11pt]{beamer}\n
-        \\mode<{{{beamermode}}}>\n
-        \\usetheme{{{{beamertheme}}}}\n
-        \\usecolortheme{{{{beamercolortheme}}}}\n
-        \\beamertemplateballitem\n
-        \\setbeameroption{show notes}
-        \\usepackage[utf8]{inputenc}\n
-        \\usepackage[T1]{fontenc}\n
-        \\usepackage{hyperref}\n
-        \\usepackage{color}
-        \\usepackage{listings}
-        \\lstset{numbers=none,language=[ISO]C++,tabsize=4,
-    frame=single,
-    basicstyle=\\small,
-    showspaces=false,showstringspaces=false,
-    showtabs=false,
-    keywordstyle=\\color{blue}\\bfseries,
-    commentstyle=\\color{red},
-    }\n
-        \\usepackage{verbatim}\n
-        \\institute{{{{beamerinstitute}}}}\n          
-         \\subject{{{{beamersubject}}}}\n"
-  
-       ("\\section{%s}" . "\\section*{%s}")
-       
-       ("\\begin{frame}[fragile]\\frametitle{%s}"
-         "\\end{frame}"
-         "\\begin{frame}[fragile]\\frametitle{%s}"
-         "\\end{frame}")))
-  ))
-
-(add-hook 'org-mode-hook 'my-org-hook)
-
-
-(defun my-markdown-hook ()
-  (variable-pitch-mode t))
-
-(add-hook 'markdown-mode-hook 'my-markdown-hook)
-
-(org-crypt-use-before-save-magic)
-(setq org-tags-exclude-from-inheritance (quote ("crypt")))
-;; GPG key to use for encryption
-;; Either the Key ID or set to nil to use symmetric encryption.
-;(setq org-crypt-key "C1CC1169")  ;; My secrets
-(setq org-crypt-key "95B648B1")  ;; Dov Org Secrets
 
 ;; Make all font-lock faces fonts use inconsolata
 (dolist (face '(font-lock-builtin-face 	
@@ -960,15 +758,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
                 font-lock-warning-face))
   (set-face-attribute face nil :family my-fixed-font))
 
-(defun org-toggle-iimage-in-org ()
-  "display images in your org file"
-  (interactive)
-  (clear-image-cache nil)
-  (if iimage-mode
-      (set-face-underline 'org-link t)
-      (set-face-underline 'org-link nil))
-  (call-interactively 'iimage-mode))
-
 (defun refresh-iimages ()
   "Refresh all the iimages"
   (interactive)
@@ -981,18 +770,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (interactive)
        (call-interactively 'iimage-mode)
        (message (format "mode is %s" iimage-mode)))
-
-(defun org-toggle-emphasis-markers ()
-  "Toggle the emphasis of markers"
-  (interactive)
-  (setq org-hide-emphasis-markers (not org-hide-emphasis-markers))
-  (font-lock-fontify-buffer))
-  
-(defun org-screenshot ()
-  "Insert a screenshot in org-mode"
-  (interactive)
-  (call-interactively 'screenshot)
-  (iimage-recenter nil))
 
 (defun cpp-get-class-name ()
   """Parses the buffer to extract the current class name for C and H files"""
@@ -1364,34 +1141,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (let* ((cmd (format "nbc %s -sm- -r -S=usb " (buffer-name))))
     (shell-command cmd)))
 
-;; mapping between languages and their major mode  (in Emacs)
-;(setq org-export-htmlized-org-css-url "/home/dov/tmp/org-mode/ORGWEBPAGE/org.css")
-;(load "htmlize")
-(org-babel-do-load-languages
- 'org-babel-load-languages
- '((shell . t)
-   (perl . t)
-   (emacs-lisp . t)
-   (python . t)
-   (ditaa . t)
-   (dot . t)
-   (asymptote . t)
-   (plantuml . t)
-   (octave . t)
-   (R . t)
-   (C . t)
-   (lua . t)
-   )) 
-(setq org-plantuml-jar-path
-      (concat emacs-git "/org-mode/scripts/plantuml.jar"))
-;(load "org-exp-blocks")
-;(load "org-mw")
-(defun my-org-confirm-babel-evaluate (lang body)
-  (not
-   (or (string= lang "ditaa")
-       (string= lang "dot"))))  ; don't ask for ditaa
-(setq org-confirm-babel-evaluate 'my-org-confirm-babel-evaluate)
-
 ;; Shell colors
 (setq ansi-color-names-vector
       '("white" "red" "green" "brown" "blue" "magenta" "cyan" "black"))
@@ -1446,15 +1195,6 @@ With numeric ARG, display the images if and only if ARG is positive."
                     (if refresh (image-refresh img)))
                 (remove-text-properties (match-beginning 0) (match-end 0) '(display)))))))
     (set-buffer-modified-p modp)))
-
-(defun my-org-iimage-refresh ()
-  (interactive)
-  (redisplay t)
-  (set-face-underline-p 'org-link nil)
-  (my-iimage-mode-buffer 1 'refresh)
-  (redisplay t))
-
-(add-hook 'org-babel-after-execute-hook 'my-org-iimage-refresh)
 
 (defun buffer-local-set-key (key func)
   (interactive "KSet key on this buffer: \naCommand: ")
@@ -1816,10 +1556,6 @@ With numeric ARG, display the images if and only if ARG is positive."
   (interactive)
   (kill-new (buffer-name))
   (message "%s" (buffer-name)))
-
-(add-hook 'magit-mode-hook 
-  (lambda()
-    (define-key magit-mode-map (kbd "i") 'magit-gitignore-in-topdir)))
 
 ;; Hide unregistered files from vc-buffer.
 ;; Copied from: http://groups.google.com/group/gnu.emacs.bug/msg/4a58d078b4aae650
