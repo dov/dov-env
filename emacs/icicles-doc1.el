@@ -6867,7 +6867,7 @@
 ;;  Suppose that you type `C-x S-TAB' to show all key sequences that
 ;;  begin with `C-x'.  You might see a candidate that looks like this:
 ;;
-;;    C-q  =  toggle-read-only
+;;    C-q  =  read-only-mode
 ;;
 ;;  You can then type "C-q" or "d-onl" or any other substring, and
 ;;  then use `S-TAB' to complete the candidate.  (This second use of

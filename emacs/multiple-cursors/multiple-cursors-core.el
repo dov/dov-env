@@ -715,7 +715,7 @@ for running commands with multiple cursors."
                                      mouse-set-point
                                      mouse-drag-region
                                      quit-window
-                                     toggle-read-only
+                                     read-only-mode
                                      windmove-left
                                      windmove-right
                                      windmove-up

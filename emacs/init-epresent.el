@@ -1,9 +1,9 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "/packages/literate-calc-mode-20220215.1814//"))
+                  (concat emacs-git "/packages/epresent-20160411.201"))
                  load-path))
 
-(load "literate-calc-mode-autoloads.el")
+(load "epresent-autoloads.el")
 
-(provide 'init-literate-calc)
+(provide 'init-epresent)
 

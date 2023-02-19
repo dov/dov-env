@@ -1,0 +1,17 @@
+[Shortcuts]
+KisToolPath=Z
+KisToolPolyline=P
+KisToolSelectElliptical=Shift+O
+KisToolSelectRectangular=Shift+R
+KritaSelected/KisToolColorSampler=none
+KritaShape/KisToolEllipse=O
+KritaShape/KisToolLine=L
+KritaShape/KisToolRectangle=R
+convert-to-path=none
+decrease_opacity={
+edit_redo=Ctrl+Y
+file_export_file=Ctrl+Shift+X
+increase_opacity=}
+make_brush_color_lighter=none
+softProof=none
+toggle_layer_visibility=Meta+Ins

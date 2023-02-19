@@ -27,7 +27,7 @@
 (helm-mode 1)
 
 (eval-after-load 'helm-mode
-  '(add-to-list 'helm-completing-read-handlers-alist '(old-file)))
+  '(add-to-list 'helm-completing-read-handlers-alist '(old-ff)))
 
 ;(define-key global-map [remap find-file] 'helm-find-files)
 (define-key global-map [remap occur] 'helm-occur)

@@ -234,7 +234,7 @@ the word under the cursor."
       ; if "readonly" appears near the beginning, then make the buffer read-only
       (goto-char 0)
       (if (re-search-forward "readonly" 100 t)   ; returns true only if it matches
-        (toggle-read-only 1))                    ; means set to read-only
+        (read-only-mode 1))                    ; means set to read-only
 
       ; go back to where we were before the revert
       (goto-line cur)

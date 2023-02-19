@@ -183,6 +183,7 @@
   (require 'init-eglot))
 (require 'init-magit)
 (require 'init-magit-imerge)
+(require 'init-lua-mode)
 ;(require 'init-company-mode)
 
 ;; Emacs 24 support
@@ -704,8 +705,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
   "Redefined to do kill-line as I believe that lines breaks are for display only!"
   (interactive)
   (kill-line))
-(require 'ox-mediawiki)
-(require 'ox-reveal)
 (require 'load-theme-buffer-local)
 
 (defun org-show-all ()
@@ -1033,10 +1032,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (message "my-perl-mode-hook")
   )
 
-(defun my-lua-mode-hook ()
-  (interactive)
-  (define-key lua-mode-map [(control c) (control c)] 'shell-lua-on-buffer))
-
 ;(add-hook 'pde-hook 'my-perl-mode-hook)
 (add-hook 'cperl-mode-hook 'my-perl-mode-hook)
   
@@ -1045,7 +1040,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;(autoload 'sather-mode "sather.el" "Sather mode" t nil)
 (autoload 'cweb-mode "cweb.el" "CWeb mode" t nil)
 (autoload 'rust-mode "rust-mode.el" "Rust mode" t nil)
-(autoload 'lua-mode "lua-mode.el" "Lua mode" t nil)
 (autoload 'csv-mode "csv-mode.el" "CSV mode" t nil)
 (autoload 'octave-mode "octave.el" "Octave mode" t nil)
 ;(autoload 'sgml-mode "sgml-mode.el" "SGML mode" t nil)
@@ -1157,9 +1151,9 @@ Operate on selected region on whole buffer."
 ;; Solve colorizing of e.g. epylint
 (require 'ansi-color)
 (defun colorize-compilation-buffer ()
-  (toggle-read-only)
+  (read-only-mode)
   (ansi-color-apply-on-region (point-min) (point-max))
-  (toggle-read-only))
+  (read-only-mode))
 (add-hook 'compilation-filter-hook 'colorize-compilation-buffer)
 
 ;; Colorize the output in the shell command

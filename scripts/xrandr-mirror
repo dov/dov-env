@@ -1,0 +1,58 @@
+#!/usr/bin/python
+######################################################################
+# Search for a connected monitor and connect to it.
+#
+# 2023-01-22 Sun
+######################################################################
+import subprocess
+import re
+
+def die(msg):
+  if msg[-1]!='\n':
+    msg += '\n'
+  sys.stderr.write(msg)
+  sys.exit(-1)
+  
+def xec(cmd, decode=True, chomp=True, verbose=False):
+  '''Run a command a returns its stdout output.
+
+  decode -- run (utf8) decode of the resulting string
+  chomp -- get rid of the last newline (like in perl)
+  '''
+  ph = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
+  if verbose:
+    sys.stderr.write(cmd + '\n')
+  res = b''
+  maxsize = 1024
+  while True:
+    buf = ph.stdout.read()
+    if len(buf)==0:
+      break
+    res += buf
+  ph.wait()
+  if decode:
+    res=res.decode()
+  if chomp:
+    res = res[:-1]
+  return res
+
+xrandr_output = xec('xrandr --display :0').split('\n')
+connected = []
+for line in xrandr_output:
+  if line.startswith(' '):
+    continue
+  if m:=re.match(r'^(\S+)\s+connected', line):
+    connected += [m.group(1)]
+
+# Filter the internal monitor
+connected = [c for c in connected
+             if c != 'eDP-1']
+if len(connected)==0:
+  die('No monitors found!')
+elif len(connected)>1:
+  die('More than one monitor found!')
+
+xec(f'xrandr --output {connected[0]} --mode 1920x1080 --same-as eDP-1  ')
+    
+
+  
