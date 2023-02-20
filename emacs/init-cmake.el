@@ -1,7 +1,7 @@
 (setq load-path (append
                  (list
                   (concat emacs-git "/packages/cmake-font-lock-20211224.2006/")
-                  (concat emacs-git "/packages/cmake-mode-20220322.1258/")
+                  (concat emacs-git "/packages/cmake-mode-20230215.1434/")
                   emacs-git
                   )
                  load-path))

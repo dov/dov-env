@@ -1034,6 +1034,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 ;(add-hook 'pde-hook 'my-perl-mode-hook)
 (add-hook 'cperl-mode-hook 'my-perl-mode-hook)
+(add-hook 'lua-mode-hook 'my-lua-mode-hook)
   
 (autoload 'vala-mode "vala-mode.el" "Valamode" t)
 (autoload 'pov-mode "pov-mode.el" "PoVray scene file mode" t)
@@ -1150,11 +1151,7 @@ Operate on selected region on whole buffer."
 
 ;; Solve colorizing of e.g. epylint
 (require 'ansi-color)
-(defun colorize-compilation-buffer ()
-  (read-only-mode)
-  (ansi-color-apply-on-region (point-min) (point-max))
-  (read-only-mode))
-(add-hook 'compilation-filter-hook 'colorize-compilation-buffer)
+(add-hook 'compilation-filter-hook 'ansi-color-compilation-filter)
 
 ;; Colorize the output in the shell command
 (defadvice display-message-or-buffer (before ansi-color activate)
