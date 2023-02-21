@@ -2354,10 +2354,12 @@ Does not delete the prompt."
 (defun goto-compilation-directory-and-compile()
   "chdir to the COD (compilation directory) and compile"
   (interactive)
-  (if (equal current-prefix-arg nil)
-    (let ((default-directory (getenv "COD")))
-      (call-interactively #'compile))
-    (call-interactively #'compile)))
+  ; turn off helm
+  (let ((completion-in-region-function 'completion--in-region))
+    (if (equal current-prefix-arg nil)
+        (let ((default-directory (getenv "COD")))
+          (call-interactively #'compile))
+        (call-interactively #'compile))))
 
 (global-set-key [(control c) (control e)] 'goto-compilation-directory-and-compile)
 (global-set-key [(control ?') (control e)] 'goto-compilation-directory-and-compile)
