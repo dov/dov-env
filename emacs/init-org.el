@@ -9,6 +9,13 @@
 (use-package
   org)
  
+;; Bug workaround for Tab not working in tables
+(defalias 'org-font-lock-ensure
+        (if (fboundp 'font-lock-ensure)
+            #'font-lock-ensure
+          (lambda (&optional _beg _end)
+            (with-no-warnings (font-lock-fontify-buffer)))))
+
 (defun my-org-hook ()
   (load "org-git-hyperlink.el")
   (load "org-comeet-hyperlink.el")

@@ -32,12 +32,30 @@
 (eval-after-load 'helm-mode
   '(add-to-list 'helm-completing-read-handlers-alist '(old-ff)))
 
+(setq helm-mode-no-completion-in-region-in-modes
+      '(shell-mode))
+        
 (defun my-shell-command (&optional no-op)
   (interactive)
   (let ((completion-in-region-function 'completion--in-region))
     (call-interactively 'shell-command)))
-  
 (global-set-key "\M-!" 'my-shell-command)
+
+(defun my-insert-file (&optional no-op)
+  (interactive)
+  (let ((completion-in-region-function 'completion--in-region))
+    (call-interactively 'insert-file)))
+(global-set-key "\C-xi" 'my-insert-file)
+
+(defun my-write-file (&optional no-op)
+  (interactive)
+  (let* ((save-helm-mode (helm-mode))
+         (completion-in-region-function nil))
+    (helm-mode 0)
+    (call-interactively 'write-file)
+    (helm-mode save-helm-mode)))
+(global-set-key "\C-x\C-w" 'my-write-file)
+
 
 (define-key global-map [remap occur] 'helm-occur)
 (define-key global-map [remap list-buffers] 'helm-buffers-list)
