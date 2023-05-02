@@ -4,6 +4,6 @@
                   )
                  load-path))
 
-(load "csv-mode.el")
+(autoload 'csv-mode "csv-mode.el" "CSV mode" t nil)
 
 (provide 'init-csv-mode)

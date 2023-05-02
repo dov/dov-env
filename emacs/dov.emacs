@@ -185,6 +185,10 @@
 (require 'init-magit-imerge)
 (require 'init-lua-mode)
 ;(require 'init-company-mode)
+(require 'init-csv-mode)
+(require 'init-bind-key)
+(require 'init-doom-themes)
+(require 'init-visual-fill-column)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -302,6 +306,12 @@
 ;; Don't ask async questions by default
 
 (setq async-shell-command-buffer "rename-buffer")
+
+(defun dov-org-present ()
+  """Turn emacs into presentation mode"""
+  (interactive)
+  (require 'dov-emacs-present)
+  (org-present))
 
 (defun pcre-re-search-forward (re)
   """Search forward for a pcre regular expression"""
@@ -1041,7 +1051,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;(autoload 'sather-mode "sather.el" "Sather mode" t nil)
 (autoload 'cweb-mode "cweb.el" "CWeb mode" t nil)
 (autoload 'rust-mode "rust-mode.el" "Rust mode" t nil)
-(autoload 'csv-mode "csv-mode.el" "CSV mode" t nil)
 (autoload 'octave-mode "octave.el" "Octave mode" t nil)
 ;(autoload 'sgml-mode "sgml-mode.el" "SGML mode" t nil)
 (autoload 'doc-mode "doc-mode.el" "Doc load" t nil)
@@ -1224,61 +1233,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (add-hook 'web-mode-hook 'my-web-mode)
 
 ; Choose applications to open external files .
-
-(if (string-match "x86_64-w64-mingw32" system-configuration)
-    (progn
-      (setq org-file-apps
-            (append
-;             '(("png" . "c:/progra~2/IrfanView/i_view32.exe %s"))
-             '(("doc" . "\"c:/Program Files (x86)/OpenOffice.org 3/program/soffice.exe\" %s"))
-             '(("pdf" . "\"c:/Program Files (x86)/Adobe/Acrobat Reader DC/Reader/AcroRd32.exe\" %s"))
-;             org-file-apps
-             ))
-      )
-  (progn 
-    (setq org-file-apps
-          (append
-           '(("doc" . "libreoffice %s"))
-           '(("docx" . "libreoffice %s"))
-           '(("odt" . "libreoffice %s"))
-           '(("png" . "feh %s"))
-           '(("pdf" . "evince %s"))
-           '(("svg" . "inkscape %s"))
-           '(("net" . "/usr/local/samiam/runsamiam %s"))
-           '(("xcf" . "gimp %s"))
-           '(("giv" . "giv %s"))
-           '(("doc" . "libreoffice -norestore %s"))
-           '(("docx" . "libreoffice -norestore %s"))
-           '(("odt" . "libreoffice -norestore %s"))
-           '(("gnumeric" . "gnumeric %s"))
-           '(("html" . "firefox %s"))
-           '(("xopp" . "xournalpp %s"))
-           '(("ora" . "krita %s"))
-           '(("kra" . "krita %s"))
-           org-file-apps))))
-
-(setq org-src-lang-modes
-      '(("elisp" . emacs-lisp)
-        ("ditaa" . artist)
-        ("asymptote" . asy)
-        ("dot" . fundamental)
-        ("perl" . cperl)
-        ("python" . python)
-        ("lua" . lua)
-        ))
-
-(setq org-latex-packages-alist
-      '(
-;        (""     "grffile"   t)
-        (""     "svg"   t)
-        ))
-
-
-(setq org-latex "lualatex")
-(setq org-latex-pdf-process '(
-  "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"
-  "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"
-  "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"))
 
 ;; Don't jump when curser reaches end of terminal.
 (setq scroll-conservatively 10000)

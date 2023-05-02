@@ -2,12 +2,16 @@
                  (list
                   (concat emacs-git "/org-extra")
                   (concat emacs-git "/packages/org-bullets-20200317.1740")
-                  (concat emacs-git "/packages/org-9.6.1"))
+                  (concat emacs-git "/packages/org-9.6.1")
+                  (concat emacs-git "/packages/org-present-20220806.1847")
+                  )
                  load-path))
 (use-package
   org-bullets)
 (use-package
   org)
+(use-package
+  org-present)
  
 ;; Bug workaround for Tab not working in tables
 (defalias 'org-font-lock-ensure
@@ -19,7 +23,7 @@
 (defun my-org-hook ()
   (load "org-git-hyperlink.el")
   (load "org-comeet-hyperlink.el")
-;  (load "org-clickup-hyperlink.el")
+  (load "org-clickup-hyperlink.el")
   (load "org-redmine-hyperlink.el")
   (load "org-jira-hyperlink.el")
   (load "org-pydoc-hyperlink.el")
@@ -135,6 +139,62 @@
   )
 
 (add-hook 'org-mode-hook 'my-org-hook)
+
+(if (string-match "x86_64-w64-mingw32" system-configuration)
+    (progn
+      (setq org-file-apps
+            (append
+;             '(("png" . "c:/progra~2/IrfanView/i_view32.exe %s"))
+             '(("doc" . "\"c:/Program Files (x86)/OpenOffice.org 3/program/soffice.exe\" %s"))
+             '(("pdf" . "\"c:/Program Files (x86)/Adobe/Acrobat Reader DC/Reader/AcroRd32.exe\" %s"))
+;             org-file-apps
+             ))
+      )
+  (progn 
+    (setq org-file-apps
+          (append
+           '(("doc" . "libreoffice %s"))
+           '(("docx" . "libreoffice %s"))
+           '(("odt" . "libreoffice %s"))
+           '(("png" . "feh %s"))
+           '(("pdf" . "evince %s"))
+           '(("svg" . "inkscape %s"))
+           '(("net" . "/usr/local/samiam/runsamiam %s"))
+           '(("xcf" . "gimp %s"))
+           '(("giv" . "giv %s"))
+           '(("stl" . "qtfern %s"))
+           '(("doc" . "libreoffice -norestore %s"))
+           '(("docx" . "libreoffice -norestore %s"))
+           '(("odt" . "libreoffice -norestore %s"))
+           '(("gnumeric" . "gnumeric %s"))
+           '(("html" . "firefox %s"))
+           '(("xopp" . "xournalpp %s"))
+           '(("ora" . "krita %s"))
+           '(("kra" . "krita %s"))
+           org-file-apps))))
+
+(setq org-src-lang-modes
+      '(("elisp" . emacs-lisp)
+        ("ditaa" . artist)
+        ("asymptote" . asy)
+        ("dot" . fundamental)
+        ("perl" . cperl)
+        ("python" . python)
+        ("lua" . lua)
+        ))
+
+(setq org-latex-packages-alist
+      '(
+;        (""     "grffile"   t)
+        (""     "svg"   t)
+        ))
+
+
+(setq org-latex "lualatex")
+(setq org-latex-pdf-process '(
+  "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"
+  "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"
+  "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"))
 
 (defun my-org-iimage-refresh ()
   (interactive)

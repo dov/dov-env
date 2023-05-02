@@ -24,7 +24,23 @@
                 ))
 
 (load "helm-autoloads" nil t)
-(helm-mode 1)
+;(helm-mode nil)
+
+; from
+; https://emacs.stackexchange.com/questions/63461/how-to-turn-on-helm-mode-for-a-specific-function
+(defun execute-with-helm (command)
+  (if helm-mode
+      (call-interactively command))
+  (progn
+    (helm-mode 1)
+    ;; We call `unwind-protect' to ensure that `helm-mode' is
+    ;; disabled even though `command' doesn't complete normally.
+    ;;
+    ;; Without `unwind-protect', if the user presses =C-g= while
+    ;; `command' is being executed, then the entire function would
+    ;; be exited and therefore, `helm-mode' wouldn't be disabled'
+    (unwind-protect (call-interactively command)
+      (helm-mode -1))))
 
 (defun old-ff (&optional no-op) (interactive)
        (call-interactively 'find-file))

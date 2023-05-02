@@ -32,7 +32,9 @@
 
 (defun find-git-repo (dir)
   "Find base git directory"
-  (if (string= (expand-file-name "../" dir) dir)
+  (if (or (string= (expand-file-name "../" dir) dir)
+          (string= dir "/")
+      )
       (error "Error! Not in a git repo.")
     (if (file-exists-p (expand-file-name ".git/" dir))
         dir
