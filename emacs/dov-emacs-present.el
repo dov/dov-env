@@ -29,15 +29,19 @@
 (set-frame-parameter (selected-frame) 'alpha '(97 . 100))
 (add-to-list 'default-frame-alist '(alpha . (90 . 90)))
 
+(require 'color)
+(set-face-attribute 'org-block nil :background "gray90")
+(set-face-attribute 'org-level-1 nil :foreground "red3")
+
 ;;; Theme and Fonts ----------------------------------------
 
 ;; Install doom-themes
 (unless (package-installed-p 'doom-themes)
   (package-install 'doom-themes))
 
-;; Load up doom-palenight for the System Crafters look
+;; Load up doom theme
 ;(load-theme 'doom-palenight t)
-(load-theme 'doom-acario-light t)
+;(load-theme 'doom-acario-light t)
 
 ;; Set reusable font name variables
 ;(defvar my/fixed-width-font "JetBrains Mono"
@@ -45,7 +49,9 @@
 (defvar my/fixed-width-font "InconsolataDov"
   "The font to use for monospaced (fixed width) text.")
 
-(defvar my/variable-width-font "Iosevka Aile"
+;(defvar my/variable-width-font "Iosevka Aile"
+;  "The font to use for variable-pitch (document) text.")
+(defvar my/variable-width-font "Candara"
   "The font to use for variable-pitch (document) text.")
 
 ;; NOTE: These settings might not be ideal for your machine, tweak them as needed!
@@ -71,6 +77,10 @@
                 (org-level-7 . 1.1)
                 (org-level-8 . 1.1)))
   (set-face-attribute (car face) nil :font my/variable-width-font :weight 'medium :height (cdr face)))
+
+(set-face-attribute 'org-level-1 nil :font my/variable-width-font :weight 'bold :height 1.3)
+(set-face-attribute 'org-level-2 nil :font my/variable-width-font :weight 'bold :height 1.15)
+
 
 ;; Make the document title a bit bigger
 (set-face-attribute 'org-document-title nil :font my/variable-width-font :weight 'bold :height 1.3)
