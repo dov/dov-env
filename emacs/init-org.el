@@ -13,6 +13,10 @@
 (use-package
   org-present)
  
+;; Compatibility
+(defun org-font-lock-ensure (x y)
+  (font-lock-ensure x y))
+
 ;; Bug workaround for Tab not working in tables
 (defalias 'org-font-lock-ensure
         (if (fboundp 'font-lock-ensure)
