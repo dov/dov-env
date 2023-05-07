@@ -24,6 +24,28 @@
           (lambda (&optional _beg _end)
             (with-no-warnings (font-lock-fontify-buffer)))))
 
+(defun my-org-present-mode-hook ()
+  ;;; Restore the left and right keys
+  (define-key org-present-mode-keymap [right]         'right-char)
+  (define-key org-present-mode-keymap [left]          'left-char)
+  (define-key org-present-mode-keymap [(alt right)]   'org-present-next)
+  (define-key org-present-mode-keymap [(alt left)]    'org-present-prev)
+  (define-key org-present-mode-keymap [(control right)]   'org-present-next)
+  (define-key org-present-mode-keymap [(control left)]    'org-present-prev)
+
+  (org-present-big)
+  (org-display-inline-images)
+  (setq org-src-fontify-natively t)
+  (font-lock-update)
+
+  ; Set cursor color to green
+  (set-cursor-color "#008f00")
+
+  (setq x-pointer-shape x-pointer-top-left-arrow)
+  (set-mouse-color "#008f00")
+
+  )
+
 (defun my-org-hook ()
   (load "org-git-hyperlink.el")
   (load "org-comeet-hyperlink.el")
@@ -41,12 +63,7 @@
   (require 'ox-reveal)
 
    (autoload 'org-present "org-present" nil t)
-
-   (add-hook 'org-present-mode-hook
-             (lambda ()
-               (org-present-big)
-               (org-display-inline-images)))
-
+   (add-hook 'org-present-mode-hook 'my-org-present-mode-hook)
    (add-hook 'org-present-mode-quit-hook
              (lambda ()
                (org-present-small)
