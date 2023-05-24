@@ -1228,6 +1228,7 @@ With numeric ARG, display the images if and only if ARG is positive."
       '((nil . (("jquery" . "<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js\"></script>")))
         ))
   (web-mode-on-engine-setted)  ; Needed to rebuild web-mode-extra-snippets
+  (setq web-mode-enable-auto-indentation nil)  ; This is seriously broken
   )
 
 (add-hook 'web-mode-hook 'my-web-mode)
