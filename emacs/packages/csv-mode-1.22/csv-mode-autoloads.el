@@ -70,7 +70,7 @@ Major mode for editing files of tab-separated value type.
 ;; no-byte-compile: t
 ;; no-update-autoloads: t
 ;; no-native-compile: t
-;; coding: utf-8-emacs-unix
+;; coding: utf-8
 ;; End:
 
 ;;; csv-mode-autoloads.el ends here

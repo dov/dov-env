@@ -459,7 +459,7 @@ Enable flashing the mode-line on error.")
 ;; no-byte-compile: t
 ;; no-update-autoloads: t
 ;; no-native-compile: t
-;; coding: utf-8-emacs-unix
+;; coding: utf-8
 ;; End:
 
 ;;; doom-themes-autoloads.el ends here
