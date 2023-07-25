@@ -34,7 +34,7 @@ class GlmMatrixPrint(gdb.Command):
 
     for v in args[argp:]:
       try:
-        # Get eigen pretty print output. This will collide with any other
+        # Get glm pretty print output. This will collide with any other
         # mangling of the eigen output...
         gdb.execute("disable pretty-printer",False,True)
         val = gdb.execute("print "+v,False,True)
@@ -48,7 +48,7 @@ class GlmMatrixPrint(gdb.Command):
 
         ne = nestedExpr('{','}').parseString(val).asList()
 
-        # Heuristic recognize matrices
+        # Heuristic recognize matrices and vectors
         table = []
         if len(ne)==1 and len(ne[0])==3 and ne[0][0]=='value':
           m = ne[0][2]
@@ -57,10 +57,8 @@ class GlmMatrixPrint(gdb.Command):
           for idx in range(n*n):
             yidx = idx//n
             xidx = idx%n
-            if m[0][0][0][3]=='y':
-              v = float(m[xidx*2][0][0][yidx*3+2].replace(',',''))
-            else:
-              v = float(m[xidx*2][yidx*2][2][:-1])
+            # The 2* because of the commas output by nestExpr
+            v = float(m[2*yidx][2*xidx][2].replace(',',''))
 
             # Add to the table
             row += ['{:>12}'.format(f'{v:.5f}')]
@@ -69,17 +67,16 @@ class GlmMatrixPrint(gdb.Command):
               row=[]
         elif len(ne)==1 and ne[0][0]!='value':
           m = ne[0]
+          n = (len(m)+1)//2
+
           row = []
-          if m[0][0][3]=='y':
-            n = len(m[0][0])//3
-            for i in range(n):
-              v = float(m[0][0][3*i+2].replace(',',''))
-              row += ['{:>8}'.format(f'{v:.5f}')]
-          else:
-            n = (len(m)+1)//2
-            for i in range(n):
-              v = float(m[i*2][2][:-1])
-              row += ['{:>8}'.format(f'{v:.5f}')]
+          for idx in range(n):
+            # The 2* because of the commas output by nestExpr
+            v = float(m[2*idx][2].replace(',',''))
+
+            # Add to the row
+            row += ['{:>12}'.format(f'{v:.5f}')]
+
           table += [row]
 
         for row in table:
