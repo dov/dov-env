@@ -189,6 +189,7 @@
 (require 'init-bind-key)
 (require 'init-doom-themes)
 (require 'init-visual-fill-column)
+(require 'init-dead-grep)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
