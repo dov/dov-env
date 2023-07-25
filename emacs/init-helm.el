@@ -72,6 +72,12 @@
     (helm-mode save-helm-mode)))
 (global-set-key "\C-x\C-w" 'my-write-file)
 
+; helm-dabbrev has the annoying feature to leave a selection of the trailing
+; word at the end of the completion. This function turns that off.
+(defun my-dabbrev-and-deactivate ()
+  (interactive)
+  (call-interactively 'helm-dabbrev)
+  (deactivate-mark))
 
 (define-key global-map [remap occur] 'helm-occur)
 (define-key global-map [remap list-buffers] 'helm-buffers-list)
@@ -79,6 +85,8 @@
 (define-key global-map [remap execute-extended-command] 'helm-M-x)
 (define-key global-map [remap apropos-command] 'helm-apropos)
 (define-key global-map "\C-xb" 'helm-mini)
+(define-key global-map [(meta ?/)] 'my-dabbrev-and-deactivate)
+(define-key global-map [(control ?/)] 'my-dabbrev-and-deactivate)
 
 (unless (boundp 'completion-in-region-function)
   (define-key lisp-interaction-mode-map [remap completion-at-point] 'helm-lisp-completion-at-point)

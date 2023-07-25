@@ -9,7 +9,8 @@
 
 (add-hook 'magit-mode-hook 
   (lambda()
-    (define-key magit-mode-map (kbd "i") 'magit-gitignore-in-topdir)))
+    (define-key magit-mode-map (kbd "i") 'magit-gitignore-in-topdir)
+    (define-key magit-mode-map (kbd "C-c C-e") 'goto-compilation-directory-and-compile)))
 
 (setq magit-push-always-verify nil)
 

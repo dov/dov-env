@@ -2052,6 +2052,10 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key (kbd "<mouse-6>") (lambda () (interactive) (scroll-right 8)))
 (global-set-key (kbd "<M-mouse-7>") (lambda () (interactive) (scroll-left 32)))
 (global-set-key (kbd "<M-mouse-6>") (lambda () (interactive) (scroll-right 32)))
+(global-set-key (kbd "<A-mouse-5>") (lambda () (interactive) (scroll-left 32)))
+(global-set-key (kbd "<A-mouse-4>") (lambda () (interactive) (scroll-right 32)))
+(global-set-key (kbd "<A-wheel-up>") (lambda () (interactive) (scroll-left 32)))
+(global-set-key (kbd "<A-wheel-down>") (lambda () (interactive) (scroll-right 32)))
 
 (global-set-key (kbd "<mouse-5>") (lambda () (interactive) (scroll-up 4)))
 (global-set-key (kbd "<mouse-4>") (lambda () (interactive) (scroll-down 4)))
@@ -2102,6 +2106,7 @@ With numeric ARG, display the images if and only if ARG is positive."
      (local-set-key [(alt ?f)] 'right-word)
      (local-set-key [(control c) (control c)] 'shell-python-on-buffer)
      (local-set-key [(control c) (control j)] 'xjet-python-buffer)
+     (local-set-key [(control c) (control e)] 'goto-compilation-directory-and-compile)
      (local-set-key [(control up)] 'scroll-up-line)
      (local-set-key [(control down)] 'scroll-down-line)
      (local-set-key [(control right)] 'forward-word)
