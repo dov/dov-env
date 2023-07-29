@@ -346,7 +346,7 @@ finally removed."
             ;; If the length of candidates is only one when computed
             ;; that's mean the unique matched item have already been
             ;; inserted by the iterator, so no need to reinsert the old dabbrev,
-            ;; just let helm exiting with "No expansion found".
+            ;; just let helm exiting with "No expansion found". 
             (unless (or only-one cycling-disabled-p)
               (setq dabbrev old-dabbrev
                     limits  (helm-dabbrev-info-limits helm-dabbrev--data))
@@ -379,6 +379,8 @@ finally removed."
                         :input (concat "^" dabbrev " ")
                         :resume 'noresume
                         :allow-nest t)
+                (deactivate-mark)
+                (message "deactivate-mark")
                 (setq helm-dabbrev--computing-cache nil
                       helm-dabbrev--already-tried   nil
                       helm-dabbrev--cache           nil)))))))))

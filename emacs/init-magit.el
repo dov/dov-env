@@ -7,10 +7,11 @@
 (use-package
   magit)
 
-(add-hook 'magit-mode-hook 
-  (lambda()
-    (define-key magit-mode-map (kbd "i") 'magit-gitignore-in-topdir)
-    (define-key magit-mode-map (kbd "C-c C-e") 'goto-compilation-directory-and-compile)))
+(defun my-magit-mode-hook ()
+  (define-key magit-mode-map (kbd "i") 'magit-gitignore-in-topdir)
+  (define-key magit-mode-map [(control c) (control e)] 'goto-compilation-directory-and-compile))
+
+(add-hook 'magit-mode-hook 'my-magit-mode-hook)
 
 (setq magit-push-always-verify nil)
 

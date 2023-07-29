@@ -1694,10 +1694,10 @@ With numeric ARG, display the images if and only if ARG is positive."
 (load "git-find-file.el")
 (global-set-key [(control c) ?g] 'git-find-file)
 
-;; git grep
+;; git grep - use deadgrep instead
 (load "dov-git-grep")
-(global-set-key [(control c) ?s] 'dov-git-grep)
-(global-set-key [(control c) (control s)] 'dov-git-grep-here)
+;(global-set-key [(control c) ?s] 'dov-git-grep)
+;(global-set-key [(control c) (control s)] 'dov-git-grep-here)
 
 ;; neo-tree configuration
 (eval-after-load "neotree"
