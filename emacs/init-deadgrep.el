@@ -15,9 +15,12 @@
     (select-window w)
     (deadgrep-forward-match)))
 
-(define-key deadgrep-mode-map "v" 'deadgrep-visit-result-other-window-and-stay)
-(define-key deadgrep-mode-map "j" 'next-line)
-(define-key deadgrep-mode-map "k" 'previous-line)
+(defun my-deadgrep-edit-mode-hook ()
+  (define-key deadgrep-mode-map "v" 'deadgrep-visit-result-other-window-and-stay)
+  (define-key deadgrep-mode-map "j" 'next-line)
+  (define-key deadgrep-mode-map "k" 'previous-line))
+(add-hook 'deadgrep-edit-mode-hook 'my-deadgrep-edit-mode-hook)
+
 
 (require 'deadgrep-autoloads)
 (require 'wgrep-deadgrep-autoloads)

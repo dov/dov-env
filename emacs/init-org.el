@@ -46,6 +46,21 @@
 
   )
 
+(defun turn-last-into-embedded-link ()
+  (interactive)
+  (set-mark-command nil)
+  (pcre-re-search-backward ":")
+  (forward-char)
+  (copy-region-as-kill (point) (mark))
+  (pcre-re-search-backward "\\s\\S")
+  (forward-char)
+  (insert "[[")
+  (exchange-point-and-mark)
+  (insert "][")
+  (yank)
+  (insert "]]")
+  )
+
 (defun my-org-hook ()
   (load "org-git-hyperlink.el")
   (load "org-comeet-hyperlink.el")
@@ -81,6 +96,8 @@
   (local-set-key "\C-c\C-pl" 'org-toggle-link-display)
   (local-set-key "\C-c\C-x," 'org-insert-structure-template)
   (local-set-key "\C-co" 'org-mark-ring-goto)
+  (local-set-key "\C-c]" 'turn-last-into-embedded-link)
+
   (local-set-key (kbd "C-M-=") 'calc-eval-region)
   (local-set-key (kbd "C-c M-/") 'toggle-date-iso)
 

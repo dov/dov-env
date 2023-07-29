@@ -58,6 +58,43 @@ int main(int argc, char **argv)
 }
 #
 #######
+givio	indent	an template for reading and writing giv files with GivIO
+#include "GivIO.h"
+#include <fstream>
+#include <math.h>
+
+using namespace std;
+
+int main(int argc, char **argv)
+{
+  giv::CGiv giv("in.giv");
+
+  giv::TContour circle;
+
+  double xc=100, yc=100, r=50;
+
+  for (int i=0; i<16; i++)
+  {
+    double th = 2*M_PI*i/16;
+    double x = xc + r * cos(th);
+    double y = yc + r * sin(th);
+    circle.push_back({x,y});
+  }
+
+  // Add a dataset to the giv file
+  giv.push_back(
+    {circle,
+     {{"color", "red"},
+      {"marks", "fcircle"}},
+     true // closed
+    });
+
+  ofstream fh("out.giv");
+  giv.Save(fh);
+  fh.close();
+}
+#
+#######
 maincl expand	Dov's standard template for command line main.
 #include <stdio.h>
 #include <stdarg.h>

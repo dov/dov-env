@@ -189,7 +189,7 @@
 (require 'init-bind-key)
 (require 'init-doom-themes)
 (require 'init-visual-fill-column)
-(require 'init-dead-grep)
+(require 'init-deadgrep)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -2094,31 +2094,32 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;(add-hook 'py-mode-hook (lambda() 
 ;                           (define-key py-mode-map [(control m)] 'py-newline-and-indent)
 ;                           ))
-(add-hook 'python-mode-hook
-  (lambda() 
-     (local-set-key (kbd "RET") 'py-newline-and-indent)
-     (remove-dos-eol)
-     (setq py-indent-offset my-indent)
-     (setq python-indent my-indent)
-     (remove-dos-eol)
-     (local-set-key [(alt ? )] 'gud-break)
-     (local-set-key [(alt ?b)] 'left-word)
-     (local-set-key [(alt ?f)] 'right-word)
-     (local-set-key [(control c) (control c)] 'shell-python-on-buffer)
-     (local-set-key [(control c) (control j)] 'xjet-python-buffer)
-     (local-set-key [(control c) (control e)] 'goto-compilation-directory-and-compile)
-     (local-set-key [(control up)] 'scroll-up-line)
-     (local-set-key [(control down)] 'scroll-down-line)
-     (local-set-key [(control right)] 'forward-word)
-     (local-set-key [(control left)] 'backward-word)
-     ;; I don't like interactive shell for python commands by default
-     (setq py-fast-process-p nil)
-     (eldoc-mode 0)
-     (setq-local eldoc-documentation-function #'ignore)
-     ;; restore backward erase word
-     (local-set-key [(control backspace)] 'backward-kill-word)
-;     (company-mode -1)   ; Doesn't work!
-     ))
+(defun my-python-mode-hook ()
+  (local-set-key (kbd "RET") 'py-newline-and-indent)
+  (remove-dos-eol)
+  (setq py-indent-offset my-indent)
+  (setq python-indent my-indent)
+  (remove-dos-eol)
+  (local-set-key [(alt ? )] 'gud-break)
+  (local-set-key [(alt ?b)] 'left-word)
+  (local-set-key [(alt ?f)] 'right-word)
+  (local-set-key [(control c) (control c)] 'shell-python-on-buffer)
+  (local-set-key [(control c) (control j)] 'xjet-python-buffer)
+  (local-set-key [(control c) (control e)] 'goto-compilation-directory-and-compile)
+  (local-set-key [(control up)] 'scroll-up-line)
+  (local-set-key [(control down)] 'scroll-down-line)
+  (local-set-key [(control right)] 'forward-word)
+  (local-set-key [(control left)] 'backward-word)
+  ;; I don't like interactive shell for python commands by default
+  (setq py-fast-process-p nil)
+  (eldoc-mode 0)
+  (setq-local eldoc-documentation-function #'ignore)
+  ;; restore backward erase word
+  (local-set-key [(control backspace)] 'backward-kill-word)
+                                        ;     (company-mode -1)   ; Doesn't work!
+)
+  
+(add-hook 'python-mode-hook 'my-python-mode-hook)
 
 (global-eldoc-mode -1) ;; Don't use this at the moment...
 
