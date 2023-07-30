@@ -97,6 +97,7 @@
   (local-set-key "\C-c\C-x," 'org-insert-structure-template)
   (local-set-key "\C-co" 'org-mark-ring-goto)
   (local-set-key "\C-c]" 'turn-last-into-embedded-link)
+  (local-set-key "\C-c\C-e" 'goto-compilation-directory-and-compile)
 
   (local-set-key (kbd "C-M-=") 'calc-eval-region)
   (local-set-key (kbd "C-c M-/") 'toggle-date-iso)

@@ -707,10 +707,12 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 (setq gdb-command-name "/usr/bin/gdb")
 
-;; org-mode
+(defun my-nxml-mode-hook ()
+  (rng-validate-mode 0) 
+  (define-key nxml-mode-map (kbd "\C-x[") 'sgml-skip-tag-forward)
+  (define-key nxml-mode-map (kbd "\C-x]") 'sgml-skip-tag-backward))
 
-; The following solves an error with html export
-(add-hook 'nxml-mode-hook (lambda () (rng-validate-mode 0) )t)
+(add-hook 'nxml-mode-hook 'my-nxml-mode-hook)
 
 (defun kill-visual-line ()
   "Redefined to do kill-line as I believe that lines breaks are for display only!"
@@ -2354,7 +2356,17 @@ Does not delete the prompt."
     (make-local-variable 'kill-buffer-hook)
     (add-hook 'kill-buffer-hook 'comint-write-input-ring)
   ))
-(add-hook 'shell-mode-hook 'ansi-color-for-comint-mode-on)
+
+(defun my-shell-mode-hook ()
+  ;; Keep C-c C-o for compilation "everywhere"
+  (define-key shell-mode-map [(control c) (control e)] 'goto-compilation-directory-and-compile)
+  (ansi-color-for-comint-mode-on))
+(add-hook 'shell-mode-hook 'my-shell-mode-hook)
+
+(defun my-nsis-mode-hook ()
+  (define-key nsis-mode-map [(control c) (control e)] 'goto-compilation-directory-and-compile))
+(add-hook 'nsis-mode-hook 'my-nsis-mode-hook)
+
 ;; The following is based on:
 ;; http://oleksandrmanzyuk.wordpress.com/2011/10/23/a-persistent-command-history-in-emacs/
 (defun mapc-buffers (fn)
