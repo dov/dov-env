@@ -34,7 +34,6 @@ don't actually start the search.
 ;; no-byte-compile: t
 ;; no-update-autoloads: t
 ;; no-native-compile: t
-;; coding: utf-8-emacs-unix
 ;; End:
 
 ;;; deadgrep-autoloads.el ends here
