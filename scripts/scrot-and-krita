@@ -1,5 +1,110 @@
-#!/usr/bin/sh
+#!/usr/bin/python
 
-scrot /tmp/fs.png
-/usr/local/krita/bin/krita /tmp/fs.png
+import subprocess
+import argparse
+from pyora import Project, TYPE_LAYER
+from PIL import Image
+import sys, os
+import argparse
+from pathlib import Path
 
+def xec(cmd, decode=True, chomp=True, verbose=False):
+  '''Run a command a returns its stdout output.
+
+  decode -- run (utf8) decode of the resulting string
+  chomp -- get rid of the last newline (like in perl)
+  '''
+  ph = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
+  if verbose:
+    sys.stderr.write(cmd + '\n')
+  res = b''
+  maxsize = 1024
+  while True:
+    buf = ph.stdout.read()
+    if len(buf)==0:
+      break
+    res += buf
+  ph.wait()
+  if decode:
+    res=res.decode()
+  if chomp:
+    res = res[:-1]
+  return res
+
+parser = argparse.ArgumentParser(description='Do scrot and krita')
+parser.add_argument('-f', '--focused',
+                    dest='focused',
+                    action='store_true',
+                    help='Get focused window')
+parser.add_argument('-s', '--select',
+                    dest='select',
+                    action='store_true',
+                    help='Select a window')
+parser.add_argument('-l', '--left',
+                    dest='left',
+                    action='store_true',
+                    help='Get left window')
+parser.add_argument('-r', '--right',
+                    dest='right',
+                    action='store_true',
+                    help='Get right window')
+parser.add_argument('-d', '--delay',
+                    dest='delay',
+                    type=int,
+                    default=0,
+                    action='store',
+                    help='Amount to delay before acquiring')
+parser.add_argument('-b', '--border',
+                    dest='border',
+                    action='store_true',
+                    help='border')
+parser.add_argument('-p', '--pointer',
+                    dest='pointer',
+                    action='store_true',
+                    help='pointer')
+args = parser.parse_args()
+
+scrot_args = '-o '  # Override
+if args.focused:
+  scrot_args += '-u -f '
+if args.select:
+  scrot_args += '-s '
+if args.left:
+  scrot_args += '-M 0'
+if args.right:
+  scrot_args += '-M 1'
+if args.border:
+  scrot_args += '-b '
+if args.pointer:
+  scrot_args += '-p '
+if args.delay > 0:
+  scrot_args += f'-d {args.delay}'
+
+xec('rm /tmp/fs.png')
+xec(f'scrot {scrot_args} /tmp/fs.png')
+xec('python /home/dov/scripts/add-paintlayer-and-open-krita.py /tmp/fs.png')
+
+
+## Convert an image into an image with overlay
+#
+## adding a layer
+#filename = Path('/tmp/fs.png')
+#print(f'{filename=}')
+#img = Image.open(filename)
+#width,height = img.size
+#print(f'{width=} {height=}')
+#project = Project.new(width, height)
+#project.add_layer(img, 'Background')
+#
+## create an empty image
+#paint_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+#
+## adding a layer at any arbitrary path will automatically create the appropriate layer groups
+#project.add_layer(paint_layer, 'Paint')
+#
+## save current project as ORA file
+#ora_filename = Path('/tmp/fs-paint.ora')
+#project.save(ora_filename)
+#os.system(f'krita {ora_filename}')
+#print('ok')
+#

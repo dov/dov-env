@@ -400,7 +400,8 @@ AddToMenu RootMenu	"RootMenu"	Title
 +			""		Nop
 +			"XInput"	Popup XInput-Popup
 +			"Share Monitor"	Popup XMonitor-Popup
-+			""		Nop
++			"Screenshot"	Popup Screenshot-Popup
+""
 +			"Modules"	Popup Module-Popup
 +			""		Nop		
 +			"Exit Fvwm"	Popup Quit-Verify
@@ -450,6 +451,14 @@ AddToMenu XInput-Popup  "XInput"        Title
 AddToMenu XMonitor-Popup "External Monitor" Title
 +                       "Mirror to HDMI-1" Exec xrandr --output HDMI-1 --mode 1920x1080 --same-as eDP-1
 +                       "Mirror through the Dell docking" Exec xrandr --output DP-2-3 --mode 1920x1080 --same-as eDP-1
+
+AddToMenu Screenshot-Popup  "Screenshot"        Title
++                       "Entire screen" Exec /home/dov/scripts/scrot-and-krita
++                       "Select" Exec /home/dov/scripts/scrot-and-krita -s
++                       "Left" Exec /home/dov/scripts/scrot-and-krita --left
++                       "Right" Exec /home/dov/scripts/scrot-and-krita --right
++                       "Delay 3s Focus" Exec /home/dov/scripts/scrot-and-krita -f -d 3 -b
++                       "Delay 3s Focus Mouse" Exec /home/dov/scripts/scrot-and-krita -f -d 3 -p
 
 AddToMenu Module-Popup	"Modules"	Title	
 +			"Button-Bar"	Module	FvwmButtons
@@ -527,11 +536,11 @@ AddToFunc scrot-and-krita
 
 AddToFunc scrot-select-and-krita
 + I All ("krita") Iconify false
-+ I Exec /home/dov/scripts/scrot-select-and-krita
++ I Exec /home/dov/scripts/scrot-and-krita -s
 
 AddToFunc scrot-focused-window-and-krita
 + I All ("krita") Iconify false
-+ I Exec /home/dov/scripts/scrot-focused-window-and-krita
++ I Exec /home/dov/scripts/scrot-and-krita -f -b
 
 AddToFunc lower-to-bottom
 + I Layer 0 0
