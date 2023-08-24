@@ -570,6 +570,46 @@ def xec(cmd, decode=True, chomp=True, verbose=False):
 
 ~@
 #
+#######
+logger expand	Add logger snippet
+import datetime
+import logging
+
+logging.basicConfig(filename='basic.log',
+                    level=logging.DEBUG,
+                    format='%(levelname)s: %(name)s: %(message)s')
+logging.info('------------------')
+logging.info(f'Running on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+logging.debug('Debug me!')
+#
+#######
+walk expand	Add a basic walk template
+import os
+
+def visit(file_name):
+  """visit all files with the given name recursively."""
+
+  for root, dirs, files in os.walk('.'):
+    for file in files:
+      if file == file_name:
+        print('found ' + os.path.join(root, file))
+
+if __name__ == '__main__':
+  visit('foo.bar')
+~@
+#
+#######
+die expand	Add a die function
+
+import sys
+
+def die(msg):
+  if not msg.endswith('\n'):
+    msg += '\n'
+  sys.stderr.write(msg)
+  sys.exit(-1)
+~@
+#
 
 #######
 # MODE:	makefile-mode
