@@ -1138,6 +1138,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.(tar)$" 'tar-mode))
        (list (cons "\\.pkl$" 'pkl-mode))
        (list (cons "\\.pickle$" 'pkl-mode))
+       (list (cons "\\.pio$" 'asm-mode))
 
        auto-mode-alist))
 
