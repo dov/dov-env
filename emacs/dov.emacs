@@ -73,10 +73,12 @@
                                         ; Use Miriam mono font for Hebrew
 ;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "David CLM")
 ;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Nachlieli CLM")
-     (set-fontset-font "fontset-default" '(#x2b24 . #x2b24) "xft:-PfEd-DejaVu Sans-normal-normal-normal-*-16-*-*-*-*-0-iso10646-1")
-     (set-fontset-font "fontset-default" '(#x25ef . #x25ef) "xft:-PfEd-DejaVu Sans-normal-normal-normal-*-16-*-*-*-*-0-iso10646-1")
+;     (set-fontset-font "fontset-default" '(#x2b24 . #x2b24) "xft:-PfEd-DejaVu Sans-normal-normal-normal-*-16-*-*-*-*-0-iso10646-1")
+;     (set-fontset-font "fontset-default" '(#x25ef . #x25ef) "xft:-PfEd-DejaVu Sans-normal-normal-normal-*-16-*-*-*-*-0-iso10646-1")
+;     (set-fontset-font "fontset-default" '(#x600 . #x2fff) "xft:-PfEd-DejaVu Sans-normal-normal-normal-*-28-*-*-*-*-0-iso10646-1")
+     (set-fontset-font "fontset-default" '(#x600 . #x2fff) "DejaVu Sans")
 ;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Nachlieli CLM")
-;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam Mono CLM Bold")
+    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam Fixed")
     (ignore-errors
       (set-face-font 'default "fontset-default"))
     (setq load-path (append (list

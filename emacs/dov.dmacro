@@ -550,17 +550,17 @@ def xec(cmd, decode=True, chomp=True, verbose=False):
   decode -- run (utf8) decode of the resulting string
   chomp -- get rid of the last newline (like in perl)
   '''
-  ph = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
-  if verbose:
-    sys.stderr.write(cmd + '\n')
-  res = b''
-  maxsize = 1024
-  while True:
-    buf = ph.stdout.read()
-    if len(buf)==0:
-      break
-    res += buf
-  ph.wait()
+  with subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE) as ph:
+    if verbose:
+      sys.stderr.write(cmd + '\n')
+    res = b''
+    maxsize = 1024
+    while True:
+      buf = ph.stdout.read()
+      if len(buf)==0:
+        break
+      res += buf
+    ph.wait()
   if decode:
     res=res.decode()
   if chomp:
