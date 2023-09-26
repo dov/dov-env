@@ -1857,8 +1857,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (define-key text-mode-map [return] 'newline-and-indent-relative)
 (define-key text-mode-map "\C-m" 'newline-and-indent-relative)
 
-
-
 ;; Perl mode stuff
 (autoload 'cperl-mode "cperl-mode" nil t)
 (setq interpreter-mode-alist (append interpreter-mode-alist
@@ -2313,10 +2311,26 @@ Does not delete the prompt."
     (kill-region reg-beg reg-end)
     (insert res)))
 
+;; Cod definitions
 (defun set-cod ()
   "Set the current default compilation directory environment variable"
   (interactive)
-  (setenv "COD" (expand-file-name default-directory)))
+  (let* ((dir (expand-file-name default-directory)))
+    (setenv "COD" dir)
+    (message (concat "COD set to " dir))))
+
+(defun goto-cod ()
+  "Open the cod directory"
+  (interactive)
+  (find-file (getenv "COD")))
+(defun insert-cod ()
+  "Insert cod into the buffer"
+  (interactive)
+  (insert (getenv "COD")))
+  
+; cod related keybindings
+(define-key dired-mode-map (kbd "\C-c h") 'set-cod)
+(global-set-key (kbd "\C-x C") 'insert-cod)
 
 (defun goto-compilation-directory-and-compile()
   "chdir to the COD (compilation directory) and compile"
