@@ -17,6 +17,7 @@
     (select-window w)))
 
 (defun my-deadgrep-edit-mode-hook ()
+  (interactive)
   (define-key deadgrep-mode-map "v" 'deadgrep-visit-result-other-window-and-stay)
   (define-key deadgrep-mode-map "j" 'next-line)
   (define-key deadgrep-mode-map "k" 'previous-line))

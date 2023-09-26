@@ -341,7 +341,7 @@ int main(int argc, char **argv)
 }
 #
 #######
-maincl expand	Dov's standard template for command line utilities main 
+maincpp expand	Dov's standard template for command line utilities main 
 #include <stdio.h>
 #include <stdlib.h>
 #include <fmt/core.h>

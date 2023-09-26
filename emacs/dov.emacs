@@ -2021,6 +2021,9 @@ With numeric ARG, display the images if and only if ARG is positive."
   (define-key map [(alt ? )] 'gud-break)
   (define-key map [(control x) (control ? )] 'gud-break)
   (define-key map [(control c) (control s)] 'dov-git-grep-here)
+  ;; versions that deactivates the marker at the end of expantion
+  (define-key map [(meta ?/)] 'my-dabbrev-and-deactivate)
+  (define-key map [(control ?/)] 'my-dabbrev-and-deactivate)
 
   (outline-minor-mode)
   ; outline key bindings
