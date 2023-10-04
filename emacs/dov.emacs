@@ -2331,8 +2331,17 @@ Does not delete the prompt."
   (interactive)
   (insert (getenv "COD")))
   
+(defun copy-path-to-clip-buffer ()
+  "Copy the current visited path to the clip buffer"
+  (interactive)
+  (kill-new default-directory)
+  (message default-directory))
+
 ; cod related keybindings
 (define-key dired-mode-map (kbd "\C-c h") 'set-cod)
+(define-key dired-mode-map (kbd "\C-c w") 'copy-path-to-clip-buffer)
+(define-key shell-mode-map (kbd "\C-c h") 'set-cod)
+(define-key shell-mode-map (kbd "\C-c w") 'copy-path-to-clip-buffer)
 (global-set-key (kbd "\C-x C") 'insert-cod)
 
 (defun goto-compilation-directory-and-compile()
