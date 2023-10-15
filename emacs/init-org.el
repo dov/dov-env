@@ -95,6 +95,7 @@
   (local-set-key "\C-c\C-pi" 'org-toggle-iimage-in-org)
   (local-set-key "\C-c\C-pl" 'org-toggle-link-display)
   (local-set-key "\C-c\C-x," 'org-insert-structure-template)
+  (local-set-key "\C-c\C-x\C-e" 'org-export-dispatch)
   (local-set-key "\C-co" 'org-mark-ring-goto)
   (local-set-key "\C-c]" 'turn-last-into-embedded-link)
   (local-set-key "\C-c\C-e" 'goto-compilation-directory-and-compile)

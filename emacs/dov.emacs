@@ -192,6 +192,7 @@
 (require 'init-doom-themes)
 (require 'init-visual-fill-column)
 (require 'init-deadgrep)
+(require 'init-indent-bars)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -2120,6 +2121,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (setq py-fast-process-p nil)
   (eldoc-mode 0)
   (setq-local eldoc-documentation-function #'ignore)
+  (indent-bars-mode)
   ;; restore backward erase word
   (local-set-key [(control backspace)] 'backward-kill-word)
                                         ;     (company-mode -1)   ; Doesn't work!

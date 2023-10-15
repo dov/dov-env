@@ -352,7 +352,7 @@ using fmt::print;
 template <typename... Args>
 static void die(fmt::format_string<Args...> FormatStr, Args &&... args)
 {
-  fmt::print("{}", fmt::format(FormatStr, std::forward<Args>(args)...));
+  fmt::print(stderr, "{}", fmt::format(FormatStr, std::forward<Args>(args)...));
   exit(-1);
 }
 
