@@ -27,4 +27,9 @@
 ;(add-hook 'c-mode-hook 'eglot-ensure)
 ;(add-hook 'c++-mode-hook 'eglot-ensure)
 
+;; stop showing help in the minibuffer
+(setq eglot-ignored-server-capabilities '(:documentHighlightProvider))
+(with-eval-after-load "eglot"
+  (add-to-list 'eglot-stay-out-of 'eldoc))
+
 (provide 'init-eglot)

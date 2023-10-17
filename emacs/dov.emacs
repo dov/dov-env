@@ -1995,6 +1995,17 @@ With numeric ARG, display the images if and only if ARG is positive."
   (setq c-recognize-knr-p nil)
   (update-indent-mode))
 
+(defun my-outline-minor-map-hook ()
+  "Set outline mapping stuff"
+  (define-key outline-minor-mode-map [(control ?2) ?h] 'outline-hide-subtree)
+  (define-key outline-minor-mode-map [(control kp-subtract)] 'outline-hide-subtree)
+  (define-key outline-minor-mode-map [(control ?2) ?s] 'outline-show-subtree)
+  (define-key outline-minor-mode-map [(control kp-add)] 'outline-show-subtree)
+  (define-key outline-minor-mode-map [(control ?2) (control ?f)] 'outline-forward-same-level)
+  (define-key outline-minor-mode-map [(control ?2) (control ?b)] 'outline-backward-same-level))
+
+(add-hook 'outline-minor-mode-hook 'my-outline-minor-map-hook)
+
 (defun outline-keys (map) ""
   (define-key map [(control kp-subtract)] 'hide-subtree)
   (define-key map [(control kp-add)] 'show-subtree)
@@ -2057,6 +2068,8 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;; Turn on horizontal scrolling with mouse wheel
 (global-set-key (kbd "<mouse-7>") (lambda () (interactive) (scroll-left 8)))
 (global-set-key (kbd "<mouse-6>") (lambda () (interactive) (scroll-right 8)))
+(global-set-key (kbd "<wheel-left>") (lambda () (interactive) (scroll-left 8)))
+(global-set-key (kbd "<wheel-right>") (lambda () (interactive) (scroll-right 8)))
 (global-set-key (kbd "<M-mouse-7>") (lambda () (interactive) (scroll-left 32)))
 (global-set-key (kbd "<M-mouse-6>") (lambda () (interactive) (scroll-right 32)))
 (global-set-key (kbd "<A-mouse-5>") (lambda () (interactive) (scroll-left 32)))
