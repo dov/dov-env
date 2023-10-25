@@ -20,6 +20,12 @@
 (add-to-list 'eglot-server-programs '((c++-mode c-mode) "clangd" "-j" "1" "--log=verbose"))
 (add-to-list 'eglot-server-programs '(vala-mode "vala-language-server"))
 
+(define-key completion-in-region-mode-map (kbd "C-n") 'minibuffer-next-completion)
+(define-key completion-in-region-mode-map (kbd "C-p") 'minibuffer-previous-completion)
+(define-key completion-in-region-mode-map (kbd "C-<return>") 'minibuffer-choose-completion)
+(define-key c++-mode-map (kbd "C-<tab>") 'completion-at-point)
+(define-key python-mode-map (kbd "C-<tab>") 'completion-at-point)
+
 ; Do I want this?
 ;(add-hook 'eglot-managed-mode-hook
 ;          (lambda ()
