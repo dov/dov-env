@@ -3562,16 +3562,16 @@ if something is selected, change that."
   ))
 (make-unique-buffer-name "~/wrk/cplr/elkhound/c/configure")
 
-; This function is by default defined in files.el in the Emacs
-; distribution.  I redefine it so I can insert calls to my naming
-; functions.
-(defun create-file-buffer (filename)
-  "Create a suitably named buffer for visiting FILENAME, and return
-  it.  This version has been redefined to call `make-unique-buffer-name'."
-  ;(princ (concat "create-file-buffer: " filename))
-  (let ((name (make-unique-buffer-name filename)))
-    (generate-new-buffer name))
-)
+;; This function is by default defined in files.el in the Emacs
+;; distribution.  I redefine it so I can insert calls to my naming
+;; functions.
+;(defun create-file-buffer (filename)
+;  "Create a suitably named buffer for visiting FILENAME, and return
+;  it.  This version has been redefined to call `make-unique-buffer-name'."
+;  ;(princ (concat "create-file-buffer: " filename))
+;  (let ((name (make-unique-buffer-name filename)))
+;    (generate-new-buffer name))
+;)
 
 
 ; ------------------- yes-or-no-p ---------------------

@@ -2475,31 +2475,44 @@ Does not delete the prompt."
   (define-key map [(meta _)] 'let-Auml)
 ) 
 
-(defun old-xjet-python-buffer ()
-  "Send the current (python) buffer to be evaluated in the MetalJet Application"
-  (interactive)
-  (if (buffer-modified-p)
-      (progn
-        (write-region (point-min) (point-max) "/tmp/buffer.py")
-        (setq filename "/tmp/buffer.py"))
-    (setq filename (buffer-file-name)))
-    
-  (shell-command (concat "/home/dov/scripts/xjet-python " filename)))
-
+;; -- new function
 (defun shell-command-on-buffer (command extension)
   "Send the current buffer to a shell command"
   (interactive)
-  (if (buffer-modified-p)
-      (progn
-        (setq cmd-filename (concat temp-dir "/buffer." extension))
-        (write-region (point-min) (point-max) cmd-filename))
-    (setq cmd-filename (buffer-file-name)))
-  (setq cmd-buffer-name (concat "*" (capitalize command) " Output*"))
-  (shell-command (concat command " \"" cmd-filename "\"") cmd-buffer-name)
+  (let* ((remote-maybe (file-remote-p default-directory))
+         (tramp-prefix (if remote-maybe remote-maybe ""))
+         (cmd-buffer-name (concat "*" (capitalize command) " Output*"))
+         (cmd-filename
+          (if (buffer-modified-p)
+              (concat tramp-prefix temp-dir "/buffer." extension)
+           (buffer-file-name))))
+         (if (buffer-modified-p)
+             (write-region (point-min) (point-max) cmd-filename))
+    (if remote-maybe
+       ;; If remote, we have to get rid of the tramp prefix
+       (let* ((remote-prefix-len (length remote-maybe))
+              (fn (substring cmd-filename remote-prefix-len)))
+         (shell-command (concat command " \"" fn "\"") cmd-buffer-name))
+       (shell-command (concat command " \"" cmd-filename "\"") cmd-buffer-name))
   ;; The following makes it easy to go to the resulting output buffer
   (setq my-buffer (current-buffer))
   (switch-to-buffer cmd-buffer-name)
-  (switch-to-buffer my-buffer))
+  (switch-to-buffer my-buffer)))
+
+(defun shell-python-on-buffer ()
+  "Send the current (python) buffer to be evaluated by the python shell"
+  (interactive)
+  (shell-command-on-buffer my-python-interpreter "py"))
+
+(defun shell-perl-on-buffer ()
+  "Send the current (python) buffer to be evaluated by the python shell"
+  (interactive)
+  (shell-command-on-buffer "perl" "pl"))
+
+(defun shell-lua-on-buffer ()
+  "Send the current (lua) buffer to be evaluated by the lua shell"
+  (interactive)
+  (shell-command-on-buffer "lua" "lua"))
 
 
 ;; From: https://stackoverflow.com/questions/9656311/conflict-resolution-with-emacs-ediff-how-can-i-take-the-changes-of-both-version#29757750
@@ -2523,21 +2536,6 @@ Does not delete the prompt."
 (add-hook 'ediff-keymap-setup-hook 'add-d-to-ediff-mode-map)
 
 (setq my-python-interpreter "python")
-
-(defun shell-python-on-buffer ()
-  "Send the current (python) buffer to be evaluated by the python shell"
-  (interactive)
-  (shell-command-on-buffer my-python-interpreter "py"))
-
-(defun shell-perl-on-buffer ()
-  "Send the current (python) buffer to be evaluated by the python shell"
-  (interactive)
-  (shell-command-on-buffer "perl" "pl"))
-
-(defun shell-lua-on-buffer ()
-  "Send the current (lua) buffer to be evaluated by the lua shell"
-  (interactive)
-  (shell-command-on-buffer "lua" "lua"))
 
 (defun xjet-python-buffer ()
   "Send the current (python) buffer to be evaluated in the MetalJet Application"
