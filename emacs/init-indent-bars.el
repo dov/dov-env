@@ -27,7 +27,7 @@
      (t (list 0 0 0)))))
 
 (let
-    ((pals (cl-loop for s in '(0.05 1.0)
+    ((pals (cl-loop for s in '(0.2 1.0)
 		    collect
 		    (cl-loop for h from 0.0 upto 1.0 by 0.125
 			     collect
