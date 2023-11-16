@@ -2492,7 +2492,7 @@ Does not delete the prompt."
        ;; If remote, we have to get rid of the tramp prefix
        (let* ((remote-prefix-len (length remote-maybe))
               (fn (substring cmd-filename remote-prefix-len)))
-         (shell-command (concat command " \"" fn "\"") cmd-buffer-name))
+         (shell-command (concat my-remote-shell " -c '" command " \"" fn "\" '") cmd-buffer-name))
        (shell-command (concat command " \"" cmd-filename "\"") cmd-buffer-name))
   ;; The following makes it easy to go to the resulting output buffer
   (setq my-buffer (current-buffer))
@@ -2535,6 +2535,7 @@ Does not delete the prompt."
   (define-key ediff-mode-map "D" 'ediff-copy-both-ba-to-C))
 (add-hook 'ediff-keymap-setup-hook 'add-d-to-ediff-mode-map)
 
+(setq my-remote-shell "zsh")
 (setq my-python-interpreter "python")
 
 (defun xjet-python-buffer ()
