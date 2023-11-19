@@ -1971,7 +1971,8 @@ With numeric ARG, display the images if and only if ARG is positive."
 (defun standard-python-indent ()
   """Setup standard python indentation"""
   (interactive)
-  (setq py-indent-offset 4))
+  (setq py-indent-offset 4)
+  (setq indent-bars-spacing 4))
 
 (defun gnu-indent-mode ()
   "Set indent tabs to 2 as is standard by gnome."
