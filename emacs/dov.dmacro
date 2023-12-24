@@ -352,7 +352,10 @@ using fmt::print;
 template <typename... Args>
 static void die(fmt::format_string<Args...> FormatStr, Args &&... args)
 {
-  fmt::print(stderr, "{}", fmt::format(FormatStr, std::forward<Args>(args)...));
+  string msg = fmt::format(FormatStr, std::forward<Args>(args)...);
+  if (msg[msg.size()-1] != '\n')
+    msg += "\n";
+  fmt::print(stderr, "{}", msg);
   exit(-1);
 }
 
@@ -856,6 +859,7 @@ pkg_check_modules(FMT REQUIRED fmt)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Qt5 REQUIRED COMPONENTS Core)
 

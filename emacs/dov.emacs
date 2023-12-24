@@ -258,7 +258,6 @@
 (autoload 'nsis-mode "nsis-mode" nil t)
 (autoload 'qt-pro-mode "qt-pro-mode" nil t)
 (autoload 'doc-mode "doc-mode" nil t)
-;(load "csharp-mode-0.4.0")
 (autoload 'octave-mode "octave" nil t)
 (autoload 'vc-ediff "vc-ediff" nil t)
 (setq with-editor-file-name-history-exclude 'nil)
@@ -1060,7 +1059,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (autoload 'octave-mode "octave.el" "Octave mode" t nil)
 ;(autoload 'sgml-mode "sgml-mode.el" "SGML mode" t nil)
 (autoload 'doc-mode "doc-mode.el" "Doc load" t nil)
-(autoload 'csharp-mode "csharp-mode-0.4.0.el" "CSharp mode" t nil)
 (autoload 'web-mode "web-mode.el" "WEB mode" t nil)
 (autoload 'elisp-mode "elisp-mode.el" "ELisp" t nil)
 (autoload 'wat-mode "wat-mode.el")
@@ -2537,7 +2535,7 @@ Does not delete the prompt."
 (add-hook 'ediff-keymap-setup-hook 'add-d-to-ediff-mode-map)
 
 (setq my-remote-shell "zsh")
-(setq my-python-interpreter "python")
+(setq my-python-interpreter "python3")
 
 (defun xjet-python-buffer ()
   "Send the current (python) buffer to be evaluated in the MetalJet Application"

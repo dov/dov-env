@@ -91,6 +91,7 @@
 (defun mpremote-save-and-run ()
   """Save the current file to the device and run it"""
   (interactive)
+  (mpremote-interrupt)
   (mpremote-save)
   (mpremote-send-string
    (concat
