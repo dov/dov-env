@@ -606,9 +606,7 @@ die expand	Add a die function
 import sys
 
 def die(msg):
-  if not msg.endswith('\n'):
-    msg += '\n'
-  sys.stderr.write(msg)
+  sys.stderr.write(msg.strip()+'\n')
   sys.exit(-1)
 ~@
 #

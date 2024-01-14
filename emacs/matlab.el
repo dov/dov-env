@@ -483,7 +483,8 @@ If font lock is not loaded, lay in wait."
 		      'matlab-unterminated-string-face))
 	  (t
 	   (make-face 'matlab-unterminated-string-face)))
-    (set-face-underline-p 'matlab-unterminated-string-face t)
+    (set-face-attribute 'matlab-unterminated-string-face nil :underline t)
+;    (set-face-underline-p 'matlab-unterminated-string-face t)
     
     ;; Now make some simulink faces
     (cond ((facep 'font-lock-type-face)

@@ -211,6 +211,7 @@
            '(("xopp" . "xournalpp %s"))
            '(("ora" . "krita %s"))
            '(("kra" . "krita %s"))
+           '(("blend" . "blender %s"))
            org-file-apps))))
 
 (setq org-src-lang-modes
@@ -239,7 +240,6 @@
 (defun my-org-iimage-refresh ()
   (interactive)
   (redisplay t)
-  (set-face-underline-p 'org-link nil)
   (my-iimage-mode-buffer 1 'refresh)
   (redisplay t))
 

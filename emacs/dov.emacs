@@ -193,6 +193,7 @@
 (require 'init-visual-fill-column)
 (require 'init-deadgrep)
 (require 'init-indent-bars)
+(require 'init-skeletor)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -2647,6 +2648,7 @@ Does not delete the prompt."
 (setq dired-guess-shell-alist-user
       (list
        (list "\\.png$" "giv");; fixed rule
+       (list "\\.blend$" "blender");; fixed rule
        (list "\\.jpe?g$" "giv");; fixed rule
        ))
 ;; Setup for terminal mode (typically run in from tablet)
