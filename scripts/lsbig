@@ -7,7 +7,7 @@ sub help { print<<__; }
 lsbig - list big files
     
 SYNTAX
-    lsbig [-size s]
+    lsbig [--size s]
 __
 
 my ($size, $dir, $do_no_recurse);
@@ -15,16 +15,17 @@ my ($size, $dir, $do_no_recurse);
 # get arguments
 while($_ = $ARGV[0], /^-/) {
     shift;
-    /^-help/ and do { &help; exit;};
-    /^-size/ and $size = shift and next;
-    /^-norecurse/ and do { $do_no_recurse=1; next; };
+    /^--help/ and do { &help; exit;};
+    /^--size/ and $size = shift and next;
+    /^--norecurse/ and do { $do_no_recurse=1; next; };
     die "Unknown argument $_\n";
 }
 
 # defaults 
 $size ||= 1_000_000;
-
+$size=~ tr/_//d;
 $size=~ s/(\d+)k/$1*1000/e;
+$size=~ s/(\d+)M/$1*1000000/e;
 
 # Traverse desired filesystems
 File::Find::find({wanted => \&wanted}, '.');
