@@ -1,0 +1,66 @@
+#!/usr/bin/python
+
+######################################################################
+#  A program for examining mount points in /etc/fstab.
+#
+#  2024-01-25 Thu
+#  Dov Grobgeld 
+######################################################################
+
+import argparse
+import subprocess
+
+def xec(cmd, decode=True, chomp=True, verbose=False):
+  '''Run a command a returns its stdout output.
+
+  decode -- run (utf8) decode of the resulting string
+  chomp -- get rid of the last newline (like in perl)
+  '''
+  with subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE) as ph:
+    if verbose:
+      sys.stderr.write(cmd + '\n')
+    res = b''
+    maxsize = 1024
+    while True:
+      buf = ph.stdout.read()
+      if len(buf)==0:
+        break
+      res += buf
+    ph.wait()
+  if decode:
+    res=res.decode()
+  if chomp:
+    res = res[:-1]
+  return res
+
+parser = argparse.ArgumentParser(description='List mount points')
+parser.add_argument('-n','--not-mounted',
+                    dest='not_mounted',
+                    action='store_true',
+                    help='Verbose editing')
+args = parser.parse_args()
+
+mount_res = xec('mount')
+
+mounted = [
+  line.split()[2]
+  for line in mount_res.split('\n')
+  if (line.startswith('/')
+     and not '/snapd/' in line)]
+  
+#print('Mounted:\n  '
+#      + '\n  '.join(mounted))
+
+with open('/etc/fstab') as fh:
+  for line in fh:
+    if line.startswith('#'):
+      continue
+    fields = line.split()
+    mount_point = fields[1]
+    if (mount_point == 'swap'
+        or (args.not_mounted and mount_point in mounted)):
+      continue
+    print(mount_point)
+    
+
+
