@@ -891,7 +891,7 @@ cmakebuild	expand	comment block for the top of a CMakeLists.txt file
 
 ####
 cmakemasthead	expand	comment block for the top of an CMakeLists.txt file
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.26)
 
 project(~(pwdleaf) VERSION 1.0.0 LANGUAGES CXX)
 

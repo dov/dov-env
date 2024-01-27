@@ -2123,6 +2123,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   (local-set-key [(alt ? )] 'gud-break)
   (local-set-key [(alt ?b)] 'left-word)
   (local-set-key [(alt ?f)] 'right-word)
+  (local-set-key [(control c) (control s)] 'python-shell-send-buffer)
   (local-set-key [(control c) (control c)] 'shell-python-on-buffer)
   (local-set-key [(control c) (control j)] 'xjet-python-buffer)
   (local-set-key [(control c) (control e)] 'goto-compilation-directory-and-compile)

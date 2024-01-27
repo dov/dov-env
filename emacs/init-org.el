@@ -212,6 +212,7 @@
            '(("ora" . "krita %s"))
            '(("kra" . "krita %s"))
            '(("blend" . "blender %s"))
+           '(("FCStd" . "FreeCAD %s"))
            org-file-apps))))
 
 (setq org-src-lang-modes
