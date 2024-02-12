@@ -418,15 +418,22 @@ Nice for copying"
           (dired-get-filename))
       (buffer-file-name winbuf))))
 
+(defun shell-quote-argument-maybe (arg)
+  "Get the name of the file and quote only if necessary"
+  (interactive)
+  (if (pcre-string-match "[ \\*\\&]" arg)
+      (shell-quote-argument arg)
+    arg))
+
 (defun name-of-the-file ()
   "Gets the shell quoted name of the file the current buffer is based on."
   (interactive)
-  (insert (shell-quote-argument (get-referenced-filename))))
+  (insert (shell-quote-argument-maybe (get-referenced-filename))))
 
 (defun name-nondirectory-of-the-file ()
   "Gets the shell quoted name of the file the current buffer is based on."
   (interactive)
-  (insert (shell-quote-argument (file-name-nondirectory (get-referenced-filename)))))
+  (insert (shell-quote-argument-maybe (file-name-nondirectory (get-referenced-filename)))))
 
 (defun name-of-the-buffer ()
   "Gets the name of current buffer."
