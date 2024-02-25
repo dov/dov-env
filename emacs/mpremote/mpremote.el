@@ -30,7 +30,8 @@
                          "resume" mp-port)
   (sleep-for 0.1)
   (switch-to-buffer "*mpremote*")
-  (keymap-local-set "RET" 'mpremote-send-input)
+  (use-local-map (copy-keymap comint-mode-map))
+  (local-set-key [return] 'mpremote-send-input)
   (sleep-for 0.1)
   (mpremote-send-string "\r"))
 

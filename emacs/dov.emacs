@@ -2438,6 +2438,7 @@ Does not delete the prompt."
     (define-key gud-mode-map [(alt s)] 'gud-step)
     (define-key gud-mode-map [(alt u)] 'gud-finish)
     (define-key gud-mode-map [(alt f)] 'gud-finish)
+    (define-key gud-mode-map [(control c) (control e)] 'goto-compilation-directory-and-compile)
 ;    (define-key gud-mode-map [(alt h)] 'gud-until)
 ;    (define-key gud-mode-map "\C-i" 'shell-dynamic-complete-filename)
     (make-local-variable 'comint-input-ring-file-name)
