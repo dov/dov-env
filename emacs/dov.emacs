@@ -53,6 +53,10 @@
 
       ;; Load windows utilities
       (load (concat emacs-git "/win-utils.el")))
+    
+      ;; Add conversion scripts to path
+      (setenv "PATH" (concat emacs-git "\\scripts;" (getenv "PATH")))
+
   (progn
 ;    (setq my-fixed-font "Liberation Mono")
     (setq temp-dir "/tmp/")
@@ -77,8 +81,9 @@
 ;     (set-fontset-font "fontset-default" '(#x25ef . #x25ef) "xft:-PfEd-DejaVu Sans-normal-normal-normal-*-16-*-*-*-*-0-iso10646-1")
 ;     (set-fontset-font "fontset-default" '(#x600 . #x2fff) "xft:-PfEd-DejaVu Sans-normal-normal-normal-*-28-*-*-*-*-0-iso10646-1")
      (set-fontset-font "fontset-default" '(#x600 . #x2fff) "DejaVu Sans")
-;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Nachlieli CLM")
-    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam Fixed")
+    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Nachlieli CLM")
+;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Simple CLM")
+;    (set-fontset-font "fontset-default" '(#x5d0 . #x5ff) "Miriam Fixed")
     (ignore-errors
       (set-face-font 'default "fontset-default"))
     (setq load-path (append (list
@@ -823,7 +828,10 @@ Optional argument ARG is the same as for `backward-kill-word'."
          (start-reg (region-beginning))
          (end-reg (region-end))
          (selection (buffer-substring-no-properties start-reg end-reg))
-         (cmd (format "rcomponent.pl -ClassName %s -%s" class-name conversion)))
+         (cmd (format "%s %s/rcomponent.py --classname %s --%s"
+                      my-python-interpreter
+                      (concat emacs-git "/scripts")
+                      class-name conversion)))
     (shell-command-on-region start-reg end-reg cmd t t)
     (exchange-point-and-mark)
     (kill-ring-save (point) (mark))
@@ -1148,6 +1156,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.pkl$" 'pkl-mode))
        (list (cons "\\.pickle$" 'pkl-mode))
        (list (cons "\\.pio$" 'asm-mode))
+       (list (cons "\\.FCMacro$" 'python-mode))
 
        auto-mode-alist))
 
