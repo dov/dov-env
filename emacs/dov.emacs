@@ -916,6 +916,10 @@ Optional argument ARG is the same as for `backward-kill-word'."
   (interactive)
   (rcomp-map "def2c"))
 
+(defun rcomp-def-to-h ()
+  (interactive)
+  (rcomp-map "def2h"))
+
 (defun rcomp-yank-to-c ()
   (interactive)
   (set-mark-command nil)  

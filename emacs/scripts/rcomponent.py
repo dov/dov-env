@@ -25,7 +25,21 @@ def print_c_function(comment, return_type, class_name, function_name, arguments)
   template += "  R_TRACE;\n"
   template += "\n"
   template += "  // TBD\n"
-  template += "}\n\n"
+  template += "}"
+
+  return template
+
+def print_h_function(comment, return_type, class_name, function_name, arguments):
+  """Prints a h function with comments and placeholders."""
+
+  # Join arguments with comma separation (handle empty list)
+  args_string = ", ".join(arguments) if arguments else "void"
+
+  # Build the function string
+  template = ""
+  if comment:
+    template += f"    {comment}\n"
+  template += f"    {return_type} {function_name}({args_string});"
 
   return template
 
@@ -57,30 +71,30 @@ def def2init(text, class_name):
       else:
         comment += " " + match.group(1).strip()  # Append comment line (remove "//" and strip)
 
-    elif match := re.search(r"DEFINE(.*?)\((.*?)\)", line):
+    elif match := re.search(r"(DEFINE.*?)\((.*?)\)", line):
       state = 0
-      function_name, arguments = match.groups()
+      define_statement, arguments = match.group(1), match.group(2)
 
       # Process arguments (remove matching parens, extract class and docstring)
-      args_list = psplit(arguments)  
+      args_list = psplit(arguments)
 
-      class_arg = args_list.pop(0) if args_list else None
+      class_arg = args_list.pop(0)
       docstring = ""
-      if not function_name.upper().endswith("VOID"):
+      if not 'VOID' in define_statement.upper():
         if args_list:
           args_list.pop(0)  # Remove return type if not VOID
-        function_name = args_list.pop(0)
+      function_name = args_list.pop(0)
 
       # Extract docstring from comments within remaining arguments
       docstring_vars = []
       for arg in args_list:
-        match = re.search(r"/\* (.*?) \*/", arg)
-        if match:
+        if match:= re.search(r"/\*\s*(.*?)\s*\*/", arg):
           docstring_vars.append(match.group(1))
 
       var_string = ", ".join(docstring_vars)
 
       # Build INIT_METHOD_DOC statement
+      comment = comment.replace('"','\\"')
       output_text += f"  INIT_METHOD_DOC({class_name},{function_name},\"{function_name}({var_string}): {comment}\");\n"
 
   return output_text
@@ -99,7 +113,7 @@ def h2c(text, class_name):
 
   output_text = ""
   # Regular expression pattern for function declarations
-  pattern = r"\s*(\S+)\s+(\w+)\s*\((.*?)\)\s*;"
+  pattern = r"\s*(\S+)\s+(\w+)\s*\((.*?)\)\s*(?:override)?;"
 
   for match in re.finditer(pattern, text, flags=re.DOTALL):
     # Extract return type, function name, and arguments
@@ -143,7 +157,7 @@ def h2def(text, class_name):
 
     # Mark last argument as comment (assuming single line comment syntax)
     for i, arg in enumerate(args_list):
-      args_list[i] = re.sub(r"(\S+)\s+(\w+)$", r"\1 /* \2 */", arg)
+      args_list[i] = re.sub(r"(\S+)\s+(\w+)$", r"\1 /*\2*/", arg)
 
     # Join arguments with comma separation
     arg_string = ", ".join(args_list)
@@ -152,13 +166,13 @@ def h2def(text, class_name):
 
     # Choose appropriate DEFINE statement based on return type and arguments
     if return_type.lower() == "void" and void_args:
-      output_text += f"  DEFINE_VOID_METHOD({class_name},{function_name});\n"
+      output_text += f"    DEFINE_VOID_METHOD({class_name}, {function_name});\n"
     elif return_type.lower() == "void":
-      output_text += f"  DEFINE_VOID_METHOD_{num_args}({class_name},{function_name},{arg_string});\n"
+      output_text += f"    DEFINE_VOID_METHOD_{num_args}({class_name}, {function_name}, {arg_string});\n"
     elif void_args:
-      output_text += f"  DEFINE_METHOD({class_name},{return_type},{function_name});\n"
+      output_text += f"    DEFINE_METHOD({class_name}, {return_type}, {function_name});\n"
     else:
-      output_text += f"  DEFINE_METHOD_{num_args}({class_name},{return_type},{function_name},{arg_string});\n"
+      output_text += f"    DEFINE_METHOD_{num_args}({class_name}, {return_type}, {function_name}, {arg_string});\n"
 
   return output_text
 
@@ -177,8 +191,8 @@ def def2c(text, class_name):
   for line in text.splitlines():
 
     # Unindent and print comments
-    if line.startswith("//"):
-      output_text += line + "\n"
+    if m:= re.match('^\s*(//.*)', line):
+      output_text += m.group(1) + "\n"
       continue
 
     # Match DEF statements
@@ -189,7 +203,7 @@ def def2c(text, class_name):
       args_list = psplit(arguments)  
 
       class_name_arg = args_list.pop(0) if args_list else None
-      return_type = "void" if function_name_template.upper().endswith("VOID") else args_list.pop(0)
+      return_type = "void" if 'VOID' in function_name_template.upper() else args_list.pop(0)
       function_name = args_list.pop(0)
 
       # Remove comments within remaining arguments (assuming single line comment syntax)
@@ -199,6 +213,41 @@ def def2c(text, class_name):
 
       # Call PrintCFunction (assuming it's defined) to generate the C template
       output_text += print_c_function("", return_type, class_name, function_name, args_list)
+
+  return output_text
+
+def def2h(text, class_name):
+  """Converts DEF statements in a string back to an h- statement
+
+  Returns:
+      A string containing the converted C template code.
+  """
+
+  output_text = ""
+  for line in text.splitlines():
+
+    # Unindent and print comments
+    if m:= re.match('^\s*(//.*)', line):
+      output_text += line + '\n'
+      continue
+
+    # Match DEF statements
+    if match:= re.search(r"(DEFINE.*?)\((.*)\)", line):
+      function_name_template, arguments = match.groups()
+
+      # Process arguments (remove matching parens, extract class and return type)
+      args_list = psplit(arguments)  
+
+      class_name_arg = args_list.pop(0) if args_list else None
+      return_type = "void" if 'VOID' in function_name_template.upper() else args_list.pop(0)
+      function_name = args_list.pop(0)
+
+      # Remove comments within remaining arguments (assuming single line comment syntax)
+      for i, arg in enumerate(args_list):
+        args_list[i] = re.sub(r"\s*/\*\s*", " ", arg)
+        args_list[i] = re.sub(r"\*/", "", args_list[i]).strip()
+
+      output_text += print_h_function("", return_type, class_name, function_name, args_list)
 
   return output_text
 
@@ -234,6 +283,7 @@ def create_set_function(text, class_name):
 class_name = 'Unknown'
 do_def2init = False
 do_def2c = False
+do_def2h = False
 do_h2c = False
 do_set = False
 do_h2def = False
@@ -258,6 +308,8 @@ while len(sys.argv) > 1 and sys.argv[1].startswith("-"):
     do_set = True
   elif arg == "--h2def":
     do_h2def = True
+  elif arg == "--def2h":
+    do_def2h = True
   elif arg == "--help":
     help = True
     print("""
@@ -281,5 +333,7 @@ elif do_h2c:
   print(h2c(text, class_name))
 elif do_def2c:
   print(def2c(text, class_name))
+elif do_def2h:
+  print(def2h(text, class_name))
 elif do_set:
   print(CreateSetFunction(text, class_name))
