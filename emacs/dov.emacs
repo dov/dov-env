@@ -339,6 +339,22 @@
   (interactive)
   (string-match (pcre-to-elisp re) string))
 
+(defun pcre-keep-lines (re)
+  """Search forward for a pcre regular expression"""
+  (interactive "MKeep lines containing match for regexp: ")
+  (keep-lines (rxt-pcre-to-elisp re)))
+
+(defun pcre-drop-lines (re)
+  """Drop all lines matching re"""
+  (interactive "MDrop lines containing match for regexp: ")
+  (save-excursion
+    (while (re-search-forward (rxt-pcre-to-elisp re) nil t)
+      (unless (eobp)  ; Check if at the end of buffer
+        (beginning-of-line)
+        (kill-line)
+        (kill-line))))
+  (message "Matching lines dropped."))
+
 (defun whitespace-strip (s)
   """Remove all whitespaces in a string"""
   (interactive)
