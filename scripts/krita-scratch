@@ -1,4 +1,4 @@
 #!/usr/bin/sh
 
 cp ~/tmp/krita-template.kra ~/tmp/krita-scratch.kra
-/usr/local/krita/bin/krita ~/tmp/krita-scratch.kra
+krita ~/tmp/krita-scratch.kra

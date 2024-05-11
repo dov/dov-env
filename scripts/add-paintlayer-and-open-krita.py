@@ -6,6 +6,30 @@ from PIL import Image
 import sys, os
 import argparse
 from pathlib import Path
+import subprocess
+
+def xec(cmd, decode=True, chomp=True, verbose=False):
+  '''Run a command a returns its stdout output.
+
+  decode -- run (utf8) decode of the resulting string
+  chomp -- get rid of the last newline (like in perl)
+  '''
+  with subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE) as ph:
+    if verbose:
+      sys.stderr.write(cmd + '\n')
+    res = b''
+    maxsize = 1024
+    while True:
+      buf = ph.stdout.read()
+      if len(buf)==0:
+        break
+      res += buf
+    ph.wait()
+  if decode:
+    res=res.decode()
+  if chomp:
+    res = res[:-1]
+  return res
 
 parser = argparse.ArgumentParser(description='Process a file')
 parser.add_argument('filename', nargs=1, help='File input')
@@ -20,7 +44,7 @@ img = Image.open(filename)
 width,height = img.size
 print(f'{width=} {height=}')
 project = Project.new(width, height)
-project.add_layer(img, 'Jackie')
+project.add_layer(img, 'Background')
 
 # create an empty image
 paint_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
@@ -31,5 +55,8 @@ project.add_layer(paint_layer, 'Paint')
 # save current project as ORA file
 ora_filename = Path('/tmp') / filename.with_suffix('.ora').name.replace('.ora','-paint.ora')
 project.save(ora_filename)
-os.system(f'krita {ora_filename}')
+xec(f'krita {ora_filename}')
+xec('FvwmCommand \'All ("krita") Iconify false\'')
+xec('FvwmCommand \'Next ("krita") SelectWindow\'')
+
 print('ok')
