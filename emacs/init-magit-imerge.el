@@ -1,6 +1,6 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "/magit-imerge/"))
+                  (concat emacs-git "magit-imerge/"))
                  load-path))
 (load "magit-imerge.el")
 

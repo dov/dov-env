@@ -1,9 +1,9 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "/org-extra")
-                  (concat emacs-git "/packages/org-bullets-20200317.1740")
-                  (concat emacs-git "/packages/org-9.6.1")
-                  (concat emacs-git "/packages/org-present-20220806.1847")
+                  (concat emacs-git "org-extra")
+                  (concat emacs-git "packages/org-bullets-20200317.1740")
+                  (concat emacs-git "packages/org-9.6.1")
+                  (concat emacs-git "packages/org-present-20220806.1847")
                   )
                  load-path))
 (use-package
@@ -343,7 +343,7 @@
    (lua . t)
    )) 
 (setq org-plantuml-jar-path
-      (concat emacs-git "/org-mode/scripts/plantuml.jar"))
+      (concat emacs-git "org-mode/scripts/plantuml.jar"))
 ;(load "org-exp-blocks")
 ;(load "org-mw")
 (defun my-org-confirm-babel-evaluate (lang body)

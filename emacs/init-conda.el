@@ -1,7 +1,7 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "/packages/pythonic-20230821.1733/")
-                  (concat emacs-git "/packages/conda-20231109.219/")
+                  (concat emacs-git "packages/pythonic-20230821.1733/")
+                  (concat emacs-git "packages/conda-20231109.219/")
                   emacs-git
                   )
                  load-path))

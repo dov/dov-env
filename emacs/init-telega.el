@@ -1,7 +1,7 @@
 ;; ignore on Windows
 
 (if (not (string-match "x86_64-w64-mingw32" system-configuration))
-    (add-to-list 'load-path (concat emacs-git "/telega.el")))
+    (add-to-list 'load-path (concat emacs-git "telega.el")))
 
 (add-hook 'telega-chat-mode-hook
           (lambda () 

@@ -1,6 +1,6 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "/polymode")
+                  (concat emacs-git "polymode")
                   )
                  load-path))
 		  

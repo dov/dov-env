@@ -5,7 +5,7 @@
 ;; To use this file, add lines similar to the following to ~/.emacs on
 ;; windows:
 ;;
-;;  (setq emacs-git "c:/users/dovg/git/dov-env/emacs")
+;;  (setq emacs-git "c:/users/dovg/git/dov-env/emacs/") ; Need slash
 ;;  (setq default-notes-file "w:/users/Dov/git/xjet-git/notes/notes.org")
 ;;  (setq tramp-default-method "plink")
 ;;  ; Point ediff to the diff path.
@@ -14,15 +14,15 @@
 ;;  (setenv "GIT_SSH" "C:/Windows/System32/OpenSSH/ssh.exe")
 ;;  (setenv "PATH" (concat (getenv "PATH") ";c:/Program Files/Git/usr/bin/"))
 ;;  (setenv "MJQT" "d:/git/dov/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
-;;  (load (concat emacs-git "/dov.emacs"))
+;;  (load (concat emacs-git "dov.emacs"))
 ;;
 ;;   Other customization (for windows):
 ;;      ;; Set initial frame size 
 ;;      (set-frame-size (selected-frame) 1500 1110 1)
 ;;
-;; Here is a sample linux stup
+;; Here is a sample linux setup
 ;;
-;; (setenv "MJQT" "/home/dov/git/SolarJet/XjetApps/MetalJet/Apps/Project/qt/")
+;; (setenv "MJQT" "/home/dov/git/MetalJet/XjetApps/MetalJet/Apps/Project/qt/")
 ;; (setenv "PE_HOME" "/home/dov/git/MetalJet/")
 ;; (setq emacs-git "/home/dov/git/dov-env/emacs/")
 ;; (load-file (concat emacs-git "dov.emacs"))
@@ -52,7 +52,7 @@
       (setq system-time-locale "C")
 
       ;; Load windows utilities
-      (load (concat emacs-git "/win-utils.el")))
+      (load (concat emacs-git "win-utils.el")))
     
       ;; Add conversion scripts to path
       (setenv "PATH" (concat emacs-git "\\scripts;" (getenv "PATH")))
@@ -68,7 +68,7 @@
         (setq emacs-persistance-dir "/home/dov/.emacs.d"))
 
     ;; Add conversion scripts to path
-    (setenv "PATH" (concat emacs-git "/scripts:" (getenv "PATH")))
+    (setenv "PATH" (concat emacs-git "scripts:" (getenv "PATH")))
 
     ;; Default scripts that are the same across most of my environments
     (if (eq (getenv "WORKON_HOME") nil)
@@ -90,11 +90,14 @@
                              "/usr/local/share/emacs/site-lisp/vm"
                              "/usr/local/share/emacs/site-lisp/rtags/"
 			     emacs-git
-                             (concat emacs-git "/flycheck"))
+                             (concat emacs-git "flycheck"))
                             load-path))
 ;    (load "vm")
     (load "dash")
     (setq add-log-mailing-address "dov.grobgeld@gmail.com")))
+
+;; Add trailing slash to emacs-git
+(setq emacs-git (file-name-as-directory emacs-git))
 
 ;  add melpa to package list
 (require 'package)
@@ -129,7 +132,7 @@
     (setq my-default-font (concat my-fixed-font " 12")))
 
 (setq Info-default-directory-list
-      (append (list (concat emacs-git "/info"))
+      (append (list (concat emacs-git "info"))
               Info-default-directory-list))
 
 ;; Font for all frames
@@ -145,13 +148,13 @@
 
 (setq load-path (append
                  (list
-                  (concat emacs-git "/wgrep")
-                  (concat emacs-git "/ein/lisp")
-                  (concat emacs-git "/skewer-mode")
-                  (concat emacs-git "/company")
-                  (concat emacs-git "/flycheck")
-                  (concat emacs-git "/multiple-cursors")
-                  (concat emacs-git "/wat-mode")
+                  (concat emacs-git "wgrep")
+                  (concat emacs-git "ein/lisp")
+                  (concat emacs-git "skewer-mode")
+                  (concat emacs-git "company")
+                  (concat emacs-git "flycheck")
+                  (concat emacs-git "multiple-cursors")
+                  (concat emacs-git "wat-mode")
                   emacs-git
                   )
                  load-path))
@@ -167,7 +170,7 @@
 
 
 ;; packages - tbd as much as possible there!
-(setq package-user-dir (concat emacs-git "/packages"))
+(setq package-user-dir (concat emacs-git "packages"))
 (require 'init-use-package)
 (require 'init-org)
 (require 'init-multiple-cursors)
@@ -560,7 +563,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 		ad-do-it))
 (ad-activate 'js2-parse-statement)
 
-(add-to-list 'load-path (concat emacs-git "/pde"))
+(add-to-list 'load-path (concat emacs-git "pde"))
 
 ;(when (>= emacs-major-version 24)
 ;  (load "pde-load")
@@ -709,7 +712,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 (with-eval-after-load "dmacro"
   ;(load "dired")  ;; Since I am using a dired function below
-  (dmacro-load (concat emacs-git "/dov.dmacro"))
+  (dmacro-load (concat emacs-git "dov.dmacro"))
   (def-dmacro-function pwdleaf() (basename (substring (pwd) 0 -1)))
   (def-dmacro-function datestring() (format-time-string "%A %Y-%m-%d %R"))
   (def-dmacro-function org-date-string() (format-time-string "%Y-%m-%d %a"))
@@ -852,7 +855,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
          (selection (buffer-substring-no-properties start-reg end-reg))
          (cmd (format "%s %s/rcomponent.py --classname %s --%s"
                       my-python-interpreter
-                      (concat emacs-git "/scripts")
+                      (concat emacs-git "scripts")
                       class-name conversion)))
     (shell-command-on-region start-reg end-reg cmd t t)
     (exchange-point-and-mark)
@@ -2060,7 +2063,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (defun find-dov-env ()
   "Edit this file"
   (interactive)
-  (find-file (concat emacs-git "/dov.emacs"))
+  (find-file (concat emacs-git "dov.emacs"))
   (lisp-mode))
 
 (defun my-cmode-stuff (map) ""
@@ -2633,7 +2636,7 @@ Does not delete the prompt."
 ;; infection and couldn't talk.
 (defun play-ogg (sound)
   (interactive)
-  (let ((fn (concat emacs-git "/../sounds/" sound ".ogg")))
+  (let ((fn (concat emacs-git "../sounds/" sound ".ogg")))
     (if (string-match "x86_64-w64-mingw32" system-configuration)
         ;; A hack just to her something!
         (call-process "powershell" nil "*foo*" nil "-c (New-Object Media.SoundPlayer \"C:\\Windows\\Media\\chimes.wav\").PlaySync();")

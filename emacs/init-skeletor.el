@@ -1,14 +1,14 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "/packages/skeletor-20210129.239/"))
+                  (concat emacs-git "packages/skeletor-20210129.239/"))
                  load-path))
 (require 'f-shortdoc)
 (require 'f)
 
 ; Add my c-project
 
-(setq skeletor--directory (concat emacs-git "/skeletor-templates"))
-(setq skeletor--licenses-directory (concat emacs-git "/skeletor-licenses"))
+(setq skeletor--directory (concat emacs-git "skeletor-templates"))
+(setq skeletor--licenses-directory (concat emacs-git "skeletor-licenses"))
 (setq skeletor-project-directory (concat (getenv "HOME") "git"))
 
 (load "skeletor.el")
