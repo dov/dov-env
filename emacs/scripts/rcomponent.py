@@ -191,7 +191,7 @@ def def2c(text, class_name):
   for line in text.splitlines():
 
     # Unindent and print comments
-    if m:= re.match('^\s*(//.*)', line):
+    if m:= re.match(r'^\s*(//.*)', line):
       output_text += m.group(1) + "\n"
       continue
 
@@ -227,7 +227,7 @@ def def2h(text, class_name):
   for line in text.splitlines():
 
     # Unindent and print comments
-    if m:= re.match('^\s*(//.*)', line):
+    if m:= re.match(r'^\s*(//.*)', line):
       output_text += line + '\n'
       continue
 

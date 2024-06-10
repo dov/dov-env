@@ -355,6 +355,11 @@
         (kill-line))))
   (message "Matching lines dropped."))
 
+(defun pcre-occur (re)
+  """Show all matching re lines in another buffer"""
+  (interactive "MList lines matching regexp: ")
+  (occur (rxt-pcre-to-elisp re)))
+
 (defun whitespace-strip (s)
   """Remove all whitespaces in a string"""
   (interactive)
@@ -564,6 +569,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 
 (require 'init-yassnippet)
+(require 'init-copilot)
 
 (global-set-key "\C-ci" nil)
 (global-set-key "\C-cii" 'magit-status)
@@ -2823,6 +2829,12 @@ Does not delete the prompt."
                 (unless (= src-start (window-start src))
                   (move-marker src-start (window-start src))
                   (set-window-start clone src-start))))))
+
+; Ignore warnings
+(add-to-list 'warning-suppress-log-types '(unlock-file))
+(add-to-list 'warning-suppress-types '(unlock-file))
+(setq warning-minimum-level :error)
+(setq create-lockfiles nil)
 
 (custom-set-variables
  '(blink-cursor-mode nil)

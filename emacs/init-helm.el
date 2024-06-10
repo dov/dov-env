@@ -87,6 +87,7 @@
 (define-key global-map "\C-xb" 'helm-mini)
 (define-key global-map [(meta ?/)] 'my-dabbrev-and-deactivate)
 (define-key global-map [(control ?/)] 'my-dabbrev-and-deactivate)
+(define-key global-map "\C-x\C-f" 'old-ff)
 
 (unless (boundp 'completion-in-region-function)
   (define-key lisp-interaction-mode-map [remap completion-at-point] 'helm-lisp-completion-at-point)

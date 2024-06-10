@@ -654,6 +654,21 @@ def die(msg):
   sys.exit(-1)
 ~@
 #
+#######
+prettytable expand	Add a simple pretty table function
+from prettytable import PrettyTable
+
+def format_table(table):
+  ptable = PrettyTable(field_names = table[0])
+  ptable.add_rows(table[1:])
+  return ptable
+
+table = [('A','B')]
+
+~@
+
+print(format_table(table))
+#
 
 #######
 # MODE:	makefile-mode
