@@ -2546,20 +2546,43 @@ Does not delete the prompt."
   (switch-to-buffer cmd-buffer-name)
   (switch-to-buffer my-buffer)))
 
+(defun async-shell-command-on-buffer (command extension)
+  "Send the current buffer to an async shell command"
+  (interactive)
+  (let* ((remote-maybe (file-remote-p default-directory))
+         (tramp-prefix (if remote-maybe remote-maybe ""))
+         (cmd-buffer-name (concat "*" (capitalize command) " Output*"))
+         (cmd-filename
+          (if (buffer-modified-p)
+              (concat tramp-prefix temp-dir "/buffer." extension)
+           (buffer-file-name))))
+         (if (buffer-modified-p)
+             (write-region (point-min) (point-max) cmd-filename))
+    (if remote-maybe
+       ;; If remote, we have to get rid of the tramp prefix
+       (let* ((remote-prefix-len (length remote-maybe))
+              (fn (substring cmd-filename remote-prefix-len)))
+         (async-shell-command (concat my-remote-shell " -c '" command " \"" fn "\" '") cmd-buffer-name))
+       (async-shell-command (concat command " \"" cmd-filename "\"") cmd-buffer-name))
+  ;; The following makes it easy to go to the resulting output buffer
+  (setq my-buffer (current-buffer))
+  (switch-to-buffer cmd-buffer-name)
+  (switch-to-buffer my-buffer)))
+
 (defun shell-python-on-buffer ()
   "Send the current (python) buffer to be evaluated by the python shell"
   (interactive)
-  (shell-command-on-buffer my-python-interpreter "py"))
+  (async-shell-command-on-buffer my-python-interpreter "py"))
 
 (defun shell-perl-on-buffer ()
   "Send the current (python) buffer to be evaluated by the python shell"
   (interactive)
-  (shell-command-on-buffer "perl" "pl"))
+  (async-shell-command-on-buffer "perl" "pl"))
 
 (defun shell-lua-on-buffer ()
   "Send the current (lua) buffer to be evaluated by the lua shell"
   (interactive)
-  (shell-command-on-buffer "lua" "lua"))
+  (async-shell-command-on-buffer "lua" "lua"))
 
 
 ;; From: https://stackoverflow.com/questions/9656311/conflict-resolution-with-emacs-ediff-how-can-i-take-the-changes-of-both-version#29757750
