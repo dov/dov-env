@@ -1,8 +1,8 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "packages/git-commit-20230213.2015")
-                  (concat emacs-git "packages/magit-section-20230213.2018")
-                  (concat emacs-git "packages/magit-20230217.2343"))
+                  (concat emacs-git "packages/git-commit-20240623.1335/")
+                  (concat emacs-git "packages/magit-section-20240628.1638/")
+                  (concat emacs-git "packages/magit-20240630.1208/"))
                  load-path))
 (use-package
   magit)

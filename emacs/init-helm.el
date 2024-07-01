@@ -1,8 +1,8 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "packages/helm-20230117.1512/")
-                  (concat emacs-git "packages/helm-core-20230116.1031/")
-                  (concat emacs-git "packages/async-20221228.1315/")
+                  (concat emacs-git "packages/helm-20240630.1328/")
+                  (concat emacs-git "packages/helm-core-20240625.349/")
+                  (concat emacs-git "packages/async-20240629.550/")
                   emacs-git
                   )
                  load-path))

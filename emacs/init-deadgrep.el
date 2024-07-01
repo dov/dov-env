@@ -1,7 +1,7 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "packages/deadgrep-20230429.429/")
-                  (concat emacs-git "packages/wgrep-deadgrep-20230405.936/")
+                  (concat emacs-git "packages/deadgrep-20240627.1535/")
+                  (concat emacs-git "packages/wgrep-deadgrep-20231215.1145/")
                   (concat emacs-git "packages/spinner-1.7.4")
                   emacs-git
                   )

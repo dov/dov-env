@@ -1,6 +1,6 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "packages/yasnippet-20200604.246/"))
+                  (concat emacs-git "packages/yasnippet-20240406.1314/"))
                  load-path))
 
 (load "yasnippet")

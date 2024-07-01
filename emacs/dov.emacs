@@ -1186,7 +1186,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
        (list (cons "\\.pickle$" 'pkl-mode))
        (list (cons "\\.pio$" 'asm-mode))
        (list (cons "\\.FCMacro$" 'python-mode))
-
+       (list (cons "\\.pth$" 'archive-mode))
        auto-mode-alist))
 
 ;; macros for nxc code
@@ -2551,7 +2551,8 @@ Does not delete the prompt."
   (interactive)
   (let* ((remote-maybe (file-remote-p default-directory))
          (tramp-prefix (if remote-maybe remote-maybe ""))
-         (cmd-buffer-name (concat "*" (capitalize command) " Output*"))
+         (cmd-buffer-name
+          (concat "*" (capitalize command) " Output:" (buffer-name) "*"))
          (cmd-filename
           (if (buffer-modified-p)
               (concat tramp-prefix temp-dir "/buffer." extension)
@@ -2567,6 +2568,9 @@ Does not delete the prompt."
   ;; The following makes it easy to go to the resulting output buffer
   (setq my-buffer (current-buffer))
   (switch-to-buffer cmd-buffer-name)
+  ; locally reset the key "up" to (previous-line)
+  (local-set-key [up] 'previous-line)
+  (local-set-key [down] 'next-line)
   (switch-to-buffer my-buffer)))
 
 (defun shell-python-on-buffer ()

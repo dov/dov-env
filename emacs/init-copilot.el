@@ -1,7 +1,7 @@
 (setq load-path (append
                  (list
                   (concat emacs-git "copilot")
-                  (concat emacs-git "packages/editorconfig-20240318.2049/")
+                  (concat emacs-git "packages/editorconfig-20240604.602/")
                   )
                  load-path))
 		  

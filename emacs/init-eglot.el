@@ -1,8 +1,6 @@
 (setq load-path (append
                  (list
                   (concat emacs-git "packages/eglot-20220726.1405/")
-                  (concat emacs-git "packages/project-0.8.1")
-                  (concat emacs-git "packages/eldoc-1.13.0")
                   )
                  load-path))
 

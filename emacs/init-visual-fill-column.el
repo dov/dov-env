@@ -1,6 +1,6 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "packages/visual-fill-column-20230102.1830/"))
+                  (concat emacs-git "packages/visual-fill-column-20240411.656/"))
                  load-path))
 
 (load "visual-fill-column-autoloads.el")
