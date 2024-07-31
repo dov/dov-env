@@ -1792,7 +1792,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(alt meta s)] (lambda () (interactive) 
   (switch-to-buffer "*scratch*")))
 (global-set-key [(alt meta p)] (lambda () (interactive) 
-  (switch-to-buffer "*Python*")))
+  (find-most-recent-pattern-buffer "\\*Python")))
 (global-set-key [(alt meta j)] (lambda () (interactive) 
   (switch-to-buffer (find-most-recent-pattern-buffer "\\*ein:notebook"))))
 

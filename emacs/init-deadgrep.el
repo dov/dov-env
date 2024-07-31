@@ -1,3 +1,9 @@
+;  deadgrep notes
+;
+;  Note: insert "!*" in .rgignore in a directory to override the .gitignore file.
+;  This is e.g. useful in a .venv directory in order to search the python files
+;  in it.
+
 (setq load-path (append
                  (list
                   (concat emacs-git "packages/deadgrep-20240627.1535/")

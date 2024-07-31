@@ -1,11 +1,15 @@
+(setq emacs-git "/home/dov/git/dov-env/emacs/")
 (setq load-path (append
                  (list
-                  (concat emacs-git "packages/git-commit-20240623.1335/")
-                  (concat emacs-git "packages/magit-section-20240628.1638/")
-                  (concat emacs-git "packages/magit-20240630.1208/"))
+                  (concat emacs-git "packages/transient-20240729.1524/")
+                  (concat emacs-git "packages/git-commit-20240730.1355/")
+                  (concat emacs-git "packages/magit-section-20240730.1741/")
+                  (concat emacs-git "packages/magit-20240730.1741/"))
                  load-path))
-(use-package
-  magit)
+(use-package transient
+  :ensure t)
+(use-package magit
+  :ensure t)
 
 (defun my-magit-mode-hook ()
   (define-key magit-mode-map (kbd "i") 'magit-gitignore-in-topdir)
