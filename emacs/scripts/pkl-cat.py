@@ -15,7 +15,33 @@ import sys,pickle,os
 import pandas as pd
 from tabulate import tabulate
 import matplotlib.pyplot as plt
+from pathlib import Path
 import pdb
+import subprocess
+import re
+
+def xec(cmd, decode=True, chomp=True, verbose=False):
+  '''Run a command a returns its stdout output.
+
+  decode -- run (utf8) decode of the resulting string
+  chomp -- get rid of the last newline (like in perl)
+  '''
+  with subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE) as ph:
+    if verbose:
+      sys.stderr.write(cmd + '\n')
+    res = b''
+    maxsize = 1024
+    while True:
+      buf = ph.stdout.read()
+      if len(buf)==0:
+        break
+      res += buf
+    ph.wait()
+  if decode:
+    res=res.decode()
+  if chomp:
+    res = res[:-1]
+  return res
 
 def die(msg):
   print(msg)
@@ -110,6 +136,13 @@ pd.set_option('display.width', 999999)
 
 res = pd.DataFrame()
 for fn in sys.argv[argp:]:
+  if fn.startswith('/sshx:'):
+    if m:= re.search('/sshx:(.*?):(.*)', fn):
+      host = m.group(1)
+      remote_fn = m.group(2)
+      local_fn = Path('/tmp',Path(remote_fn).name)
+      xec(f'scp {host}:{remote_fn} {local_fn}')
+      fn = str(local_fn)
   df = None
   if fn.endswith('.csv'):
     df = pd.read_csv(fn)
