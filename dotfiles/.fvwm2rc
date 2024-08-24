@@ -165,6 +165,7 @@ Style "*"           DecorateTransient,IconBox -70 36 -1 -140
 
 Style "Fvwm*"       NoTitle, NoHandles, Sticky, WindowListSkip,
 Style "Guvcview*" NoTitle,NoBorder
+#Style "frameless" NoTitle,NoBorder,!Borders
 Style "*gst-launch-1.0*" NoTitle,NoBorder
 Style "Steam*"       NoTitle, NoHandles, NoBorder, BorderWidth 0
 Style "Mate-panel"  NoTitle, NoHandles, Sticky, WindowListSkip, NoBorder, BorderWidth 0
@@ -199,6 +200,8 @@ Style "evince" !MwmFunctions
 Style "*teams*" HandleWidth 5,BorderWidth 5,BoundaryWidth 5,usedecor linux_term,,!MwmFunctions,NoTitle,NoDecorHint,GNOMEIgnoreHints
 Style "*" NoDecorHint,GNOMEIgnoreHints
 Style "Android Emulator - G*" !MwmFunctions
+Style "xtm" NoTitle
+Style "*" NoDecorHint,GNOMEIgnoreHints
 
 # The "WindowPeer" is used by Android studio for tooltips. This command removes the
 # titles from it
@@ -277,14 +280,27 @@ Key Down        A       CS4     Move w0 -0 Warp
 Key Space       A       4       WindowList Root c c CurrentPage, NoGeometry, CurrentAtEnd 
 Key Escape      A       4       exec systemctl suspend -i
 Key Tab         A       4 WindowList Root c c "Prev SwitchToWindow"
-Key E           A       S4      Next ("Emacs") SelectWindow
-Key F           A       S4      Next ("firefox") SelectWindow
+Key E           A       S4      Next ("Emacs*") SelectWindow
+Key F           A       S4      Next ("*firefox*") SelectWindow
 Key K           A       S4      Next ("krita") SelectWindow
 Key T           A       S4      Next ("Alacritty|Mate-terminal") SelectWindow
 Key S           A       S4      Next ("MetalJet") SelectWindow
+Key A           A       S4       exec wireplumber_audio_switcher.py Sinks
 Key G           A       4       Exec /usr/local/Telegram/Telegram
 Key L           A       C4      Exec mate-screensaver-command -l
 Key W           A       S4      Close
+
+# Numlock keys for switching 3rds of the keyboard for painting
+
+# Left
+#Key Print	A	A	Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 0.5 1.5 0 0 0 0 1
+# Center
+Key Scroll_Lock	A	A	Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 0.75 1.5 0 0 0 0 1
+# Right
+Key Pause	A	A	Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 1.0 1.5 0 0 0 0 1
+Key Print	A	A	Exec xtm -c --key left
+Key Pause	A	A	Exec xtm -c --key right
+
 
 DestroyFunc SelectWindow
 AddToFunc SelectWindow
@@ -359,11 +375,13 @@ AddToFunc InitFunction 	  "I" Module FvwmPager *
 +                         "I" exec xset fp+ /home/dov/git/dov-env/lib/X11fonts
 +                         "I" exec xset b 100 8300 10
 +                         "I" exec xkbcomp /home/dov/.xkbmap $DISPLAY
-+                         "I" exec swteam:/home/dov /home/dov/swteam
 +                         "I" exec feh --bg-tile /home/dov/git/dov-env/lib/tiles/Sister-Bluebird-1.png 
 +                         "I" exec cairo-clock -y 2038 -x 0&
 +                         "I" exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 1 1.2 0 0 0 0 1
 +                         "I" exec xinput set-button-map "Logitech USB Receiver Mouse" 3 2 1
++                         "I" exec xtm -g +3221-5 &
+
+AddToFunc StartFunction "I" Module FvwmCommandS
 
 AddToFunc RestartFunction "I" Module FvwmPager
 +                         "I" exec feh --bg-tile /home/dov/git/dov-env/lib/tiles/Sister-Bluebird-1.png 
@@ -386,9 +404,9 @@ AddToMenu RootMenu	"RootMenu"	Title
 +			"gimp"%mini.gimp.xpm%		Exec  exec gimp &
 +			"firefox"	Exec  exec /usr/bin/firefox  &
 +			"google-chrome"	Exec  exec google-chrome &
-+                       "gthumb"        Exec gthumb &
-+			"skype"	        Exec  exec skypeforlinux &
-+			"emacs"	        Exec  exec emacs &
++			"emacs"	        Exec  /usr/bin/emacs-gtk+x11 &
++			"emacs-29"	        Exec  exec env LD_LIBRARY_PATH=/usr/local/lib /usr/local/emacs-29/bin/emacs &
++			"emacs-30"	        Exec  exec env LD_LIBRARY_PATH=/usr/local/lib /usr/local/emacs-30/bin/emacs &
 +			"Telegram"      Exec  /usr/local/Telegram/Telegram &
 +			"Signal"        Exec  signal-desktop &
 +			"Zoom"          Exec  env zoom --no-sandbox &
@@ -399,11 +417,11 @@ AddToMenu RootMenu	"RootMenu"	Title
 +			"WebCam"	Exec  exec  gst-launch v4l2src device=/dev/video0 ! 'video/x-raw-yuv,width=320,height=240,framerate=10/1' ! xvimagesink &
 +			""		Nop
 +			"XInput"	Popup XInput-Popup
-+			"Share Monitor"	Popup XMonitor-Popup
-+			"Screenshot"	Popup Screenshot-Popup
-""
++			""		Nop
 +			"Modules"	Popup Module-Popup
 +			""		Nop		
++			"Screenshot"	Popup Screenshot-Popup
++			""		Nop
 +			"Exit Fvwm"	Popup Quit-Verify
 
 AddToMenu Window-Ops	"Window Ops"	Title		
@@ -442,6 +460,7 @@ AddToMenu Music-Popup "Music" Title
 +        "rhythmbox"	Exec rhythmbox &
 
 AddToMenu XInput-Popup  "XInput"        Title
++                       "xtm" Exec xtm &
 +                       "Right-Half Screen" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 1 1.2 0 0 0 0 1
 +                       "Left-Half Screen" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -0.5 0.5 2.8 0 0 0 0 1
 +                       "Full Screen" Exec xinput set-prop "Wacom One by Wacom S Pen stylus" --type=float "Coordinate Transformation Matrix" 0 -1 1 2.8 0 0 0 0 1

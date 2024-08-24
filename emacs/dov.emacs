@@ -201,7 +201,10 @@
 (require 'init-visual-fill-column)
 (require 'init-deadgrep)
 (require 'init-indent-bars)
-(require 'init-skeletor)
+(ignore-errors
+  (require 'init-skeletor))
+(require 'init-copilot)
+(require 'init-copilot-chat)
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
