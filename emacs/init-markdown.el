@@ -14,6 +14,7 @@
 (defun my-markdown-hook ()
   (variable-pitch-mode t))
 
+(setq markdown-fontify-code-blocks-natively t)
 (add-hook 'markdown-mode-hook 'my-markdown-hook)
 
 (provide 'init-markdown)

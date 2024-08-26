@@ -1771,8 +1771,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;; Shortcuts to go to special buffers
 (global-set-key [(alt meta d)] 'goto-end-of-gud-buffer)
 (global-set-key [(alt meta k)] 'goto-end-of-compilation-buffer)
-(global-set-key [(alt meta c) ?c] 'find-most-recent-c-buffer)
-(global-set-key [(alt meta c) ?p] 'find-most-recent-python-buffer)
+(global-set-key [(alt meta c)] 'copilot-chat-shell-maker-display)
 (global-set-key [(control c) ?b ?c] 'find-most-recent-c-buffer)
 (global-set-key [(control c) ?b ?e] 'find-most-recent-emacs-buffer)
 (global-set-key [(control c) ?b ?p] 'find-most-recent-python-buffer)
