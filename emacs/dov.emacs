@@ -361,6 +361,19 @@
         (kill-line))))
   (message "Matching lines dropped."))
 
+(defun hide-non-matching-lines (pattern)
+  """Make all lines not matching PATTERN invisible."""
+  (interactive "sEnter pattern: ")
+  (save-excursion
+    (goto-char (point-min))
+    (while (not (eobp))
+      (let ((start (point))
+            (end (progn (forward-line 1) (point))))
+        (goto-char start)
+        (unless (re-search-forward (rxt-pcre-to-elisp pattern) end t)
+          (put-text-property start end 'invisible t))
+        (goto-char end)))))
+
 (defun pcre-occur (re)
   """Show all matching re lines in another buffer"""
   (interactive "MList lines matching regexp: ")
@@ -1738,6 +1751,11 @@ With numeric ARG, display the images if and only if ARG is positive."
   (interactive)
   (find-most-recent-pattern-buffer "magit"))
 
+(defun find-most-reset-copilot-buffer ()
+  "find the most recent code buffer in the history and switch to it"
+  (interactive)
+  (find-most-recent-pattern-buffer "\\*[cC]opilot.*"))
+
 (defun find-most-recent-org-buffer ()
   "find the most recent code buffer in the history and switch to it"
   (interactive)
@@ -1771,7 +1789,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;; Shortcuts to go to special buffers
 (global-set-key [(alt meta d)] 'goto-end-of-gud-buffer)
 (global-set-key [(alt meta k)] 'goto-end-of-compilation-buffer)
-(global-set-key [(alt meta c)] 'copilot-chat-shell-maker-display)
 (global-set-key [(control c) ?b ?c] 'find-most-recent-c-buffer)
 (global-set-key [(control c) ?b ?e] 'find-most-recent-emacs-buffer)
 (global-set-key [(control c) ?b ?p] 'find-most-recent-python-buffer)
@@ -1780,6 +1797,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control c) ?b ?j] (lambda () (interactive) 
   (switch-to-buffer (find-most-recent-pattern-buffer "\\*ein: http"))))
 (global-set-key [(alt meta m)] 'find-most-recent-magit-buffer)
+(global-set-key [(alt meta c)] 'find-most-reset-copilot-buffer)
 (global-set-key [(alt meta y)] 'find-most-recent-python-buffer)
 (global-set-key [(alt meta n)] (lambda () (interactive) 
   (switch-to-buffer (find-most-recent-pattern-buffer "notes.*\\.org"))))
