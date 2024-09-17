@@ -28,10 +28,12 @@
 ;;; Code:
 
 (require 'json)
+(require 'cl-lib)
 
 ;; constants
 (defconst copilot-chat--magic "#cc#done#!$")
-
+(defconst copilot-chat--buffer "*Copilot-chat*")
+(defconst copilot-chat--prompt-buffer "*Copilot-chat-prompt*")
 
 ;; structs
 (cl-defstruct copilot-chat
@@ -40,7 +42,6 @@
   token
   sessionid
   machineid
-  authinfo
   history
   buffers
 )
@@ -53,11 +54,9 @@
    :token nil
    :sessionid nil
    :machineid nil
-   :authinfo nil
    :history nil
    :buffers nil
    ))
-
 
 ;; Functions
 (defun copilot-chat--uuid ()
