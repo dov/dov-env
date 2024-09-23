@@ -1,8 +1,7 @@
-(setq load-path (append
-                 (list
-                  (concat emacs-git "packages/eglot-20220726.1405/")
-                  )
-                 load-path))
+;;(setq load-path (append
+;;                 (list
+;;                  (concat emacs-git "packages/eglot-1.17"))
+;;                 load-path))
 
 (require 'init-company-mode)
 

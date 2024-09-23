@@ -2401,6 +2401,7 @@ Does not delete the prompt."
   (interactive)
   (let* ((dir (expand-file-name default-directory)))
     (setenv "COD" dir)
+    (setenv "CLANGD_FLAGS" (concat "--compile-commands-dir=" dir))
     (message (concat "COD set to " dir))))
 
 (defun goto-cod ()
