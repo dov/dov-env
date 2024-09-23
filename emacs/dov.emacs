@@ -100,9 +100,17 @@
 (setq emacs-git (file-name-as-directory emacs-git))
 
 ;  add melpa to package list
+(setq package-user-dir (concat emacs-git "packages"))
 (require 'package)
-(add-to-list 'package-archives
-             '("melpa" . "http://melpa.org/packages/") t)
+(setq package-archives '(("melpa" . "https://melpa.org/packages/")
+                         ("gnu" . "https://elpa.gnu.org/packages/")))
+(package-initialize)
+;; Ensure use-package is installed
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+
+(require 'use-package)
 
 ;; Setup my prefered font. This should work on both linux and
 ;; windows with and without my prefered fonts installed
@@ -169,8 +177,9 @@
                                orig-fg))))
 
 
-;; packages - tbd as much as possible there!
-(setq package-user-dir (concat emacs-git "packages"))
+(ignore-errors
+  (require 'init-eglot))
+(require 'init-compat)
 (require 'init-use-package)
 (require 'init-org)
 (require 'init-multiple-cursors)
@@ -187,10 +196,8 @@
 (require 'init-literate-calc)
 (require 'init-polymode)
 ;(require 'init-ein)
-(require 'init-compat)
 ;(require 'init-all-the-icons)
-(ignore-errors
-  (require 'init-eglot))
+(require 'transient)
 (require 'init-magit)
 (require 'init-magit-imerge)
 (require 'init-lua-mode)
@@ -1646,6 +1653,7 @@ With numeric ARG, display the images if and only if ARG is positive."
       (goto-line (string-to-number line))
       )))
 (global-set-key (kbd "C-`") 'py-jump-exception-line)
+(global-set-key (kbd "C-c '") 'py-jump-exception-line)
 
 (global-set-key "\M-]" 'c-beginning-of-defun)
 (global-set-key [(control ?') ?'] 'find-matching-keyword)
