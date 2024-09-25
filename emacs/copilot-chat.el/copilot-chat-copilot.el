@@ -1,6 +1,4 @@
-;; -*- lexical-binding: t; indent-tabs-mode: nil -*-
-
-;;; copilot-chat-copilot.el --- copilot chat engine -*- lexical-binding:t -*-
+;;; copilot-chat --- copilot-chat-copilot.el  --- copilot chat engine -*- indent-tabs-mode: nil; lexical-binding: t -*-
 
 ;; Copyright (C) 2024  copilot-chat maintainers
 
@@ -34,64 +32,45 @@
 (require 'copilot-chat-curl)
 
 ;; customs
-(defgroup copilot-chat nil
-  "GitHub Copilot chat."
-  :group 'tools)
-
-(defcustom copilot-chat-token-cache "~/.cache/copilot-chat/token"
-  "The file where the GitHub token is cached."
-  :type 'string
-  :group 'copilot-chat)
-
-(defcustom copilot-chat-github-token-file "~/.config/copilot-chat/github-token"
-  "The file where to find GitHub token."
-  :type 'string
-  :group 'copilot-chat)
-(defcustom copilot-chat-prompt
-  "You are a world-class coding tutor. Your code explanations perfectly balance high-level concepts and granular details. Your approach ensures that students not only understand how to write code, but also grasp the underlying principles that guide effective programming.\nWhen asked for your name, you must respond with \"GitHub Copilot\".\nFollow the user's requirements carefully & to the letter.\nYour expertise is strictly limited to software development topics.\nFollow Microsoft content policies.\nAvoid content that violates copyrights.\nFor questions not related to software development, simply give a reminder that you are an AI programming assistant.\nKeep your answers short and impersonal.\nUse Markdown formatting in your answers.\nMake sure to include the programming language name at the start of the Markdown code blocks.\nAvoid wrapping the whole response in triple backticks.\nThe user works in an IDE called Neovim which has a concept for editors with open files, integrated unit test support, an output pane that shows the output of running the code as well as an integrated terminal.\nThe active document is the source code the user is looking at right now.\nYou can only give one reply for each conversation turn.\n\nAdditional Rules\nThink step by step:\n1. Examine the provided code selection and any other context like user question, related errors, project details, class definitions, etc.\n2. If you are unsure about the code, concepts, or the user's question, ask clarifying questions.\n3. If the user provided a specific question or error, answer it based on the selected code and additional provided context. Otherwise focus on explaining the selected code.\n4. Provide suggestions if you see opportunities to improve code readability, performance, etc.\n\nFocus on being clear, helpful, and thorough without assuming extensive prior knowledge.\nUse developer-friendly terms and analogies in your explanations.\nIdentify 'gotchas' or less obvious parts of the code that might trip up someone new.\nProvide clear and relevant examples aligned with any provided context.\n"
-  "The prompt to use for Copilot chat."
-  :type 'string
-  :group 'copilot-chat)
-
 (defcustom copilot-chat-prompt-explain "Please write an explanation for the following code:\n"
-  "The prompt used by copilot-chat-explain"
+  "The prompt used by `copilot-chat-explain'."
   :type 'string
   :group 'copilot-chat)
 
 (defcustom copilot-chat-prompt-review "Please review the following code:\n"
-  "The prompt used by copilot-chat-review"
+  "The prompt used by `copilot-chat-review'."
   :type 'string
   :group 'copilot-chat)
 
 (defcustom copilot-chat-prompt-doc "Please write documentation for the following code:\n"
-  "The prompt used by copilot-chat-doc"
+  "The prompt used by `copilot-chat-doc'."
   :type 'string
   :group 'copilot-chat)
 
 (defcustom copilot-chat-prompt-fix "There is a problem in this code. Please rewrite the code to show it with the bug fixed.\n"
-  "The prompt used by copilot-chat-fix"
+  "The prompt used by `copilot-chat-fix'."
   :type 'string
   :group 'copilot-chat)
 
 (defcustom copilot-chat-prompt-optimize "Please optimize the following code to improve performance and readability:\n"
-  "The prompt used by copilot-chat-optimize"
+  "The prompt used by `copilot-chat-optimize'."
   :type 'string
   :group 'copilot-chat)
 
 (defcustom copilot-chat-prompt-test "Please generate tests for the following code:\n"
-  "The prompt used by copilot-chat-test"
+  "The prompt used by `copilot-chat-test'."
   :type 'string
   :group 'copilot-chat)
 
 (defcustom copilot-chat-backend 'curl
-  "Copilot chat backend. Can be 'curl or 'request."
+  "Copilot chat backend.  Can be `curl` or `request`."
   :type 'symbol
   :group 'copilot-chat)
 
 
 ;; Functions
 (defun copilot-chat--prompts ()
-  "Return assoc list of promts for each command"
+  "Return assoc list of promts for each command."
   `((explain . ,copilot-chat-prompt-explain)
     (review . ,copilot-chat-prompt-review)
     (doc . ,copilot-chat-prompt-doc)
@@ -121,6 +100,7 @@
                               :buffers nil)))
 
 (defun copilot-chat--login()
+  "Login to GitHub Copilot API."
   (cond
    ((eq copilot-chat-backend 'curl)
     (copilot-chat--curl-login))
@@ -131,6 +111,7 @@
 
 
 (defun copilot-chat--renew-token()
+    "Renew the session token."
 (cond
    ((eq copilot-chat-backend 'curl)
     (copilot-chat--curl-renew-token))
@@ -160,8 +141,10 @@ Then we need a session token."
     (copilot-chat--renew-token)))
 
 (defun copilot-chat--ask (prompt callback)
-  "Ask a question to Copilot."
-  (let* ((history (copilot-chat-history copilot-chat--instance))
+  "Ask a question to Copilot.
+Argument PROMPT is the prompt to send to copilot.
+Argument CALLBACK is the function to call with copilot answer as argument."
+ (let* ((history (copilot-chat-history copilot-chat--instance))
          (new-history (cons (list prompt "user") history)))
     (copilot-chat--auth)
     (cond
@@ -174,23 +157,30 @@ Then we need a session token."
     (setf (copilot-chat-history copilot-chat--instance) new-history)))
 
 (defun copilot-chat--add-buffer (buffer)
-  (unless (memq buffer (copilot-chat-buffers copilot-chat--instance))
+  "Add a BUFFER to copilot buffers list.
+Argument buffer is the buffer to add."
+    (unless (memq buffer (copilot-chat-buffers copilot-chat--instance))
     (let* ((buffers (copilot-chat-buffers copilot-chat--instance))
            (new-buffers (cons buffer buffers)))
       (setf (copilot-chat-buffers copilot-chat--instance) new-buffers))))
 
 (defun copilot-chat--clear-buffers ()
+  "Remove all buffers in copilot buffers list."
   (setf (copilot-chat-buffers copilot-chat--instance) nil))
 
 (defun copilot-chat--del-buffer (buffer)
+  "Remove a BUFFER from copilot buffers list.
+Argument buffer is the buffer to remove."
   (when (memq buffer (copilot-chat-buffers copilot-chat--instance))
     (setf (copilot-chat-buffers copilot-chat--instance)
           (delete buffer (copilot-chat-buffers copilot-chat--instance)))))
 
 (defun copilot-chat--get-buffers ()
+  "Get copilot buffer list."
   (copilot-chat-buffers copilot-chat--instance))
 
 (defun copilot-chat--ready-p()
+  "Returns t if copilot chat is ready."
   (copilot-chat-ready copilot-chat--instance))
 
 (provide 'copilot-chat-copilot)
