@@ -2109,6 +2109,7 @@ With numeric ARG, display the images if and only if ARG is positive."
   ;; versions that deactivates the marker at the end of expantion
   (define-key map [(meta ?/)] 'my-dabbrev-and-deactivate)
   (define-key map [(control ?/)] 'my-dabbrev-and-deactivate)
+  (define-key map (kbd "C-<tab>") 'completion-at-point)
 
   (outline-minor-mode)
   ; outline key bindings
