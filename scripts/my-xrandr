@@ -1,0 +1,125 @@
+#!/usr/bin/python
+######################################################################
+#  A preprocessor to xrandr for extending and mirroring the screen.
+#
+#  2023-11-11 Sat
+######################################################################
+
+
+import subprocess
+import re
+import sys
+import argparse
+
+def xec(cmd, decode=True, chomp=True, verbose=False, dryrun=False):
+  '''Run a command a returns its stdout output.
+
+  decode -- run (utf8) decode of the resulting string
+  chomp -- get rid of the last newline (like in perl)
+  '''
+  if verbose:
+    print(cmd)
+  if dryrun:
+    return
+  with subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE) as ph:
+    if verbose:
+      sys.stderr.write(cmd + '\n')
+    res = b''
+    maxsize = 1024
+    while True:
+      buf = ph.stdout.read()
+      if len(buf)==0:
+        break
+      res += buf
+    ph.wait()
+  if decode:
+    res=res.decode()
+  if chomp:
+    res = res.rstrip()
+  return res
+
+def get_connected():
+  '''Get a list of devices through xrandr'''
+  devices = []
+  
+  current_device = None
+  high_mode = {}
+  for line in xec('xrandr -q').split('\n'):
+    if m:= re.search(r'(\S+)\s+conn', line):
+      current_device = m.group(1)
+      devices += [current_device]
+    if m:= re.search(r'^\s+(\w+)', line):
+      if not current_device in high_mode:
+        high_mode[current_device] = m.group(1)
+
+  # Sort so that the internal is first
+  order = {'eDP-1': -1}
+  devices = sorted(devices, key=lambda v : order.get(v, 0))
+  return [(d,high_mode[d]) for d in devices]
+
+def die(msg):
+  sys.stderr.write(msg.rstrip()+'\n')
+  sys.exit(-1)
+
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser(description='Preprocessor for xrandr')
+  parser.add_argument('-m', '--mirror',
+                      dest='mirror',
+                      action='store_true',
+                      help='Mirror')
+  parser.add_argument('--mode',
+                      dest='mode',
+                      action='store',
+                      help='Mode. Default is 1920x1080',
+                      default='1920x1080')
+  parser.add_argument('-l', '--extend-left',
+                      dest='extend_left',
+                      action='store_true',
+                      help='Extend to the left')
+  parser.add_argument('-r', '--extend-right',
+                      dest='extend_right',
+                      action='store_true',
+                      help='Extend to the right')
+  parser.add_argument('--hdmi-only',
+                      dest='hdmi_only',
+                      action='store_true',
+                      help='Extend to the right')
+  parser.add_argument('--internal',
+                      dest='internal',
+                      action='store_true',
+                      help='Just use internal')
+  parser.add_argument('-v','--verbose',
+                      dest='verbose',
+                      action='store_true',
+                      help='Verbose')
+  parser.add_argument('-d','--dry-run',
+                      dest='dryrun',
+                      action='store_true',
+                      help='Dry run')
+  args = vars(parser.parse_args())
+  dryrun = args['dryrun']
+  verbose = args['verbose']
+  mode = args['mode']
+      
+  devices = get_connected()
+  if len(devices)!=2:
+    die('Expected two devices!')
+
+  int_dev,int_res = devices[0]
+  ext_dev,ext_res = devices[1]
+  print(f'{int_dev=} {int_res=} {ext_dev=} {ext_res=}')
+  if args['mirror']:
+    xec(f'xrandr --output {ext_dev} --mode {args["mode"]} --output {int_dev} --mode {mode}', verbose=verbose, dryrun=dryrun) 
+    xec(f'xrandr --output {ext_dev} --mode {args["mode"]} --output {int_dev} --same-as {ext_dev}', verbose=verbose, dryrun=dryrun) 
+#    xec(f'xrandr --output {ext_dev} --auto --output {int_dev} --same-as {ext_dev}', verbose=verbose, dryrun=dryrun) 
+  elif args['extend_left']:
+    xec(f'xrandr --output eDP-1 --mode {int_res} --output {ext_dev} --left-of {int_dev}', verbose=verbose, dryrun=dryrun) 
+  elif args['extend_right']:
+    xec(f'xrandr --output eDP-1 --mode {int_res} --output {ext_dev} --right-of {int_dev}', verbose=verbose, dryrun=dryrun)
+  elif args['hdmi_only']:
+    xec(f'xrandr --output eDP-1 --off --output {ext_dev} --mode {mode} --right-of {int_dev}', verbose=verbose, dryrun=dryrun)
+  elif args['internal']:
+    xec(f'xrandr --output eDP-1 --mode {int_res} --output {ext_dev} --off', verbose=verbose, dryrun=dryrun)
+  else:
+    die('Nothing to do!')
+    
