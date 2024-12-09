@@ -720,6 +720,9 @@ Optional argument ARG is the same as for `backward-kill-word'."
                "/data/data/com.termux/files/usr/bin"
                "/data/data/com.termux/files/usr/bin/applets")
               tramp-remote-path))
+(add-to-list 'tramp-remote-process-environment "LC_ALL=en_US.UTF-8")
+(add-to-list 'tramp-remote-process-environment "LANGUAGE=en_US.UTF-8")
+
 
 ;; Text mode stuff
 (add-hook 'text-mode-hook 'visual-line-mode)
@@ -2044,7 +2047,8 @@ With numeric ARG, display the images if and only if ARG is positive."
   """Setup standard python indentation"""
   (interactive)
   (setq py-indent-offset 4)
-  (setq indent-bars-spacing 4))
+  (setq indent-bars-spacing 4)
+  (indent-bars-mode t))
 
 (defun gnu-indent-mode ()
   "Set indent tabs to 2 as is standard by gnome."
@@ -2582,7 +2586,7 @@ Does not delete the prompt."
   (let* ((remote-maybe (file-remote-p default-directory))
          (tramp-prefix (if remote-maybe remote-maybe ""))
          (cmd-buffer-name
-          (concat "*" (capitalize command) " Output:" (buffer-name) "*"))
+          (concat "*" (capitalize (file-name-nondirectory command)) " Output:" (buffer-name) "*"))
          (cmd-filename
           (if (buffer-modified-p)
               (concat tramp-prefix temp-dir "/buffer." extension)
@@ -2618,6 +2622,14 @@ Does not delete the prompt."
   (interactive)
   (async-shell-command-on-buffer "lua" "lua"))
 
+;; switch different python interpreters
+(defun choose-python-interpreter ()
+  (interactive)
+  (let ((choice (completing-read "Choose python interpreter: " '("system" "conda"))))
+    (if (string= choice "system")
+        (setq my-python-interpreter "/usr/bin/python")
+      (setq my-python-interpreter "/home/dov/miniforge/bin/python"))
+    (message "my-python-interpreter is %s" my-python-interpreter)))
 
 ;; From: https://stackoverflow.com/questions/9656311/conflict-resolution-with-emacs-ediff-how-can-i-take-the-changes-of-both-version#29757750
 (defun ediff-copy-both-to-C ()
@@ -2725,7 +2737,7 @@ Does not delete the prompt."
 (global-set-key [(control ?נ) (control ?7)] 'play-buzz)
 
 
-;; some motion bindings in hebrew mode that reflect key
+;; some motion bindings in Hebrew mode that reflect key
 ;; positions for Dvorak.
 (global-set-key [(control ?ש)] 'move-beginning-of-line)
 (global-set-key [(control ?ג)] 'move-end-of-line)
@@ -2740,13 +2752,15 @@ Does not delete the prompt."
 (global-set-key [(control ?ט)] 'forward-char)
 (global-set-key [(meta ?מ)] 'backward-word)
 (global-set-key [(control ?מ)] 'backward-char)
-(global-set-key (kbd "C-\"") 'undo)
 (define-key isearch-mode-map [(control ?ף)] 'isearch-repeat-forward)
 (define-key isearch-mode-map [(control ?ם)] 'isearch-repeat-backward)
+(global-set-key [(control ?נ) (control ?ף)] 'save-buffer)
+
 (global-set-key [(meta ?ֱ)] 'beginning-of-buffer)
 (global-set-key [(meta ?ֲ)] 'end-of-buffer)
 (global-set-key [(meta ?ו)] 'goto-line)
-(global-set-key [(control ?נ) (control ?ף)] 'save-buffer)
+
+(global-set-key (kbd "C-\"") 'undo)
 
 ;; dired default applications
 (setq dired-guess-shell-alist-user
