@@ -1,4 +1,3 @@
-(setq emacs-git "/home/dov/git/dov-env/emacs/")
 (setq load-path (append
                  (list
                   (concat emacs-git "packages/transient-20240729.1524/")
