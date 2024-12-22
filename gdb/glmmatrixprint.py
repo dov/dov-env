@@ -4,6 +4,20 @@ import gdb, re
 from pyparsing import nestedExpr
 import pdb
 
+def extract_values(nested_list):
+    values = []
+    for item in nested_list:
+        if isinstance(item, list):
+            values.extend(extract_values(item))
+        elif isinstance(item, str):
+            try:
+                # Remove trailing commas and convert to float
+                value = float(item.rstrip(','))
+                values.append(value)
+            except ValueError:
+                pass
+    return values
+
 class GlmMatrixPrint(gdb.Command):
   "A command for printing glm variables via python"
 
@@ -51,20 +65,23 @@ class GlmMatrixPrint(gdb.Command):
         # Heuristic recognize matrices and vectors
         table = []
         if len(ne)==1 and len(ne[0])==3 and ne[0][0]=='value':
-          m = ne[0][2]
-          row = []
-          n = (len(m)+1)//2
-          for idx in range(n*n):
-            yidx = idx//n
-            xidx = idx%n
-            # The 2* because of the commas output by nestExpr
-            v = float(m[2*yidx][2*xidx][2].replace(',',''))
-
-            # Add to the table
-            row += ['{:>12}'.format(f'{v:.5f}')]
-            if (idx+1)%n==0:
-              table += [row]
-              row=[]
+          #m = ne[0][2]
+#          row = []
+#          n = (len(m)+1)//2
+#          for idx in range(n*n):
+#            yidx = idx//n
+#            xidx = idx%n
+#            # The 2* because of the commas output by nestExpr
+#            pdb.set_trace()
+#            v = float(m[2*yidx][2*xidx][2].replace(',',''))
+#
+#            # Add to the table
+#            row += ['{:>12}'.format(f'{v:.5f}')]
+#            if (idx+1)%n==0:
+#              table += [row]
+#              row=[]
+          pdb.set_trace()
+          table = extract_values(ne[0][2])
         elif len(ne)==1 and ne[0][0]!='value':
           m = ne[0]
           n = (len(m)+1)//2

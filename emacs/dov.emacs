@@ -251,7 +251,6 @@
 (setq backup-by-copying t)
 
 ;; Get newer private versions of standard libraries
-(autoload 'cc-mode "cc-mode" nil t)
 (autoload 'rec-mode "rec-mode" nil t)
 (autoload 'robot-mode "robot-mode" nil t)
 (autoload 'conf-mode "conf-mode" nil t)
@@ -594,6 +593,16 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;  (ido-mode nil))
 
 
+(defun update-indent-mode ()
+  (setq c-basic-offset my-indent)
+  (c-set-offset 'substatement my-substatement)
+  (c-set-offset 'substatement-open my-substatement-open)
+  (c-set-offset 'access-label my-access-label)
+  (c-set-offset 'topmost-intro my-topmost-intro)
+  (c-set-offset 'topmost-intro-cont '+))
+  
+(require 'init-cc)
+(require 'init-dabbrev)
 (require 'init-yassnippet)
 (require 'init-copilot)
 
@@ -612,18 +621,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ; Encryption
 (require 'epa-file)
 (epa-file-enable)
-
-; centos doesn't support a lot of things
-(if (eq (string-match "21.4.1" emacs-version) nil)
-    (progn
-      (load "ack")
-
-      ;; Doxygen stuff
-      (load "doxymacs")
-      (defun my-doxymacs-font-lock-hook ()
-	(if (or (eq major-mode 'c-mode) (eq major-mode 'c++-mode))
-	    (doxymacs-font-lock)))
-))
 
 (load "sourcepair")
 (setq sourcepair-source-path    '( "." "./*" ".." "../*"))
@@ -713,8 +710,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 ;; Tramp
 (require 'tramp)
 (setq password-cache-expiry nil)
-(add-hook 'font-lock-mode-hook 'my-doxymacs-font-lock-hook)
-(add-hook 'c-mode-common-hook 'doxymacs-mode)
+;(add-hook 'font-lock-mode-hook 'my-doxymacs-font-lock-hook)
 (setq tramp-remote-path
       (append (list
                "/data/data/com.termux/files/usr/bin"
@@ -1055,7 +1051,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
             (update-indent-mode)
             (define-key java-mode-map [(return)] 'newline-and-indent)))
 (add-hook 'sgml-mode-hook 'font-lock-mode)
-(add-hook 'c-mode-common-hook 'font-lock-mode)
 (add-hook 'octave-mode-hook
           (lambda ()
             (abbrev-mode 1)
@@ -1064,7 +1059,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
                 (font-lock-mode 1))))
 (add-hook 'vala-mode-hook
           (lambda ()
-            (define-key c-mode-map [(return)] 'newline-and-indent)
+            (define-key vala-mode-map [(return)] 'newline-and-indent)
             (setq indent-tabs-mode nil)))
 
 ; Example of how to read argument from minibuffer or use default params.
@@ -1330,9 +1325,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (setq sendmail-program "/home/dov/scripts/gmail-sendmail")
 (setq lpr-command "poe")
 (setq mc-pgp-user-id "dov@menora")
-
-;; other misc setup
-(setq dabbrev-case-fold-search nil) ; make dabbrev case sensitive
 
 ;; Override the stupid timestamp of the psgml mode!
 (defun html-helper-default-insert-timestamp nil)
@@ -1661,7 +1653,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key "\M-]" 'c-beginning-of-defun)
 (global-set-key [(control ?') ?'] 'find-matching-keyword)
 (global-set-key [(control ?') (control a)] 'save-buffer)
-(global-set-key [(control ?.)] 'dabbrev-expand)
 (global-set-key [(control ?,)] 'undo)
 (global-set-key " " 'space-or-undo)
 (global-set-key "\C-x\C-m" 'save-buffers-dont-ask)
@@ -1747,6 +1738,11 @@ With numeric ARG, display the images if and only if ARG is positive."
   (interactive)
   (find-most-recent-pattern-buffer "\\.py"))
 
+(defun find-most-recent-mpremote-buffer ()
+  "find the most recent code buffer in the history and switch to it"
+  (interactive)
+  (find-most-recent-pattern-buffer "mpremote"))
+
 (defun find-most-recent-c-buffer ()
   "find the most recent code buffer in the history and switch to it"
   (interactive)
@@ -1803,6 +1799,7 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control c) ?b ?c] 'find-most-recent-c-buffer)
 (global-set-key [(control c) ?b ?e] 'find-most-recent-emacs-buffer)
 (global-set-key [(control c) ?b ?p] 'find-most-recent-python-buffer)
+;(global-set-key [(control c) ?b ?p] 'find-most-recent-mpremote-buffer)
 (global-set-key [(control c) ?b ?m] 'find-most-recent-magit-buffer)
 (global-set-key [(control c) ?b ?o] 'find-most-recent-org-buffer)
 (global-set-key [(control c) ?b ?j] (lambda () (interactive) 
@@ -1822,8 +1819,10 @@ With numeric ARG, display the images if and only if ARG is positive."
   (end-of-buffer)))
 (global-set-key [(alt meta s)] (lambda () (interactive) 
   (switch-to-buffer "*scratch*")))
+;(global-set-key [(alt meta p)] (lambda () (interactive) 
+;  (find-most-recent-pattern-buffer "\\*Python")))
 (global-set-key [(alt meta p)] (lambda () (interactive) 
-  (find-most-recent-pattern-buffer "\\*Python")))
+  (find-most-recent-pattern-buffer "*mpremote")))
 (global-set-key [(alt meta j)] (lambda () (interactive) 
   (switch-to-buffer (find-most-recent-pattern-buffer "\\*ein:notebook"))))
 
@@ -1878,8 +1877,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(alt tab)] 'indent-relative)
 (global-set-key [(hyper tab)] 'indent-relative)
 (global-set-key [(hyper tab)] 'indent-relative)
-(global-set-key [(alt /)] 'dabbrev-expand)
-(global-set-key [(control /)] 'dabbrev-expand)
 (global-set-key [(control \;)] 'date-stamp-here)
 (global-set-key [(control c) (control \;)] 'date-stamp-full-here)
 (global-set-key [(control \:)] 'insert-my-name)
@@ -1965,14 +1962,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (setq javascript-indent-level 2)
 (require 'js-doc)
 
-(defun update-indent-mode ()
-  (setq c-basic-offset my-indent)
-  (c-set-offset 'substatement my-substatement)
-  (c-set-offset 'substatement-open my-substatement-open)
-  (c-set-offset 'access-label my-access-label)
-  (c-set-offset 'topmost-intro my-topmost-intro)
-  (c-set-offset 'topmost-intro-cont '+))
-  
 ;; Default indent mode for home projects
 (setq my-indent 2)
 (setq my-substatement 4)
@@ -2098,35 +2087,6 @@ With numeric ARG, display the images if and only if ARG is positive."
   (find-file (concat emacs-git "dov.emacs"))
   (lisp-mode))
 
-(defun my-cmode-stuff (map) ""
-  (update-indent-mode)
-
-  (setq indent-tabs-mode nil)
-  (setq tab-width 2)
-  (define-key map [return] 'newline-and-indent)
-  (define-key map [(control c) (control e)] 'goto-compilation-directory-and-compile)
-  (define-key map  [(control ?') (control e)] 'goto-compilation-directory-and-compile)
-  (define-key map (kbd "C-?") 'c-comment-selection-or-word)
-  (define-key map [(alt ? )] 'gud-break)
-  (define-key map [(control x) (control ? )] 'gud-break)
-  (define-key map [(control c) (control s)] 'dov-git-grep-here)
-  ;; versions that deactivates the marker at the end of expantion
-  (define-key map [(meta ?/)] 'my-dabbrev-and-deactivate)
-  (define-key map [(control ?/)] 'my-dabbrev-and-deactivate)
-  (define-key map (kbd "C-<tab>") 'completion-at-point)
-
-  (outline-minor-mode)
-  ; outline key bindings
-  (outline-keys map)
-  (modify-syntax-entry ?_ "w")
-  (local-set-key [(alt ?b)] 'left-word)
-  (local-set-key [(alt ?f)] 'right-word)
-  (c-set-offset 'arglist-intro 2)  
-
-  ;  (subword-mode)
-;  (auto-complete-mode 0)   ; I don't believe in autocomplete mode for C/C++
-  )
-
 (defun do-return-indent (map) ""
   (define-key map [return] 'newline-and-indent)
   (setq indent-tabs-mode nil))
@@ -2139,8 +2099,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key (kbd "<C-mouse-5>") 'zoom-in)
 (global-set-key (kbd "<C-mouse-4>") 'zoom-out)
 
-(add-hook 'c-mode-hook   (lambda() (my-cmode-stuff c-mode-map)))
-(add-hook 'c++-mode-hook (lambda() (my-cmode-stuff c++-mode-map)))
 (add-hook 'tcl-mode-hook (lambda() (do-return-indent tcl-mode-map)))
 
 ;; Turn on horizontal scrolling with mouse wheel

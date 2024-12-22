@@ -645,6 +645,82 @@ if __name__ == '__main__':
 ~@
 #
 #######
+xeclog expand	Add xec and logger 
+import sys
+from subprocess import Popen, PIPE
+import logging
+from threading import Timer
+
+# Run an external command and throw an exception on timout and on
+# rc != 0.
+def xec(cmd, decode=True, chomp=True, verbose=False, timeout=None):
+  '''Run a command a returns its stdout output.
+
+  decode -- run (utf8) decode of the resulting string
+  chomp -- get rid of the last newline (like in perl)
+  '''
+  def chomp_(s):
+    '''Remove trailing '\n' and '\r'''
+    while(len(s) and s[-1] in ['\n','\r']):
+      s = s[:-1]
+    return s
+  
+  logging.info(f'Running command: {cmd}')
+  rc = 0
+  stdout = stderr = b''
+  timer = None
+  with Popen(cmd,shell=True,stdout=PIPE,stderr=PIPE) as ph:
+    if timeout is not None:
+      timer = Timer(timeout, ph.kill)
+
+    try:
+      if timer is not None:
+        timer.start()
+      stdout, stderr = ph.communicate()
+      if len(stdout):
+        logging.info(f'stdout: {chomp_(stdout.decode())}')
+      else:
+        logging.info('(no stdout output)')
+      if len(stderr):
+        logging.info(f'stderr: {chomp_(stderr.decode())}')
+    finally:
+      if timer:
+        if timer.is_alive():
+          timer.cancel() # No timeout
+        else:
+          # Raise an exception on timeout
+          logging.warning(f'Got timeout after {timeout}s!')
+          raise RuntimeError('Timeout!')
+
+    rc = ph.returncode
+
+  if decode:
+    stdout=stdout.decode()
+    stderr=stderr.decode()
+  if chomp:
+    stdout = chomp_(stdout)
+
+  # Raise an exception on error
+  if rc != 0:
+    logging.info(f'Process terminated with error rc={rc}')
+    if not decode:
+      stderr = stderr.decode()  # Decode before writing to stderr
+    sys.stderr.write(stderr)
+    raise RuntimeError(f'Process terminated with return code={rc}!')
+
+  return stdout
+
+if __name__ == '__main__':
+  import datetime
+  import logging
+  
+  logging.basicConfig(filename='xec.log',
+                      level=logging.DEBUG,
+                      format='%(levelname)s: %(name)s: %(message)s')
+  logging.info('------------------')
+  logging.info(f'Running on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+#
+#######
 die expand	Add a die function
 
 import sys

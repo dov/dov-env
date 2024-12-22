@@ -87,7 +87,7 @@ class EigenMatrixPrinter:
             type = type.target()
         self.type = type.unqualified().strip_typedefs()
         tag = self.type.tag
-        regex = re.compile('\<.*\>')
+        regex = re.compile(r'\<.*\>')
         m = regex.findall(tag)[0][1:-1]
         template_params = m.split(',')
         template_params = [x.replace(" ", "") for x in template_params]
@@ -182,7 +182,7 @@ class EigenSparseMatrixPrinter:
             type = type.target()
         self.type = type.unqualified().strip_typedefs()
         tag = self.type.tag
-        regex = re.compile('\<.*\>')
+        regex = re.compile(r'\<.*\>')
         m = regex.findall(tag)[0][1:-1]
         template_params = m.split(',')
         template_params = [x.replace(" ", "") for x in template_params]
@@ -322,14 +322,14 @@ class EigenQuaternionPrinter:
 
 def build_eigen_dictionary():
     pretty_printers_dict[re.compile(
-        '^Eigen::Quaternion<.*>$')] = lambda val: EigenQuaternionPrinter(val)
+        r'^Eigen::Quaternion<.*>$')] = lambda val: EigenQuaternionPrinter(val)
     pretty_printers_dict[re.compile(
-        '^Eigen::Matrix<.*>$')] = lambda val: EigenMatrixPrinter("Matrix", val)
+        r'^Eigen::Matrix<.*>$')] = lambda val: EigenMatrixPrinter("Matrix", val)
     pretty_printers_dict[re.compile(
-        '^Eigen::SparseMatrix<.*>$')] = lambda val: EigenSparseMatrixPrinter(val
+        r'^Eigen::SparseMatrix<.*>$')] = lambda val: EigenSparseMatrixPrinter(val
                                                                              )
     pretty_printers_dict[re.compile(
-        '^Eigen::Array<.*>$')] = lambda val: EigenMatrixPrinter("Array", val)
+        r'^Eigen::Array<.*>$')] = lambda val: EigenMatrixPrinter("Array", val)
 
 
 def register_eigen_printers(obj):
