@@ -1,14 +1,12 @@
-;;; Copilot-chat --- copilot-chat.el --- copilot chat interface -*- indent-tabs-mode: nil; lexical-binding: t -*-
-
-;;; copilot-chat.el --- copilot chat interface
+;;; copilot-chat.el --- Copilot chat interface -*- indent-tabs-mode: nil; lexical-binding: t -*-
 
 ;; Copyright (C) 2024  copilot-chat maintainers
 
 ;; Author: cedric.chepied <cedric.chepied@gmail.com>
-;; Version: 1.1.0
+;; Version: 1.2.0
 ;; URL: https://github.com/chep/copilot-chat.el
-;; Package-Requires: ((request) (markdown-mode) (org) (emacs "27.1"))
-;; Keywords: github, copilot, chat
+;; Package-Requires: ((request "0.3.2") (markdown-mode "2.6") (emacs "27.1") (chatgpt-shell "1.6.1") (magit "4.0.0"))
+;; Keywords: convenience, tools
 
 
 ;; The MIT License (MIT)
@@ -39,31 +37,99 @@
 
 (require 'copilot-chat-copilot)
 (require 'copilot-chat-markdown)
+(require 'copilot-chat-shell-maker)
 (require 'copilot-chat-org)
 (require 'copilot-chat-common)
+(require 'magit)
 
 ;; customs
 (defcustom copilot-chat-frontend 'markdown
-  "Frontend to use with `copilot-chat'.  Can be markdown, org or shell-maker."
-  :type 'symbol
+  "Frontend to use with `copilot-chat'.  Can be markdown, org or shell-makerauieuie."
+  :type '(choice (const :tag "org-mode" org)
+                 (const :tag "markdown" markdown)
+                 (const :tag "shell-maker" shell-maker))
   :group 'copilot-chat)
 
-;; variables
 
+(defcustom copilot-chat-commit-prompt
+  "Here is the result of running `git diff --cached`. Please suggest a conventional commit message. Don't add anything else to the response. The following describes conventional commits.
+Do not use any markers around the commit message.
+
+# Conventional Commits 1.0.0
+
+## Summary
+
+The Conventional Commits specification is a lightweight convention on top of commit messages.
+It provides an easy set of rules for creating an explicit commit history;
+which makes it easier to write automated tools on top of.
+This convention dovetails with [SemVer](http://semver.org),
+by describing the features, fixes, and breaking changes made in commit messages.
+
+The commit message should be structured as follows:
+
+---
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+---
+
+<br />
+The commit contains the following structural elements, to communicate intent to the
+consumers of your library:
+
+1. **fix:** a commit of the _type_ `fix` patches a bug in your codebase (this correlates with [`PATCH`](http://semver.org/#summary) in Semantic Versioning).
+1. **feat:** a commit of the _type_ `feat` introduces a new feature to the codebase (this correlates with [`MINOR`](http://semver.org/#summary) in Semantic Versioning).
+1. **BREAKING CHANGE:** a commit that has a footer `BREAKING CHANGE:`, or appends a `!` after the type/scope, introduces a breaking API change (correlating with [`MAJOR`](http://semver.org/#summary) in Semantic Versioning).
+A BREAKING CHANGE can be part of commits of any _type_.
+1. _types_ other than `fix:` and `feat:` are allowed, for example [@commitlint/config-conventional](https://github.com/conventional-changelog/commitlint/tree/master/%40commitlint/config-conventional) (based on the [Angular convention](https://github.com/angular/angular/blob/22b96b9/CONTRIBUTING.md#-commit-message-guidelines)) recommends `build:`, `chore:`,
+  `ci:`, `docs:`, `style:`, `refactor:`, `perf:`, `test:`, and others.
+1. _footers_ other than `BREAKING CHANGE: <description>` may be provided and follow a convention similar to
+  [git trailer format](https://git-scm.com/docs/git-interpret-trailers).
+
+Additional types are not mandated by the Conventional Commits specification, and have no implicit effect in Semantic Versioning (unless they include a BREAKING CHANGE).
+<br /><br />
+A scope may be provided to a commit's type, to provide additional contextual information and is contained within parenthesis, e.g., `feat(parser): add ability to parse arrays`.
+
+
+Here is the result of `git diff --cached`:
+"
+  "The prompt used to generate a commit message."
+  :type 'string
+  :group 'copilot-chat)
+
+;; Faces
+(defface copilot-chat-list-selected-buffer-face
+  '((t :inherit font-lock-keyword-face))
+  "Face used for selected buffers in copilot-chat buffer list."
+  :group 'copilot-chat)
+(defface copilot-chat-list-default-face
+  '((t :inherit default))
+  "Face used for unselected buffers in copilot-chat buffer list."
+  :group 'copilot-chat)
+
+
+;; Variables
 (defvar copilot-chat-list-buffer "*Copilot-chat-list*")
 (defvar copilot-chat-mode-map
   (let ((map (make-keymap)))
-    (define-key map (kbd "C-c q") 'bury-buffer)
+    (define-key map (kbd "C-c C-q") 'bury-buffer)
+    (define-key map (kbd "SPC") 'copilot-chat-custom-prompt-mini-buffer)
     map)
   "Keymap for Copilot Chat major mode.")
 (defvar copilot-chat-prompt-mode-map
   (let ((map (make-keymap)))
     (define-key map (kbd "C-c RET") 'copilot-chat-prompt-send)
-    (define-key map (kbd "C-c q") (lambda()
+    (define-key map (kbd "C-c C-c") 'copilot-chat-prompt-send)
+    (define-key map (kbd "C-c C-q") (lambda()
                                     (interactive)
                                     (bury-buffer)
                                     (delete-window)))
-    (define-key map (kbd "C-c l") 'copilot-chat-prompt-split-and-list)
+    (define-key map (kbd "C-c C-l") 'copilot-chat-prompt-split-and-list)
     (define-key map (kbd "M-p") 'copilot-chat-prompt-history-previous)
     (define-key map (kbd "M-n") 'copilot-chat-prompt-history-next)
     map)
@@ -72,7 +138,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") 'copilot-chat-list-add-or-remove-buffer)
     (define-key map (kbd "SPC") 'copilot-chat-list-add-or-remove-buffer)
-    (define-key map (kbd "C-c c") 'copilot-chat-list-clear-buffers)
+    (define-key map (kbd "C-c C-c") 'copilot-chat-list-clear-buffers)
     (define-key map (kbd "g") 'copilot-chat-list-refresh)
     (define-key map (kbd "q") (lambda()
                                 (interactive)
@@ -85,12 +151,13 @@
 (defvar copilot-chat--prompt-history-position nil
   "Current position in copilot-chat prompt history.")
 (defvar copilot-chat-frontend-list '((markdown . copilot-chat-markdown-init)
-                                     (org . copilot-chat-org-init))
+                                     (org . copilot-chat-org-init)
+                                     (shell-maker . copilot-chat-shell-maker-init))
     "Copilot-chat frontend list.  Must contain elements like this:
 \(type . init-function)")
 
 
-;; functions
+;; Functions
 (define-derived-mode copilot-chat-mode markdown-view-mode "Copilot Chat"
   "Major mode for the Copilot Chat buffer."
   (read-only-mode 1)
@@ -145,7 +212,7 @@ Optional argument BUFFER is the buffer to write data in."
   (interactive)
   (unless (copilot-chat--ready-p)
     (copilot-chat-reset))
-  (display-buffer copilot-chat--buffer)
+  (select-window (display-buffer copilot-chat--buffer))
   (with-current-buffer copilot-chat--prompt-buffer
     (let ((prompt (buffer-substring-no-properties (point-min) (point-max))))
       (erase-buffer)
@@ -169,78 +236,158 @@ Optional argument BUFFER is the buffer to write data in."
     "Send to Copilot a prompt followed by the current selected code.
 Argument PROMPT is the prompt to send to Copilot."
     (let ((code (buffer-substring-no-properties (region-beginning) (region-end))))
-    (copilot-chat--prepare-buffers)
-    (with-current-buffer copilot-chat--prompt-buffer
-      (erase-buffer)
-      (insert (concat (cdr (assoc prompt (copilot-chat--prompts))) code)))
-    (copilot-chat-prompt-send)))
+    (copilot-chat--insert-and-send-prompt
+     (concat (cdr (assoc prompt (copilot-chat--prompts)))
+             code))))
 
 ;;;###autoload
 (defun copilot-chat-explain()
   "Ask Copilot to explain the current selected code."
   (interactive)
+  (unless (copilot-chat--ready-p)
+    (copilot-chat-reset))
   (copilot-chat--ask-region 'explain))
 
 ;;;###autoload
 (defun copilot-chat-review()
   "Ask Copilot to review the current selected code."
   (interactive)
+  (unless (copilot-chat--ready-p)
+    (copilot-chat-reset))
   (copilot-chat--ask-region 'review))
 
 ;;;###autoload
 (defun copilot-chat-doc()
   "Ask Copilot to write documentation for the current selected code."
   (interactive)
+  (unless (copilot-chat--ready-p)
+    (copilot-chat-reset))
   (copilot-chat--ask-region 'doc))
 
 ;;;###autoload
 (defun copilot-chat-fix()
   "Ask Copilot to fix the current selected code."
   (interactive)
+  (unless (copilot-chat--ready-p)
+    (copilot-chat-reset))
   (copilot-chat--ask-region 'fix))
 
 ;;;###autoload
 (defun copilot-chat-optimize()
   "Ask Copilot to optimize the current selected code."
   (interactive)
+  (unless (copilot-chat--ready-p)
+    (copilot-chat-reset))
   (copilot-chat--ask-region 'optimize))
 
 ;;;###autoload
 (defun copilot-chat-test()
   "Ask Copilot to generate tests for the current selected code."
   (interactive)
+  (unless (copilot-chat--ready-p)
+    (copilot-chat-reset))
   (copilot-chat--ask-region 'test))
+
+(defun copilot-chat--insert-and-send-prompt (prompt)
+  "Helper function to prepare buffers and send PROMPT to Copilot.
+This function may be overriden by frontend."
+  (let* ((prompt-suffix (copilot-chat--build-prompt-suffix))
+         (final-prompt (if prompt-suffix
+                           (concat prompt "\n" prompt-suffix)
+                         prompt)))
+    (copilot-chat--prepare-buffers)
+    (with-current-buffer copilot-chat--prompt-buffer
+      (erase-buffer)
+      (insert final-prompt))
+    (copilot-chat-prompt-send)))
+
+(defun copilot-chat--build-prompt-suffix ()
+    "Build a prompt suffix with the current buffer name."
+    (if (derived-mode-p 'prog-mode)  ; current buffer is a programming language buffer
+        (let* ((major-mode-str (symbol-name major-mode))
+               (lang (replace-regexp-in-string "-mode$" "" major-mode-str))
+               (dynamic-suffix (format "current programming language is: %s" lang))
+               (suffix (if copilot-chat-prompt-suffix
+                           (concat dynamic-suffix ", " copilot-chat-prompt-suffix)
+                         dynamic-suffix)))
+          suffix)
+      copilot-chat-prompt-suffix))
+
+(defun copilot-chat--custom-prompt-selection()
+  "Send to Copilot a custom prompt followed by the current selected code.
+This function can be overriden by frontend."
+  (copilot-chat--prepare-buffers)
+  (let* ((prompt (read-from-minibuffer "Copilot prompt: "))
+         (code (buffer-substring-no-properties (region-beginning) (region-end)))
+         (formatted-prompt (concat prompt "\n" code)))
+    (copilot-chat--insert-and-send-prompt formatted-prompt)))
+
+;;;###autoload
+(defun copilot-chat-explain-symbol-at-line()
+  "Ask Copilot to explain symbol under point, given the code line as background info."
+  (interactive)
+  (unless (copilot-chat--ready-p)
+    (copilot-chat-reset))
+  (let* ((symbol (thing-at-point 'symbol))
+         (line (buffer-substring-no-properties
+                (line-beginning-position)
+                (line-end-position)))
+         (prompt (format "Please explain what '%s' means in the context of this code line:\n%s"
+                         symbol line)))
+    (copilot-chat--insert-and-send-prompt prompt)))
+
+;;;###autoload
+(defun copilot-chat-explain-defun ()
+  "Mark current function definition and ask Copilot to explain it, then unmark."
+  (interactive)
+  (save-excursion
+    (mark-defun)
+    (copilot-chat-explain)
+    (deactivate-mark)))
+
+;;;###autoload
+(defun copilot-chat-custom-prompt-function ()
+  "Mark current function and ask copilot-chat with custom prompt."
+  (interactive)
+  (save-excursion
+    (mark-defun)
+    (copilot-chat-custom-prompt-selection)
+    (deactivate-mark)))
+
+;;;###autoload
+(defun copilot-chat-review-whole-buffer ()
+  "Mark whole buffer, ask Copilot to review it, then unmark.
+It can be used to review the magit diff for my change, or other people's"
+  (interactive)
+  (save-excursion
+    (mark-whole-buffer)
+    (copilot-chat-review)
+    (deactivate-mark)))
+
+;;;###autoload
+(defun copilot-chat-switch-to-buffer ()
+  "Switch to Copilot Chat buffer, side by side with the current code editing buffer."
+  (interactive)
+  (unless (copilot-chat--ready-p)
+    (copilot-chat-reset))
+  (switch-to-buffer-other-window copilot-chat--buffer))
 
 ;;;###autoload
 (defun copilot-chat-custom-prompt-selection()
   "Send to Copilot a custom prompt followed by the current selected code."
   (interactive)
-  (let* ((prompt (read-from-minibuffer "Copilot prompt: "))
-         (code (buffer-substring-no-properties (region-beginning) (region-end)))
-         (formatted-prompt (concat prompt "\n" code)))
-    (with-current-buffer copilot-chat--prompt-buffer
-      (erase-buffer)
-      (insert formatted-prompt))
-    (copilot-chat-prompt-send)))
+  (unless (copilot-chat--ready-p)
+    (copilot-chat-reset))
+  (copilot-chat--custom-prompt-selection))
 
-
-
-(defun copilot-chat ()
-  "Open Copilot Chat buffer."
+;;;###autoload
+(defun copilot-chat-custom-prompt-mini-buffer ()
+  "Read a string with Helm completion, showing historical inputs."
   (interactive)
-  (copilot-chat-reset)
-  (let ((buffer copilot-chat--buffer))
-    (with-current-buffer buffer
-      (copilot-chat-mode))
-    (switch-to-buffer buffer)))
-
-(defun copilot-chat-prompt ()
-  "Open Copilot Chat Prompt buffer."
-  (interactive)
-  (let ((buffer copilot-chat--prompt-buffer))
-    (with-current-buffer buffer
-      (copilot-chat-prompt-mode))
-    (switch-to-buffer buffer)))
+  (let* ((prompt "Question for copilot-chat: ")
+         (input (read-string prompt nil 'copilot-chat--prompt-history)))
+    (copilot-chat--insert-and-send-prompt input)
+    ))
 
 ;;;###autoload
 (defun copilot-chat-list ()
@@ -252,9 +399,7 @@ Argument PROMPT is the prompt to send to Copilot."
     (switch-to-buffer buffer)))
 
 (defun copilot-chat--prepare-buffers()
-  "Create the copilot-chat--buffer and copilot-chat--prompt-buffer."
-  (unless (copilot-chat--ready-p)
-    (copilot-chat-reset))
+  "Create copilot-chat buffers."
   (let ((chat-buffer (get-buffer-create copilot-chat--buffer))
         (prompt-buffer (get-buffer-create copilot-chat--prompt-buffer)))
     (with-current-buffer chat-buffer
@@ -263,10 +408,9 @@ Argument PROMPT is the prompt to send to Copilot."
       (copilot-chat-prompt-mode))
   (list chat-buffer prompt-buffer)))
 
-;;;###autoload
-(defun copilot-chat-display ()
-  "Display copilot chat buffers."
-  (interactive)
+(defun copilot-chat--display ()
+  "Internal function to display copilot chat buffers.
+This can be overrided by frontend."
   (let* ((buffers (copilot-chat--prepare-buffers))
          (chat-buffer (car buffers))
          (prompt-buffer (cadr buffers)))
@@ -278,15 +422,27 @@ Argument PROMPT is the prompt to send to Copilot."
     (other-window 1)
     (switch-to-buffer prompt-buffer)))
 
+
+;;;###autoload
+(defun copilot-chat-display ()
+  "Display copilot chat buffers."
+  (interactive)
+  (unless (copilot-chat--ready-p)
+    (copilot-chat-reset))
+  (copilot-chat--display))
+
 (defun copilot-chat-add-current-buffer()
   "Add current buffer in sent buffers list."
   (interactive)
-  (copilot-chat--add-buffer (current-buffer)))
+  (copilot-chat--add-buffer (current-buffer))
+  (copilot-chat-list-refresh))
 
 (defun copilot-chat-del-current-buffer()
   "Remove current buffer from sent buffers list."
   (interactive)
-  (copilot-chat--del-buffer (current-buffer)))
+  (copilot-chat--del-buffer (current-buffer))
+  (copilot-chat-list-refresh))
+
 
 (defun copilot-chat-list-refresh ()
   "Refresh the list of buffers in the current Copilot chat list buffer."
@@ -297,18 +453,19 @@ Argument PROMPT is the prompt to send to Copilot."
                               (lambda (a b)
                                 (string< (symbol-name (buffer-local-value 'major-mode a))
                                          (symbol-name (buffer-local-value 'major-mode b)))))))
-    (erase-buffer)
-    (dolist (buffer sorted-buffers)
-      (let ((buffer-name (buffer-name buffer))
-            (cop-bufs (copilot-chat--get-buffers)))
-        (when (and (not (string-prefix-p " " buffer-name))
-                   (not (string-prefix-p "*" buffer-name)))
-          (insert (propertize buffer-name
-                              'face (if (member buffer cop-bufs)
-                                        'font-lock-keyword-face
-                                      'default))
-                  "\n"))))
-    (goto-char pt)))
+    (with-current-buffer (get-buffer-create copilot-chat-list-buffer)
+      (erase-buffer)
+      (dolist (buffer sorted-buffers)
+        (let ((buffer-name (buffer-name buffer))
+              (cop-bufs (copilot-chat--get-buffers)))
+          (when (and (not (string-prefix-p " " buffer-name))
+                     (not (string-prefix-p "*" buffer-name)))
+            (insert (propertize buffer-name
+                                'face (if (member buffer cop-bufs)
+                                          'copilot-chat-list-selected-buffer-face
+                                        'copilot-chat-list-default-face))
+                    "\n"))))
+      (goto-char pt))))
 
 
 (defun copilot-chat-list-add-or-remove-buffer ()
@@ -372,8 +529,9 @@ Argument PROMPT is the prompt to send to Copilot."
                       nil
                       (if (= 0 copilot-chat--prompt-history-position)
                         ""
-                        (setq copilot-chat--prompt-history-position (1- copilot-chat--prompt-history-position))
-                        (nth copilot-chat--prompt-history-position copilot-chat--prompt-history))))))
+                        (progn
+                          (setq copilot-chat--prompt-history-position (1- copilot-chat--prompt-history-position))
+                          (nth copilot-chat--prompt-history-position copilot-chat--prompt-history)))))))
       (when prompt
         (erase-buffer)
         (insert prompt)))))
@@ -386,7 +544,10 @@ Argument PROMPT is the prompt to send to Copilot."
     (when cb
       (kill-buffer cb))
     (when cpb
-        (kill-buffer cpb)))
+      (let ((window (get-buffer-window cpb)))
+        (when window
+          (delete-window window)))
+      (kill-buffer cpb)))
   (copilot-chat--clean)
   (catch 'end
     (dolist (f copilot-chat-frontend-list)
@@ -397,6 +558,64 @@ Argument PROMPT is the prompt to send to Copilot."
 
 (defun copilot-chat--clean()
   "Cleaning function for frontends.")
+
+(defun copilot-chat--get-diff ()
+  "Get the diff of all staged files in the current repository and return it as a string."
+  (interactive)
+  (let ((default-directory (magit-toplevel)))
+    (if default-directory
+        (with-temp-buffer
+          (magit-git-insert "diff" "--cached")
+            (buffer-string))
+      (message "Not inside a Git repository"))))
+
+
+;;;###autoload
+(defun copilot-chat-insert-commit-message()
+  "Insert in the current buffer a copilot generated commit message."
+    (interactive)
+    (unless (copilot-chat--ready-p)
+      (copilot-chat-reset))
+
+    ;; get magit staged diff
+    (let* ((diff (copilot-chat--get-diff))
+           (prompt (concat copilot-chat-commit-prompt diff))
+           (current-buf (current-buffer)))
+      (copilot-chat--ask prompt
+                         (lambda (content)
+                           (with-current-buffer current-buf
+                             (if (string= content copilot-chat--magic)
+                                 (insert "\n")
+                                (insert content))))
+                         t)))
+
+
+(defun copilot-chat--get-model-choices ()
+  "Get the list of available models for Copilot Chat."
+  (let* ((type (get 'copilot-chat-model 'custom-type))
+         (choices (when (eq (car type) 'choice)
+                   (cdr type))))
+    (let ((mapped-choices
+           (mapcar (lambda (choice)
+                     (when (eq (car choice) 'const)
+                       (cons (plist-get (cdr choice) :tag)
+                             (car (last choice))))) ;; Get the string value
+                   choices)))
+      mapped-choices)))
+
+
+;;;###autoload
+(defun copilot-chat-set-model (model)
+  "Set the Copilot Chat model to MODEL."
+  (interactive
+   (let* ((choices (copilot-chat--get-model-choices))
+          (choice (completing-read "Select Copilot Chat model: " (mapcar 'car choices))))
+     (let ((model-value (cdr (assoc choice choices))))
+       (message "Setting model to: %s" model-value)
+       (list model-value))))
+  (setq copilot-chat-model model)
+  (customize-save-variable 'copilot-chat-model copilot-chat-model)
+  (message "Copilot Chat model set to %s" copilot-chat-model))
 
 (provide 'copilot-chat)
 

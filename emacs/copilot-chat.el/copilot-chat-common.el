@@ -57,6 +57,20 @@
   :type 'string
   :group 'copilot-chat)
 
+;;  OpenAI models: https://platform.openai.com/docs/models
+(defcustom copilot-chat-model "gpt-4o"
+  "The model to use for Copilot chat."
+  :type '(choice (const :tag "GPT-4o" "gpt-4o")
+                 (const :tag "Claude 3.5 Sonnet" "claude-3.5-sonnet")
+                 (const :tag "GPT-4o1-(preview)" "o1-preview"))
+  :group 'copilot-chat)
+
+(defcustom copilot-chat-prompt-suffix nil
+  "Suffix to be added to the end of the prompt before sending to Copilot Chat. For Example: Reply in Chinese (or any other language)
+If nil, no suffix will be added."
+  :type 'string
+  :group 'copilot-chat)
+
 ;; structs
 (cl-defstruct copilot-chat
   ready
@@ -99,28 +113,32 @@
       (setq hex (concat hex (string (aref hex-chars (random 16))))))
     hex))
 
-(defun copilot-chat--create-req(prompt)
+(defun copilot-chat--create-req(prompt no-context)
   "Create a request for Copilot.
-Argument PROMPT Copilot prompt to send."
+Argument PROMPT Copilot prompt to send.
+Argument NOCONTEXT tells copilot-chat to not send history and buffers."
   (let ((messages nil))
     ;; user prompt
     (push (list (cons "content" prompt) (cons "role" "user")) messages)
-    ;; history
-    (dolist (history (copilot-chat-history copilot-chat--instance))
-      (push (list (cons "content" (car history)) (cons "role" (cadr history))) messages))
-    ;; buffers
-    (setf (copilot-chat-buffers copilot-chat--instance) (cl-remove-if (lambda (buf) (not (buffer-live-p buf)))
-                                                                      (copilot-chat-buffers copilot-chat--instance)))
-    (dolist (buffer (copilot-chat-buffers copilot-chat--instance))
-      (when (buffer-live-p buffer)
-        (with-current-buffer buffer
-          (push (list (cons "content" (buffer-substring-no-properties (point-min) (point-max))) (cons "role" "user")) messages))))
+
+    (unless no-context
+      ;; history
+      (dolist (history (copilot-chat-history copilot-chat--instance))
+        (push (list (cons "content" (car history)) (cons "role" (cadr history))) messages))
+      ;; buffers
+      (setf (copilot-chat-buffers copilot-chat--instance) (cl-remove-if (lambda (buf) (not (buffer-live-p buf)))
+                                                                        (copilot-chat-buffers copilot-chat--instance)))
+      (dolist (buffer (copilot-chat-buffers copilot-chat--instance))
+        (when (buffer-live-p buffer)
+          (with-current-buffer buffer
+            (push (list (cons "content" (buffer-substring-no-properties (point-min) (point-max))) (cons "role" "user")) messages)))))
+      
     ;; system
     (push (list (cons "content" copilot-chat-prompt) (cons "role" "system")) messages)
 
     (json-encode `(("messages" . ,(vconcat messages))
                    ("top_p" . 1)
-                   ("model" . "gpt-4o-2024-05-13")
+                   ("model" . ,copilot-chat-model)
                    ("stream" . t)
                    ("n" . 1)
                    ("intent" . t)

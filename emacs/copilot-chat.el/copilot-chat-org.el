@@ -38,17 +38,24 @@ Argument TYPE is the type of the data (prompt or answer)."
     (if (eq type 'prompt)
 	  (progn
 	    (setq copilot-chat--first-word-answer t)
-	    (setq data (concat "* " (format-time-string "*[%H:%M:%S]* ") (format "%s\n" content))))
+	    (setq data (concat "* " (format-time-string "*[%T]* ") (format "%s\n" content))))
 	  (when copilot-chat--first-word-answer
 	    (setq copilot-chat--first-word-answer nil)
-        (setq data (concat "** " (format-time-string "*[%H:%M:%S]* "))))
+        (setq data (concat "** " (format-time-string "*[%T]* "))))
 	  (setq data (concat data content)))
     data))
+
+(defun copilot-chat--org-create-req (orig-fun &rest args)
+  "Advice to modify the PROMPT argument before executing the original function."
+  (let ((prompt (concat (nth 0 args) "\n\n(Please use only emacs org-mode syntax)"))
+        (no-context (nth 1 args)))
+    (apply orig-fun (list prompt no-context))))
 
 (defun copilot-chat--org-clean()
   "Clean the copilot chat org frontend."
   (advice-remove 'copilot-chat--format-data #'copilot-chat--org-format-data)
-  (advice-remove 'copilot-chat--clean #'copilot-chat--org-clean))
+  (advice-remove 'copilot-chat--clean #'copilot-chat--org-clean)
+  (advice-remove 'copilot-chat--create-req #'copilot-chat--org-create-req))
 
 
 (defun copilot-chat-org-init()
@@ -62,16 +69,16 @@ Avoid content that violates copyrights.
 For questions not related to software development, simply give a reminder that you are an AI programming assistant.
 Keep your answers short and impersonal.
 
-Use only Emacs org mode formatting in your answers
-Make sure to include the programming language name at the start of the org mode code blocks.
-This is an example of python code block in emacs org syntax:
+Use only Emacs org-mode formatting in your answers
+Make sure to include the programming language name at the start of the org-mode code blocks.
+This is an example of python code block in emacs org-mode syntax:
 #+BEGIN_SRC python
 def hello_world():
 	print('Hello, World!')
 #+END_SRC
 Avoid wrapping the whole response in the block code.
 
-Don't forget the most important rule when you are formatting your response: use emacs org syntax only.
+Don't forget the most important rule when you are formatting your response: use emacs org-mode syntax only.
 
 The user works in an IDE called Emacs which has a concept for editors with open files, integrated unit test support, an output pane that shows the output of running the code as well as an integrated terminal.
 The active document is the source code the user is looking at right now.
@@ -97,7 +104,8 @@ Provide clear and relevant examples aligned with any provided context.
   (define-derived-mode copilot-chat-prompt-mode org-mode "Copilot Chat Prompt")
 
   (advice-add 'copilot-chat--format-data :override #'copilot-chat--org-format-data)
-  (advice-add 'copilot-chat--clean :after #'copilot-chat--org-clean))
+  (advice-add 'copilot-chat--clean :after #'copilot-chat--org-clean)
+  (advice-add 'copilot-chat--create-req :around #'copilot-chat--org-create-req))
 
 (provide 'copilot-chat-org)
 ;;; copilot-chat-org.el ends here

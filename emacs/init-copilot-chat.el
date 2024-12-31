@@ -12,10 +12,12 @@
 (require 'markdown-mode)
 (require 'copilot-chat)
 (require 'shell-maker)
-(require 'copilot-chat-shell-maker)
+;(require 'copilot-chat-shell-maker)
 
-(push '(shell-maker . copilot-chat-shell-maker-init) copilot-chat-frontend-list)
-(copilot-chat-shell-maker-init)
+(setq copilot-chat-frontend 'shell-maker)
+
+;(push '(shell-maker . copilot-chat-shell-maker-init) copilot-chat-frontend-list)
+;(copilot-chat-shell-maker-init)
 
 ;; Apply the filter to shell-mode
 (add-hook 'copilot-chat-shell-mode-hook 'variable-pitch-mode)

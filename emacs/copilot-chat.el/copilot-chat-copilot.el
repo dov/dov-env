@@ -32,32 +32,32 @@
 (require 'copilot-chat-curl)
 
 ;; customs
-(defcustom copilot-chat-prompt-explain "Please write an explanation for the following code:\n"
+(defcustom copilot-chat-prompt-explain "/explain\n"
   "The prompt used by `copilot-chat-explain'."
   :type 'string
   :group 'copilot-chat)
 
-(defcustom copilot-chat-prompt-review "Please review the following code:\n"
+(defcustom copilot-chat-prompt-review "Please review the following code.\n"
   "The prompt used by `copilot-chat-review'."
   :type 'string
   :group 'copilot-chat)
 
-(defcustom copilot-chat-prompt-doc "Please write documentation for the following code:\n"
+(defcustom copilot-chat-prompt-doc "/doc\n"
   "The prompt used by `copilot-chat-doc'."
   :type 'string
   :group 'copilot-chat)
 
-(defcustom copilot-chat-prompt-fix "There is a problem in this code. Please rewrite the code to show it with the bug fixed.\n"
+(defcustom copilot-chat-prompt-fix "/fix\n"
   "The prompt used by `copilot-chat-fix'."
   :type 'string
   :group 'copilot-chat)
 
-(defcustom copilot-chat-prompt-optimize "Please optimize the following code to improve performance and readability:\n"
+(defcustom copilot-chat-prompt-optimize "/optimize\n"
   "The prompt used by `copilot-chat-optimize'."
   :type 'string
   :group 'copilot-chat)
 
-(defcustom copilot-chat-prompt-test "Please generate tests for the following code:\n"
+(defcustom copilot-chat-prompt-test "/tests\n"
   "The prompt used by `copilot-chat-test'."
   :type 'string
   :group 'copilot-chat)
@@ -80,12 +80,11 @@
 
 (defun copilot-chat--get-cached-token ()
   "Get the cached GitHub token."
-  (or (getenv "GITHUB_TOKEN")
-      (let ((token-file (expand-file-name copilot-chat-github-token-file)))
-        (when (file-exists-p token-file)
-          (with-temp-buffer
-            (insert-file-contents token-file)
-            (buffer-substring-no-properties (point-min) (point-max)))))))
+  (let ((token-file (expand-file-name copilot-chat-github-token-file)))
+    (when (file-exists-p token-file)
+      (with-temp-buffer
+        (insert-file-contents token-file)
+        (buffer-substring-no-properties (point-min) (point-max))))))
 
 
 (defun copilot-chat--create ()
@@ -140,21 +139,23 @@ Then we need a session token."
             (> (round (float-time (current-time))) (alist-get 'expires_at (copilot-chat-token copilot-chat--instance))))
     (copilot-chat--renew-token)))
 
-(defun copilot-chat--ask (prompt callback)
+(defun copilot-chat--ask (prompt callback &optional out-of-context)
   "Ask a question to Copilot.
 Argument PROMPT is the prompt to send to copilot.
-Argument CALLBACK is the function to call with copilot answer as argument."
+Argument CALLBACK is the function to call with copilot answer as argument.
+Argument OUT-OF-CONTEXT is a boolean to indicate if the prompt is out of context."
  (let* ((history (copilot-chat-history copilot-chat--instance))
          (new-history (cons (list prompt "user") history)))
     (copilot-chat--auth)
     (cond
      ((eq copilot-chat-backend 'curl)
-      (copilot-chat--curl-ask prompt callback))
+      (copilot-chat--curl-ask prompt callback out-of-context))
      ((eq copilot-chat-backend 'request)
-      (copilot-chat--request-ask prompt callback))
+      (copilot-chat--request-ask prompt callback out-of-context))
      (t
       (error "Unknown backend: %s" copilot-chat-backend)))
-    (setf (copilot-chat-history copilot-chat--instance) new-history)))
+    (unless out-of-context
+      (setf (copilot-chat-history copilot-chat--instance) new-history))))
 
 (defun copilot-chat--add-buffer (buffer)
   "Add a BUFFER to copilot buffers list.
