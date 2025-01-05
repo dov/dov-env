@@ -177,6 +177,19 @@
                                orig-fg))))
 
 
+(defun user-home-directory ()
+  "Return the user's home directory in a cross-platform manner."
+  (or (getenv "HOME")  ; Unix-like systems
+      (getenv "USERPROFILE")  ; Windows
+      (expand-file-name "~")))  ; Fallback
+
+;; "Universal" environment variables defaults
+(setenv "PATH" (concat
+                (user-home-directory) "/scripts"
+                path-separator emacs-git "scripts"
+                path-separator "$PATH") t)
+(setenv "CMAKE_GENERATOR" "Ninja")
+
 (ignore-errors
   (require 'init-eglot))
 (require 'init-compat)
