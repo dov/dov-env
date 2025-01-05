@@ -1,9 +1,7 @@
 [Shortcuts]
 KisToolPath=Z
 KisToolPolyline=P
-KisToolSelectElliptical=Shift+O
 KisToolSelectRectangular=Shift+R
-KritaSelected/KisToolColorSampler=none
 KritaShape/KisToolEllipse=O
 KritaShape/KisToolLine=L
 KritaShape/KisToolRectangle=R
