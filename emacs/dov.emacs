@@ -1613,8 +1613,20 @@ With numeric ARG, display the images if and only if ARG is positive."
 (eval-after-load "vc-dir"
   '(define-key vc-dir-mode-map "H" 'my-vc-dir-hide-some))
 
-(defun py-jump-exception-line ()
-  "This function parses a python file reference"
+(defun extract-multiline-expression ()
+  "Extract the full multi-line expression starting from the current line."
+  (save-excursion
+    (beginning-of-line)
+    (let ((start (point))
+          (end (save-excursion
+                 (forward-line 1)
+                 (while (and (not (eobp)) (looking-at "^[ \t]"))
+                   (forward-line 1))
+                 (point))))
+      (buffer-substring-no-properties start end))))
+
+(defun jump-to-file-line ()
+  "This function parses various syntaxes for a file and a line and jumps there. E.g. pdb, python exception and gdb"
   (interactive)
   (save-selected-window
     (let ((file nil)
@@ -1622,7 +1634,8 @@ With numeric ARG, display the images if and only if ARG is positive."
           (buffer (current-buffer)))
       (beginning-of-line)
                                         
-      (if (looking-at "^> ") ; Recognize pdb lines
+      ;; pdb lines
+      (if (looking-at "^> ") 
           (progn
             (forward-char)
             (forward-char)
@@ -1637,31 +1650,41 @@ With numeric ARG, display the images if and only if ARG is positive."
             (set-mark-command nil)
             (forward-word)
             (setq line (buffer-substring-no-properties (point) (mark))))
-        (progn              ; Recognize exception lines
-          (forward-word)
-          (forward-char)
-          (forward-char)
-          (set-mark-command nil)
-          (search-forward "\"")
-          (backward-char)
-          (exchange-point-and-mark)
-          (setq file (buffer-substring-no-properties (point) (mark)))
-          (exchange-point-and-mark)
-          (forward-word)
-          (forward-word)
-          (backward-word)
-          (set-mark-command nil)
-          (forward-word)
-          (exchange-point-and-mark)
-          (setq line (buffer-substring-no-properties (point) (mark)))
-          ))
+        ;; gdb lines
+        (if (looking-at "^#")
+            (let ((expression (extract-multiline-expression)))
+              (if (string-match "at \\(.*\\):\\([0-9]+\\)" expression)
+                  (let ((file-path (match-string 1 expression))
+                        (line-number (match-string 2 expression)))
+                    (setq file file-path)
+                    (setq line line-number)
+                    (message "File: %s, Line: %s" file line))))
+          ;; Default to python exception lines (this should be rewritten with regexps
+          (progn
+            (forward-word)
+            (forward-char)
+            (forward-char)
+            (set-mark-command nil)
+            (search-forward "\"")
+            (backward-char)
+            (exchange-point-and-mark)
+            (setq file (buffer-substring-no-properties (point) (mark)))
+            (exchange-point-and-mark)
+            (forward-word)
+            (forward-word)
+            (backward-word)
+            (set-mark-command nil)
+            (forward-word)
+            (exchange-point-and-mark)
+            (setq line (buffer-substring-no-properties (point) (mark)))
+          )))
       (deactivate-mark)
       (beginning-of-line)
       (find-file-other-window file)
       (goto-line (string-to-number line))
       )))
-(global-set-key (kbd "C-`") 'py-jump-exception-line)
-(global-set-key (kbd "C-c '") 'py-jump-exception-line)
+(global-set-key (kbd "C-`") 'jump-to-file-line)
+(global-set-key (kbd "C-c '") 'jump-to-file-line)
 
 (global-set-key "\M-]" 'c-beginning-of-defun)
 (global-set-key [(control ?') ?'] 'find-matching-keyword)

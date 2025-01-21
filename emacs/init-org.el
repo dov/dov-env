@@ -342,8 +342,8 @@
    (C . t)
    (lua . t)
    )) 
-(setq org-plantuml-jar-path
-      (concat emacs-git "org-mode/scripts/plantuml.jar"))
+(setq org-plantuml-jar-path "/usr/share/java/plantuml.jar")
+
 ;(load "org-exp-blocks")
 ;(load "org-mw")
 (defun my-org-confirm-babel-evaluate (lang body)

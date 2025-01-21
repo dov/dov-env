@@ -24,7 +24,7 @@ GROUP-NUMBER is 1-based."
 
 ;; Note: When outputting the response string string, the following conversion is made in the message
 ;; buffer "`" → "‘"!
-(defun toggle-auto-type ()
+(defun my-eglot-deduce-auto ()
   "Conver `auto` to the eglot resolved codecode."
   (interactive)
   (let ((bounds (bounds-of-thing-at-point 'symbol))
@@ -55,7 +55,7 @@ GROUP-NUMBER is 1-based."
       (message "Not on an `auto` keyword."))))
 
 ;; TBD - Not the best keybinding, but it works and is easily accessible
-(global-set-key (kbd "C-c M-t") 'toggle-auto-type)
+(global-set-key (kbd "C-c M-t") 'my-eglot-deduce-auto)
 
 
 ;;; testing
