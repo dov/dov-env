@@ -81,6 +81,17 @@ ido is used for the completing read if available."
                       (car file-paths))))
     (find-file (concat root file-path))))
 
+(defun get-file-path-in-git-repo (file-name)
+  "Return the full path of FILENAME in the current Git repository if it exists, otherwise return nil."
+  (let* ((root (find-git-repo default-directory))
+         (project-files (ffip-project-files root))
+;         (files (delete-dups (mapcar 'car project-files)))
+         (file-paths (delq 'nil (mapcar (lambda (file-cons)
+                                           (when (string= file-name (car file-cons))
+                                             (cdr file-cons))) project-files)))
+         (file-path (if (cdr file-paths) nil (car file-paths))))
+    (if file-path (concat root "/" file-path) nil)))
+
 (defun git-find-file-rehash ()
   (interactive)
   (let* ((repo (find-git-repo default-directory)))

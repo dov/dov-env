@@ -259,25 +259,35 @@ variable `sourcepair-source-extensions'."
     (let* ((temp (sourcepair-analyze-filename (file-name-nondirectory filename)))
            (search-path (car temp))
            (possible-filenames (cdr temp)))
-      (if (= (length possible-filenames) 0)
-          (message "%s is not a recognized source or header file (consider updating sourcepair-source-extensions or sourcepair-header-extensions)" (buffer-name))
-        (progn
-          (while search-path
-            (let ((path-to-check (car search-path))
-                  (matching-filename nil))
-              (if (and (> (length path-to-check) 3)
-                       (equal (substring path-to-check -2) "/*"))
-                  (setq matching-filename (sourcepair-find-one-of (substring path-to-check 0 -2)
-                                                                  possible-filenames
-                                                                  t))
-                (setq matching-filename 
-                      (sourcepair-find-one-of path-to-check possible-filenames nil)))
-                
-              (if (eq matching-filename nil)
-                  (setq search-path (cdr search-path))
-                (throw 'found-matching-file matching-filename))))
+      ;; First look for a matching file in the git repo
+      (let ((files (cdr temp))
+            result)
+        (while (and files (not result))
+          (setq result (get-file-path-in-git-repo (car files)))
+          (setq files (cdr files)))
 
-          nil)))))
+        ;; if not found in git, then search in nearby directories
+        (if (not result)
+            (if (= (length possible-filenames) 0)
+                (message "%s is not a recognized source or header file (consider updating sourcepair-source-extensions or sourcepair-header-extensions)" (buffer-name))
+              (progn
+                (while search-path
+                  (let ((path-to-check (car search-path))
+                        (matching-filename nil))
+                    (if (and (> (length path-to-check) 3)
+                             (equal (substring path-to-check -2) "/*"))
+                        (setq matching-filename (sourcepair-find-one-of (substring path-to-check 0 -2)
+                                                                        possible-filenames
+                                                                        t))
+                      (setq matching-filename 
+                            (sourcepair-find-one-of path-to-check possible-filenames nil)))
+                    
+                    (if (eq matching-filename nil)
+                        (setq search-path (cdr search-path))
+                      (throw 'found-matching-file matching-filename))))
+                
+            nil))
+          result)))))
 
 (defun sourcepair-load ()
   "Load the corresponding C/C++ header or source file for the current buffer.
