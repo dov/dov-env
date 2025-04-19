@@ -423,17 +423,14 @@ fi
 
 # path
 path=(/usr/local/bin
-      /usr/local/blender-2.80-linux-glibc217-x86_64
-      /usr/java/jre1.5.0_06/bin
-      /usr/X11R6/bin 
       $HOME/scripts
-      $HOME/Scripts 
+      $HOME/Scripts
+      $HOME/git/dov-env/scripts
       $HOME/hd/scripts 
       $HOME/bin
       $HOME/hd/bin
       $HOME/go/bin
       $HOME/.cargo/bin
-      /usr/X11R6/bin
       /usr/bin
       /bin
       /usr/sbin
