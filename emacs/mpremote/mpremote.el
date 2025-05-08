@@ -143,12 +143,19 @@
         (mpremote-eval-raw text)
         (mpremote-eval (concat (s-replace "\n" "\r" text) "\r")))))
 
+(defun clean-buffer-name (name)
+  """Remove <...> from the buffer name"""
+  (let ((start (string-match "<" name)))
+    (if start
+        (substring name 0 start)
+      name)))
+
 (defun mpremote-save-old ()
   """There is most likely a better way of doing this"""
   (interactive)
   (mpremote-eval-raw
    (concat
-    "with open('" (buffer-name) "','w') as fh:\n"
+    "with open('" (clean-buffer-name (buffer-name)) "','w') as fh:\n"
     "  fh.write('''"
     (s-replace "'''" "\\'\\'\\'" 
         (s-replace "\\" "\\\\" buffer-string))
@@ -158,7 +165,7 @@
 (defun mpremote-save ()
   """Save the current file to the mpremote device"""
   (interactive)
-  (let* ((buffer-name (buffer-name))
+  (let* ((buffer-name (clean-buffer-name (buffer-name)))
          (buffer-string (buffer-string))
          (proc (get-process "mpremote"))
          (buffer (process-buffer proc)))
@@ -191,5 +198,13 @@
     "execfile(\""
     (buffer-name)
     "\")\r")))
+
+(defun mpremote-kill ()
+  """Kill the mpremote process"""
+  (interactive)
+        (let ((proc (get-process "mpremote")))
+        (if proc
+            (delete-process proc))
+        (message "No mpremote process running")))
 
 (provide 'mpremote)
