@@ -46,7 +46,7 @@ class VsgMatrixPrint(gdb.Command):
         val = val[val.find('=')+2:]
         gdb.execute("enable pretty-printer",False,True)
 
-        if typename in ['vsg::dvec3','vsg::vec3', 'vsg::t_vec3<double>','vsg::t_vec3<float>']:
+        if typename in ['vsg::dvec3','vsg::vec3', 'vsg::t_vec3<double>','vsg::t_vec3<float>','vsg::t_box<double>::vec_type','vsg::t_box<float>::vec_type']:
             matches = pattern3.findall(val)
             array = [float(w) for w in matches[0]]
         elif typename in ['vsg::mat4', 'vsg::dmat4','vsg::t_mat4<double>','vsg::t_mat4<float>']:
@@ -54,7 +54,7 @@ class VsgMatrixPrint(gdb.Command):
             matches = pattern4.findall(val)
 
             array = [[float(w) for w in m] for m in matches]
-        elif typename in ['vsg::dbox', 'vsg::box']:
+        elif typename in ['vsg::dbox', 'vsg::box','vsg::t_box<double>','vsg::t_box<float>']:
           matches = list(pattern3.findall(val))
           array = [[float(w) for w in m] for m in matches]
         else:

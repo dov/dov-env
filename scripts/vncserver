@@ -52,6 +52,28 @@ $vncSystemConfigMandatoryFile = "$vncSystemConfigDir/vncserver-config-mandatory"
 
 $xauthorityFile = "$ENV{XAUTHORITY}" || "$ENV{HOME}/.Xauthority";
 
+# Parse the command line and add options as well
+print("ARGV=@ARGV\n");
+while($_=$ARGV[0], /^-/) {
+    shift;
+    /--help/ and do {
+      print('vncserver\n'
+            .'\n'
+            .'Syntax:\n'
+            .'    vncserver [--geometry wxh]\n');
+      exit(0);
+    };
+
+    /-geometry/ and do {
+        $config['geometry'] = shift;
+        next;
+    };
+    die("Unknown option $_!\n");
+}
+
+
+#
+
 chop($host = `uname -n`);
 
 if (-d "/etc/X11/fontpath.d") {
@@ -112,11 +134,12 @@ my %config;
 # override these where present.
 $default_opts{desktop} = $desktopName;
 $default_opts{auth} = $xauthorityFile;
-#$default_opts{rfbwait} = 30000;
+# $default_opts{rfbwait} = 30000; # Doesn't work on latest version
 $default_opts{rfbauth} = "$vncUserDir/passwd";
 $default_opts{rfbport} = $vncPort;
 $default_opts{fp} = $fontPath if ($fontPath);
 $default_opts{pn} = undef;
+$default_opts{geometry} = "1920x1080";
 
 # Load user-overrideable system defaults
 LoadConfig($vncSystemConfigDefaultsFile);
@@ -133,19 +156,6 @@ LoadConfig($vncUserConfig);
 # development work that touches Xvnc itself.
 LoadConfig($vncSystemConfigMandatoryFile, 1);
 
-# Parse the command line and add options as well
-while($_=$ARGV[0], /^-/) {
-    shift;
-
-    /-geometry/ and do {
-        print("foo\n");
-        $config{'geometry'} = shift;
-        next;
-    };
-    die("Unknown option $_!\n");
-}
-
-#
 # Check whether VNC authentication is enabled, and if so, check that
 # a VNC password has been created.
 #
@@ -278,8 +288,8 @@ warn "\nNew '$desktopName' desktop is $host:$displayNumber\n\n";
 
 warn "Starting desktop session $sessionname\n";
 print join(" ", @cmd), "\n";
-#exec(@cmd);
-die("@cmd");
+exec(@cmd);
+
 die "Failed to start session.\n";
 
 ###############################################################################

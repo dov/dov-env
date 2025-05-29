@@ -202,6 +202,8 @@
            '(("net" . "/usr/local/samiam/runsamiam %s"))
            '(("xcf" . "gimp %s"))
            '(("giv" . "giv %s"))
+           '(("mkv" . "vlc %s"))
+           '(("mp4" . "vlc %s"))
            '(("stl" . "qtfern %s"))
            '(("doc" . "libreoffice -norestore %s"))
            '(("docx" . "libreoffice -norestore %s"))

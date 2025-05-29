@@ -1,0 +1,4 @@
+BasedOnStyle: LLVM
+BreakBeforeBraces: Allman
+ContinuationIndentWidth: 2
+IndentWidth: 2

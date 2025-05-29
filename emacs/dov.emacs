@@ -202,6 +202,7 @@
 ;(require 'init-telega)
 (require 'sticky-w)
 (require 'init-transient)
+(require 'init-perl)
 (require 'init-with-editor)
 (require 'init-emojify)
 (require 'init-anaphora)
@@ -211,6 +212,7 @@
 ;(require 'init-ein)
 ;(require 'init-all-the-icons)
 (require 'transient)
+(require 'init-direnv)
 (require 'init-magit)
 (require 'init-magit-imerge)
 (require 'init-lua-mode)
@@ -516,6 +518,34 @@ Nice for copying"
            (replace-regexp-in-string (pcre-to-elisp "git@github.com:(\\w+)") "https://github.com/\\1" remote-url))))
     (browse-url https-url)))
 
+(defun next-line-and-fill ()
+  "Move to the next line and fill with spaces to keep the cursor in the same column."
+  (interactive)
+  (let ((col (current-column)))
+    (forward-line 1)
+    (let ((line-length (save-excursion
+                         (end-of-line)
+                         (current-column))))
+      (when (< line-length col)
+        (move-to-column line-length)
+        (insert (make-string (- col line-length) ? ))))
+    (move-to-column col)))
+    
+(defun open-line-and-move-same-column ()
+  "Move to the next line and fill with spaces to keep the cursor in the same column."
+  (interactive)
+  (let ((col (current-column)))
+    (forward-line 1)
+    (beginning-of-line)
+    (open-line 1)
+    (let ((line-length (save-excursion
+                         (end-of-line)
+                         (current-column))))
+      (when (< line-length col)
+        (move-to-column line-length)
+        (insert (make-string (- col line-length) ? ))))
+    (move-to-column col)))
+
 ;; Experiment area for new keybindings
 (defun dov-test ()
   "dov-test"
@@ -627,6 +657,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (global-set-key "\C-cid" 'magit-diff-popup)
 (global-set-key "\C-c\C-b" 'magit-blame-mode)
 (global-set-key "\C-c\C-o" 'org-open-at-point)
+(global-set-key (kbd "C-M-\\") 'clang-format-region)
 
 (load "compile.el")
 (setq compilation-scroll-output 'first-error)
@@ -1099,35 +1130,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
     (call-interactively 'mode-compile)
     (mode-compile "foo")))
   
-;;; Why can't I get this to run automatically in the perl-mode hook
-(defun my-perl-mode-hook ()
-  (interactive)
-  (define-key cperl-mode-map [(control c) (control c)] 'shell-perl-on-buffer)
-  (define-key cperl-mode-map ";" 'self-insert-command)
-  (define-key cperl-mode-map " " 'self-insert-command)
-  (define-key cperl-mode-map "{" 'self-insert-command)
-  (define-key cperl-mode-map [return] 'newline-and-indent)
-
-  (setq-default abbrev-mode nil)
-  (setq cperl-auto-newline nil)
-  (setq-default cperl-auto-newline nil)
-  (setq-default cperl-indent-level 4)
-  (setq cperl-indent-parens-as-block t) 
-  (setq cperl-electric-parens nil)
-  (setq cperl-electric-linefeed nil)
-  (setq cperl-electric-keywords nil)
-  (setq cperl-hairy nil)
-  (setq cperl-invalid-face nil) ; Don't show trailing white space!
-  (setq cperl-mode-abbrev-table nil)
-  (setq cperl-highlight-variables-indiscriminately t)
-  
-  (abbrev-mode 0)
-  (define-key cperl-mode-map [(return)] 'newline-and-indent)
-  (message "my-perl-mode-hook")
-  )
-
-;(add-hook 'pde-hook 'my-perl-mode-hook)
-(add-hook 'cperl-mode-hook 'my-perl-mode-hook)
 (add-hook 'lua-mode-hook 'my-lua-mode-hook)
   
 (autoload 'vala-mode "vala-mode.el" "Valamode" t)
@@ -1386,38 +1388,9 @@ With numeric ARG, display the images if and only if ARG is positive."
 (setq vm-reply-ignored-addresses '("^dov@orbotechcom.com"
                                    "[ <]dov@orbotech.com"))
 
-(defun perl-execute-buffer()
-  "Execute perl on the region or the buffer"
-  (interactive)
-  (shell-command-on-region
-    (min (point) (mark)) (max (point) (mark)) "perl "))
-
-;; Some functions defined by me
-(defun perl-pe-region()
-  "Run a perl -pe 'expr' on the region and put it into the buffer.
-   It works, but it is slow..."
-   (interactive)
-   (shell-command-on-region
-    (min (point) (mark)) (max (point) (mark))
-    (concat "perl -pe '"
-	    (read-shell-command "perl -pe command: ")
-	    "'")
-    t
-    t
-    )
-)
-
 (setq browse-url-generic-program "firefox")
 (setq browse-url-browser-function 'browse-url-generic)
-(defun run-eperl-maybe-and-preview-html()
-  "Runs eperl for phtml files and then runs the preview."
-  (interactive)
-  (if (string-match "\\.phtml" buffer-file-name)
-      (let ((htmlfilename (concat (file-name-sans-extension buffer-file-name) ".html")))
-	(if (shell-command (concat "eperl " buffer-file-name "> " htmlfilename))
-	    (browse-url-of-file htmlfilename)))
-    (browse-url-of-file))
-)
+
 (defun run-asciidoc-maybe-and-preview-html()
   "Runs asciidoc for txt files and then runs the preview."
   (interactive)
@@ -1697,7 +1670,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control h) (control g)] 'google-lookup)
 (global-set-key [(control h) (control p)] 'python-lookup)
 (global-set-key [(control h) (control c)] 'cpp-lookup)
-(global-set-key [(f2)] 'perl-pe-region)
 (global-set-key [(control f27)] 'move-to-first-window-line)
 (global-set-key [(super f27)] 'move-to-first-window-line)
 (global-set-key [(control home)] 'move-to-first-window-line)
@@ -1738,6 +1710,8 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(meta shift backspace)] 'subword-backward-kill)
 (global-set-key [(meta shift ?d)] 'subword-kill)
 (global-set-key [(meta shift ?t)] 'subword-transpose)
+(global-set-key [(control c) ?n] 'next-line-and-fill)
+(global-set-key [(control c) ?o] 'open-line-and-move-same-column)
 
 ;; Make shift-backspace erase subword
 (global-set-key [(control shift backspace)]
@@ -1965,17 +1939,6 @@ With numeric ARG, display the images if and only if ARG is positive."
 ;(define-key text-mode-map [RET] 'newline-and-indent-relative)
 (define-key text-mode-map [return] 'newline-and-indent-relative)
 (define-key text-mode-map "\C-m" 'newline-and-indent-relative)
-
-;; Perl mode stuff
-(autoload 'cperl-mode "cperl-mode" nil t)
-(setq interpreter-mode-alist (append interpreter-mode-alist
-				     '(("miniperl" . perl-mode))))
-
-(setq interpreter-mode-alist (rassq-delete-all 'perl-mode interpreter-mode-alist))
-(add-to-list 'interpreter-mode-alist '("perl" . cperl-mode))
-(add-to-list 'interpreter-mode-alist '("perl5" . cperl-mode))
-(add-to-list 'interpreter-mode-alist '("miniperl" . cperl-mode))
-; (load "perl-mode")   ; old mode
 
 ;; qt docs lookup
 (load "qtdoc")
@@ -2606,15 +2569,42 @@ Does not delete the prompt."
   (interactive)
   (async-shell-command-on-buffer my-python-interpreter "py"))
 
-(defun shell-perl-on-buffer ()
-  "Send the current (python) buffer to be evaluated by the python shell"
-  (interactive)
-  (async-shell-command-on-buffer "perl" "pl"))
-
 (defun shell-lua-on-buffer ()
   "Send the current (lua) buffer to be evaluated by the lua shell"
   (interactive)
   (async-shell-command-on-buffer "lua" "lua"))
+
+(defun uniq-lines ()
+  "Remove consecutive duplicate lines in the current buffer or active region, similar to the Unix `uniq` utility.
+If a region is active, only process the region. Otherwise, process the entire buffer."
+  (interactive)
+  (save-excursion
+    (let ((start (if (use-region-p) (region-beginning) (point-min)))
+          (end (if (use-region-p) (region-end) (point-max)))
+          (prev-line nil))
+      (goto-char start)
+      (while (< (point) end)
+        (let ((current-line (buffer-substring-no-properties
+                             (line-beginning-position)
+                             (line-end-position))))
+          (if (equal current-line prev-line)
+              (let ((line-end-pos (1+ (line-end-position))))
+                (delete-region (line-beginning-position) line-end-pos)
+                (setq end (- end (- line-end-pos (point))))) ;; Adjust `end` after deletion
+            (setq prev-line current-line)
+            (forward-line 1)))))))
+
+(defun uniq-sort-lines ()
+  "Sort lines in the current buffer or active region, then remove duplicate lines.
+If a region is active, only process the region. Otherwise, process the entire buffer."
+  (interactive)
+  (save-excursion
+    (let ((start (if (use-region-p) (region-beginning) (point-min)))
+          (end (if (use-region-p) (region-end) (point-max))))
+      ;; Sort the lines in the region or buffer
+      (sort-lines nil start end)
+      ;; Remove consecutive duplicate lines
+      (uniq-lines))))
 
 ;; switch different python interpreters
 (defun choose-python-interpreter ()
