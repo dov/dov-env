@@ -1,4 +1,4 @@
-;;; copilot-chat --- copilot-chat-shell-maker.el --- copilot chat interface, shell-maker frontend -*- indent-tabs-mode: nil; lisp-indent-offset: 2; lexical-binding: t -*-
+;;; copilot-chat --- copilot-chat-shell-maker.el --- copilot chat interface, shell-maker frontend -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024  copilot-chat maintainers
 
@@ -27,166 +27,193 @@
 
 ;;; Code:
 
-
 (require 'shell-maker)
+
 (require 'copilot-chat-copilot)
-
-(declare-function copilot-chat-reset "copilot-chat")
-
-;; Customs
-(defcustom copilot-chat-shell-maker-follow t
-  "If t, point follows answer in buffer."
-  :type 'boolean :group 'copilot-chat)
-
-
-;; Variables
-(defvar copilot-chat--shell-cb-fn nil)
-(defvar copilot-chat--shell-config
-  (make-shell-maker-config
-    :name "Copilot-Chat"
-    :execute-command 'copilot-chat--shell-cb))
-(defvar copilot-chat--shell-maker-answer-point 0
-  "Start of the current answer.")
-
+(require 'copilot-chat-markdown)
 
 ;; Constants
-(defconst copilot-chat--shell-maker-temp-buffer "*copilot-chat-shell-maker-temp*")
-
+(defconst copilot-chat--shell-maker-temp-buffer-prefix
+  "*copilot-chat-shell-maker-temp "
+  "Temporary buffer prefix for Copilot Chat shell-maker.")
 
 ;; Functions
-(defun copilot-chat--shell-maker-custom-prompt-selection()
-  "Send to Copilot a custom prompt followed by the current selected code."
-  (unless (copilot-chat--ready-p)
-    (copilot-chat-reset))
-  (let* ((prompt (read-from-minibuffer "Copilot prompt: "))
-         (code (buffer-substring-no-properties (region-beginning) (region-end)))
-         (formatted-prompt (concat prompt "\n" code)))
-    (copilot-chat--shell-maker-insert-and-send-prompt formatted-prompt)))
+(defun copilot-chat--shell-maker-prompt-send ()
+  "Function to send the prompt content."
+  (let ((instance (copilot-chat--current-instance)))
+    (with-current-buffer (copilot-chat--shell-maker-get-buffer instance)
+      (shell-maker-submit)
+      (display-buffer (current-buffer)))))
 
-(defun copilot-chat--shell-maker-insert-and-send-prompt(prompt)
-  "Helper function to prepare buffers and send PROMPT to Copilot."
-  (with-current-buffer (copilot-chat--shell-maker-prepare-buffers)
-    (insert prompt)
-    (shell-maker-submit)
-    (display-buffer (current-buffer))))
+(defun copilot-chat--shell-maker-temp-buffer-name (instance)
+  "Return the temporary buffer name for the Copilot Chat shell-maker.
+INSTANCE is used to get directory"
+  (concat
+   copilot-chat--shell-maker-temp-buffer-prefix
+   (copilot-chat-directory instance)
+   "*"))
 
-(defun copilot-chat--shell-maker-prepare-buffers ()
-  (let ((buffer (get-buffer copilot-chat--buffer))
-        (tempb (get-buffer-create copilot-chat--shell-maker-temp-buffer))
-        (inhibit-read-only t))
-    (unless buffer
-      (setq buffer (copilot-chat--shell)))
+
+(defun copilot-chat--shell-maker-get-buffer (instance)
+  "Create or retrieve the Copilot Chat shell-maker buffer for INSTANCE."
+  (unless (buffer-live-p (copilot-chat-chat-buffer instance))
+    (setf (copilot-chat-chat-buffer instance) (copilot-chat--shell instance)))
+  (let ((tempb
+         (or (copilot-chat-shell-maker-tmp-buf instance)
+             (get-buffer-create
+              (copilot-chat--shell-maker-temp-buffer-name instance)))))
+    (setf (copilot-chat-shell-maker-tmp-buf instance) tempb)
     (with-current-buffer tempb
-      (markdown-view-mode))
-    buffer))
-  
-(defun copilot-chat--shell-maker-display ()
-  "Display copilot chat buffer."
-  (unless (copilot-chat--ready-p)
-    (copilot-chat-reset))
-  (pop-to-buffer (copilot-chat--shell-maker-prepare-buffers)))
+      (let ((inhibit-read-only t))
+        (markdown-view-mode)))
+    (copilot-chat-chat-buffer instance)))
 
-(defun copilot-chat--shell-maker-font-lock-faces ()
-  "Replace faces by font-lock-faces."
-  (with-current-buffer copilot-chat--shell-maker-temp-buffer
+(defun copilot-chat--shell-maker-font-lock-faces (instance)
+  "Replace faces by font-lock-faces in INSTANCE buffer."
+  (with-current-buffer (copilot-chat-shell-maker-tmp-buf instance)
     (let ((inhibit-read-only t))
       (font-lock-ensure)
       (goto-char (point-min))
       (while (not (eobp))
-        (let ((next-change (or (next-property-change (point) nil (point-max)) (point-max)))
-               (face (get-text-property (point) 'face)))
+        (let ((next-change
+               (or (next-property-change (point) nil (point-max)) (point-max)))
+              (face (get-text-property (point) 'face)))
           (when face
-            (font-lock-append-text-property (point) next-change 'font-lock-face face))
+            (font-lock-append-text-property
+             (point) next-change 'font-lock-face face))
           (goto-char next-change))))))
 
-(defun copilot-chat--shell-maker-copy-faces()
-  "Apply faces to the copilot chat buffer."
-  (with-current-buffer copilot-chat--shell-maker-temp-buffer
+(defun copilot-chat--shell-maker-copy-faces (instance)
+  "Apply faces to the copilot chat buffer corresponding to INSTANCE."
+  (with-current-buffer (copilot-chat-shell-maker-tmp-buf instance)
     (save-restriction
       (widen)
       (font-lock-ensure)
-      (copilot-chat--shell-maker-font-lock-faces)
+      (copilot-chat--shell-maker-font-lock-faces instance)
       (let ((content (buffer-substring (point-min) (point-max))))
-        (with-current-buffer copilot-chat--buffer
-          (goto-char (1+ copilot-chat--shell-maker-answer-point))
+        (with-current-buffer (copilot-chat--shell-maker-get-buffer instance)
+          (goto-char (1+ (copilot-chat-shell-maker-answer-point instance)))
           (insert content)
-          (delete-region (point) (+ (point) (length content)))
+          (delete-region (point) (+ (point) (1- (length content))))
           (goto-char (point-max)))))))
 
-(defun copilot-chat--shell-cb-prompt (shell content)
-  "Callback for Copilot Chat shell-maker.
-Argument SHELL is the shell-maker instance.
+(defun copilot-chat--shell-cb-prompt (instance shell content)
+  "Callback for Copilot Chat `shell-maker'.
+Argument INSTANCE is `copilot-chat' instance.
+Argument SHELL is the `shell-maker' instance.
 Argument CONTENT is copilot chat answer."
-  (with-current-buffer copilot-chat--buffer
+  (with-current-buffer (copilot-chat--shell-maker-get-buffer instance)
     (goto-char (point-max))
-    (when copilot-chat--first-word-answer
-      (setq copilot-chat--first-word-answer nil)
-      (let ((str (format-time-string "# [%T] Copilot:\n"))
-             (inhibit-read-only t))
-        (with-current-buffer copilot-chat--shell-maker-temp-buffer
+    (when (copilot-chat-first-word-answer instance)
+      (setf (copilot-chat-first-word-answer instance) nil)
+      (let ((str
+             (concat
+              (format-time-string "# [%T] ")
+              (format "Copilot(%s):\n" (copilot-chat-model instance))))
+            (inhibit-read-only t))
+        (with-current-buffer (copilot-chat-shell-maker-tmp-buf instance)
           (insert str))
         (funcall (map-elt shell :write-output) str)))
     (if (string= content copilot-chat--magic)
+        (progn
+          (funcall (map-elt shell :finish-output) t) ; the end
+          (copilot-chat--shell-maker-copy-faces instance)
+          (setf (copilot-chat-first-word-answer instance) t))
       (progn
-        (funcall (map-elt shell :finish-output) t); the end
-        (copilot-chat--shell-maker-copy-faces)
-        (setq copilot-chat--first-word-answer t))
-      (progn
-        (with-current-buffer copilot-chat--shell-maker-temp-buffer
+        (with-current-buffer (copilot-chat-shell-maker-tmp-buf instance)
           (goto-char (point-max))
           (let ((inhibit-read-only t))
             (insert content)))
         (funcall (map-elt shell :write-output) content)))))
 
-(defun copilot-chat--shell-cb-prompt-wrapper (shell content)
-  "Wrapper around copilot-chat--shell-cb-prompt.
-When copilot-chat-shell-maker-follow is nil, copilot-chat--shell-cb-prompt is called in `save-excursion` block.
-Argument SHELL is the shell-maker instance.
+(defun copilot-chat--shell-cb-prompt-wrapper (shell instance content)
+  "Wrapper around `copilot-chat--shell-cb-prompt'.
+Argument SHELL is the `shell-maker' instance.
+Argument INSTANCE is `copilot-chat' instance.
 Argument CONTENT is copilot chat answer."
-  (if copilot-chat-shell-maker-follow
-    (copilot-chat--shell-cb-prompt shell content)
-    (save-excursion
-      (copilot-chat--shell-cb-prompt shell content))))
+  (if copilot-chat-follow
+      (copilot-chat--shell-cb-prompt instance shell content)
+    (save-excursion (copilot-chat--shell-cb-prompt instance shell content))))
 
-(defun copilot-chat--shell-cb (command shell)
-  "Callback for Copilot Chat shell-maker.
+(defun copilot-chat--shell-cb (instance command shell)
+  "Callback for Copilot Chat `shell-maker'.
+Argument INSTANCE is `copilot-chat' instance.
 Argument COMMAND is the command to send to Copilot.
-Argument CALLBACK is the callback function to call.
-Argument ERROR-CALLBACK is the error callback function to call."
-  (setq
-    copilot-chat--shell-cb-fn
-    (apply-partially #'copilot-chat--shell-cb-prompt-wrapper shell)
-    copilot-chat--shell-maker-answer-point (point))
+Argument SHELL is the `shell-maker' instance."
+  (setf
+   (copilot-chat-shell-cb-fn instance)
+   (apply-partially #'copilot-chat--shell-cb-prompt-wrapper shell)
+   (copilot-chat-shell-maker-answer-point instance) (point))
   (let ((inhibit-read-only t))
-    (with-current-buffer copilot-chat--shell-maker-temp-buffer
+    (with-current-buffer (copilot-chat-shell-maker-tmp-buf instance)
       (erase-buffer)))
-  (copilot-chat--ask command copilot-chat--shell-cb-fn))
+  (copilot-chat--ask instance command (copilot-chat-shell-cb-fn instance)))
 
-(defun copilot-chat--shell ()
-  "Start a Copilot Chat shell."
-  (shell-maker-start
-    copilot-chat--shell-config
-    t nil t
-    copilot-chat--buffer))
+(defun copilot-chat--shell (instance)
+  "Start a Copilot Chat shell for INSTANCE."
+  (let ((buf
+         (shell-maker-start
+          (make-shell-maker-config
+           :name (format "Copilot-Chat%s" (copilot-chat-directory instance))
+           :execute-command
+           (lambda (command shell)
+             (copilot-chat--shell-cb instance command shell)))
+          t nil t
+          (copilot-chat--get-buffer-name (copilot-chat-directory instance)))))
+    (with-current-buffer buf
+      (setq-local default-directory (copilot-chat-directory instance)))
+    buf))
 
-(defun copilot-chat--shell-maker-clean()
-  "Clean the copilot chat shell-maker frontend."
-  (advice-remove 'copilot-chat--insert-and-send-prompt #'copilot-chat--shell-maker-insert-and-send-prompt)
-  (advice-remove 'copilot-chat--custom-prompt-selection #'copilot-chat--shell-maker-custom-prompt-selection)
-  (advice-remove 'copilot-chat--display #'copilot-chat--shell-maker-display)
-  (advice-remove 'copilot-chat--prepare-buffers #'copilot-chat--shell-maker-prepare-buffers)
-  (advice-remove 'copilot-chat--clean #'copilot-chat--shell-maker-clean))
+(defun copilot-chat--shell-maker-insert-prompt (instance prompt)
+  "Insert PROMPT in the chat buffer corresponding to INSTANCE."
+  (with-current-buffer (copilot-chat--shell-maker-get-buffer instance)
+    (goto-char (point-max))
+    (insert prompt)))
 
-(defun copilot-chat-shell-maker-init()
-  "Initialize the copilot chat shell-maker frontend."
-  (setq copilot-chat-prompt   "You are a world-class coding tutor. Your code explanations perfectly balance high-level concepts and granular details. Your approach ensures that students not only understand how to write code, but also grasp the underlying principles that guide effective programming.\nWhen asked for your name, you must respond with \"GitHub Copilot\".\nFollow the user's requirements carefully & to the letter.\nYour expertise is strictly limited to software development topics.\nFollow Microsoft content policies.\nAvoid content that violates copyrights.\nFor questions not related to software development, simply give a reminder that you are an AI programming assistant.\nKeep your answers short and impersonal.\nUse Markdown formatting in your answers.\nMake sure to include the programming language name at the start of the Markdown code blocks.\nAvoid wrapping the whole response in triple backticks.\nThe user works in an IDE called Neovim which has a concept for editors with open files, integrated unit test support, an output pane that shows the output of running the code as well as an integrated terminal.\nThe active document is the source code the user is looking at right now.\nYou can only give one reply for each conversation turn.\n\nAdditional Rules\nThink step by step:\n1. Examine the provided code selection and any other context like user question, related errors, project details, class definitions, etc.\n2. If you are unsure about the code, concepts, or the user's question, ask clarifying questions.\n3. If the user provided a specific question or error, answer it based on the selected code and additional provided context. Otherwise focus on explaining the selected code.\n4. Provide suggestions if you see opportunities to improve code readability, performance, etc.\n\nFocus on being clear, helpful, and thorough without assuming extensive prior knowledge.\nUse developer-friendly terms and analogies in your explanations.\nIdentify 'gotchas' or less obvious parts of the code that might trip up someone new.\nProvide clear and relevant examples aligned with any provided context.\n")
-  (advice-add 'copilot-chat--insert-and-send-prompt :override #'copilot-chat--shell-maker-insert-and-send-prompt)
-  (advice-add 'copilot-chat--custom-prompt-selection :override #'copilot-chat--shell-maker-custom-prompt-selection)
-  (advice-add 'copilot-chat--display :override #'copilot-chat--shell-maker-display)
-  (advice-add 'copilot-chat--prepare-buffers :override #'copilot-chat--shell-maker-prepare-buffers)
-  (advice-add 'copilot-chat--clean :after #'copilot-chat--shell-maker-clean))
+(defun copilot-chat--shell-maker-clean ()
+  "Clean the copilot chat `shell-maker' frontend."
+  (advice-remove
+   'copilot-chat-prompt-send #'copilot-chat--shell-maker-prompt-send))
 
+(defun copilot-chat-shell-maker-init ()
+  "Initialize the copilot chat `shell-maker' frontend."
+  (setq copilot-chat-prompt copilot-chat-markdown-prompt)
+  (advice-add
+   'copilot-chat-prompt-send
+   :override #'copilot-chat--shell-maker-prompt-send))
+
+(defun copilot-chat--shell-maker-get-spinner-buffers (instance)
+  "Get the spinner buffers for the copilot chat `shell-maker' frontend.
+INSTANCE is the copilot chat instance."
+  (list (copilot-chat--shell-maker-get-buffer instance)))
+
+;; Top-level execute code.
+
+(cl-pushnew
+ (make-copilot-chat-frontend
+  :id 'shell-maker
+  :init-fn #'copilot-chat-shell-maker-init
+  :clean-fn #'copilot-chat--shell-maker-clean
+  :format-fn nil
+  :format-code-fn #'copilot-chat--markdown-format-code
+  :format-buffer-fn #'copilot-chat--markdown-format-buffer
+  :create-req-fn nil
+  :send-to-buffer-fn nil
+  :copy-fn nil
+  :yank-fn nil
+  :write-fn nil
+  :get-buffer-fn #'copilot-chat--shell-maker-get-buffer
+  :insert-prompt-fn #'copilot-chat--shell-maker-insert-prompt
+  :pop-prompt-fn nil
+  :goto-input-fn #'nil
+  :get-spinner-buffers-fn #'copilot-chat--shell-maker-get-spinner-buffers)
+ copilot-chat--frontend-list
+ :test #'equal)
 
 (provide 'copilot-chat-shell-maker)
-
 ;;; copilot-chat-shell-maker.el ends here
+
+;; Local Variables:
+;; byte-compile-warnings: (not obsolete)
+;; fill-column: 80
+;; End:

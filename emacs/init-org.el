@@ -13,6 +13,9 @@
 (use-package
   org-present)
  
+;; Load org-faces to make sure we can set appropriate faces
+(require 'org-faces)
+
 ;; Compatibility
 (defun org-font-lock-ensure (x y)
   (font-lock-ensure x y))
@@ -30,8 +33,36 @@
   (define-key org-present-mode-keymap [left]          'left-char)
   (define-key org-present-mode-keymap [(alt right)]   'org-present-next)
   (define-key org-present-mode-keymap [(alt left)]    'org-present-prev)
-  (define-key org-present-mode-keymap [(control right)]   'org-present-next)
-  (define-key org-present-mode-keymap [(control left)]    'org-present-prev)
+  (define-key org-present-mode-keymap [(control right)]   'forward-word)
+  (define-key org-present-mode-keymap [(control left)]    'backward-word)
+
+  ;; Hide emphasis markers on formatted text
+  (setq org-hide-emphasis-markers t)
+  
+  ;; Resize Org headings
+  (dolist (face '((org-level-1 . 1.2)
+                  (org-level-2 . 1.1)
+                  (org-level-3 . 1.05)
+                  (org-level-4 . 1.0)
+                  (org-level-5 . 1.1)
+                  (org-level-6 . 1.1)
+                  (org-level-7 . 1.1)
+                  (org-level-8 . 1.1)))
+    (set-face-attribute (car face) nil :font "Iosevka Aile" :weight 'medium :height (cdr face)))
+  
+  ;; Make the document title a bit bigger
+  (set-face-attribute 'org-document-title nil :font "Iosevka Aile" :weight 'bold :height 1.3)
+  
+  ;; Make sure certain org faces use the fixed-pitch face when variable-pitch-mode is on
+  (set-face-attribute 'org-block nil :foreground nil :inherit 'fixed-pitch)
+  (set-face-attribute 'org-table nil :inherit 'fixed-pitch)
+  (set-face-attribute 'org-formula nil :inherit 'fixed-pitch)
+  (set-face-attribute 'org-code nil :inherit '(shadow fixed-pitch))
+  (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
+  (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
+  (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
+  (set-face-attribute 'org-checkbox nil :inherit 'fixed-pitch)
+
 
   (org-present-big)
   (org-display-inline-images)
@@ -44,8 +75,28 @@
   (setq x-pointer-shape x-pointer-top-left-arrow)
   (set-mouse-color "#008f00")
 
+  (setq visual-fill-column-width 60 ; Dont understand why it so small!
+        visual-fill-column-center-text t)
+  (visual-fill-column-mode 1)
+  (visual-line-mode 1)
+
+  (menu-bar-mode 0)
+  (tool-bar-mode 0)
+  (scroll-bar-mode 0)
   )
 
+(defun my-org-present-quit-hook ()
+  (org-present-small)
+  (org-remove-inline-images)
+
+  (visual-fill-column-mode 0)
+  (visual-line-mode 0)
+
+  (menu-bar-mode 1)
+  (tool-bar-mode 0)
+  (scroll-bar-mode 1)
+  )
+  
 (defun turn-last-into-embedded-link ()
   (interactive)
   (set-mark-command nil)
@@ -60,6 +111,13 @@
   (yank)
   (insert "]]")
   )
+
+(add-hook 'org-export-before-processing-hook
+          (lambda (backend)
+            (when (org-export-derived-backend-p backend 'html)
+              (let* ((source-file (concat emacs-git "../lib/dov-org.css"))
+                     (destination-file (concat (file-name-directory (buffer-file-name)) "dov-org.css")))
+                (copy-file source-file destination-file t)))))
 
 (defun my-org-hook ()
   (load "org-git-hyperlink.el")
@@ -77,12 +135,9 @@
   (require 'ox-mediawiki)
   (require 'ox-reveal)
 
-   (autoload 'org-present "org-present" nil t)
-   (add-hook 'org-present-mode-hook 'my-org-present-mode-hook)
-   (add-hook 'org-present-mode-quit-hook
-             (lambda ()
-               (org-present-small)
-               (org-remove-inline-images)))
+  (autoload 'org-present "org-present" nil t)
+  (add-hook 'org-present-mode-hook 'my-org-present-mode-hook)
+  (add-hook 'org-present-mode-quit-hook 'my-org-present-quit-hook)
 
   (local-set-key [(control c) (control ?.)] 'org-time-stamp)
   (local-set-key "\M-I" 'org-toggle-iimage-in-org)
@@ -239,6 +294,21 @@
   "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"
   "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"
   "%latex --shell-escape -interaction nonstopmode -output-directory %o %f"))
+
+
+(setq luamagick '(luamagick :programs ("lualatex" "convert")
+       :description "pdf > png"
+       :message "you need to install lualatex and imagemagick."
+       :use-xcolor t
+       :image-input-type "pdf"
+       :image-output-type "png"
+       :image-size-adjust (1.0 . 1.0)
+       :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+       :image-converter ("convert -density %D -trim -antialias %f -quality 100 %O")))
+
+(add-to-list 'org-preview-latex-process-alist luamagick)
+
+(setq org-preview-latex-default-process 'luamagick)
 
 (defun my-org-iimage-refresh ()
   (interactive)

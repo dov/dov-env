@@ -19,10 +19,13 @@
   )
 
 (defun mpremote-eval-org-block ()
-  """Mark the current org mode block and send it to mpremote"""
+  """Use the current region or mark the org mode block and send it to mpremote"""
   (interactive)
   (save-excursion
-    (org-babel-mark-block)
+    (if (not (region-active-p))
+        (progn
+          (org-babel-mark-block)
+          (forward-line 1)))
     (mpremote-eval-raw (buffer-substring (region-beginning) (region-end)))
     (deactivate-mark)))
     

@@ -1934,7 +1934,12 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(super f7)] 'toggle-toolbar)
 (global-set-key [f4] 'copy-line-to-next)
 (global-set-key "\M-g" 'goto-line)
-(global-set-key "\C-xk" 'kill-this-buffer)
+;(global-set-key "\C-xk" 'kill-this-buffer)
+(defun kill-current-buffer ()
+  "Kill the current buffer."
+  (interactive)
+  (kill-buffer (current-buffer)))
+(global-set-key "\C-xk" 'kill-current-buffer)
   
 ;(define-key text-mode-map [RET] 'newline-and-indent-relative)
 (define-key text-mode-map [return] 'newline-and-indent-relative)
@@ -2567,7 +2572,11 @@ Does not delete the prompt."
 (defun shell-python-on-buffer ()
   "Send the current (python) buffer to be evaluated by the python shell"
   (interactive)
-  (async-shell-command-on-buffer my-python-interpreter "py"))
+  (let ((python-path (if (and (boundp 'pyvenv-virtual-env) pyvenv-virtual-env)
+                         (concat pyvenv-virtual-env "bin/python")
+                         my-python-interpreter)))
+    (async-shell-command-on-buffer python-path "py")))
+
 
 (defun shell-lua-on-buffer ()
   "Send the current (lua) buffer to be evaluated by the lua shell"

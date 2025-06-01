@@ -5,6 +5,7 @@
 (setq load-path (append (list
                          (concat emacs-git "copilot-chat.el/")
                          (concat emacs-git "chatgpt-shell/")
+                         (concat emacs-git "packages/aio-20200610.1904/")
                          )
                         load-path))
 
@@ -12,12 +13,9 @@
 (require 'markdown-mode)
 (require 'copilot-chat)
 (require 'shell-maker)
+(custom-set-variables
+ '(copilot-chat-frontend 'shell-maker))
 ;(require 'copilot-chat-shell-maker)
-
-(setq copilot-chat-frontend 'shell-maker)
-
-;(push '(shell-maker . copilot-chat-shell-maker-init) copilot-chat-frontend-list)
-;(copilot-chat-shell-maker-init)
 
 ;; Apply the filter to shell-mode
 (add-hook 'copilot-chat-shell-mode-hook 'variable-pitch-mode)

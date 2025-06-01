@@ -1,0 +1,164 @@
+#!/usr/bin/python
+
+# Modified by Dov Grobgeld to get all the files created today.
+
+# python-gphoto2 - Python interface to libgphoto2
+# http://github.com/jim-easterbrook/python-gphoto2
+# Copyright (C) 2014-19  Jim Easterbrook  jim@jim-easterbrook.me.uk
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# "object oriented" version of list-files.py
+
+import dateparser
+from datetime import datetime
+import logging
+import os
+import sys
+import pdb
+import gphoto2 as gp
+from pathlib import Path
+import signal
+
+def die(msg):
+  sys.stderr.write(msg)
+  exit(-1)
+
+def list_files(camera, path='/'):
+  result = []
+  # get files
+  for name, value in camera.folder_list_files(path):
+    result.append(os.path.join(path, name))
+  # read folders
+  folders = []
+  for name, value in camera.folder_list_folders(path):
+    folders.append(name)
+  # recurse over subfolders
+  for name in folders:
+    result.extend(list_files(camera, os.path.join(path, name)))
+  return result
+
+def get_file_info(camera, path):
+  folder, name = os.path.split(path)
+  return camera.file_get_info(folder, name)
+
+def get_file_date(camera, path):
+  info = get_file_info(camera, path)
+  return datetime.fromtimestamp(info.file.mtime)
+
+def get_num_files_from(camera, files, from_date=datetime.now()):
+  '''Get the first index of a file today'''
+  idx = len(files)-1
+  while idx>0:
+    dt = get_file_date(camera,files[idx])
+    if dt < from_date:
+      return idx+1
+    idx-=1
+  return 0
+
+def get_files_from(camera, files, from_date=datetime.now()):
+  '''Get a list of all the files from the given date'''
+  return [f for f in files
+          if get_file_date(camera,f) >=from_date]
+
+def signal_handler(sig, frame):
+    print('You pressed Ctrl+C!')
+    sys.exit(0)
+
+def main():
+    from_date = dateparser.parse('2021-08-21 07:00')
+
+    argp = 1
+    get_types = []
+    while argp<len(sys.argv) and sys.argv[argp][0]=='-':
+      S_ = sys.argv[argp]
+      argp+=1
+
+      if S_=='--help':
+        print('get_photos_today - Get photos from a date\n'
+              '\n'
+              'Syntax:\n'
+              '  get_photos_today [--jpeg] [--mpeg] DATE'
+              )
+        exit(0)
+      if S_=='--jpeg':
+        get_types += ['jpeg']
+        continue
+      if S_=='--mpeg':
+        get_types += ['mpeg']
+        continue
+      if S_=='--raw':
+        get_types += ['raw']
+        continue
+
+      die(f'Unknown option "S_"!')
+  
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    logging.basicConfig(filename='get_photos_today.log', level=logging.INFO)
+    log_formatter = logging.Formatter('%(levelname)s: %(name)s: %(message)s')
+    root_logger = logging.getLogger()
+
+#    filehandler = logging.FileHandler(f'get_photos_today.log')
+#    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+#    root_logger.addHandler(filehandler)
+        
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+    root_logger.addHandler(console_handler)
+
+    logger = logging.getLogger('get_photos_today')
+    if argp >= len(sys.argv):
+      die('Need date time!')
+    from_date = dateparser.parse(sys.argv[argp])
+    argp+=1
+
+    logger.info(f'Getting photos from {str(from_date)}')
+
+    callback_obj = gp.check_result(gp.use_python_logging())
+    camera = gp.Camera()
+    camera.init()
+    files = list_files(camera)
+    logger.info(f'There are {len(files)} files on the camera')
+
+    if False:
+      first_index_today = get_num_files_from(camera,files,from_date=from_date)
+      files = files[first_index_today:]
+    else:
+      files = get_files_from(camera, files, from_date=from_date)
+
+    for idx,f in enumerate(files):
+      name = Path(f).name
+      folder = Path(f).parent
+      if not (len(get_types)==0
+          or ('jpeg' in get_types and 'jp' in name.lower())
+          or ('mpeg' in get_types and 'mp' in name.lower())
+          or ('raw' in get_types and 'cr3' in name.lower)):
+        continue
+
+      if not Path(name).exists():
+        logger.info(f'Getting {name} ({idx+1}/{len(files)}) {str(get_file_date(camera,f))}')
+        camera_file = gp.check_result(gp.gp_camera_file_get(
+            camera, str(folder), str(name), gp.GP_FILE_TYPE_NORMAL))
+        file_data = gp.check_result(gp.gp_file_get_data_and_size(camera_file))
+        with open(name,'wb') as fh:
+          data = memoryview(file_data)
+          fh.write(data)
+
+    gp.gp_camera_exit(camera)
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

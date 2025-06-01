@@ -1,0 +1,63 @@
+#!/usr/bin/python
+
+######################################################################
+# programmatically get and set the mate scaling factor needed
+# for properly scaled 4k display.
+#
+# 2025-05-09 Fri
+# Dov Grobgeld <dov.grobgeld@gmail.com>
+######################################################################
+
+import gi
+import argparse
+gi.require_version('Gio', '2.0')
+from gi.repository import Gio
+
+def set_window_scaling_factor(scale):
+    """
+    Sets the window scaling factor using GSettings.
+
+    Args:
+        scale (int): The scaling factor to set (e.g., 1 or 2).
+    """
+    scale_settings = Gio.Settings.new("org.mate.interface")
+    scale_settings.set_int("window-scaling-factor", scale)
+    print(f"Window scaling factor set to {scale}")
+
+def get_window_scaling_factor():
+    """
+    Gets the current window scaling factor using GSettings.
+
+    Returns:
+        int: The current scaling factor.
+    """
+    scale_settings = Gio.Settings.new("org.mate.interface")
+    scale = scale_settings.get_int("window-scaling-factor")
+    print(f"Current window scaling factor is {scale}")
+    return scale
+
+def main():
+    """
+    Command-line interface for setting and getting the window scaling factor.
+    """
+    parser = argparse.ArgumentParser(description="Manage window scaling factor using GSettings.")
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # Subcommand for setting the scaling factor
+    set_parser = subparsers.add_parser("set", help="Set the window scaling factor")
+    set_parser.add_argument("scale", type=int, help="Scaling factor to set (e.g., 1 or 2)")
+
+    # Subcommand for getting the scaling factor
+    subparsers.add_parser("get", help="Get the current window scaling factor")
+
+    args = parser.parse_args()
+
+    if args.command == "set":
+        set_window_scaling_factor(args.scale)
+    elif args.command == "get":
+        get_window_scaling_factor()
+    else:
+        parser.print_help()
+
+if __name__ == "__main__":
+    main()

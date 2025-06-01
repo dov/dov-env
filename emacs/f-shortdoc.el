@@ -1,5 +1,4 @@
-;; -*- no-byte-compile: t; -*-
-;;; f-shortdoc.el --- Shortdoc for f.el -*- lexical-binding: t -*-
+;;; f-shortdoc.el --- Shortdoc for f.el -*- lexical-binding: t; no-byte-compile: t; -*-
 
 ;; Author: Lucien Cartier-Tilet <lucien@phundrak.com>
 ;; Maintainer: Lucien Cartier-Tilet <lucien@phundrak.com>
@@ -284,10 +283,16 @@
      :result nil)
 
     (f-hidden-p
-     :no-eval (f-hidden-p "/path/to/foo")
-     :result nil
-     :no-eval (f-hidden-p "/path/to/.foo")
-     :result t)
+     :eval (f-hidden-p "path/to/foo")
+     :eval (f-hidden-p ".path/to/foo")
+     :eval (f-hidden-p "path/.to/foo")
+     :eval (f-hidden-p "path/to/.foo")
+     :eval (f-hidden-p ".path/to/foo" 'any)
+     :eval (f-hidden-p "path/.to/foo" 'any)
+     :eval (f-hidden-p "path/to/.foo" 'any)
+     :eval (f-hidden-p ".path/to/foo" 'last)
+     :eval (f-hidden-p "path/.to/foo" 'last)
+     :eval (f-hidden-p "path/to/.foo" 'last))
 
     (f-empty-p
      :no-eval (f-empty-p "/path/to/empty-file")
@@ -297,6 +302,30 @@
      :no-eval (f-empty-p "/path/to/empty-dir/")
      :result t
      :no-eval (f-empty-p "/path/to/dir-with-contents/")
+     :result nil)
+
+    (f-older-p
+     :no-eval (f-older-p "older-file.txt" "newer-file.txt")
+     :result t
+     :no-eval (f-older-p "newer-file.txt" "older-file.txt")
+     :result nil
+     :no-eval (f-older-p "same-time1.txt" "same-time2.txt")
+     :result nil)
+
+    (f-newer-p
+     :no-eval (f-newer-p "newer-file.txt" "older-file.txt")
+     :result t
+     :no-eval (f-newer-p "older-file.txt" "newer-file.txt")
+     :result nil
+     :no-eval (f-newer-p "same-time1.txt" "same-time2.txt")
+     :result nil)
+
+    (f-same-time-p
+     :no-eval (f-same-time-p "same-time1.txt" "same-time2.txt")
+     :result t
+     :no-eval (f-same-time-p "newer-file.txt" "older-file.txt")
+     :result nil
+     :no-eval (f-same-time-p "older-file.txt" "newer-file.txt")
      :result nil)
 
     "Stats"
@@ -310,16 +339,46 @@
      :eval (f-depth "/usr/local/bin"))
 
     (f-change-time
-     :no-eval* (f-change-time "path/to/file.txt")
-     :no-eval* (f-change-time "path/to/dir"))
+     :no-eval (f-change-time "path/to/file.txt")
+     :result (25517 48756 26337 111000)
+     :no-eval (f-change-time "path/to/dir")
+     :result (25517 57887 344657 210000)
+     :no-eval (f-change-time "path/to/file.txt" t)
+     :result (1672330868026337111 . 1000000000)
+     :no-eval (f-change-time "path/to/dir" t)
+     :result (1672339999344657210 . 1000000000)
+     :no-eval (f-change-time "path/to/file.txt" 'seconds)
+     :result 1672330868
+     :no-eval (f-change-time "path/to/dir" 'seconds)
+     :result 1672339999)
 
     (f-modification-time
-     :no-eval* (f-modification-time "path/to/file.txt")
-     :no-eval* (f-modification-time "path/to/dir"))
+     :no-eval (f-modification-time "path/to/file.txt")
+     :result (25517 48756 26337 111000)
+     :no-eval (f-modification-time "path/to/dir")
+     :result (25517 57887 344657 210000)
+     :no-eval (f-modification-time "path/to/file.txt" t)
+     :result (1672330868026337111 . 1000000000)
+     :no-eval (f-modification-time "path/to/dir" t)
+     :result (1672339999344657210 . 1000000000)
+     :no-eval (f-modification-time "path/to/file.txt" 'seconds)
+     :result 1672330868
+     :no-eval (f-modification-time "path/to/dir" 'seconds)
+     :result 1672339999)
 
     (f-access-time
-     :no-eval* (f-access-time "path/to/file.txt")
-     :no-eval* (f-access-time "path/to/dir"))
+     :no-eval (f-access-time "path/to/file.txt")
+     :result (25517 48756 26337 111000)
+     :no-eval (f-access-time "path/to/dir")
+     :result (25517 57887 344657 210000)
+     :no-eval (f-access-time "path/to/file.txt" t)
+     :result (1672330868026337111 . 1000000000)
+     :no-eval (f-access-time "path/to/dir" t)
+     :result (1672339999344657210 . 1000000000)
+     :no-eval (f-access-time "path/to/file.txt" 'seconds)
+     :result 1672330868
+     :no-eval (f-access-time "path/to/dir" 'seconds)
+     :result 1672339999)
 
     "Misc"
     (f-this-file
@@ -329,8 +388,8 @@
      :eval (f-path-separator))
 
     (f-glob
-     :noeval* (f-glob "path/to/*.el")
-     :noeval* (f-glob "*.el" "path/to"))
+     :no-eval* (f-glob "path/to/*.el")
+     :no-eval* (f-glob "*.el" "path/to"))
 
     (f-entries
      :no-eval* (f-entries "path/to/dir")
