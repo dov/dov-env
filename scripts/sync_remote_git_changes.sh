@@ -1,26 +1,26 @@
 #!/bin/bash
 
-# Response to: Write a bash script that receives as an input host:/dir
-# and does an ssh to that host and dir, does a git status, creates a
-# list of all modified but not commit files, and then rsync's these
-# locally. Conceptually it is like stashing the remote site, "copying"
-# the stash, and applying it locally.
-
-
-# Ensure we have one argument
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 host:/dir"
+# Ensure we have two arguments
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 host:/dir [diff|pull|push]"
     exit 1
 fi
 
 # Parse the input
 REMOTE="$1"
+ACTION="$2"
 REMOTE_HOST=$(echo "$REMOTE" | cut -d: -f1)
 REMOTE_DIR=$(echo "$REMOTE" | cut -d: -f2)
 
 # Check that both components are non-empty
 if [ -z "$REMOTE_HOST" ] || [ -z "$REMOTE_DIR" ]; then
     echo "Invalid input format. Expected format: host:/dir"
+    exit 1
+fi
+
+# Check if the action is valid
+if [[ "$ACTION" != "diff" && "$ACTION" != "pull" && "$ACTION" != "push" ]]; then
+    echo "Invalid action. Expected one of: diff, pull, push"
     exit 1
 fi
 
@@ -40,14 +40,47 @@ fi
 echo "Found modified files:"
 cat "$TEMP_FILE"
 
-# Create the rsync command to copy the modified files locally
-echo "Syncing modified files locally..."
-while read -r FILE; do
-    # Ensure the file is only rsynced if it exists on the remote host.
-    rsync -avz --relative "$REMOTE_HOST:$REMOTE_DIR/./$FILE" .
-done < "$TEMP_FILE"
+# Perform the specified action
+case "$ACTION" in
+    diff)
+        echo "Showing differences between local and remote files..."
+        # Create a temporary directory for remote files
+        TEMP_REMOTE_DIR=$(mktemp -d)
+
+        while read -r FILE; do
+            # Copy the remote file to the temporary directory
+            rsync -avz --relative "$REMOTE_HOST:$REMOTE_DIR/./$FILE" "$TEMP_REMOTE_DIR/" > /dev/null 2>&1
+
+            # Construct the full path to the remote file in the temporary directory
+            REMOTE_FILE="$TEMP_REMOTE_DIR/$FILE"
+
+            # Perform the diff between the local file and the remote file
+            if [ -f "$FILE" ]; then
+                echo "Diff for $FILE:"
+                diff -u "$FILE" "$REMOTE_FILE" || true
+            else
+                echo "Local file $FILE does not exist. Skipping diff."
+            fi
+        done < "$TEMP_FILE"
+
+        # Clean up the temporary directory
+        rm -rf "$TEMP_REMOTE_DIR"
+        ;;
+    pull)
+        echo "Pulling modified files from remote to local..."
+        while read -r FILE; do
+            rsync -avz --relative "$REMOTE_HOST:$REMOTE_DIR/./$FILE" .
+        done < "$TEMP_FILE"
+        ;;
+    push)
+        echo "Pushing modified files from local to remote..."
+        while read -r FILE; do
+            rsync -avz --relative "./$FILE" "$REMOTE_HOST:$REMOTE_DIR/"
+        done < "$TEMP_FILE"
+        ;;
+esac
 
 # Clean up
 rm "$TEMP_FILE"
 
-echo "Done! All modified files have been copied locally."
+echo "Done!"

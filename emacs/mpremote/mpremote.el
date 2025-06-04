@@ -1,10 +1,10 @@
-;; A mode for exploring micropython from emacs
+;; A mode for running mpremote in a comint buffer
 ;;
-;; 2023-08-26 Sat
+;; 2025-06-04 Wed
+;; Author: Dov Grobgeld
+;; License: MIT
 ;;
-;; TBD:
-;;    - Configure comint so that I can write interactively in the
-;;      buffer. 
+;; Usage: M-x run-mpremote
 
 (setq mp-port "a0")
 
@@ -29,15 +29,54 @@
     (mpremote-eval-raw (buffer-substring (region-beginning) (region-end)))
     (deactivate-mark)))
     
+(defun buffer-remove-last-n-lines (buffer n)
+  "Remove the last N lines from the given BUFFER."
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-max))
+      (let ((end (point)))
+        (forward-line (- n))
+        (delete-region (point) end)))))
+
 (defun mpremote-send-input ()
   """Send comint input to mpremote with a trailing carriage return"""
   (interactive)
-  (comint-send-input t)
-  (mpremote-send-string "\r"))
+  (let ((input (buffer-substring-no-properties
+                  (comint-line-beginning-position)
+                  (line-end-position))))
+      (if (string-prefix-p "!" input)
+          (let ((command (substring input 1))) ;; Remove the '!' prefix
+            ;; Kill the current mpremote process
+            (mpremote-kill)
+            (buffer-remove-last-n-lines "*mpremote*" 1)
+            (comint-add-to-input-history input)
+            ;; Write the input to the buffer for display
+;            (comint-send-input t)
+            ;; Execute the command and write the result to the buffer
+            (let ((output (shell-command-to-string (format "mpremote %s %s" mp-port command))))
+              (with-current-buffer "*mpremote*"
+                (goto-char (point-max))
+                (backward-char)
+                (insert input)
+                (insert "\n")
+                (insert output)))
+            ;; Restart the mpremote process
+            (start-mpremote mp-port)
+            (buffer-remove-last-n-lines "*mpremote*" 4))
+        (progn
+          (comint-send-input t)
+          (mpremote-send-string "\r")))))
 
 (defun mpremote-send-string (s)
   """Send a string to the mpremote process"""
   (comint-send-string (get-process "mpremote") s))
+
+(defun start-mpremote (port)
+  (setq mp-port port)
+  (make-comint-in-buffer "mpremote" "*mpremote*" "mpremote" nil
+                         "resume" mp-port)
+  (sleep-for 0.1)
+  (mpremote-send-string "\r"))
 
 (defun run-mpremote (&optional port)
   """Start mpremote"""
@@ -45,10 +84,8 @@
   (if (null port)
       (progn
         (setq port (completing-read "Port: " '("u0" "u1" "u2" "a0" "a1" "a2")))))
-  (setq mp-port port)
   (message (format "port is %s" mp-port))
-  (make-comint-in-buffer "mpremote" "*mpremote*" "mpremote" nil
-                         "resume" mp-port)
+  (start-mpremote port)
   (sleep-for 0.1)
   (switch-to-buffer "*mpremote*")
   (use-local-map (copy-keymap comint-mode-map))
