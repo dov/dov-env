@@ -5,8 +5,7 @@
                   )
                  load-path))
 		  
-;(require 'cmake-mode)
-(require 'cmake-font-lock)
+(require 'cmake-mode)
 
 ;; override standard commands with their corresponding helm commands
 
