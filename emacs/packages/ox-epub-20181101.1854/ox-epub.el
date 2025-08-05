@@ -6,10 +6,10 @@
 ;; Maintainer: Mark Meyer <mark@ofosos.org>
 
 ;; URL: http://github.com/ofosos/org-epub
-;; Package-Version: 20181101.1854
 ;; Keywords: hypermedia
 
-;; Version: 0.1.0
+;; Package-Version: 20181101.1854
+;; Package-Revision: a66eeb00daa0
 
 ;; Package-Requires: ((emacs "24.3") (org "9"))
 
@@ -139,58 +139,6 @@
   .org-info-js_search-highlight
     { background-color: #ffff00; color: #000000; font-weight: bold; }
   .org-svg { width: 90%; }
-
-h2 {
-  text-indent: 0;
-  margin: 50px 0 0 0;
-  font-size: 1.5em;
-  font-weight: bold;
-  page-break-before: always;
-  line-height: 135%; /*get squished otherwise on ADE */
-}
-
-h3 {
-  text-indent: 0;
-  font-size: 1.4em;
-  font-weight: bold;
-  margin-top: 1.4em;
-}
-
-h4 {
-  text-indent: 0;
-  font-size: 1.2em;
-  font-weight: bold;
-  margin-top: 1.2em;
-}
-
-h5 {
-  text-indent: 0;
-  font-size: 1.1em;
-  font-weight: bold;
-  margin-top: 1.1em;
-}
-
-h6 {
-  text-indent: 0;
-  font-size: 1em;
-  font-weight: bold;
-  margin-top: 1em;
-}
-
-/* Hyphen and pagination Fixer */
-/* Note: Do not try on the Kindle, it does not recognize the hyphens property */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  -webkit-hyphens: none !important;
-  hyphens: none;
-  page-break-after: avoid;
-  page-break-inside: avoid;
-  text-align: left;
-}
 
 "
   "Default style declarations for org epub")

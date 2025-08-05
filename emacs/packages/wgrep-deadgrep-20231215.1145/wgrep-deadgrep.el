@@ -5,7 +5,8 @@
 ;; Package-Requires: ((wgrep "2.3.0") (emacs "25.1"))
 ;; URL: http://github.com/mhayashi1120/Emacs-wgrep/raw/master/wgrep-deadgrep.el
 ;; Emacs: GNU Emacs 25 or later
-;; Version: 2.3.1
+;; Package-Version: 20231215.1145
+;; Package-Revision: 07cd02dddefd
 
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License as

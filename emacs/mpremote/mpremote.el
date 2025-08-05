@@ -38,6 +38,10 @@
         (forward-line (- n))
         (delete-region (point) end)))))
 
+(defun strip-carriage-return (output)
+  "Remove all carriage return (^M, \\r) characters from OUTPUT."
+  (replace-regexp-in-string "\r" "" output))
+
 (defun mpremote-send-input ()
   """Send comint input to mpremote with a trailing carriage return"""
   (interactive)
@@ -48,18 +52,16 @@
           (let ((command (substring input 1))) ;; Remove the '!' prefix
             ;; Kill the current mpremote process
             (mpremote-kill)
-            (buffer-remove-last-n-lines "*mpremote*" 1)
+;            (buffer-remove-last-n-lines "*mpremote*" 1)
             (comint-add-to-input-history input)
-            ;; Write the input to the buffer for display
-;            (comint-send-input t)
             ;; Execute the command and write the result to the buffer
             (let ((output (shell-command-to-string (format "mpremote %s %s" mp-port command))))
               (with-current-buffer "*mpremote*"
                 (goto-char (point-max))
-                (backward-char)
-                (insert input)
+;                (backward-char)
+;                (insert input)
                 (insert "\n")
-                (insert output)))
+                (insert (strip-carriage-return output))))
             ;; Restart the mpremote process
             (start-mpremote mp-port)
             (buffer-remove-last-n-lines "*mpremote*" 4))
@@ -246,5 +248,15 @@
         (if proc
             (delete-process proc))
         (message "No mpremote process running")))
+
+(defun mpremote-kill ()
+  """Kill the mpremote process"""
+  (interactive)
+  (let ((proc (get-process "mpremote")))
+    (when proc
+      ; prevent insertion of string in buffer
+      (set-process-sentinel proc (lambda (_proc _event)))
+      (delete-process proc))))
+
 
 (provide 'mpremote)

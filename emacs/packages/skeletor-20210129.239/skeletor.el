@@ -4,7 +4,8 @@
 
 ;; Author: Chris Barrett <chris.d.barrett@me.com>
 ;; Package-Requires: ((s "1.7.0") (f "0.14.0") (dash "2.2.0") (cl-lib "0.3") (let-alist "1.0.3")(emacs "24.1"))
-;; Version: 1.5.2
+;; Package-Version: 20210129.239
+;; Package-Revision: f6e560a0bfe4
 
 ;; This file is not part of GNU Emacs.
 
@@ -526,8 +527,8 @@ substitution."
     ;; commit.
     (unless (f-exists? (f-join dir ".git"))
       (skeletor-shell-command "git init"))
-    (skeletor-shell-command "git commit --allow-empty -m \"Initial commit\"")
-    (skeletor-shell-command "git add -A && git commit -m \"Add initial files\"")
+    (skeletor-shell-command "git commit --allow-empty -m 'Initial commit'")
+    (skeletor-shell-command "git add -A && git commit -m 'Add initial files'")
     (message "Initialising git...done")))
 
 ;; FilePath, FilePath, [(String,String)] -> IO ()
@@ -921,230 +922,230 @@ SKELETON is a SkeletorProjectType."
 (skeletor-define-template "generic"
   :title "Generic Project")
 
-;;; (skeletor-define-template "elisp-package"
-;;;   :title "Elisp Package"
-;;;   :requires-executables '(("make" . "http://www.gnu.org/software/make/")
-;;;                           ("cask" . "https://github.com/cask/cask"))
-;;;   :default-license (rx bol "gpl")
-;;;   :substitutions
-;;;   '(("__DESCRIPTION__"
-;;;      . (lambda ()
-;;;          (read-string "Description: ")))))
-;;; 
-;;; (skeletor-define-template "elisp-package-with-docs"
-;;;   :title "Elisp Package (with documentation)"
-;;;   :requires-executables '(("make" . "http://www.gnu.org/software/make/")
-;;;                           ("cask" . "https://github.com/cask/cask"))
-;;;   :default-license (rx bol "gpl")
-;;;   :substitutions
-;;;   '(("__DESCRIPTION__"
-;;;      . (lambda ()
-;;;          (read-string "Description: ")))))
-;;; 
-;;; (defun skeletor-py--read-python-bin ()
-;;;   "Read a python binary from the user."
-;;;   (->> skeletor-python-bin-search-path
-;;;        (--mapcat
-;;;         (f-files it (lambda (f)
-;;;                       (s-matches? (rx "python" (* (any digit "." "-")) eol)
-;;;                                   f))))
-;;;        (funcall skeletor-completing-read-function "Python binary: ")))
-;;; 
-;;; (defun skeletor-py--read-virtualenv-bin ()
-;;;   "Read a python virtualenv binary from the user."
-;;;   (->> skeletor-python-bin-search-path
-;;;        (--mapcat
-;;;         (f-files it (lambda (f)
-;;;                       (s-matches? (rx "virtualenv" (* (any digit "." "-")) eol)
-;;;                                   f))))
-;;;        (funcall skeletor-completing-read-function "VirtualEnv binary: ")))
-;;; 
-;;; (defun skeletor-py--read-pip-bin ()
-;;;   "Read a python pip binary from the user."
-;;;   (->> skeletor-python-bin-search-path
-;;;        (--mapcat
-;;;         (f-files it (lambda (f)
-;;;                       (s-matches? (rx "pip" (* (any digit "." "-")) eol)
-;;;                                   f))))
-;;; 
-;;;        (funcall skeletor-completing-read-function "PYPI binary: ")))
-;;; 
-;;; (skeletor-define-template "python-library"
-;;;   :title "Python Library"
-;;;   :requires-executables '(("make" . "http://www.gnu.org/software/make/"))
-;;;   :substitutions '(("__PYTHON-BIN__" . skeletor-py--read-python-bin)
-;;;                    ("__VENV-BIN__" . skeletor-py--read-virtualenv-bin)
-;;;                    ("__PIP-BIN__" . skeletor-py--read-pip-bin)
-;;;                    ("__VENV-DIR__" . (lambda () (read-string "Root directory for the Python Virtual Environments: "))))
-;;;   :after-creation
-;;;   (lambda (dir)
-;;;     (skeletor-async-shell-command "make tooling")))
-;;; 
-;;; (defun skeletor-hs--cabal-sandboxes-supported? ()
-;;;   "Non-nil if the installed cabal version supports sandboxes.
-;;; Sandboxes were introduced in cabal 1.18 ."
-;;;   (let ((vers (->> (shell-command-to-string "cabal --version")
-;;;                    (s-match (rx (+ (any num "."))))
-;;;                    car
-;;;                    (s-split (rx "."))
-;;;                    (-map 'string-to-int))))
-;;;     (cl-destructuring-bind (maj min &rest rest) vers
-;;;       (or (< 1 maj) (<= 18 min)))))
-;;; 
-;;; (defun skeletor-hs--post-process-cabal-file (file)
-;;;   "Adjust fields in the cabal file.  FILE is the cabal file path."
-;;;   (with-current-buffer (find-file-noselect file)
-;;;     (goto-char (point-min))
-;;;     ;; Set src dir.
-;;;     (save-excursion
-;;;       (when (search-forward-regexp (rx (* space)
-;;;                                        (group-n 1 "--" (* space))
-;;;                                        "hs-source-dirs:" (* space) eol)
-;;;                                    nil t)
-;;;         (replace-match "" nil nil nil 1)
-;;;         (goto-char (line-end-position))
-;;;         (indent-to 23)
-;;;         (insert "src")))
-;;; 
-;;;     ;; Set main file.
-;;;     (save-excursion
-;;;       (when (search-forward-regexp (rx (* space)
-;;;                                        (group-n 1 "--" (* space))
-;;;                                        "main-is:" (* space) eol)
-;;;                                    nil t)
-;;;         (replace-match "" nil nil nil 1)
-;;;         (goto-char (line-end-position))
-;;;         (indent-to 23)
-;;;         (insert "Main.hs")))
-;;; 
-;;;     (save-buffer)
-;;;     (kill-buffer)))
-;;; 
-;;; (defun skeletor-hs--init-src-file (cabal-file src-dir)
-;;;   "Create either a Main.hs file or a toplevel library file.
-;;; 
-;;; CABAL-FILE is the path to the project's cabal file.
-;;; 
-;;; SRC-DIR is the path to the project src directory."
-;;;   (let* ((executable? (s-contains? "main-is:" (f-read-text cabal-file)))
-;;;          (module-name
-;;;           (if executable?
-;;;               "Main"
-;;;             (->> (f-base (f-parent cabal-file))
-;;;                  s-split-words
-;;;                  (-map 's-capitalize)
-;;;                  (s-join ""))))
-;;;          (path
-;;;           (f-join src-dir
-;;;                   (if executable? "Main.hs" (concat module-name ".hs"))))
-;;;          (str (if executable?
-;;;                   skeletor-hs-main-file-content
-;;;                 (format skeletor-hs-library-file-content-format
-;;;                         module-name)))
-;;;          )
-;;;     (f-write str 'utf-8 path)))
-;;; 
-;;; (skeletor-define-template "haskell-project"
-;;;   :title "Haskell Project (Cabal)"
-;;;   :requires-executables '(("cabal" . "http://www.haskell.org/cabal/"))
-;;;   :no-license? t
-;;;   :before-git
-;;;   (lambda (dir)
-;;;     (when (skeletor-hs--cabal-sandboxes-supported?)
-;;;       (skeletor--log-info "Initialising sandbox...")
-;;;       (skeletor-shell-command "cabal sandbox init"))
-;;; 
-;;;     (skeletor--log-info "Running cabal init...")
-;;;     (skeletor-with-shell-setup "cabal init"
-;;;                                `(lambda ()
-;;;                                   (let* ((proj-root ,dir)
-;;;                                          (cabal-file (car (f-entries proj-root (lambda (f) (equal "cabal" (f-ext f))))))
-;;;                                          (src-dir (f-join proj-root "src")))
-;;;                                     (skeletor-hs--post-process-cabal-file cabal-file)
-;;;                                     (f-mkdir src-dir)
-;;;                                     (skeletor-hs--init-src-file cabal-file src-dir))))))
-;;; 
-;;; (skeletor-define-constructor "Haskell Project (Stack)"
-;;;   :title "Haskell Project (Stack)"
-;;;   :no-license? t
-;;;   :requires-executables '(("stack" . "http://docs.haskellstack.org/en/stable/README.html"))
-;;;   :initialise
-;;;   (lambda (spec)
-;;;     (let-alist spec
-;;;       (skeletor-shell-command (format "stack new %s" (shell-quote-argument .project-name))
-;;;                               .project-dir))))
-;;; 
-;;; (skeletor-define-constructor "Ruby Gem"
-;;;   :requires-executables '(("bundle" . "http://bundler.io"))
-;;;   :no-license? t
-;;;   :no-license? t
-;;;   :initialise
-;;;   (lambda (spec)
-;;;     (let-alist spec
-;;;       (let ((flags (list
-;;;                     "--no-coc" ;; code of conduct
-;;;                     (concat "--test=" (shell-quote-argument
-;;;                                        (funcall skeletor-completing-read-function
-;;;                                                 "Testing framework: " '("minitest" "rspec"))))
-;;;                     (concat "--" (unless (yes-or-no-p "Apply an MIT License") "no-") "mit"))))
-;;;         (skeletor-shell-command (format "bundle gem %s %s"
-;;;                                         (string-join flags " ")
-;;;                                         (shell-quote-argument .project-name))
-;;;                                 .project-dir)))))
-;;; 
-;;; (defvar skeletor-clj--project-types-cache nil
-;;;   "A list of strings representing the available Leiningen templates.")
-;;; 
-;;; (defun skeletor-clj--project-types ()
-;;;   "Parse the project templates known to Leiningen.
-;;; Return a list of strings representing the available templates.
-;;; 
-;;; This is a lengthy operation so the results are cached to
-;;; `skeletor-clj--project-types-cache'."
-;;;   (or skeletor-clj--project-types-cache
-;;;       (let ((types (->> (shell-command-to-string "lein help new")
-;;;                         (s-match
-;;;                          (rx bol "Subtasks available:\n" (group (+? anything)) "\n\n"))
-;;;                         cadr
-;;;                         (s-split "\n")
-;;;                         (--keep (cadr (s-match (rx bol (* space) (group (+ (not space))))
-;;;                                                it))))))
-;;;         (prog1 types
-;;;           (setq skeletor-clj--project-types-cache types)))))
-;;; 
-;;; (skeletor-define-constructor "Clojure Project"
-;;;   :requires-executables '(("lein" . "http://leiningen.org/"))
-;;;   :initialise
-;;;   (lambda (spec)
-;;;     (let-alist spec
-;;;       (message "Finding Leningen templates...")
-;;;       (let ((type (funcall skeletor-completing-read-function
-;;;                            "Template: " (skeletor-clj--project-types) nil t "default")))
-;;;         (skeletor-shell-command (format "lein new %s %s"
-;;;                                         (shell-quote-argument type)
-;;;                                         (shell-quote-argument .project-name))
-;;;                                 .project-dir)))))
-;;; 
-;;; (defun skeletor-scala--version ()
-;;;   "Get the version of the installed scala executable."
-;;;   (or skeletor-scala-version
-;;;       (progn
-;;;         (message "Getting Scala version number...")
-;;;         (let* ((str (shell-command-to-string "scala -version"))
-;;;                (vers (cadr (s-match (rx (+ (not (any digit))) (group (+ (any digit ".")))) str))))
-;;;           (setq skeletor-scala-version vers)
-;;;           vers))))
-;;; 
-;;; (skeletor-define-template "scala-project"
-;;;   :title "Scala Project"
-;;;   :requires-executables '(("scala" . "http://www.scala-lang.org")
-;;;                           ("sbt" . "http://www.scala-sbt.org"))
-;;;   :substitutions '(("__SCALA-VERSION__" . skeletor-scala--version))
-;;;   :after-creation
-;;;   (lambda (dir)
-;;;     (when skeletor-scala-use-ensime
-;;;       (skeletor--log-info "Configuring SBT and ENSIME. This may take a while...")
-;;;       (skeletor-async-shell-command "sbt gen-ensime"))))
+(skeletor-define-template "elisp-package"
+  :title "Elisp Package"
+  :requires-executables '(("make" . "http://www.gnu.org/software/make/")
+                          ("cask" . "https://github.com/cask/cask"))
+  :default-license (rx bol "gpl")
+  :substitutions
+  '(("__DESCRIPTION__"
+     . (lambda ()
+         (read-string "Description: ")))))
+
+(skeletor-define-template "elisp-package-with-docs"
+  :title "Elisp Package (with documentation)"
+  :requires-executables '(("make" . "http://www.gnu.org/software/make/")
+                          ("cask" . "https://github.com/cask/cask"))
+  :default-license (rx bol "gpl")
+  :substitutions
+  '(("__DESCRIPTION__"
+     . (lambda ()
+         (read-string "Description: ")))))
+
+(defun skeletor-py--read-python-bin ()
+  "Read a python binary from the user."
+  (->> skeletor-python-bin-search-path
+       (--mapcat
+        (f-files it (lambda (f)
+                      (s-matches? (rx "python" (* (any digit "." "-")) eol)
+                                  f))))
+       (funcall skeletor-completing-read-function "Python binary: ")))
+
+(defun skeletor-py--read-virtualenv-bin ()
+  "Read a python virtualenv binary from the user."
+  (->> skeletor-python-bin-search-path
+       (--mapcat
+        (f-files it (lambda (f)
+                      (s-matches? (rx "virtualenv" (* (any digit "." "-")) eol)
+                                  f))))
+       (funcall skeletor-completing-read-function "VirtualEnv binary: ")))
+
+(defun skeletor-py--read-pip-bin ()
+  "Read a python pip binary from the user."
+  (->> skeletor-python-bin-search-path
+       (--mapcat
+        (f-files it (lambda (f)
+                      (s-matches? (rx "pip" (* (any digit "." "-")) eol)
+                                  f))))
+
+       (funcall skeletor-completing-read-function "PYPI binary: ")))
+
+(skeletor-define-template "python-library"
+  :title "Python Library"
+  :requires-executables '(("make" . "http://www.gnu.org/software/make/"))
+  :substitutions '(("__PYTHON-BIN__" . skeletor-py--read-python-bin)
+                   ("__VENV-BIN__" . skeletor-py--read-virtualenv-bin)
+                   ("__PIP-BIN__" . skeletor-py--read-pip-bin)
+                   ("__VENV-DIR__" . (lambda () (read-string "Root directory for the Python Virtual Environments: "))))
+  :after-creation
+  (lambda (dir)
+    (skeletor-async-shell-command "make tooling")))
+
+(defun skeletor-hs--cabal-sandboxes-supported? ()
+  "Non-nil if the installed cabal version supports sandboxes.
+Sandboxes were introduced in cabal 1.18 ."
+  (let ((vers (->> (shell-command-to-string "cabal --version")
+                   (s-match (rx (+ (any num "."))))
+                   car
+                   (s-split (rx "."))
+                   (-map 'string-to-int))))
+    (cl-destructuring-bind (maj min &rest rest) vers
+      (or (< 1 maj) (<= 18 min)))))
+
+(defun skeletor-hs--post-process-cabal-file (file)
+  "Adjust fields in the cabal file.  FILE is the cabal file path."
+  (with-current-buffer (find-file-noselect file)
+    (goto-char (point-min))
+    ;; Set src dir.
+    (save-excursion
+      (when (search-forward-regexp (rx (* space)
+                                       (group-n 1 "--" (* space))
+                                       "hs-source-dirs:" (* space) eol)
+                                   nil t)
+        (replace-match "" nil nil nil 1)
+        (goto-char (line-end-position))
+        (indent-to 23)
+        (insert "src")))
+
+    ;; Set main file.
+    (save-excursion
+      (when (search-forward-regexp (rx (* space)
+                                       (group-n 1 "--" (* space))
+                                       "main-is:" (* space) eol)
+                                   nil t)
+        (replace-match "" nil nil nil 1)
+        (goto-char (line-end-position))
+        (indent-to 23)
+        (insert "Main.hs")))
+
+    (save-buffer)
+    (kill-buffer)))
+
+(defun skeletor-hs--init-src-file (cabal-file src-dir)
+  "Create either a Main.hs file or a toplevel library file.
+
+CABAL-FILE is the path to the project's cabal file.
+
+SRC-DIR is the path to the project src directory."
+  (let* ((executable? (s-contains? "main-is:" (f-read-text cabal-file)))
+         (module-name
+          (if executable?
+              "Main"
+            (->> (f-base (f-parent cabal-file))
+                 s-split-words
+                 (-map 's-capitalize)
+                 (s-join ""))))
+         (path
+          (f-join src-dir
+                  (if executable? "Main.hs" (concat module-name ".hs"))))
+         (str (if executable?
+                  skeletor-hs-main-file-content
+                (format skeletor-hs-library-file-content-format
+                        module-name)))
+         )
+    (f-write str 'utf-8 path)))
+
+(skeletor-define-template "haskell-project"
+  :title "Haskell Project (Cabal)"
+  :requires-executables '(("cabal" . "http://www.haskell.org/cabal/"))
+  :no-license? t
+  :before-git
+  (lambda (dir)
+    (when (skeletor-hs--cabal-sandboxes-supported?)
+      (skeletor--log-info "Initialising sandbox...")
+      (skeletor-shell-command "cabal sandbox init"))
+
+    (skeletor--log-info "Running cabal init...")
+    (skeletor-with-shell-setup "cabal init"
+                               `(lambda ()
+                                  (let* ((proj-root ,dir)
+                                         (cabal-file (car (f-entries proj-root (lambda (f) (equal "cabal" (f-ext f))))))
+                                         (src-dir (f-join proj-root "src")))
+                                    (skeletor-hs--post-process-cabal-file cabal-file)
+                                    (f-mkdir src-dir)
+                                    (skeletor-hs--init-src-file cabal-file src-dir))))))
+
+(skeletor-define-constructor "Haskell Project (Stack)"
+  :title "Haskell Project (Stack)"
+  :no-license? t
+  :requires-executables '(("stack" . "http://docs.haskellstack.org/en/stable/README.html"))
+  :initialise
+  (lambda (spec)
+    (let-alist spec
+      (skeletor-shell-command (format "stack new %s" (shell-quote-argument .project-name))
+                              .project-dir))))
+
+(skeletor-define-constructor "Ruby Gem"
+  :requires-executables '(("bundle" . "http://bundler.io"))
+  :no-license? t
+  :no-license? t
+  :initialise
+  (lambda (spec)
+    (let-alist spec
+      (let ((flags (list
+                    "--no-coc" ;; code of conduct
+                    (concat "--test=" (shell-quote-argument
+                                       (funcall skeletor-completing-read-function
+                                                "Testing framework: " '("minitest" "rspec"))))
+                    (concat "--" (unless (yes-or-no-p "Apply an MIT License") "no-") "mit"))))
+        (skeletor-shell-command (format "bundle gem %s %s"
+                                        (string-join flags " ")
+                                        (shell-quote-argument .project-name))
+                                .project-dir)))))
+
+(defvar skeletor-clj--project-types-cache nil
+  "A list of strings representing the available Leiningen templates.")
+
+(defun skeletor-clj--project-types ()
+  "Parse the project templates known to Leiningen.
+Return a list of strings representing the available templates.
+
+This is a lengthy operation so the results are cached to
+`skeletor-clj--project-types-cache'."
+  (or skeletor-clj--project-types-cache
+      (let ((types (->> (shell-command-to-string "lein help new")
+                        (s-match
+                         (rx bol "Subtasks available:\n" (group (+? anything)) "\n\n"))
+                        cadr
+                        (s-split "\n")
+                        (--keep (cadr (s-match (rx bol (* space) (group (+ (not space))))
+                                               it))))))
+        (prog1 types
+          (setq skeletor-clj--project-types-cache types)))))
+
+(skeletor-define-constructor "Clojure Project"
+  :requires-executables '(("lein" . "http://leiningen.org/"))
+  :initialise
+  (lambda (spec)
+    (let-alist spec
+      (message "Finding Leningen templates...")
+      (let ((type (funcall skeletor-completing-read-function
+                           "Template: " (skeletor-clj--project-types) nil t "default")))
+        (skeletor-shell-command (format "lein new %s %s"
+                                        (shell-quote-argument type)
+                                        (shell-quote-argument .project-name))
+                                .project-dir)))))
+
+(defun skeletor-scala--version ()
+  "Get the version of the installed scala executable."
+  (or skeletor-scala-version
+      (progn
+        (message "Getting Scala version number...")
+        (let* ((str (shell-command-to-string "scala -version"))
+               (vers (cadr (s-match (rx (+ (not (any digit))) (group (+ (any digit ".")))) str))))
+          (setq skeletor-scala-version vers)
+          vers))))
+
+(skeletor-define-template "scala-project"
+  :title "Scala Project"
+  :requires-executables '(("scala" . "http://www.scala-lang.org")
+                          ("sbt" . "http://www.scala-sbt.org"))
+  :substitutions '(("__SCALA-VERSION__" . skeletor-scala--version))
+  :after-creation
+  (lambda (dir)
+    (when skeletor-scala-use-ensime
+      (skeletor--log-info "Configuring SBT and ENSIME. This may take a while...")
+      (skeletor-async-shell-command "sbt gen-ensime"))))
 
 (provide 'skeletor)
 

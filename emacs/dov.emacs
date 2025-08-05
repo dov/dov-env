@@ -661,6 +661,7 @@ Optional argument ARG is the same as for `backward-kill-word'."
 
 (load "compile.el")
 (setq compilation-scroll-output 'first-error)
+(setq compile-command "ninja")
 
 ; Encryption
 (require 'epa-file)
