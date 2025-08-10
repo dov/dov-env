@@ -1,12 +1,12 @@
-;;; chatgpt-shell.el --- ChatGPT shell + buffer insert commands  -*- lexical-binding: t -*-
+;;; chatgpt-shell.el --- A family of utilities to interact with LLMs (ChatGPT, Claude, DeepSeek, Gemini, Kagi, Ollama, Perplexity)  -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2023 Alvaro Ramirez
 
 ;; Author: Alvaro Ramirez https://xenodium.com
 ;; URL: https://github.com/xenodium/chatgpt-shell
-;; Version: 1.4.1
-;; Package-Requires: ((emacs "27.1") (shell-maker "0.51.1"))
-(defconst chatgpt-shell--version "1.4.1")
+;; Version: 2.17.1
+;; Package-Requires: ((emacs "28.1") (shell-maker "0.76.3"))
+(defconst chatgpt-shell--version "2.17.1")
 
 ;; This package is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -23,45 +23,67 @@
 
 ;;; Commentary:
 
-;; `chatgpt-shell' is a comint-based ChatGPT shell for Emacs.
+;; `chatgpt-shell' provides utilities to interact with LLMS.
 ;;
-;; You must set `chatgpt-shell-openai-key' to your key before using.
+;; At its core, it provides a comint-based shell for multiple cloud or local
+;; LLM services (ChatGPT, Claude, Gemini, Kagi, Ollama, Perplexity).
 ;;
-;; Run `chatgpt-shell' to get a ChatGPT shell.
+;; M-x `chatgpt-shell-prompt-compose'
 ;;
-;; Note: This is young package still.  Please report issues or send
-;; patches to https://github.com/xenodium/chatgpt-shell
+;; Compose offers a shell-hybrid interface enabling more efficient
+;; LLM interactions.
+;;
+;; This package also provides integrations like the following (amongst others):
+;;
+;; M-x `chatgpt-shell-quick-insert'
+;; M-x `chatgpt-shell-proofread-region'
+;; M-x `chatgpt-shell-describe-image'
+;; M-x `chatgpt-shell-japanese-lookup'
+;;
+;; You must set an API key for most cloud services.  Check out:
+;;
+;;   `chatgpt-shell-anthropic-key'.
+;;   `chatgpt-shell-deepseek-key'
+;;   `chatgpt-shell-google-key'.
+;;   `chatgpt-shell-kagi-key'.
+;;   `chatgpt-shell-openai-key'.
+;;   `chatgpt-shell-openrouter-key'
+;;   `chatgpt-shell-perplexity-key'.
+;;
+;; Alternatively, local services like Ollama do not require an API key.
+;;
+;; Run `chatgpt-shell' to open an LLM shell.
+;;
+;; Please report issues or send patches to
+;; https://github.com/xenodium/chatgpt-shell
 ;;
 ;; Support the work https://github.com/sponsors/xenodium
 
 ;;; Code:
 
-(require 'cl-lib)
+(eval-when-compile
+  (require 'cl-lib))
 (require 'dired)
 (require 'esh-mode)
+(require 'em-prompt)
 (require 'eshell)
 (require 'find-func)
 (require 'flymake)
 (require 'ielm)
 (require 'shell-maker)
+(require 'smerge-mode)
+(require 'ob-core)
+(require 'color)
 
-(defcustom chatgpt-shell-openai-key nil
-  "OpenAI key as a string or a function that loads and returns it."
-  :type '(choice (function :tag "Function")
-                 (string :tag "String"))
-  :group 'chatgpt-shell)
-
-(defcustom chatgpt-shell-additional-curl-options nil
-  "Additional options for `curl' command."
-  :type '(repeat (string :tag "String"))
-  :group 'chatgpt-shell)
-
-(defcustom chatgpt-shell-auth-header
-  (lambda ()
-    (format "Authorization: Bearer %s" (chatgpt-shell-openai-key)))
-  "Function to generate the request's `Authorization' header string."
-  :type '(function :tag "Function")
-  :group 'chatgpt-shell)
+(require 'chatgpt-shell-anthropic)
+(require 'chatgpt-shell-deepseek)
+(require 'chatgpt-shell-google)
+(require 'chatgpt-shell-kagi)
+(require 'chatgpt-shell-ollama)
+(require 'chatgpt-shell-openai)
+(require 'chatgpt-shell-openrouter)
+(require 'chatgpt-shell-perplexity)
+(require 'chatgpt-shell-prompt-compose)
 
 (defcustom chatgpt-shell-request-timeout 600
   "How long to wait for a request to time out in seconds."
@@ -106,8 +128,12 @@
   :group 'chatgpt-shell)
 
 (defcustom chatgpt-shell-prompt-header-proofread-region
-  "Please help me proofread the following text with English:"
-  "Promt header of `proofread-region`."
+  "Please help me proofread the following English text and only reply with fixed text.
+Output just the proofread text without any intro, comments, or explanations.
+If the original text was indented on the left, preserve the same amount of spacing in your response:
+
+"
+  "Prompt header used by `chatgpt-shell-proofread-region`."
   :type 'string
   :group 'chatgpt-shell)
 
@@ -145,11 +171,13 @@ post execution.
 For example:
 
 \(add-hook `chatgpt-shell-after-command-functions'
-   (lambda (command output)
+   (lambda (command output success)
      (message \"Command: %s\" command)
      (message \"Output: %s\" output)))"
   :type 'hook
   :group 'shell-maker)
+
+(defvaralias 'chatgpt-shell-swap-model-version 'chatgpt-shell-swap-model)
 
 (defvaralias 'chatgpt-shell-display-function 'shell-maker-display-function)
 
@@ -205,39 +233,41 @@ Please submit contributions so more things work out of the box."
 
 Can be used compile or run source block at point."
   :type '(alist :key-type (string :tag "Language")
-                :value-type (list (cons (const 'primary-action-confirmation) (string :tag "Confirmation Prompt:"))
-                                  (cons (const 'primary-action) (function :tag "Action:"))))
+                :value-type (list (cons (const primary-action-confirmation) (string :tag "Confirmation Prompt:"))
+                                  (cons (const primary-action) (function :tag "Action:"))))
   :group 'chatgpt-shell)
 
-(defcustom chatgpt-shell-model-versions
-  '("gpt-4o"
-    "gpt-4-0125-preview"
-    "gpt-4-turbo-preview"
-    "gpt-4-1106-preview"
-    "gpt-4-0613"
-    "gpt-4"
-    "gpt-3.5-turbo-16k-0613"
-    "gpt-3.5-turbo-16k"
-    "gpt-3.5-turbo-0613"
-    "gpt-3.5-turbo")
-  "The list of ChatGPT OpenAI models to swap from.
+(defun chatgpt-shell--make-default-models ()
+  "Create a list of default models by combining models from different providers.
 
-The list of models supported by /v1/chat/completions endpoint is
-documented at
-https://platform.openai.com/docs/models/model-endpoint-compatibility."
-  :type '(repeat string)
+This function aggregates models from OpenAI, Anthropic, Google, and Ollama.
+It returns a list containing all available models from these providers."
+  (append (chatgpt-shell-anthropic-models)
+          (chatgpt-shell-deepseek-models)
+          (chatgpt-shell-google-models)
+          (chatgpt-shell-kagi-models)
+          (chatgpt-shell-ollama-models)
+          (chatgpt-shell-openai-models)
+          (chatgpt-shell-openrouter-models)
+          (chatgpt-shell-perplexity-models)))
+
+(defcustom chatgpt-shell-models
+  (chatgpt-shell--make-default-models)
+  "The list of supported models to swap from.
+
+See `chatgpt-shell-openai-models',
+    `chatgpt-shell-anthropic-models'
+    `chatgpt-shell-ollama-models'
+    `chatgpt-shell-google-models' for details."
+  :type '(repeat (alist :key-type symbol :value-type sexp))
   :group 'chatgpt-shell)
 
-(defcustom chatgpt-shell-model-version 0
-  "The active ChatGPT OpenAI model index.
+(defcustom chatgpt-shell-model-version nil
+  "The active model version as either a string.
 
-See `chatgpt-shell-model-versions' for available model versions.
+See `chatgpt-shell-models' for available model versions.
 
-Swap using `chatgpt-shell-swap-model-version'.
-
-The list of models supported by /v1/chat/completions endpoint is
-documented at
-https://platform.openai.com/docs/models/model-endpoint-compatibility."
+Swap using `chatgpt-shell-swap-model'."
   :type '(choice (string :tag "String")
                  (integer :tag "Integer")
                  (const :tag "Nil" nil))
@@ -291,6 +321,17 @@ for details."
                         Always show code snippets in markdown blocks with language labels.
                         Don't explain code snippets.
                         Whenever you output updated code for the user, only show diffs, instead of entire snippets."))
+    ("Mathematics" . "The user is a mathematician with very limited time.
+                      You treat their time as precious. You do not repeat obvious things, including their query.
+                      You are as concise as possible in responses.
+                      You never apologize for confusions because it would waste their time.
+                      All mathematical outputs must be in proper LaTeX format.
+                      Use \\( and \\( for in-line equations, and \\[ and \\] for equation environments.
+                      All mathematical delimiters must be on their own line.
+                      All mathematical outputs are formally expressed in formal mathematical notation.
+                      Don't give approximations or pronunciations for constants or variables.
+                      You give formal definitions for all variables.
+                      You keep your answers succinct and to-the-point.")
     ("Positive Programming" . ,(chatgpt-shell--append-system-info
                                 "Your goal is to help the user become an amazing computer programmer.
                                  You are positive and encouraging.
@@ -305,7 +346,20 @@ for details."
                      You treat their time as precious. You do not repeat obvious things, including their query.
                      You are as concise as possible in responses.
                      You never apologize for confusions because it would waste their time.
-                     You use markdown liberally to structure responses.")))
+                     You use markdown liberally to structure responses."))
+    ("SwiftUI" . ,(chatgpt-shell--append-system-info
+                   "You are a helpful assistant that generates concise, idiomatic SwiftUI views. Always follow these guidelines:
+
+1. Generate a SwiftUI ContentView.
+2. Never import SwiftUI.
+3. Ensure code is compatible with devices running iOS 15 or later.
+4. Use the `@State`, `@Binding`, or `@ObservedObject` property wrappers where applicable.
+5. Assume that all Text should be scalable  (e.g., `.font(.body)` or `.dynamicTypeSize(.large)`).
+6. When creating custom views, ensure layout is responsive across screen sizes using `.frame`, `.padding()`, `.alignmentGuide()`, or `.geometryReader`.
+7. Add a structured comment explaining the purpose of the view at the top.
+8. Do not include ContentView_Previews or @main structs.
+9. Label markdown source blocks as swiftui.
+10. Omit all explanations and code comments.")))
 
   "List of system prompts to choose from.
 
@@ -330,13 +384,40 @@ Or nil if none."
 
 (defun chatgpt-shell-model-version ()
   "Return active model version."
-  (cond ((stringp chatgpt-shell-model-version)
+  (when (boundp 'chatgpt-shell-model-versions)
+    (error (concat "\"chatgpt-shell-model-versions\" no longer supported. "
+                   "Please unset or migrate to \"chatgpt-shell-models\".")))
+  (cond ((not chatgpt-shell-model-version)
+         ;; No default model set, find one that's cleared for sending commands.
+         (if-let* ((cleared-model (seq-find (lambda (model)
+                                              (cond ((not (map-elt model :validate-command))
+                                                     t)
+                                                    ((and (map-elt model :validate-command)
+                                                          (not (funcall (map-elt model :validate-command)
+                                                                        "hello" model nil)))
+                                                     t)
+                                                    (t
+                                                     nil)))
+                                            chatgpt-shell-models))
+                   (model-version (map-elt cleared-model :version)))
+             model-version
+           (if (map-elt (seq-first chatgpt-shell-models) :version)
+               (map-elt (seq-first chatgpt-shell-models) :version)
+             (error "Could not find a model.  Missing model setup?"))))
+        ((stringp chatgpt-shell-model-version)
          chatgpt-shell-model-version)
         ((integerp chatgpt-shell-model-version)
-         (nth chatgpt-shell-model-version
-              chatgpt-shell-model-versions))
+         (let ((model (nth chatgpt-shell-model-version
+                           chatgpt-shell-models)))
+           (cond ((stringp model)
+                  model)
+                 ((stringp (map-elt model :version))
+                  (map-elt model :version))
+                 (t
+                  (error "Don't know how to resolve model to version %s"
+                         chatgpt-shell-model-version)))))
         (t
-         nil)))
+         (error "Could not find a model.  Missing model setup?"))))
 
 (defun chatgpt-shell-system-prompt ()
   "Return active system prompt."
@@ -362,10 +443,20 @@ Or nil if none."
         (push key seen)))
     duplicates))
 
+(defun chatgpt-shell-validate-no-system-prompt (command model settings)
+  "Perform validation for COMMAND with MODEL and SETTINGS.
+Then enforce that there is no system prompt.  This is useful for models like
+OpenAI's o1 that do not allow one."
+    (or (chatgpt-shell-openai--validate-command command model settings)
+        (when (map-elt settings :system-prompt)
+          (format "Model \"%s\" does not support system prompts. Please unset via \"M-x chatgpt-shell-swap-system-prompt\" by selecting None."
+                  (map-elt model :version)))))
+
+;;;###autoload
 (defun chatgpt-shell-swap-system-prompt ()
   "Swap system prompt from `chatgpt-shell-system-prompts'."
   (interactive)
-  (unless (eq major-mode 'chatgpt-shell-mode)
+  (unless (derived-mode-p 'chatgpt-shell-mode)
     (user-error "Not in a shell"))
   (when-let ((duplicates (chatgpt-shell-duplicate-map-keys chatgpt-shell-system-prompts)))
     (user-error "Duplicate prompt names found %s. Please remove" duplicates))
@@ -384,65 +475,169 @@ Or nil if none."
   (chatgpt-shell-interrupt nil)
   (chatgpt-shell--save-variables))
 
+(defun chatgpt-shell--load-awesome-prompts-parse-alist ()
+  "Helper function for `claude-shell-load-awesome-prompts'.
+
+Download awesome-prompts and parse into a list of label and
+prompt cons."
+  (let ((url "https://raw.githubusercontent.com/f/awesome-chatgpt-prompts/main/prompts.csv")
+        (collector '()))
+    (with-current-buffer (url-retrieve-synchronously url)
+
+      (goto-char (if (boundp 'url-http-end-of-headers)
+                     url-http-end-of-headers
+                   (error "`url-http-end-of-headers' marker is not defined")))
+
+      (forward-line 2)
+      (while (not (eobp))
+        (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+               (split (split-string line "," 'nil "\""))
+               (head (car split))
+               (tail (apply #'concat (cdr split))))
+          (push (cons head tail) collector)
+          (forward-line 1))))
+    collector))
+
+;;;###autoload
 (defun chatgpt-shell-load-awesome-prompts ()
   "Load `chatgpt-shell-system-prompts' from awesome-chatgpt-prompts.
 
 Downloaded from https://github.com/f/awesome-chatgpt-prompts."
   (interactive)
-  (unless (fboundp 'pcsv-parse-file)
-    (user-error "Please install pcsv"))
-  (require 'pcsv)
-  (let ((csv-path (concat (temporary-file-directory) "awesome-chatgpt-prompts.csv")))
-    (url-copy-file "https://raw.githubusercontent.com/f/awesome-chatgpt-prompts/main/prompts.csv"
-                   csv-path t)
+  (let ((prompts (chatgpt-shell--load-awesome-prompts-parse-alist)))
     (setq chatgpt-shell-system-prompts
-         (map-merge 'list
-                    chatgpt-shell-system-prompts
-                    ;; Based on Daniel Gomez's parsing code from
-                    ;; https://github.com/xenodium/chatgpt-shell/issues/104
-                    (seq-sort (lambda (rhs lhs)
-                                (string-lessp (car rhs)
-                                              (car lhs)))
-                              (cdr
-                               (mapcar
-                                (lambda (row)
-                                  (cons (car row)
-                                        (cadr row)))
-                                (pcsv-parse-file csv-path))))))
+          (map-merge 'list
+                     chatgpt-shell-system-prompts
+                     (seq-sort (lambda (lhs rhs) (string-lessp (car lhs) (car rhs))) prompts)))
     (message "Loaded awesome-chatgpt-prompts")
     (setq chatgpt-shell-system-prompt nil)
     (chatgpt-shell--update-prompt t)
     (chatgpt-shell-interrupt nil)
     (chatgpt-shell-swap-system-prompt)))
 
+;;;###autoload
 (defun chatgpt-shell-version ()
   "Show `chatgpt-shell' mode version."
   (interactive)
   (message "chatgpt-shell v%s" chatgpt-shell--version))
 
-(defun chatgpt-shell-swap-model-version ()
-  "Swap model version from `chatgpt-shell-model-versions'."
+(defun chatgpt-shell-reload-default-models ()
+  "Reload all available models."
   (interactive)
-  (unless (eq major-mode 'chatgpt-shell-mode)
-    (user-error "Not in a shell"))
-  (setq-local chatgpt-shell-model-version
-              (completing-read "Model version: "
-                               (if (> (length chatgpt-shell-model-versions) 1)
-                                   (seq-remove
-                                    (lambda (item)
-                                      (string-equal item (chatgpt-shell-model-version)))
-                                    chatgpt-shell-model-versions)
-                                 chatgpt-shell-model-versions) nil t))
-  (chatgpt-shell--update-prompt t)
-  (chatgpt-shell-interrupt nil))
+  (setq chatgpt-shell-models (chatgpt-shell--make-default-models))
+  (message "Reloaded %d models" (length chatgpt-shell-models)))
+
+(defcustom chatgpt-shell-swap-model-filter nil
+  "Filter models to swap from using this function as a filter.
+
+See `chatgpt-shell-allow-model-versions' and
+`chatgpt-shell-ignore-model-versions' as examples."
+  :type 'function
+  :group 'chatgpt-shell)
+
+(defcustom chatgpt-shell-swap-model-selector nil
+  "Custom function to select a model during swap.
+
+This would allow a user to sort, group, filter, present a different selection
+user experience, attach affixations, and so on.  An example:
+
+  (setq chatgpt-shell-swap-model-selector
+        (lambda (candidates)
+          (completing-read \"New model: \"
+                           (my-custom-model-completion-table candidates) nil t)))
+
+See also `chatgpt-shell-swap-model'."
+  :type 'function
+  :group 'chatgpt-shell)
+
+(defun chatgpt-shell-allow-model-versions (versions)
+  "Return a filter function to keep known model VERSIONS only.
+
+Use with `chatgpt-shell-swap-model-filter'."
+  (lambda (models)
+    (seq-filter (lambda (model)
+                  (member (map-elt model :version) versions))
+                models)))
+
+(defun chatgpt-shell-ignore-model-versions (versions)
+  "Return a filter function to drop model VERSIONS.
+
+Use with `chatgpt-shell-swap-model-filter'."
+  (lambda (models)
+    (seq-filter (lambda (model)
+                  (not (member (map-elt model :version) versions)))
+                models)))
+
+(defun chatgpt-shell-swap-model ()
+  "Swap model version from `chatgpt-shell-models'.
+
+To select a model, it uses `chatgpt-shell-swap-model-selector' if
+non-nil; otherwise `completing-read'."
+  (interactive)
+  (when (and (boundp 'chatgpt-shell-model-filter)
+             chatgpt-shell-model-filter)
+    (user-error "Variable chatgpt-shell-model-filter is retired.  Please use chatgpt-shell-swap-model-filter"))
+  (if-let* ((last-label (chatgpt-shell--model-label))
+            (width (let ((width))
+                     (mapc (lambda (model)
+                             (unless width
+                               (setq width 0))
+                             (when-let ((provider (map-elt model :provider))
+                                        (provider-width (length (map-elt model :provider)))
+                                        (longer (> provider-width width)))
+                               (setq width provider-width)))
+                           chatgpt-shell-models)
+                     width))
+            (models (seq-map (lambda (model)
+                               (format (format "%%-%ds   %%s" width)
+                                       (map-elt model :provider)
+                                       (map-elt model :version)))
+                             (if chatgpt-shell-swap-model-filter
+                                 (funcall chatgpt-shell-swap-model-filter chatgpt-shell-models)
+                               chatgpt-shell-models)))
+            (selection (nth 1 (split-string (if chatgpt-shell-swap-model-selector
+                                                (funcall chatgpt-shell-swap-model-selector models)
+                                              (completing-read "Model version: "
+                                                               models nil t))))))
+      (progn
+        (when (derived-mode-p 'chatgpt-shell-mode)
+          (setq-local chatgpt-shell-model-version selection)
+          (chatgpt-shell--update-prompt t)
+          (chatgpt-shell-interrupt nil)
+          (unless (equal last-label (chatgpt-shell--model-label))
+            (chatgpt-shell-clear-buffer)))
+        (setq-default chatgpt-shell-model-version selection))
+    (error "No other providers found")))
 
 (defcustom chatgpt-shell-streaming t
   "Whether or not to stream ChatGPT responses (show chunks as they arrive)."
   :type 'boolean
   :group 'chatgpt-shell)
 
+(defcustom chatgpt-shell-proxy nil
+  "When non-nil, use as a proxy (for example http or socks5)."
+  :type 'string
+  :group 'chatgpt-shell)
+
+(defun chatgpt-shell--model-settings ()
+  "Variable model settings.
+
+See `chatgpt-shell-streaming'
+    `chatgpt-shell-model-temperature'
+    variable `chatgpt-shell-system-prompt'."
+  (list (cons :streaming chatgpt-shell-streaming)
+        (cons :temperature chatgpt-shell-model-temperature)
+        (cons :system-prompt (chatgpt-shell-system-prompt))))
+
 (defcustom chatgpt-shell-highlight-blocks t
   "Whether or not to highlight source blocks."
+  :type 'boolean
+  :group 'chatgpt-shell)
+
+(defcustom chatgpt-shell-render-latex nil
+  "Whether or not to render LaTeX blocks (experimental).
+
+Experimental.  Please report issues."
   :type 'boolean
   :group 'chatgpt-shell)
 
@@ -480,26 +675,6 @@ window."
                  (function :tag "Function"))
   :group 'chatgpt-shell)
 
-(defcustom chatgpt-shell-api-url-base "https://api.openai.com"
-  "OpenAI API's base URL.
-
-`chatgpt-shell--api-url' =
-   `chatgpt-shell--api-url-base' + `chatgpt-shell--api-url-path'
-
-If you use ChatGPT through a proxy service, change the URL base."
-  :type 'string
-  :safe #'stringp
-  :group 'chatgpt-shell)
-
-(defcustom chatgpt-shell-api-url-path "/v1/chat/completions"
-  "OpenAI API's URL path.
-
-`chatgpt-shell--api-url' =
-   `chatgpt-shell--api-url-base' + `chatgpt-shell--api-url-path'"
-  :type 'string
-  :safe #'stringp
-  :group 'chatgpt-shell)
-
 (defcustom chatgpt-shell-welcome-function #'shell-maker-welcome-message
   "Function returning welcome message or nil for no message.
 
@@ -511,38 +686,37 @@ See `shell-maker-welcome-message' as an example."
   (make-shell-maker-config
    :name "ChatGPT"
    :validate-command
-   (lambda (_command)
-     (unless chatgpt-shell-openai-key
-       "Variable `chatgpt-shell-openai-key' needs to be set to your key.
-
-Try M-x set-variable chatgpt-shell-openai-key
-
-or
-
-(setq chatgpt-shell-openai-key \"my-key\")"))
+   (lambda (command)
+     (when-let* ((model (chatgpt-shell--resolved-model))
+                 (settings (chatgpt-shell--model-settings))
+                 (validate-command (map-elt model :validate-command)))
+       (funcall validate-command command model settings)))
    :execute-command
-   (lambda (_command history callback error-callback)
-     (shell-maker-async-shell-command
-      (chatgpt-shell--make-curl-request-command-list
-       (chatgpt-shell--make-payload history))
-      chatgpt-shell-streaming
-      #'chatgpt-shell--extract-chatgpt-response
-      callback
-      error-callback))
+   (lambda (command shell)
+     (if-let* ((model (chatgpt-shell--resolved-model))
+               (handler (map-elt model :handler)))
+         (funcall handler
+                  :model model
+                  :command command
+                  :context (chatgpt-shell-crop-context
+                            :model model
+                            :command command
+                            :context (map-elt shell :history))
+                  :shell shell
+                  :settings (chatgpt-shell--model-settings))
+       (error "%s not found" (chatgpt-shell-model-version))))
    :on-command-finished
-   (lambda (command output)
+   (lambda (command output success)
      (chatgpt-shell--put-source-block-overlays)
      (run-hook-with-args 'chatgpt-shell-after-command-functions
-                         command output))
+                         command output success))
    :redact-log-output
    (lambda (output)
-     (if (chatgpt-shell-openai-key)
-         (replace-regexp-in-string (regexp-quote (chatgpt-shell-openai-key))
-                                   "SK-REDACTED-OPENAI-KEY"
+     (if-let ((key (map-elt (chatgpt-shell--resolved-model) :key)))
+         (replace-regexp-in-string (regexp-quote (funcall key))
+                                   "SK-REDACTED-PROVIDER-KEY"
                                    output)
        output))))
-
-(defalias 'chatgpt-shell-clear-buffer #'comint-clear-buffer)
 
 (defalias 'chatgpt-shell-explain-code #'chatgpt-shell-describe-code)
 
@@ -550,6 +724,31 @@ or
 (defalias 'chatgpt-shell-mode #'text-mode)
 
 (shell-maker-define-major-mode chatgpt-shell--config)
+
+;; Implementation generated by shell-maker
+(declare-function chatgpt-shell-clear-buffer "chatgpt-shell")
+
+(cl-defun chatgpt-shell--resolved-model (&key versioned)
+  "Resolve model VERSIONED name."
+  (seq-find (lambda (model)
+              (equal (map-elt model :version)
+                     (or versioned (chatgpt-shell-model-version))))
+            chatgpt-shell-models))
+
+(cl-defun chatgpt-shell--make-payload (&key version context streaming temperature system-prompt)
+  "Create a payload for model with VERSION.
+
+Set CONTEXT, STREAMING, TEMPERATURE, and SYSTEM-PROMPT as usual."
+  (let* ((model (chatgpt-shell--resolved-model :versioned version))
+         (settings (list (cons :streaming streaming)
+                         (cons :temperature temperature)
+                         (cons :system-prompt system-prompt)))
+         (payload (or (map-elt model :payload)
+                      (error "Model :payload not found"))))
+    (funcall payload
+             :model model
+             :context context
+             :settings settings)))
 
 ;;;###autoload
 (defun chatgpt-shell (&optional new-session)
@@ -559,14 +758,25 @@ With NEW-SESSION, start a new session."
   (interactive "P")
   (chatgpt-shell-start nil new-session))
 
-(defun chatgpt-shell-start (&optional no-focus new-session)
+(defvar chatgpt-shell-mode-map (make-sparse-keymap)
+  "Keymap for `chatgpt-shell-mode'.")
+
+(defun chatgpt-shell-start (&optional no-focus new-session ignore-as-primary model-version system-prompt)
   "Start a ChatGPT shell programmatically.
 
 Set NO-FOCUS to start in background.
 
-Set NEW-SESSION to start a separate new session."
+Set NEW-SESSION to start a separate new session.
+
+Set IGNORE-AS-PRIMARY to avoid making new buffer the primary one.
+
+Set MODEL-VERSION to override variable `chatgpt-shell-model-version'.
+
+Set SYSTEM-PROMPT to override variable `chatgpt-shell-system-prompt'"
   (let* ((chatgpt-shell--config
-          (let ((config (copy-sequence chatgpt-shell--config)))
+          (let ((config (copy-sequence chatgpt-shell--config))
+                (chatgpt-shell-model-version (or model-version chatgpt-shell-model-version))
+                (chatgpt-shell-system-prompt (or system-prompt chatgpt-shell-system-prompt)))
             (setf (shell-maker-config-prompt config)
                   (car (chatgpt-shell--prompt-pair)))
             (setf (shell-maker-config-prompt-regexp config)
@@ -577,42 +787,42 @@ Set NEW-SESSION to start a separate new session."
                              no-focus
                              chatgpt-shell-welcome-function
                              new-session
-                             (if (chatgpt-shell--primary-buffer)
+                             (if (and (chatgpt-shell--primary-buffer)
+                                      (not ignore-as-primary))
                                  (buffer-name (chatgpt-shell--primary-buffer))
-                               (chatgpt-shell--make-buffer-name)))))
-    (unless (chatgpt-shell--primary-buffer)
+                               (chatgpt-shell--make-buffer-name))
+                             "LLM")))
+    (when (and (not ignore-as-primary)
+               (not (chatgpt-shell--primary-buffer)))
       (chatgpt-shell--set-primary-buffer shell-buffer))
-    (let ((version chatgpt-shell-model-version)
-          (system-prompt chatgpt-shell-system-prompt))
-      (with-current-buffer shell-buffer
-        (setq-local chatgpt-shell-model-version version)
-        (setq-local chatgpt-shell-system-prompt system-prompt)
-        (chatgpt-shell--update-prompt t)
-        (chatgpt-shell--add-menus)))
-    ;; Disabling advice for now. It gets in the way.
-    ;; (advice-add 'keyboard-quit :around #'chatgpt-shell--adviced:keyboard-quit)
+    (unless model-version
+      (setq model-version chatgpt-shell-model-version))
+    (unless system-prompt
+      (setq system-prompt chatgpt-shell-system-prompt))
+    (with-current-buffer shell-buffer
+      (setq-local chatgpt-shell-model-version model-version)
+      (setq-local chatgpt-shell-system-prompt system-prompt)
+      (chatgpt-shell--update-prompt t)
+      (chatgpt-shell--add-menus))
     (define-key chatgpt-shell-mode-map (kbd "C-M-h")
       #'chatgpt-shell-mark-at-point-dwim)
     (define-key chatgpt-shell-mode-map (kbd "C-c C-c")
       #'chatgpt-shell-ctrl-c-ctrl-c)
     (define-key chatgpt-shell-mode-map (kbd "C-c C-v")
-      #'chatgpt-shell-swap-model-version)
+      #'chatgpt-shell-swap-model)
     (define-key chatgpt-shell-mode-map (kbd "C-c C-s")
       #'chatgpt-shell-swap-system-prompt)
     (define-key chatgpt-shell-mode-map (kbd "C-c C-p")
       #'chatgpt-shell-previous-item)
+    (define-key chatgpt-shell-mode-map (kbd "<backtab>")
+      #'chatgpt-shell-previous-item)
     (define-key chatgpt-shell-mode-map (kbd "C-c C-n")
+      #'chatgpt-shell-next-item)
+    (define-key chatgpt-shell-mode-map (kbd "<tab>")
       #'chatgpt-shell-next-item)
     (define-key chatgpt-shell-mode-map (kbd "C-c C-e")
       #'chatgpt-shell-prompt-compose)
     shell-buffer))
-
-(defun chatgpt-shell--shrink-model-version (model-version)
-  "Shrink MODEL-VERSION.  gpt-3.5-turbo -> 3.5t."
-  (replace-regexp-in-string
-   "-turbo" "t"
-   (string-remove-prefix
-    "gpt-" (string-trim model-version))))
 
 (defun chatgpt-shell--shrink-system-prompt (prompt)
   "Shrink PROMPT."
@@ -626,8 +836,7 @@ Set NEW-SESSION to start a separate new session."
 (defun chatgpt-shell--shell-info ()
   "Generate shell info for display."
   (concat
-   (chatgpt-shell--shrink-model-version
-    (chatgpt-shell-model-version))
+   (chatgpt-shell--model-short-version)
    (cond ((and (integerp chatgpt-shell-system-prompt)
                (nth chatgpt-shell-system-prompt
                     chatgpt-shell-system-prompts))
@@ -638,11 +847,31 @@ Set NEW-SESSION to start a separate new session."
          (t
           ""))))
 
+(defun chatgpt-shell--model-label ()
+  "Return the current model label."
+  (or (map-elt (chatgpt-shell--resolved-model) :label)
+      "Unknown"))
+
+(defun chatgpt-shell--model-short-version ()
+  "Return the current model short version."
+  (or (map-elt (chatgpt-shell--resolved-model) :short-version)
+      (map-elt (chatgpt-shell--resolved-model) :version)
+      "unknown"))
+
 (defun chatgpt-shell--prompt-pair ()
   "Return a pair with prompt and prompt-regexp."
-  (cons
-   (format "ChatGPT(%s)> " (chatgpt-shell--shell-info))
-   (rx (seq bol "ChatGPT" (one-or-more (not (any "\n"))) ">" (or space "\n")))))
+  (let* ((label (chatgpt-shell--model-label)))
+    (cons
+     (format "%s(%s)> " label (chatgpt-shell--shell-info))
+     (chatgpt-shell--prompt-regexp))))
+
+(defun chatgpt-shell--prompt-regexp ()
+  "Return a regexp to match any model prompt."
+  (rx bol
+      (one-or-more alphanumeric)
+      "("
+      (minimal-match (one-or-more not-newline))
+      ")> "))
 
 (defun chatgpt-shell--shell-buffers ()
   "Return a list of all shell buffers."
@@ -655,9 +884,12 @@ Set NEW-SESSION to start a separate new session."
 (defun chatgpt-shell-set-as-primary-shell ()
   "Set as primary shell when there are multiple sessions."
   (interactive)
-  (unless (eq major-mode 'chatgpt-shell-mode)
+  (unless (derived-mode-p 'chatgpt-shell-mode)
     (user-error "Not in a shell"))
   (chatgpt-shell--set-primary-buffer (current-buffer)))
+
+(defvar-local chatgpt-shell--is-primary-p nil
+  "Non-nil if shell buffer is considered primary.")
 
 (defun chatgpt-shell--set-primary-buffer (primary-shell-buffer)
   "Set PRIMARY-SHELL-BUFFER as primary buffer."
@@ -687,20 +919,20 @@ This is used for sending a prompt to in the background."
                                    t
                                    chatgpt-shell-welcome-function
                                    t
-                                   (chatgpt-shell--make-buffer-name))))
+                                   (chatgpt-shell--make-buffer-name)
+                                   "LLM")))
       (chatgpt-shell--set-primary-buffer primary-shell-buffer))
     primary-shell-buffer))
 
 (defun chatgpt-shell--make-buffer-name ()
   "Generate a buffer name using current shell config info."
-  (format "%s %s"
-          (shell-maker-buffer-default-name
-           (shell-maker-config-name chatgpt-shell--config))
+  (format "*%s llm (%s)*"
+          (downcase (chatgpt-shell--model-label))
           (chatgpt-shell--shell-info)))
 
 (defun chatgpt-shell--add-menus ()
   "Add ChatGPT shell menu items."
-  (unless (eq major-mode 'chatgpt-shell-mode)
+  (unless (derived-mode-p 'chatgpt-shell-mode)
     (user-error "Not in a shell"))
   (when-let ((duplicates (chatgpt-shell-duplicate-map-keys chatgpt-shell-system-prompts)))
     (user-error "Duplicate prompt names found %s. Please remove.?" duplicates))
@@ -712,10 +944,10 @@ This is used for sending a prompt to in the background."
                      (lambda ()
                        (interactive)
                        (setq-local chatgpt-shell-model-version
-                                   (seq-position chatgpt-shell-model-versions ,version))
+                                   (seq-position chatgpt-shell-models ,version))
                        (chatgpt-shell--update-prompt t)
                        (chatgpt-shell-interrupt nil))])
-                 chatgpt-shell-model-versions))
+                 chatgpt-shell-models))
       ("Prompts"
        ,@(mapcar (lambda (prompt)
                    `[,(car prompt)
@@ -730,10 +962,10 @@ This is used for sending a prompt to in the background."
   (easy-menu-add chatgpt-shell-system-prompts-menu))
 
 (defun chatgpt-shell--update-prompt (rename-buffer)
-  "Update prompt and prompt regexp from `chatgpt-shell-model-versions'.
+  "Update prompt and prompt regexp from `chatgpt-shell-models'.
 
 Set RENAME-BUFFER to also rename the buffer accordingly."
-  (unless (eq major-mode 'chatgpt-shell-mode)
+  (unless (derived-mode-p 'chatgpt-shell-mode)
     (user-error "Not in a shell"))
   (shell-maker-set-prompt
    (car (chatgpt-shell--prompt-pair))
@@ -743,13 +975,6 @@ Set RENAME-BUFFER to also rename the buffer accordingly."
      (current-buffer)
      (chatgpt-shell--make-buffer-name))))
 
-(defun chatgpt-shell--adviced:keyboard-quit (orig-fun &rest args)
-  "Advice around `keyboard-quit' interrupting active shell.
-
-Applies ORIG-FUN and ARGS."
-  (chatgpt-shell-interrupt nil)
-  (apply orig-fun args))
-
 (defun chatgpt-shell-interrupt (ignore-item)
   "Interrupt `chatgpt-shell' from any buffer.
 
@@ -757,7 +982,7 @@ With prefix IGNORE-ITEM, do not mark as failed."
   (interactive "P")
   (with-current-buffer
       (cond
-       ((eq major-mode 'chatgpt-shell-mode)
+       ((derived-mode-p 'chatgpt-shell-mode)
         (current-buffer))
        (t
         (shell-maker-buffer-name chatgpt-shell--config)))
@@ -797,13 +1022,15 @@ With prefix IGNORE-ITEM, do not use interrupted item in context."
   "Markdown start/end cons if point at block.  nil otherwise."
   (save-excursion
     (save-restriction
-      (when (eq major-mode 'chatgpt-shell-mode)
+      (when (derived-mode-p 'chatgpt-shell-mode)
         (shell-maker-narrow-to-prompt))
+      ;; Ensure point is within block if at bol in header.
+      (move-end-of-line 1)
       (let* ((language)
              (language-start)
              (language-end)
              (start (save-excursion
-                      (when (re-search-backward "^```" nil t)
+                      (when (re-search-backward "^[ \t]*```" nil t)
                         (setq language (chatgpt-shell-markdown-block-language (thing-at-point 'line)))
                         (save-excursion
                           (forward-char 3) ; ```
@@ -812,7 +1039,7 @@ With prefix IGNORE-ITEM, do not use interrupted item in context."
                           (setq language-end (point)))
                         language-end)))
              (end (save-excursion
-                    (when (re-search-forward "^```" nil t)
+                    (when (re-search-forward "^[ \t]*```" nil t)
                       (forward-line 0)
                       (point)))))
         (when (and start end
@@ -991,82 +1218,121 @@ With prefix IGNORE-ITEM, do not use interrupted item in context."
 ;; TODO: Move to shell-maker.
 (defvar chatgpt-shell--source-block-regexp
   (rx  bol (zero-or-more whitespace) (group "```") (zero-or-more whitespace) ;; ```
-       (group (zero-or-more (or alphanumeric "-" "+"))) ;; language
+       (group (zero-or-more (or alphanumeric "-" "+" "#"))) ;; languages like: emacs-lisp C++ C#
        (zero-or-more whitespace)
        (one-or-more "\n")
        (group (*? anychar)) ;; body
        (one-or-more "\n")
+       (zero-or-more whitespace)
        (group "```") (or "\n" eol)))
 
-(defvar-local chatgpt-shell--is-primary-p nil)
-
 (defun chatgpt-shell-next-source-block ()
-  "Move point to previous source block."
+  "Move point to the next source block's body."
   (interactive)
-  (when-let
-      ((next-block
-        (save-excursion
-          (when-let ((current (chatgpt-shell-markdown-block-at-point)))
-            (goto-char (map-elt current 'end))
-            (end-of-line))
-          (when (re-search-forward chatgpt-shell--source-block-regexp nil t)
-            (chatgpt-shell--match-source-block)))))
-    (goto-char (car (map-elt next-block 'body)))))
+  (let ((blocks (chatgpt-shell--source-blocks))
+        (pos (point)))
+    (when-let ((next-block (seq-find (lambda (block)
+                                       (> (car (map-elt block 'start)) pos))
+                                     blocks)))
+      (goto-char (car (map-elt next-block 'start)))
+      (point))))
+
+(defun chatgpt-shell-next-link ()
+  "Move point to the next link."
+  (interactive)
+  (let ((links (chatgpt-shell--markdown-links))
+        (pos (point)))
+    (when-let ((next-link (seq-find (lambda (link)
+                                       (> (map-elt link 'start) pos))
+                                     links)))
+      (goto-char (map-elt next-link 'start))
+      (point))))
 
 (defun chatgpt-shell-previous-item ()
   "Go to previous item.
 
 Could be a prompt or a source block."
   (interactive)
-  (unless (eq major-mode 'chatgpt-shell-mode)
+  (unless (derived-mode-p 'chatgpt-shell-mode)
     (user-error "Not in a shell"))
-  (let ((prompt-pos (save-excursion
-                      (when (comint-next-prompt (- 1))
-                        (point))))
-        (block-pos (save-excursion
-                     (when (chatgpt-shell-previous-source-block)
-                       (point)))))
-    (cond ((and block-pos prompt-pos)
-           (goto-char (max prompt-pos
-                           block-pos)))
-          (block-pos
-           (goto-char block-pos))
-          (prompt-pos
-           (goto-char prompt-pos)))))
+  (let* ((prompt-pos (save-excursion
+                       (when (comint-next-prompt (- 1))
+                         (point))))
+         (block-pos (save-excursion
+                      (chatgpt-shell-previous-source-block)))
+         (link-pos (save-excursion
+                     (chatgpt-shell-previous-link)))
+         (positions (delq nil (list prompt-pos
+                                    block-pos
+                                    link-pos)))
+         (next-pos (when positions
+                     (apply 'max positions))))
+    (when next-pos
+      (cond ((eq next-pos prompt-pos)
+             (deactivate-mark)
+             (goto-char prompt-pos))
+            ((eq next-pos block-pos)
+             (deactivate-mark)
+             (goto-char block-pos)
+             (call-interactively #'chatgpt-shell-mark-block))
+            ((eq next-pos link-pos)
+             (deactivate-mark)
+             (goto-char link-pos))))))
 
 (defun chatgpt-shell-next-item ()
   "Go to next item.
 
 Could be a prompt or a source block."
   (interactive)
-  (unless (eq major-mode 'chatgpt-shell-mode)
+  (unless (derived-mode-p 'chatgpt-shell-mode)
     (user-error "Not in a shell"))
-  (let ((prompt-pos (save-excursion
-                      (when (comint-next-prompt 1)
-                        (point))))
-        (block-pos (save-excursion
-                     (when (chatgpt-shell-next-source-block)
-                       (point)))))
-    (cond ((and block-pos prompt-pos)
-           (goto-char (min prompt-pos
-                           block-pos)))
-          (block-pos
-           (goto-char block-pos))
-          (prompt-pos
-           (goto-char prompt-pos)))))
+  (let* ((prompt-pos (save-excursion
+                       (when (comint-next-prompt 1)
+                         (point))))
+         (block-pos (save-excursion
+                      (chatgpt-shell-next-source-block)))
+         (link-pos (save-excursion
+                     (chatgpt-shell-next-link)))
+         (next-pos (apply 'min (delq nil (list prompt-pos
+                                               block-pos
+                                               link-pos)))))
+    (when next-pos
+      (cond ((eq next-pos prompt-pos)
+             (deactivate-mark)
+             (goto-char prompt-pos))
+            ((eq next-pos block-pos)
+             (deactivate-mark)
+             (goto-char block-pos)
+             (call-interactively #'chatgpt-shell-mark-block))
+            ((eq next-pos link-pos)
+             (deactivate-mark)
+             (goto-char link-pos))))))
 
 (defun chatgpt-shell-previous-source-block ()
-  "Move point to previous source block."
+  "Move point to the previous source block's body."
   (interactive)
-  (when-let
-      ((previous-block
-        (save-excursion
-          (when-let ((current (chatgpt-shell-markdown-block-at-point)))
-            (goto-char (map-elt current 'start))
-            (forward-line 0))
-          (when (re-search-backward chatgpt-shell--source-block-regexp nil t)
-            (chatgpt-shell--match-source-block)))))
-    (goto-char (car (map-elt previous-block 'body)))))
+  (let ((blocks (chatgpt-shell--source-blocks))
+        (pos (point)))
+    (when-let ((next-block (seq-find (lambda (block)
+                                       (< (car (map-elt block 'end)) pos))
+                                     (reverse blocks))))
+      (goto-char (car (map-elt next-block 'start)))
+      (point))))
+
+(defun chatgpt-shell-previous-link ()
+  "Move point to the previous link."
+  (interactive)
+  (let ((links (chatgpt-shell--markdown-links))
+        (pos (point)))
+    (when-let ((previous-link (seq-find (lambda (link)
+                                          (< (map-elt link 'end) pos))
+                                        (reverse links))))
+      ;; May not be on actual URL text because of overlay (not too sure).
+      ;; So, pressing RET does not open link.
+      ;; Work around by moving forward 1 char (not visible to user).
+      (goto-char (map-elt previous-link 'start))
+      (forward-char)
+      (point))))
 
 ;; TODO: Move to shell-maker.
 (defun chatgpt-shell--match-source-block ()
@@ -1101,10 +1367,14 @@ Could be a prompt or a source block."
 (defun chatgpt-shell--minibuffer-prompt ()
   "Construct a prompt for the minibuffer."
   (if (chatgpt-shell--primary-buffer)
-      (concat (buffer-name (chatgpt-shell--primary-buffer)) "> ")
+      (concat (string-trim
+               (replace-regexp-in-string
+                "\\*" ""
+                (buffer-name (chatgpt-shell--primary-buffer)))) "> ")
     (shell-maker-prompt
      chatgpt-shell--config)))
 
+;;;###autoload
 (defun chatgpt-shell-prompt ()
   "Make a ChatGPT request from the minibuffer.
 
@@ -1135,6 +1405,7 @@ If region is active, append to prompt."
                              ""))))
     (chatgpt-shell-send-to-buffer prompt nil)))
 
+;;;###autoload
 (defun chatgpt-shell-prompt-appending-kill-ring ()
   "Make a ChatGPT request from the minibuffer appending kill ring."
   (interactive)
@@ -1150,6 +1421,7 @@ If region is active, append to prompt."
      (concat prompt "\n\n"
              (current-kill 0)) nil)))
 
+;;;###autoload
 (defun chatgpt-shell-describe-code ()
   "Describe code from region using ChatGPT."
   (interactive)
@@ -1199,9 +1471,24 @@ If region is active, append to prompt."
 
 ;;;###autoload
 (defun chatgpt-shell-proofread-region ()
-  "Proofread English from region using ChatGPT."
+  "Proofread text from region using ChatGPT.
+
+See `chatgpt-shell-prompt-header-proofread-region' to change prompt or language."
   (interactive)
-  (chatgpt-shell-send-region-with-header chatgpt-shell-prompt-header-proofread-region))
+  (let* ((region (chatgpt-shell--region))
+         (query (map-elt region :text))
+         (context nil))
+    (chatgpt-shell-request-and-insert-merged-response
+     :system-prompt chatgpt-shell-prompt-header-proofread-region
+     :query query
+     :context context
+     :remove-block-markers t
+     :region region
+     :on-iterate (lambda (output)
+                   (set-mark (map-elt region :end))
+                   (goto-char (map-elt region :start))
+                   (chatgpt-shell-quick-insert (append context
+                                                       (list (cons query output))))))))
 
 ;;;###autoload
 (defun chatgpt-shell-eshell-whats-wrong-with-last-command ()
@@ -1262,12 +1549,14 @@ With prefix REVIEW prompt before sending to ChatGPT."
   (let ((chatgpt-shell-prompt-query-response-style 'shell)
         (worker-done nil)
         (buffered ""))
-    (chatgpt-shell-send-to-buffer
-     prompt nil
-     (lambda (_command output _error finished)
-       (setq buffered (concat buffered output))
-       (when finished
-         (setq worker-done t))))
+    (chatgpt-shell-post :context (list (cons prompt nil))
+                        :streaming t
+                        :on-output (lambda (output)
+                                     (setq buffered (concat buffered output)))
+                        :on-success (lambda (_output)
+                                      (setq worker-done t))
+                        :on-failure (lambda (_output)
+                                      (setq worker-done t)))
     (while buffered
       (unless (string-empty-p buffered)
         (princ buffered #'external-debugging-output))
@@ -1280,7 +1569,7 @@ With prefix REVIEW prompt before sending to ChatGPT."
 (defun chatgpt-shell--eshell-last-last-command ()
   "Get second to last eshell command."
   (save-excursion
-    (if (string= major-mode "eshell-mode")
+    (if (derived-mode-p 'eshell-mode)
         (let ((cmd-start)
               (cmd-end))
           ;; Find command start and end positions
@@ -1318,14 +1607,16 @@ With prefix REVIEW prompt before sending to ChatGPT."
                (delete-region here (point))
                (goto-char orig))))))
 
+;;;###autoload
 (defun chatgpt-shell-add-??-command-to-eshell ()
   "Add `??' command to `eshell'."
 
+  ;; Note: Must have "eshell/" prefix to be recognized as an eshell command.
   (defun eshell/?? (&rest _args)
     "Implements `??' eshell command."
     (interactive)
     (let ((prompt (concat
-                   "What's wrong with the following command execution?\n\n"
+                   "What's wrong with the following command execution? Be succinct.\n\n"
                    (chatgpt-shell--eshell-last-last-command)))
           (prompt-file (concat temporary-file-directory
                                "chatgpt-shell-command-line-prompt")))
@@ -1341,9 +1632,17 @@ With prefix REVIEW prompt before sending to ChatGPT."
         (prin1-to-string
          `(progn
             (interactive)
-            (load ,(find-library-name "shell-maker") nil t)
             (load ,(find-library-name "chatgpt-shell") nil t)
-            (require (intern "chatgpt-shell") nil t)
+            (load ,(find-library-name "chatgpt-shell-anthropic") nil t)
+            (load ,(find-library-name "chatgpt-shell-deepseek") nil t)
+            (load ,(find-library-name "chatgpt-shell-google") nil t)
+            (load ,(find-library-name "chatgpt-shell-kagi") nil t)
+            (load ,(find-library-name "chatgpt-shell-ollama") nil t)
+            (load ,(find-library-name "chatgpt-shell-openai") nil t)
+            (load ,(find-library-name "chatgpt-shell-openrouter") nil t)
+            (load ,(find-library-name "chatgpt-shell-perplexity") nil t)
+            (load ,(find-library-name "chatgpt-shell-prompt-compose") nil t)
+            (load ,(find-library-name "shell-maker") nil t)
             (setq chatgpt-shell-model-temperature 0)
             (setq chatgpt-shell-openai-key ,(chatgpt-shell-openai-key))
             (chatgpt-shell-command-line-from-prompt-file ,prompt-file)))
@@ -1351,7 +1650,7 @@ With prefix REVIEW prompt before sending to ChatGPT."
 
   (add-hook 'eshell-post-command-hook
             (defun chatgpt-shell--eshell-post-??-execution ()
-              (when (string-match (symbol-name #'chatgpt-shell-command-line-from-prompt-file)
+              (when (string-match "chatgpt-shell-command-line-from-prompt-file"
                                   (string-join eshell-last-arguments " "))
                 (save-excursion
                   (save-restriction
@@ -1363,28 +1662,190 @@ With prefix REVIEW prompt before sending to ChatGPT."
 
   (add-to-list 'eshell-complex-commands "??"))
 
-(defun chatgpt-shell-send-to-buffer (text &optional review handler on-finished)
-  "Send TEXT to *chatgpt* buffer.
+(cl-defun chatgpt-shell-request-and-insert-response (&key query
+                                                          (buffer (current-buffer))
+                                                          model-version
+                                                          system-prompt
+                                                          streaming
+                                                          start
+                                                          end)
+  "Send a contextless request (no history) with:
+
+QUERY: Request query text.
+BUFFER (optional): Buffer to insert to or omit to insert to current buffer.
+MODEL-VERSION (optional): Index from `chatgpt-shell-models' or string.
+SYSTEM-PROMPT (optional): As string.
+STREAMING (optional): Non-nil to stream insertion.
+START (optional): Beginning of region to replace (overrides active region).
+END (optional): End of region to replace (overrides active region)."
+  (let* ((point (point))
+         (delete-text (or
+                       (and start end)
+                       (region-active-p)))
+         (delete-from (when delete-text
+                        (or start (region-beginning))))
+         (delete-to (when delete-text
+                      (or end (region-end))))
+         (marker (if delete-text
+                     (copy-marker (max delete-from delete-to))
+                   (copy-marker (point))))
+         (progress-reporter (unless streaming
+                              (make-progress-reporter
+                               (format "%s " (chatgpt-shell--model-label))))))
+    (chatgpt-shell-send-contextless-request
+     :model-version model-version
+     :system-prompt system-prompt
+     :query query
+     :streaming t
+     :on-output (lambda (output)
+                    (if streaming
+                        (progn
+                          (with-current-buffer buffer
+                            (when delete-text
+                              (deactivate-mark)
+                              (delete-region delete-from delete-to)
+                              (setq delete-text nil))
+                            (save-excursion
+                              (goto-char marker)
+                              (insert output)
+                              (set-marker marker (+ (length output)
+                                                    (marker-position marker))))))
+                      (progn
+                        (progress-reporter-update progress-reporter))))
+     :on-success (lambda (output)
+                   (if streaming
+                        (with-current-buffer buffer
+                          (goto-char point))
+                      (progress-reporter-done progress-reporter)
+                      (with-current-buffer buffer
+                        (when delete-text
+                          (deactivate-mark)
+                          (delete-region delete-from delete-to)
+                          (setq delete-text nil))
+                        (save-excursion
+                          (goto-char marker)
+                          (insert output))
+                        (goto-char point))))
+     :on-failure (lambda (output)
+                   (if streaming
+                       (with-current-buffer buffer
+                         (goto-char point))
+                     (progress-reporter-done progress-reporter))
+                   (when (not (string-empty-p (string-trim
+                                               (or output ""))))
+                     (message (or output "failed")))))))
+
+;; TODO: Review. Can it become service agnostic?
+(cl-defun chatgpt-shell-send-contextless-request
+    (&key model-version
+          system-prompt
+          query
+          streaming
+          on-output
+          on-success
+          on-failure)
+  "Send a request with:
+
+QUERY: Request query text.
+ON-OUTPUT: Of the form (lambda (output))
+ON-FINISHED: Of the form (lambda (success))
+MODEL-VERSION (optional): Index from `chatgpt-shell-models' or string.
+SYSTEM-PROMPT (optional): As string.
+STREAMING (optional): non-nil to received streamed ON-OUTPUT events."
+  (unless query
+    (error "Missing mandatory \"query\" param"))
+  (chatgpt-shell-post :context (list (cons query nil))
+                      :system-prompt system-prompt
+                      :version model-version
+                      :streaming streaming
+                      :on-output on-output
+                      :on-success on-success
+                      :on-failure on-failure))
+
+;;;###autoload
+(defun chatgpt-shell-prompt-compose (prefix)
+  "Compose and send prompt from a dedicated buffer.
+
+With PREFIX, clear existing history (wipe asociated shell history).
+
+Whenever `chatgpt-shell-prompt-compose' is invoked, appends any active
+region (or flymake issue at point) to compose buffer.
+
+Additionally, if point is at an error/warning raised by flymake,
+automatically add context (error/warning + code) to expedite ChatGPT
+for help to fix the issue.
+
+The compose buffer always shows the latest interaction, but it's
+backed by the shell history.  You can always switch to the shell buffer
+to view the history.
+
+Editing: While compose buffer is in in edit mode, it offers a couple
+of magit-like commit buffer bindings.
+
+ `\\[chatgpt-shell-prompt-compose-send-buffer]` to send the buffer query.
+ `\\[chatgpt-shell-prompt-compose-cancel]` to cancel compose buffer.
+ `\\[chatgpt-shell-prompt-compose-search-history]` search through history.
+ `\\[chatgpt-shell-prompt-compose-previous-history]` cycle through previous
+item in history.
+ `\\[chatgpt-shell-prompt-compose-next-history]` cycle through next item in
+history.
+
+Read-only: After sending a query, the buffer becomes read-only and
+enables additional key bindings.
+
+ `\\[chatgpt-shell-prompt-compose-send-buffer]` After sending offers to abort
+query in-progress.
+ `\\[View-quit]` Exits the read-only buffer.
+ `\\[chatgpt-shell-prompt-compose-retry]` Refresh (re-send the query).  Useful
+to retry on disconnects.
+ `\\[chatgpt-shell-prompt-compose-next-item]` Jump to next source block.
+ `\\[chatgpt-shell-prompt-compose-previous-item]` Jump to next previous block.
+ `\\[chatgpt-shell-prompt-compose-reply]` Reply to follow-up with additional questions.
+ `\\[chatgpt-shell-prompt-compose-request-entire-snippet]` Send \"Show entire snippet\" query.
+ `\\[chatgpt-shell-prompt-compose-insert-block-at-point]` Insert block at point at last known location.
+ `\\[chatgpt-shell-prompt-compose-request-more]` Send \"Show me more\" query.
+ `\\[chatgpt-shell-prompt-compose-other-buffer]` Jump to other buffer (ie. the shell itself).
+ `\\[chatgpt-shell-mark-block]` Mark block at point."
+  (interactive "P")
+  (chatgpt-shell-prompt-compose-show-buffer :clear-history prefix))
+
+;; TODO: move to cl-defun and consider removing `chatgpt-shell-prompt-query-response-style'.
+(defun chatgpt-shell-send-to-buffer (input &optional review handler on-finished response-style)
+  "Send INPUT to *chatgpt* shell buffer.
+
 Set REVIEW to make changes before submitting to ChatGPT.
 
-If HANDLER function is set, ignore `chatgpt-shell-prompt-query-response-style'
+If HANDLER function is set, ignore RESPONSE-STYLE.
 
-ON-FINISHED is invoked when the entire interaction is finished."
-  (if (eq chatgpt-shell-prompt-query-response-style 'other-buffer)
-      (let ((buffer (chatgpt-shell-prompt-compose-show-buffer text)))
+RESPONSE-STYLE defaults to `chatgpt-shell-prompt-query-response-style',
+
+and is of the form:
+
+  (lambda (input output error finished))
+
+ON-FINISHED is invoked when the entire interaction is finished and of the form:
+
+  (lambda (input output success))."
+  (unless response-style
+    (setq response-style chatgpt-shell-prompt-query-response-style))
+  (if (eq response-style 'other-buffer)
+      (let ((buffer (chatgpt-shell-prompt-compose-show-buffer :content input)))
         (unless review
           (with-current-buffer buffer
             (chatgpt-shell-prompt-compose-send-buffer))))
     (let* ((buffer (cond (handler
                           nil)
-                         ((eq chatgpt-shell-prompt-query-response-style 'inline)
+                         ((eq response-style 'inline)
                           (current-buffer))
                          (t
                           nil)))
-           (point (point))
            (marker (copy-marker (point)))
            (orig-region-active (region-active-p))
-           (no-focus (or (eq chatgpt-shell-prompt-query-response-style 'inline)
+           (region-beginning (when orig-region-active
+                               (region-beginning)))
+           (region-end (when orig-region-active
+                         (region-end)))
+           (no-focus (or (eq response-style 'inline)
                          handler)))
       (when (region-active-p)
         (setq marker (copy-marker (max (region-beginning)
@@ -1396,41 +1857,31 @@ ON-FINISHED is invoked when the entire interaction is finished."
       (cl-flet ((send ()
                   (when shell-maker--busy
                     (shell-maker-interrupt nil))
-                  (goto-char (point-max))
                   (if review
                       (save-excursion
-                        (insert text))
-                    (insert text)
-                    (shell-maker--send-input
-                     (if (eq chatgpt-shell-prompt-query-response-style 'inline)
-                         (lambda (_command output error finished)
-                           (setq output (or output ""))
-                           (when (buffer-live-p buffer)
-                             (with-current-buffer buffer
-                               (if error
-                                   (unless (string-empty-p (string-trim output))
-                                     (message "%s" output))
-                                 (let ((inhibit-read-only t))
-                                   (save-excursion
-                                     (if orig-region-active
-                                         (progn
-                                           (goto-char marker)
-                                           (when (eq (marker-position marker)
-                                                     point)
-                                             (insert "\n\n")
-                                             (set-marker marker (+ 2 (marker-position marker))))
-                                           (insert output)
-                                           (set-marker marker (+ (length output)
-                                                                 (marker-position marker))))
-                                       (goto-char marker)
-                                       (insert output)
-                                       (set-marker marker (+ (length output)
-                                                             (marker-position marker))))))))
-                             (when (and finished on-finished)
-                               (funcall on-finished))))
-                       (or handler (lambda (_command _output _error _finished))))
-                     t))))
-        (if (or (eq chatgpt-shell-prompt-query-response-style 'inline)
+                        (goto-char (point-max))
+                        (insert input))
+                    (shell-maker-submit
+                     :input input
+                     :on-output (lambda (output)
+                                  (setq output (or output ""))
+                                  (when (buffer-live-p buffer)
+                                    (with-current-buffer buffer
+                                      (let ((inhibit-read-only t))
+                                        (save-excursion
+                                          (when orig-region-active
+                                            (delete-region region-beginning region-end)
+                                            (setq orig-region-active nil))
+                                          (goto-char marker)
+                                          (insert output)
+                                          (set-marker marker (+ (length output)
+                                                                (marker-position marker))))))))
+                     :on-finished (lambda (input output success)
+                                    (when on-finished
+                                      (funcall on-finished input output success))
+                                    (with-current-buffer (chatgpt-shell--primary-buffer)
+                                      (chatgpt-shell--put-source-block-overlays)))))))
+        (if (or (eq response-style 'inline)
                 handler)
             (with-current-buffer (chatgpt-shell--primary-buffer)
               (goto-char (point-max))
@@ -1471,21 +1922,7 @@ Set SAVE-EXCURSION to prevent point from moving."
      (prin1-to-string form))
    (chatgpt-shell-parse-elisp-code code)))
 
-
-(defun chatgpt-shell-make-request-data (messages &optional version temperature other-params)
-  "Make request data from MESSAGES, VERSION, TEMPERATURE, and OTHER-PARAMS."
-  (let ((request-data `((model . ,(or version
-                                      (chatgpt-shell-model-version)))
-                        (messages . ,(vconcat ;; Vector for json
-                                      messages)))))
-    (when (or temperature chatgpt-shell-model-temperature)
-      (push `(temperature . ,(or temperature chatgpt-shell-model-temperature))
-            request-data))
-    (when other-params
-      (push other-params
-            request-data))
-    request-data))
-
+;;;###autoload
 (defun chatgpt-shell-japanese-ocr-lookup ()
   "Select a region of the screen to OCR and look up in Japanese."
   (interactive)
@@ -1501,151 +1938,335 @@ Set SAVE-EXCURSION to prevent point from moving."
                                     (when (string= event "finished\n")
                                       (chatgpt-shell-japanese-lookup term))))))
 
-(defun chatgpt-shell-japanese-lookup (&optional term)
-  "Look up Japanese TERM."
+;;;###autoload
+(defun chatgpt-shell-japanese-audio-lookup ()
+  "Transcribe audio at current file (buffer or `dired') and look up in Japanese."
   (interactive)
-  (unless term
-    (setq term (read-string "Japanese look up: ")))
-  (when (string-empty-p (string-trim term))
-    (user-error "Nothing to look up"))
-  (let* ((translation-buffer (get-buffer-create "*chatgpt japanese translation*"))
-         (system-prompt (concat "You are a japanese translator. "
-                                "Only provide katakana if applicable. "
-                                "provide respective:\n\n"
-                                "kanji: <fill-in-blank>\n"
-                                "hiragana: <fill-in-blank>\n"
-                                "katakana: <fill-in-blank>\n"
-                                "romaji: <fill-in-blank>\n"
-                                "meaning: <fill-in-blank>")))
-    (chatgpt-shell-post-messages
-     (vconcat ;; Convert to vector for json
-      `(((role . "system")
-         (content . ,system-prompt))
-        ((role . "user")
-         (content . ,(vconcat
-                      `(((type . "text")
-                         (text . ,term))))))))
-     nil nil
-     (lambda (response _partial)
-       (with-current-buffer translation-buffer
+  (let* ((term)
+         (file (chatgpt-shell--current-file))
+         (extension (downcase (file-name-extension file)))
+         (process (start-process "macosrec-speechrec" nil "macosrec"
+                                 "--speech-to-text" "--locale" "ja-JP" "--input" file)))
+    (if (memq window-system '(mac ns))
+        (unless (executable-find "macosrec")
+          (user-error "You need \"macosrec\" installed: brew install xenodium/macosrec/macosrec"))
+      (user-error "Not yet supported on %s (please send a pull request)" window-system))
+    (unless (seq-contains-p '("mp3" "wav" "m4a" "caf") extension)
+      (user-error "Must be using either .mp3, .m4a, .caf or .wav"))
+    (set-process-filter process (lambda (_proc text)
+                                  (setq term (concat term text))))
+    (set-process-sentinel process (lambda (_proc event)
+                                    (when (string= event "finished\n")
+                                      (chatgpt-shell-japanese-lookup term))))))
+
+(defun chatgpt-shell-japanese-lookup (&optional capture)
+  "Look Japanese term up.
+
+Ask user for term.  Alternatively, if point is on an image, extract Japanese
+data from the image.
+
+If command invoked with prefix, CAPTURE a screenshot.
+
+Display result in org table of the form:
+
+|----------+----------+-------+--------+---------+-------|
+| Hiragana | Katakana | Kanji | Romaji | English | #Tags |
+|----------+----------+-------+--------+---------+-------|
+|          |          |       |        |         |       |
+|----------+----------+-------+--------+---------+-------|"
+  (interactive "P")
+  (let* ((file (chatgpt-shell--current-image-file capture))
+         (term (unless file
+                 (chatgpt-shell--read-string :prompt "Japanese lookup: ")))
+         (buffer "*Japanese lookup*"))
+    (chatgpt-shell-lookup :buffer buffer
+                          :prompt (if file
+                                      "Use for this image to extract each row data."
+                                    (format "Fill out a row for \"%s\"" term))
+                          :on-success (lambda (_output)
+                                        (with-current-buffer buffer
+                                          (goto-char (point-min))
+                                          (org-mode)
+                                          (let ((inhibit-read-only t))
+                                            (goto-char (point-min))
+                                            (org-table-align)
+                                            (when (fboundp 'org-modern-mode)
+                                              (org-modern-mode +1))
+                                            ;; (when (fboundp 'valign-mode)
+                                            ;;   (valign-mode +1))
+                                            (visual-line-mode -1))))
+                          :prompt-url file
+                          :streaming t
+                          :system-prompt "
+1. Fill out an org mode table using this format as an example:
+
+|---------------+----------+-------+-------------------+---------+-------------------|
+| Hiragana      | Katakana | Kanji | Romaji            | English | Tags              |
+|---------------+----------+-------+-------------------+---------+-------------------|
+| おなかすきました |          | 空腹   | onaka sukimashita | hungry  | #describe #myself |
+|---------------+----------+-------+-------------------+---------+-------------------|
+2. ALWAYS Fill out Hiragana when appropriate.
+3. ALWAYS Fill out Katakana when appropriate.
+4. ALWAYS Fill out Kanji when appropriate.
+5. Show long romaji vowels (i.e ō).
+6. Ensure columns align.
+7. Do NOT wrap anything in Markdown source blocks.
+8. Do NOT add any text or explanations outside the org table.")))
+
+;; TODO: Make service agnostic.
+(cl-defun chatgpt-shell-lookup (&key buffer model-version system-prompt prompt prompt-url streaming
+                                     temperature on-success on-failure)
+  "Look something up as a one-off (no shell history) and output to BUFFER.
+
+Inputs:
+
+Either (or all) of MODEL-VERSION, SYSTEM-PROMPT, PROMPT,
+and PROMPT-URL (image file).
+
+Optionally:
+
+STREAMING: Non-nil streams output to BUFFER.
+
+TEMPERATURE: Defaults to 1 otherwise.
+
+ON-SUCCESS: (lambda (output)) for completion event.
+
+ON-FAILURE: (lambda (output)) for completion event."
+  (setq buffer (get-buffer-create buffer))
+  (with-current-buffer buffer
+    (let ((inhibit-read-only t))
+      (erase-buffer))
+    (use-local-map (let ((map (make-sparse-keymap)))
+                     (define-key map (kbd "q") 'kill-buffer-and-window)
+                     map))
+    (setq buffer-read-only t))
+  (let* ((model (or (chatgpt-shell--resolved-model :versioned model-version)
+                    (error "Model \"%s\" not found" model-version)))
+         (settings (list (cons :streaming streaming)
+                         (cons :temperature temperature)
+                         (cons :system-prompt system-prompt)))
+         (url (funcall (map-elt model :url)
+                       :model model
+                       :settings settings
+                       :command prompt))
+         (headers (when (map-elt model :headers)
+                    (funcall (map-elt model :headers)
+                             :model model
+                             :settings settings))))
+    (when streaming
+      (display-buffer buffer))
+    (unless (equal (map-elt model :provider) "OpenAI")
+      (error "%s's %s not yet supported (please sponsor development)"
+             (map-elt model :provider) (map-elt model :version)))
+    (shell-maker-make-http-request
+     :async t
+     :url url
+     :proxy chatgpt-shell-proxy
+     :data (chatgpt-shell-openai-make-chatgpt-request-data
+            :prompt prompt
+            :prompt-url prompt-url
+            :system-prompt system-prompt
+            :version (map-elt model :version)
+            :temperature (or temperature 1)
+            :streaming streaming
+            :other-params (map-elt model :other-params))
+     :headers headers
+     :filter #'chatgpt-shell-openai--filter-output
+     :on-output
+     (lambda (output)
+       (with-current-buffer buffer
          (let ((inhibit-read-only t))
-           (erase-buffer)
-           (insert response)
-           (use-local-map (let ((map (make-sparse-keymap)))
-                            (define-key map (kbd "q") 'kill-buffer-and-window)
-                            map)))
-         (read-only-mode +1))
-       (display-buffer translation-buffer))
-     (lambda (error)
-       (message error))
-     nil '(max_tokens . 300))))
+           (goto-char (point-max))
+           (insert output))))
+     :on-finished
+     (lambda (result)
+       (unless streaming
+         (display-buffer buffer))
+       (if (equal 0 (map-elt result :exit-status))
+           (when on-success
+             (funcall on-success (map-elt result :output)))
+         (when on-failure
+           (funcall on-failure (map-elt result :output))))))))
 
-(defun chatgpt-shell-post-messages (messages response-extractor &optional version callback error-callback temperature other-params)
-  "Make a single ChatGPT request with MESSAGES and RESPONSE-EXTRACTOR.
+(cl-defun chatgpt-shell--read-string (&key prompt default-value)
+  "Like `read-string' but disallowing empty input (unless DEFAULT-VALUE given).
 
-`chatgpt-shell--extract-chatgpt-response' typically used as extractor.
+Specify PROMPT to signal the user."
+  (let ((input ""))
+    (while (string-empty-p (string-trim input))
+      (setq input (read-string (or prompt "")
+                               (when (use-region-p)
+                                 (buffer-substring-no-properties
+                                  (region-beginning)
+                                  (region-end)))
+                               nil nil default-value))
+      (when (string-empty-p (string-trim input))
+        (setq input default-value)))
+    input))
 
-Optionally pass model VERSION, CALLBACK, ERROR-CALLBACK, TEMPERATURE
-and OTHER-PARAMS.
+(cl-defun chatgpt-shell-post (&key context
+                                   version
+                                   system-prompt
+                                   on-output
+                                   on-success on-failure
+                                   temperature streaming)
+  "Make a single ChatGPT request with MESSAGES and FILTER.
+
+`chatgpt-shell-openai--filter-output' typically used as extractor.
+
+Optionally pass model VERSION, TEMPERATURE and OTHER-PARAMS.
 
 OTHER-PARAMS are appended to the json object at the top level.
 
-If CALLBACK or ERROR-CALLBACK are missing, execute synchronously.
+CONTEXT: A list of cons of the form: (command . response).
 
-For example:
+ON-OUTPUT: (lambda (output))
 
-\(chatgpt-shell-post-messages
- `(((role . \"user\")
-    (content . \"hello\")))
- \"gpt-3.5-turbo\"
- (lambda (response)
-   (message \"%s\" response))
- (lambda (error)
-   (message \"%s\" error)))"
-  (if (and callback error-callback)
-      (progn
-        (unless (boundp 'shell-maker--current-request-id)
-          (defvar-local shell-maker--current-request-id 0))
-        (with-temp-buffer
-          (setq-local shell-maker--config
-                      chatgpt-shell--config)
-          (shell-maker-async-shell-command
-           (chatgpt-shell--make-curl-request-command-list
-            (chatgpt-shell-make-request-data messages version temperature other-params))
-           nil ;; streaming
-           (or response-extractor #'chatgpt-shell--extract-chatgpt-response)
-           callback
-           error-callback)))
-    (with-temp-buffer
-      (setq-local shell-maker--config
-                  chatgpt-shell--config)
-      (let* ((buffer (current-buffer))
-             (command
-              (chatgpt-shell--make-curl-request-command-list
-               (let ((request-data `((model . ,(or version
-                                                   (chatgpt-shell-model-version)))
-                                     (messages . ,(vconcat ;; Vector for json
-                                                   messages)))))
-                 (when (or temperature chatgpt-shell-model-temperature)
-                   (push `(temperature . ,(or temperature chatgpt-shell-model-temperature))
-                         request-data))
-                 (when other-params
-                   (push other-params
-                         request-data))
-                 request-data)))
-             (config chatgpt-shell--config)
-             (status (progn
-                       (shell-maker--write-output-to-log-buffer "// Request\n\n" config)
-                       (shell-maker--write-output-to-log-buffer (string-join command " ") config)
-                       (shell-maker--write-output-to-log-buffer "\n\n" config)
-                       (apply #'call-process (seq-first command) nil buffer nil (cdr command))))
-             (data (buffer-substring-no-properties (point-min) (point-max)))
-             (response (chatgpt-shell--extract-chatgpt-response data)))
-        (shell-maker--write-output-to-log-buffer (format "// Data (status: %d)\n\n" status) config)
-        (shell-maker--write-output-to-log-buffer data config)
-        (shell-maker--write-output-to-log-buffer "\n\n" config)
-        (shell-maker--write-output-to-log-buffer "// Response\n\n" config)
-        (shell-maker--write-output-to-log-buffer response config)
-        (shell-maker--write-output-to-log-buffer "\n\n" config)
-        response))))
+ON-SUCCESS: (lambda (output))
 
-(defun chatgpt-shell-describe-image ()
+ON-FAILURE: (lambda (output))
+
+If ON-FINISHED, ON-SUCCESS, and ON-FINISHED are missing, execute synchronously."
+  (unless context
+    (error "Missing mandatory \"context\" param"))
+  (let* ((model (chatgpt-shell--resolved-model :versioned version))
+         (settings (list (cons :streaming streaming)
+                         (cons :temperature temperature)
+                         (cons :system-prompt system-prompt)))
+         (url (funcall (map-elt model :url)
+                       :model model
+                       :settings settings
+                       :command (car (car (last context)))))
+         (payload (map-elt model :payload))
+         (filter (or (map-elt model :filter)
+                     (error "Model :filter not found")))
+         (headers (map-elt model :headers)))
+    (if (or on-output on-success on-failure)
+        (progn
+          (unless (boundp 'shell-maker--current-request-id)
+            (setq-local shell-maker--current-request-id 0))
+          ;; TODO: Remove the need to create a temporary
+          ;; shell configuration when invoking `shell-maker-make-http-request'.
+          (with-temp-buffer
+            (setq-local shell-maker--config
+                        chatgpt-shell--config)
+            ;; Async exec
+            (shell-maker-make-http-request
+             :async t
+             :url url
+             :proxy chatgpt-shell-proxy
+             :data (when payload
+                     (funcall payload
+                              :model model
+                              :context context
+                              :settings settings))
+             :headers (when headers
+                        (funcall headers
+                                 :model model
+                                 :settings settings))
+             :filter filter
+             :on-output on-output
+             :on-finished (lambda (result)
+                            (if (equal 0 (map-elt result :exit-status))
+                                (when on-success
+                                  (funcall on-success (map-elt result :output)))
+                              (when on-failure
+                                (funcall on-failure (map-elt result :output))))))))
+      ;; Sync exec
+      (let ((result
+             (shell-maker-make-http-request
+              :async nil ;; Block to return result
+              :url url
+              :proxy chatgpt-shell-proxy
+              :data (when payload
+                      (funcall payload
+                               :model model
+                               :context context
+                               :settings settings))
+              :headers (when headers
+                         (funcall headers
+                                  :model model
+                                  :settings settings))
+              :filter filter)))
+        (map-elt result :output)))))
+
+;;;###autoload
+(defun chatgpt-shell-describe-image (&optional capture)
   "Request OpenAI to describe image.
 
 When visiting a buffer with an image, send that.
 
+If command invoked with prefix, CAPTURE a screenshot.
+
 If in a `dired' buffer, use selection (single image only for now)."
-  (interactive)
-  (let* ((file (chatgpt-shell--current-file))
-         (extension (downcase (file-name-extension file)))
-         (name (file-name-nondirectory file)))
-    (unless (or (seq-contains-p '("jpg" "jpeg" "png" "webp" "gif") extension)
-                (equal name "image.request"))
-      (user-error "Must be user either .jpg, .jpeg, .png, .webp or .gif file"))
-    (chatgpt-shell-vision-make-request
-     (read-string "Send vision prompt (default \"What’s in this image?\"): " nil nil "What’s in this image?")
-     file
-     :on-success
-     (lambda (response)
-       (let ((description-buffer (get-buffer-create "*chatgpt image description*")))
-         (with-current-buffer description-buffer
-           (let ((inhibit-read-only t))
-             (erase-buffer)
-             (insert response)
-             (use-local-map (let ((map (make-sparse-keymap)))
-                              (define-key map (kbd "q") 'kill-buffer-and-window)
-                              map)))
-           (message "Image description ready")
-           (read-only-mode +1))
-         (display-buffer description-buffer))))))
+  (interactive "P")
+  (let ((file (chatgpt-shell--current-image-file capture))
+        (description-buffer (get-buffer-create "*chatgpt image description*"))
+        (prompt (chatgpt-shell--read-string
+                 :prompt "Describe image (default \"What's in this image?\"): "
+                 :default-value "What's in this image?")))
+    (unless file
+      (error "No image found"))
+    (message "Requesting...")
+    (chatgpt-shell-lookup :buffer description-buffer
+                          :prompt prompt
+                          :on-success (lambda (output)
+                                        (with-current-buffer description-buffer
+                                          (let ((inhibit-read-only t))
+                                            (erase-buffer)
+                                            (insert output)
+                                            (use-local-map (let ((map (make-sparse-keymap)))
+                                                             (define-key map (kbd "q") 'kill-buffer-and-window)
+                                                             map)))
+                                          (message "Image description ready")
+                                          (read-only-mode +1))
+                                        (display-buffer description-buffer))
+                          :prompt-url file
+                          :streaming nil)))
+
+(defun chatgpt-shell--current-image-file (&optional capture)
+  "Return buffer image file, Dired selected file, or image at point.
+
+If optional CAPTURE is non-nil, cature a screenshot."
+  (when (or (and (use-region-p) (derived-mode-p 'image-mode))
+            (and (use-region-p) (derived-mode-p 'dired-mode)))
+    (user-error "No region selection supported"))
+  (cond (capture
+         (redisplay) ;; Call process will block. Give redisplay a chance.
+         (when-let ((file (make-temp-file "screenshot" nil ".png"))
+                    ;; TODO: Make screenshot utility configurable.
+                    (success (eq 0 (call-process "/usr/sbin/screencapture" nil nil nil "-i" file)))
+                    (found (file-exists-p file))
+                    (written (not (zerop (nth 7 (file-attributes file))))))
+           file))
+        ((derived-mode-p 'image-mode)
+         (buffer-file-name))
+        ((derived-mode-p 'dired-mode)
+         (let* ((dired-files (dired-get-marked-files))
+                (file (seq-first dired-files)))
+           (when (> (length dired-files) 1)
+             (user-error "Only one file selection supported"))
+           file))
+        (t
+         (when-let* ((image (cdr (get-text-property (point) 'display)))
+                     (image-file (cond ((plist-get image :file)
+                                        (plist-get image :file))
+                                       ((plist-get image :data)
+                                        (ignore-errors
+                                          (delete-file (chatgpt-shell--image-request-file)))
+                                        (with-temp-file (chatgpt-shell--image-request-file)
+                                          (set-buffer-multibyte nil)
+                                          (insert (plist-get image :data)))
+                                        (chatgpt-shell--image-request-file)))))
+           image-file))))
 
 (defun chatgpt-shell--current-file ()
-  "Return buffer file (if available), Dired selected file, or image at point."
+  "Return buffer file, Dired selected file, or image at point."
   (when (use-region-p)
     (user-error "No region selection supported"))
-  (cond ((eq major-mode 'image-mode)
+  (cond ((buffer-file-name)
          (buffer-file-name))
-        ((eq major-mode 'dired-mode)
+        ((derived-mode-p 'dired-mode)
          (let* ((dired-files (dired-get-marked-files))
                 (file (seq-first dired-files)))
            (unless dired-files
@@ -1654,300 +2275,104 @@ If in a `dired' buffer, use selection (single image only for now)."
              (user-error "Only one file selection supported"))
            file))
         (t
-         (if-let* ((image (cdr (get-text-property (point) 'display)))
-                   (image-file (cond ((plist-get image :file)
-                                      (plist-get image :file))
-                                     ((plist-get image :data)
-                                      (ignore-errors
-                                        (delete-file (chatgpt-shell--image-request-file)))
-                                      (with-temp-file (chatgpt-shell--image-request-file)
-                                        (set-buffer-multibyte nil)
-                                        (insert (plist-get image :data)))
-                                      (chatgpt-shell--image-request-file)))))
-             image-file
-           (user-error "No image found")))))
+         (user-error "Nothing found to work on"))))
 
-(cl-defun chatgpt-shell-vision-make-request (prompt url-path &key on-success on-failure)
-  "Make a vision request using PROMPT and URL-PATH.
-
-PROMPT can be somethign like: \"Describe the image in detail\".
-URL-PATH can be either a local file path or an http:// URL.
-
-Optionally pass ON-SUCCESS and ON-FAILURE, like:
-
-\(lambda (response)
-  (message response))
-
-\(lambda (error)
-  (message error))"
-  (let* ((url (if (string-prefix-p "http" url-path)
-                  url-path
-                (unless (file-exists-p url-path)
-                  (error "File not found"))
-                (concat "data:image/jpeg;base64,"
+(defun chatgpt-shell--make-chatgpt-url (url)
+  "Create ChatGPT message content for URL."
+  (unless url
+    (error "URL missing"))
+  (let* ((extension (downcase (file-name-extension url)))
+         (name (file-name-nondirectory url)))
+    (unless (string-prefix-p "http" url)
+      (unless (file-exists-p url)
+        (error "File not found"))
+      (unless (or (seq-contains-p '("jpg" "jpeg" "png" "webp" "gif") extension)
+                  (equal name "image.request"))
+        (user-error "Image must be either .jpg, .jpeg, .png, .webp or .gif"))
+      (setq url (concat "data:image/jpeg;base64,"
                         (with-temp-buffer
-                          (insert-file-contents-literally url-path)
+                          (insert-file-contents-literally url)
                           (base64-encode-region (point-min) (point-max) t)
                           (buffer-string)))))
-         (messages
-          (vconcat ;; Convert to vector for json
-           (append
-            `(((role . "user")
-               (content . ,(vconcat
-                            `(((type . "text")
-                               (text . ,prompt))
-                              ((type . "image_url")
-                               (image_url . ((url . ,url)))))))))))))
-    (message "Requesting...")
-    (chatgpt-shell-post-messages
-     messages
-     #'chatgpt-shell--extract-chatgpt-response
-     "gpt-4o"
-     (if on-success
-         (lambda (response _partial)
-           (funcall on-success response))
-       (lambda (response _partial)
-         (message response)))
-     (or on-failure (lambda (error)
-                      (message error)))
-     nil '(max_tokens . 300))))
+    url))
 
-(defun chatgpt-shell-post-prompt (prompt &optional response-extractor version callback error-callback temperature other-params)
-  "Make a single ChatGPT request with PROMPT.
-Optionally pass model RESPONSE-EXTRACTOR, VERSION, CALLBACK,
-ERROR-CALLBACK, TEMPERATURE, and OTHER-PARAMS.
-
-`chatgpt-shell--extract-chatgpt-response' typically used as extractor.
-
-If CALLBACK or ERROR-CALLBACK are missing, execute synchronously.
-
-OTHER-PARAMS are appended to the json object at the top level.
-
-For example:
-
-\(chatgpt-shell-post-prompt
- \"hello\"
- nil
- \"gpt-3.5-turbo\"
- (lambda (response more-pending)
-   (message \"%s\" response))
- (lambda (error)
-   (message \"%s\" error)))."
-  (chatgpt-shell-post-messages `(((role . "user")
-                                  (content . ,prompt)))
-                               (or response-extractor #'chatgpt-shell--extract-chatgpt-response)
-                               version
-                               callback
-                               error-callback
-                               temperature
-                               other-params))
-
-(defun chatgpt-shell-openai-key ()
-  "Get the ChatGPT key."
-  (cond ((stringp chatgpt-shell-openai-key)
-         chatgpt-shell-openai-key)
-        ((functionp chatgpt-shell-openai-key)
-         (condition-case _err
-             (funcall chatgpt-shell-openai-key)
-           (error
-            "KEY-NOT-FOUND")))
-        (t
-         nil)))
-
-(defun chatgpt-shell--api-url ()
-  "The complete URL OpenAI's API.
-
-`chatgpt-shell--api-url' =
-   `chatgpt-shell--api-url-base' + `chatgpt-shell--api-url-path'"
-  (concat chatgpt-shell-api-url-base chatgpt-shell-api-url-path))
+(defun chatgpt-shell--temp-dir ()
+  "Get chatgpt-shell's temp directory."
+  (let ((temp-dir (file-name-concat temporary-file-directory "chatgpt-shell")))
+    (make-directory temp-dir t)
+    temp-dir))
 
 (defun chatgpt-shell--json-request-file ()
   "JSON request written to this file prior to sending."
-  (concat
-   (file-name-as-directory
-    (shell-maker-files-path shell-maker--config))
-   "request.json"))
+  (file-name-concat (chatgpt-shell--temp-dir) "request.json"))
 
 (defun chatgpt-shell--image-request-file ()
   "Image written to this file prior to sending."
-  (concat
-   (file-name-as-directory
-    (shell-maker-files-path (or shell-maker--config
-                                chatgpt-shell--config)))
-   "image.request"))
+  (file-name-concat (chatgpt-shell--temp-dir) "image.request"))
 
-(defun chatgpt-shell--make-curl-request-command-list (request-data)
-  "Build ChatGPT curl command list using REQUEST-DATA."
-  (let ((json-path (chatgpt-shell--json-request-file)))
-    (with-temp-file json-path
-      (when (eq system-type 'windows-nt)
-        (setq-local buffer-file-coding-system 'utf-8))
-      (insert (shell-maker--json-encode request-data)))
-    (append (list "curl" (chatgpt-shell--api-url))
-            chatgpt-shell-additional-curl-options
-            (list "--fail-with-body"
-                  "--no-progress-meter"
-                  "-m" (number-to-string chatgpt-shell-request-timeout)
-                  "-H" "Content-Type: application/json; charset=utf-8"
-                  "-H" (funcall chatgpt-shell-auth-header)
-                  "-d" (format "@%s" json-path)))))
+(cl-defun chatgpt-shell--write-json-request-file (&key data)
+  "Encode and write DATA as json to request file."
+  (unless data
+    (error "Missing mandatory \"data\" param"))
+  (with-temp-file (chatgpt-shell--json-request-file)
+    (setq-local coding-system-for-write 'utf-8)
+    (insert (shell-maker--json-encode data))))
 
-(defun chatgpt-shell--make-payload (history)
-  "Create the request payload from HISTORY."
-  (setq history
-        (vconcat ;; Vector for json
-         (chatgpt-shell--user-assistant-messages
-          (last history
-                (chatgpt-shell--unpaired-length
-                 (if (functionp chatgpt-shell-transmitted-context-length)
-                     (funcall chatgpt-shell-transmitted-context-length
-                              (chatgpt-shell-model-version) history)
-                   chatgpt-shell-transmitted-context-length))))))
-  ;; TODO: Use `chatgpt-shell-make-request-data'.
-  (let ((request-data `((model . ,(chatgpt-shell-model-version))
-                        (messages . ,(if (chatgpt-shell-system-prompt)
-                                         (vconcat ;; Vector for json
-                                          (list
-                                           (list
-                                            (cons 'role "system")
-                                            (cons 'content (chatgpt-shell-system-prompt))))
-                                          history)
-                                       history)))))
-    (when chatgpt-shell-model-temperature
-      (push `(temperature . ,chatgpt-shell-model-temperature) request-data))
-    (when chatgpt-shell-streaming
-      (push `(stream . t) request-data))
-    request-data))
+;; TODO: replace all chatgpt-shell-crop-context
+(cl-defun chatgpt-shell-crop-context (&key context model command)
+  "Crop CONTEXT to fit MODEL limits appending COMMAND."
+  (unless model
+    (error "Missing mandatory \"model\" param"))
+  (if (map-elt model :ignore-context)
+      (list (cons command nil))
+    ;; Temporarily appending command for context
+    ;; calculation and removing with butlast.
+    (let ((complete-context (append context
+                                    (list (cons command nil)))))
+      (butlast
+       (last complete-context
+             (chatgpt-shell--unpaired-length
+              (if (functionp chatgpt-shell-transmitted-context-length)
+                  (funcall chatgpt-shell-transmitted-context-length
+                           model complete-context)
+                chatgpt-shell-transmitted-context-length)))
+       1))))
 
-(defun chatgpt-shell--approximate-context-length (model messages)
-  "Approximate the context length using MODEL and MESSAGES."
-  (let* ((tokens-per-message)
-         (max-tokens)
-         (original-length (floor (/ (length messages) 2)))
+(defun chatgpt-shell--approximate-context-length (model context)
+  "Approximate the CONTEXT length using MODEL."
+  (let* ((approx-chars-per-token)
+         (context-window)
+         (original-length (floor (/ (length context) 2)))
          (context-length original-length))
-    ;; Remove "ft:" from fine-tuned models and recognize as usual
-    (setq model (string-remove-prefix "ft:" model))
-    (cond
-     ((string-prefix-p "gpt-3.5" model)
-      (setq tokens-per-message 4
-            ;; https://platform.openai.com/docs/models/gpt-3-5
-            max-tokens 4096))
-     ((string-prefix-p "gpt-4" model)
-      (setq tokens-per-message 3
-            ;; https://platform.openai.com/docs/models/gpt-4
-            max-tokens 8192))
-     (t
-      (error "Don't know '%s', so can't approximate context length" model)))
-    (while (> (chatgpt-shell--num-tokens-from-messages
-               tokens-per-message messages)
-              max-tokens)
-      (setq messages (cdr messages)))
-    (setq context-length (floor (/ (length messages) 2)))
+    (if (map-elt model :token-width)
+        (setq approx-chars-per-token
+              (map-elt model :token-width))
+      (error "Don't know %s's approximate token width" model))
+    (if (map-elt model :context-window)
+        (setq context-window
+              (map-elt model :context-window))
+      (error "Don't know %s's max tokens context limit" model))
+    (while (> (chatgpt-shell--num-tokens-from-context
+               approx-chars-per-token context)
+              context-window)
+      ;; Keep dropping history until under context-window.
+      (setq context (cdr context)))
+    (setq context-length (floor (/ (length context) 2)))
     (unless (eq original-length context-length)
       (message "Warning: chatgpt-shell context clipped"))
     context-length))
 
 ;; Very rough token approximation loosely based on num_tokens_from_messages from:
 ;; https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
-(defun chatgpt-shell--num-tokens-from-messages (tokens-per-message messages)
-  "Approximate number of tokens in MESSAGES using TOKENS-PER-MESSAGE."
+(defun chatgpt-shell--num-tokens-from-context (chars-per-token context)
+  "Approximate number of tokens in CONTEXT using approximate CHARS-PER-TOKEN."
   (let ((num-tokens 0))
-    (dolist (message messages)
-      (setq num-tokens (+ num-tokens tokens-per-message))
-      (setq num-tokens (+ num-tokens (/ (length (cdr message)) tokens-per-message))))
+    (dolist (message context)
+      (setq num-tokens (+ num-tokens chars-per-token))
+      (setq num-tokens (+ num-tokens (/ (length (cdr message)) chars-per-token))))
     ;; Every reply is primed with <|start|>assistant<|message|>
     (setq num-tokens (+ num-tokens 3))
     num-tokens))
-
-(defun chatgpt-shell--extract-chatgpt-response (json)
-  "Extract ChatGPT response from JSON."
-  (if (eq (type-of json) 'cons)
-      (let-alist json ;; already parsed
-        (or (unless (seq-empty-p .choices)
-              (let-alist (seq-first .choices)
-                (or .delta.content
-                    .message.content)))
-            .error.message
-            ""))
-    (if-let (parsed (shell-maker--json-parse-string json))
-        (string-trim
-         (let-alist parsed
-           (unless (seq-empty-p .choices)
-             (let-alist (seq-first .choices)
-               .message.content))))
-      (if-let (parsed-error (shell-maker--json-parse-string-filtering
-                             json "^curl:.*\n?"))
-          (let-alist parsed-error
-            .error.message)))))
-
-;; FIXME: Make shell agnostic or move to chatgpt-shell.
-(defun chatgpt-shell-restore-session-from-transcript ()
-  "Restore session from transcript.
-
-Very much EXPERIMENTAL."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-mode)
-    (user-error "Not in a shell"))
-  (let* ((dir (when shell-maker-transcript-default-path
-                (file-name-as-directory shell-maker-transcript-default-path)))
-         (path (read-file-name "Restore from: " dir nil t))
-         (prompt-regexp (shell-maker-prompt-regexp shell-maker--config))
-         (history (with-temp-buffer
-                    (insert-file-contents path)
-                    (chatgpt-shell--extract-history
-                     (buffer-substring-no-properties
-                      (point-min) (point-max))
-                     prompt-regexp)))
-         (execute-command (shell-maker-config-execute-command
-                           shell-maker--config))
-         (validate-command (shell-maker-config-validate-command
-                            shell-maker--config))
-         (command)
-         (response)
-         (failed))
-    ;; Momentarily overrides request handling to replay all commands
-    ;; read from file so comint treats all commands/outputs like
-    ;; any other command.
-    (unwind-protect
-        (progn
-          (setf (shell-maker-config-validate-command shell-maker--config) nil)
-          (setf (shell-maker-config-execute-command shell-maker--config)
-                (lambda (_command _history callback _error-callback)
-                  (setq response (car history))
-                  (setq history (cdr history))
-                  (when response
-                    (unless (string-equal (map-elt response 'role)
-                                          "assistant")
-                      (setq failed t)
-                      (user-error "Invalid transcript"))
-                    (funcall callback (map-elt response 'content) nil)
-                    (setq command (car history))
-                    (setq history (cdr history))
-                    (when command
-                      (goto-char (point-max))
-                      (insert (map-elt command 'content))
-                      (shell-maker--send-input)))))
-          (goto-char (point-max))
-          (comint-clear-buffer)
-          (setq command (car history))
-          (setq history (cdr history))
-          (when command
-            (unless (string-equal (map-elt command 'role)
-                                  "user")
-              (setq failed t)
-              (user-error "Invalid transcript"))
-            (goto-char (point-max))
-            (insert (map-elt command 'content))
-            (shell-maker--send-input)))
-      (if failed
-          (setq shell-maker--file nil)
-        (setq shell-maker--file path))
-      (setq shell-maker--busy nil)
-      (setf (shell-maker-config-validate-command shell-maker--config)
-            validate-command)
-      (setf (shell-maker-config-execute-command shell-maker--config)
-            execute-command)))
-  (goto-char (point-max)))
 
 ;; TODO: Move to shell-maker.
 (defun chatgpt-shell--fontify-source-block (quotes1-start quotes1-end lang
@@ -1956,24 +2381,31 @@ lang-start lang-end body-start body-end quotes2-start quotes2-end)
 Use QUOTES1-START QUOTES1-END LANG LANG-START LANG-END BODY-START
  BODY-END QUOTES2-START and QUOTES2-END."
   ;; Overlay beginning "```" with a copy block button.
-  (overlay-put (make-overlay quotes1-start
-                             quotes1-end)
-               'display
-               (propertize "📋 "
-                           'pointer 'hand
-                           'keymap (shell-maker--make-ret-binding-map
-                                    (lambda ()
-                                      (interactive)
-                                      (kill-ring-save body-start body-end)
-                                      (message "Copied")))))
+  (chatgpt-shell--overlay-put-all
+   (make-overlay quotes1-start quotes1-end)
+   'evaporate t
+   'display
+   (propertize "📋 "
+               'pointer 'hand
+               'keymap (shell-maker--make-ret-binding-map
+                        (lambda ()
+                          (interactive)
+                          (kill-ring-save body-start body-end)
+                          (message "Copied")))))
   ;; Hide end "```" altogether.
-  (overlay-put (make-overlay quotes2-start
-                             quotes2-end) 'invisible 'chatgpt-shell)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay quotes2-start quotes2-end)
+   'evaporate t
+   'invisible 'chatgpt-shell)
   (unless (eq lang-start lang-end)
-    (overlay-put (make-overlay lang-start
-                               lang-end) 'face '(:box t))
-    (overlay-put (make-overlay lang-end
-                               (1+ lang-end)) 'display "\n\n"))
+    (chatgpt-shell--overlay-put-all
+     (make-overlay lang-start lang-end)
+     'evaporate t
+     'face '(:box t))
+    (chatgpt-shell--overlay-put-all
+     (make-overlay lang-end (1+ lang-end))
+     'evaporate t
+     'display "\n\n"))
   (let ((lang-mode (intern (concat (or
                                     (chatgpt-shell--resolve-internal-language lang)
                                     (downcase (string-trim lang)))
@@ -1987,7 +2419,8 @@ Use QUOTES1-START QUOTES1-END LANG LANG-START LANG-END BODY-START
         (props)
         (overlay)
         (propertized-text))
-    (if (fboundp lang-mode)
+    (if (and (fboundp lang-mode)
+             (provided-mode-derived-p lang-mode 'prog-mode))
         (progn
           (setq propertized-text
                 (with-current-buffer
@@ -2006,103 +2439,162 @@ Use QUOTES1-START QUOTES1-END LANG LANG-START LANG-END BODY-START
             (setq overlay (make-overlay (+ body-start pos)
                                         (+ body-start (1+ pos))
                                         buf))
-            (overlay-put overlay 'face (plist-get props 'face))
+            (chatgpt-shell--overlay-put-all
+             overlay
+             'evaporate t
+             'face (plist-get props 'face))
             (setq pos (1+ pos))))
-      (overlay-put (make-overlay body-start body-end buf)
-                   'face 'font-lock-doc-markup-face))))
+      (chatgpt-shell--overlay-put-all
+       (make-overlay body-start body-end buf)
+       'evaporate t
+       'face 'font-lock-doc-markup-face))))
+
+(defun chatgpt-shell--overlay-put-all (overlay &rest props)
+  "Set multiple properties on OVERLAY via PROPS."
+  (unless (= (mod (length props) 2) 0)
+    (error "Props missing a property or value"))
+  (while props
+    (overlay-put overlay (pop props) (pop props))))
 
 (defun chatgpt-shell--fontify-divider (start end)
   "Display text between START and END as a divider."
-  (overlay-put (make-overlay start end
-                             (if (and (boundp 'shell-maker--config)
-                                      shell-maker--config)
-                                 (shell-maker-buffer shell-maker--config)
-                               (current-buffer)))
-               'display
-               (concat (propertize (concat (make-string (window-body-width) ? ) "")
-                                   'face '(:underline t)) "\n")))
+  (chatgpt-shell--overlay-put-all
+   (make-overlay start end
+                 (if (and (boundp 'shell-maker--config)
+                          shell-maker--config)
+                     (shell-maker-buffer shell-maker--config)
+                   (current-buffer)))
+   'evaporate t
+   'display
+   (concat (propertize (concat (make-string (window-body-width) ? ) "")
+                       'face '(:underline t)) "\n")))
 
 ;; TODO: Move to shell-maker.
 (defun chatgpt-shell--fontify-link (start end title-start title-end url-start url-end)
   "Fontify a markdown link.
 Use START END TITLE-START TITLE-END URL-START URL-END."
   ;; Hide markup before
-  (overlay-put (make-overlay start title-start) 'invisible 'chatgpt-shell)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay start title-start)
+   'evaporate t
+   'invisible 'chatgpt-shell)
   ;; Show title as link
-  (overlay-put (make-overlay title-start title-end) 'face 'link)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay title-start title-end)
+   'evaporate t
+   'face 'link)
   ;; Make RET open the URL
   (define-key (let ((map (make-sparse-keymap)))
                 (define-key map [mouse-1]
-                  (lambda () (interactive)
-                    (browse-url (buffer-substring-no-properties url-start url-end))))
+                            (lambda () (interactive)
+                              (browse-url (buffer-substring-no-properties url-start url-end))))
                 (define-key map (kbd "RET")
-                  (lambda () (interactive)
-                    (browse-url (buffer-substring-no-properties url-start url-end))))
-                (overlay-put (make-overlay title-start title-end) 'keymap map)
+                            (lambda () (interactive)
+                              (browse-url (buffer-substring-no-properties url-start url-end))))
+                (chatgpt-shell--overlay-put-all
+                 (make-overlay title-start title-end)
+                 'evaporate t
+                 'keymap map)
                 map)
-    [remap self-insert-command] 'ignore)
+              [remap self-insert-command] 'ignore)
   ;; Hide markup after
-  (overlay-put (make-overlay title-end end) 'invisible 'chatgpt-shell))
+  (chatgpt-shell--overlay-put-all
+   (make-overlay title-end end)
+   'evaporate t
+   'invisible 'chatgpt-shell))
 
 ;; TODO: Move to shell-maker.
 (defun chatgpt-shell--fontify-bold (start end text-start text-end)
   "Fontify a markdown bold.
 Use START END TEXT-START TEXT-END."
   ;; Hide markup before
-  (overlay-put (make-overlay start text-start) 'invisible 'chatgpt-shell)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay start text-start)
+   'evaporate t
+   'invisible 'chatgpt-shell)
   ;; Show title as bold
-  (overlay-put (make-overlay text-start text-end) 'face 'bold)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay text-start text-end)
+   'evaporate t
+   'face 'bold)
   ;; Hide markup after
-  (overlay-put (make-overlay text-end end) 'invisible 'chatgpt-shell))
+  (chatgpt-shell--overlay-put-all
+   (make-overlay text-end end)
+   'evaporate t
+   'invisible 'chatgpt-shell))
 
 ;; TODO: Move to shell-maker.
 (defun chatgpt-shell--fontify-header (start _end level-start level-end title-start title-end)
   "Fontify a markdown header.
 Use START END LEVEL-START LEVEL-END TITLE-START TITLE-END."
   ;; Hide markup before
-  (overlay-put (make-overlay start title-start) 'invisible 'chatgpt-shell)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay start title-start)
+   'evaporate t
+   'invisible 'chatgpt-shell)
   ;; Show title as header
-  (overlay-put (make-overlay title-start title-end) 'face
-               (cond ((eq (- level-end level-start) 1)
-                      'org-level-1)
-                     ((eq (- level-end level-start) 2)
-                      'org-level-2)
-                     ((eq (- level-end level-start) 3)
-                      'org-level-3)
-                     ((eq (- level-end level-start) 4)
-                      'org-level-4)
-                     ((eq (- level-end level-start) 5)
-                      'org-level-5)
-                     ((eq (- level-end level-start) 6)
-                      'org-level-6)
-                     ((eq (- level-end level-start) 7)
-                      'org-level-7)
-                     ((eq (- level-end level-start) 8)
-                      'org-level-8)
-                     (t
-                      'org-level-1))))
+  (chatgpt-shell--overlay-put-all
+   (make-overlay title-start title-end)
+   'evaporate t
+   'face
+   (cond ((eq (- level-end level-start) 1)
+          'org-level-1)
+         ((eq (- level-end level-start) 2)
+          'org-level-2)
+         ((eq (- level-end level-start) 3)
+          'org-level-3)
+         ((eq (- level-end level-start) 4)
+          'org-level-4)
+         ((eq (- level-end level-start) 5)
+          'org-level-5)
+         ((eq (- level-end level-start) 6)
+          'org-level-6)
+         ((eq (- level-end level-start) 7)
+          'org-level-7)
+         ((eq (- level-end level-start) 8)
+          'org-level-8)
+         (t
+          'org-level-1))))
 
 ;; TODO: Move to shell-maker.
 (defun chatgpt-shell--fontify-italic (start end text-start text-end)
   "Fontify a markdown italic.
 Use START END TEXT-START TEXT-END."
   ;; Hide markup before
-  (overlay-put (make-overlay start text-start) 'invisible 'chatgpt-shell)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay start text-start)
+   'evaporate t
+   'invisible 'chatgpt-shell)
   ;; Show title as italic
-  (overlay-put (make-overlay text-start text-end) 'face 'italic)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay text-start text-end)
+   'evaporate t
+   'face 'italic)
   ;; Hide markup after
-  (overlay-put (make-overlay text-end end) 'invisible 'chatgpt-shell))
+  (chatgpt-shell--overlay-put-all
+   (make-overlay text-end end)
+   'evaporate t
+   'invisible 'chatgpt-shell))
 
 ;; TODO: Move to shell-maker.
 (defun chatgpt-shell--fontify-strikethrough (start end text-start text-end)
   "Fontify a markdown strikethrough.
 Use START END TEXT-START TEXT-END."
   ;; Hide markup before
-  (overlay-put (make-overlay start text-start) 'invisible 'chatgpt-shell)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay start text-start)
+   'evaporate t
+   'invisible 'chatgpt-shell)
   ;; Show title as strikethrough
-  (overlay-put (make-overlay text-start text-end) 'face '(:strike-through t))
+  (chatgpt-shell--overlay-put-all
+   (make-overlay text-start text-end)
+   'evaporate t
+   'face '(:strike-through t))
   ;; Hide markup after
-  (overlay-put (make-overlay text-end end) 'invisible 'chatgpt-shell))
+  (chatgpt-shell--overlay-put-all
+   (make-overlay text-end end)
+   'evaporate t
+   'invisible 'chatgpt-shell))
 
 ;; TODO: Move to shell-maker.
 (defun chatgpt-shell--fontify-inline-code (body-start body-end)
@@ -2110,16 +2602,25 @@ Use START END TEXT-START TEXT-END."
 Use QUOTES1-START QUOTES1-END LANG LANG-START LANG-END BODY-START
  BODY-END QUOTES2-START and QUOTES2-END."
   ;; Hide ```
-  (overlay-put (make-overlay (1- body-start)
-                             body-start) 'invisible 'chatgpt-shell)
-  (overlay-put (make-overlay body-end
-                             (1+ body-end)) 'invisible 'chatgpt-shell)
-  (overlay-put (make-overlay body-start body-end
-                             (if (and (boundp 'shell-maker--config)
-                                      shell-maker--config)
-                                 (shell-maker-buffer shell-maker--config)
-                               (current-buffer)))
-               'face 'font-lock-doc-markup-face))
+  (chatgpt-shell--overlay-put-all
+   (make-overlay (1- body-start)
+                 body-start)
+   'evaporate t
+   'invisible 'chatgpt-shell)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay body-end
+                 (1+ body-end))
+   'evaporate t
+   'invisible 'chatgpt-shell)
+  (chatgpt-shell--overlay-put-all
+   (make-overlay body-start body-end
+                 (if (and (boundp 'shell-maker--config)
+                          shell-maker--config)
+                     (shell-maker-buffer shell-maker--config)
+                   (current-buffer)))
+   'evaporate t
+
+   'face 'font-lock-doc-markup-face))
 
 (defun chatgpt-shell-rename-block-at-point ()
   "Rename block at point (perhaps a different language)."
@@ -2150,13 +2651,13 @@ Use QUOTES1-START QUOTES1-END LANG LANG-START LANG-END BODY-START
 ;; TODO: Move to shell-maker.
 (defun chatgpt-shell--put-source-block-overlays ()
   "Put overlays for all source blocks."
-  (when chatgpt-shell-highlight-blocks
-    (let* ((source-blocks (chatgpt-shell--source-blocks))
-           (avoid-ranges (seq-map (lambda (block)
-                                    (map-elt block 'body))
-                                  source-blocks)))
-      (dolist (overlay (overlays-in (point-min) (point-max)))
-        (delete-overlay overlay))
+  (let* ((source-blocks (chatgpt-shell--source-blocks))
+         (avoid-ranges (seq-map (lambda (block)
+                                  (map-elt block 'body))
+                                source-blocks)))
+    (dolist (overlay (overlays-in (point-min) (point-max)))
+      (delete-overlay overlay))
+    (when chatgpt-shell-highlight-blocks
       (dolist (block source-blocks)
         (chatgpt-shell--fontify-source-block
          (car (map-elt block 'start))
@@ -2168,48 +2669,75 @@ Use QUOTES1-START QUOTES1-END LANG LANG-START LANG-END BODY-START
          (car (map-elt block 'body))
          (cdr (map-elt block 'body))
          (car (map-elt block 'end))
-         (cdr (map-elt block 'end))))
-      (when chatgpt-shell-insert-dividers
-        (dolist (divider (shell-maker--prompt-end-markers))
-          (chatgpt-shell--fontify-divider (car divider) (cdr divider))))
-      (dolist (link (chatgpt-shell--markdown-links avoid-ranges))
-        (chatgpt-shell--fontify-link
-         (map-elt link 'start)
-         (map-elt link 'end)
-         (car (map-elt link 'title))
-         (cdr (map-elt link 'title))
-         (car (map-elt link 'url))
-         (cdr (map-elt link 'url))))
-      (dolist (header (chatgpt-shell--markdown-headers avoid-ranges))
-        (chatgpt-shell--fontify-header
-         (map-elt header 'start)
-         (map-elt header 'end)
-         (car (map-elt header 'level))
-         (cdr (map-elt header 'level))
-         (car (map-elt header 'title))
-         (cdr (map-elt header 'title))))
-      (dolist (bold (chatgpt-shell--markdown-bolds avoid-ranges))
-        (chatgpt-shell--fontify-bold
-         (map-elt bold 'start)
-         (map-elt bold 'end)
-         (car (map-elt bold 'text))
-         (cdr (map-elt bold 'text))))
-      (dolist (italic (chatgpt-shell--markdown-italics avoid-ranges))
-        (chatgpt-shell--fontify-italic
-         (map-elt italic 'start)
-         (map-elt italic 'end)
-         (car (map-elt italic 'text))
-         (cdr (map-elt italic 'text))))
-      (dolist (strikethrough (chatgpt-shell--markdown-strikethroughs avoid-ranges))
-        (chatgpt-shell--fontify-strikethrough
-         (map-elt strikethrough 'start)
-         (map-elt strikethrough 'end)
-         (car (map-elt strikethrough 'text))
-         (cdr (map-elt strikethrough 'text))))
-      (dolist (inline-code (chatgpt-shell--markdown-inline-codes avoid-ranges))
-        (chatgpt-shell--fontify-inline-code
-         (car (map-elt inline-code 'body))
-         (cdr (map-elt inline-code 'body)))))))
+         (cdr (map-elt block 'end)))))
+    (when chatgpt-shell-insert-dividers
+      (dolist (divider (shell-maker--prompt-end-markers))
+        (chatgpt-shell--fontify-divider (car divider) (cdr divider))))
+    (dolist (link (chatgpt-shell--markdown-links avoid-ranges))
+      (chatgpt-shell--fontify-link
+       (map-elt link 'start)
+       (map-elt link 'end)
+       (car (map-elt link 'title))
+       (cdr (map-elt link 'title))
+       (car (map-elt link 'url))
+       (cdr (map-elt link 'url))))
+    (dolist (header (chatgpt-shell--markdown-headers avoid-ranges))
+      (chatgpt-shell--fontify-header
+       (map-elt header 'start)
+       (map-elt header 'end)
+       (car (map-elt header 'level))
+       (cdr (map-elt header 'level))
+       (car (map-elt header 'title))
+       (cdr (map-elt header 'title))))
+    (dolist (bold (chatgpt-shell--markdown-bolds avoid-ranges))
+      (chatgpt-shell--fontify-bold
+       (map-elt bold 'start)
+       (map-elt bold 'end)
+       (car (map-elt bold 'text))
+       (cdr (map-elt bold 'text))))
+    (dolist (italic (chatgpt-shell--markdown-italics avoid-ranges))
+      (chatgpt-shell--fontify-italic
+       (map-elt italic 'start)
+       (map-elt italic 'end)
+       (car (map-elt italic 'text))
+       (cdr (map-elt italic 'text))))
+    (dolist (strikethrough (chatgpt-shell--markdown-strikethroughs avoid-ranges))
+      (chatgpt-shell--fontify-strikethrough
+       (map-elt strikethrough 'start)
+       (map-elt strikethrough 'end)
+       (car (map-elt strikethrough 'text))
+       (cdr (map-elt strikethrough 'text))))
+    (dolist (inline-code (chatgpt-shell--markdown-inline-codes avoid-ranges))
+      (chatgpt-shell--fontify-inline-code
+       (car (map-elt inline-code 'body))
+       (cdr (map-elt inline-code 'body))))
+    (when chatgpt-shell-render-latex
+      (require 'org)
+      ;; Silence org-element warnings.
+      (let ((major-mode 'org-mode))
+        (save-excursion
+          (dolist (range (chatgpt-shell--invert-ranges
+                          avoid-ranges
+                          (point-min)
+                          (point-max)))
+            (org-format-latex
+             (concat org-preview-latex-image-directory "chatgpt-shell")
+             (car range) (cdr range)
+             temporary-file-directory
+             'overlays nil 'forbuffer org-preview-latex-default-process)))))))
+
+(defun chatgpt-shell--invert-ranges (ranges min max)
+  "Invert a list of RANGES within the interval [MIN, MAX].
+Each range is a cons of start and end integers."
+  (let ((result nil)
+        (start min))
+    (dolist (range ranges)
+      (when (< start (car range))
+        (push (cons start (car range)) result))
+      (setq start (cdr range)))
+    (when (< start max)
+      (push (cons start max) result))
+    result))
 
 ;; TODO: Move to shell-maker.
 (defun chatgpt-shell--unpaired-length (length)
@@ -2227,7 +2755,7 @@ If no LENGTH set, use 2048."
 (defun chatgpt-shell-view-at-point ()
   "View prompt and output at point in a separate buffer."
   (interactive)
-  (unless (eq major-mode 'chatgpt-shell-mode)
+  (unless (derived-mode-p 'chatgpt-shell-mode)
     (user-error "Not in a shell"))
   (let ((prompt-pos (save-excursion
                       (goto-char (process-mark
@@ -2239,7 +2767,7 @@ If no LENGTH set, use 2048."
         (goto-char prompt-pos)
         (forward-line -1)
         (end-of-line))
-      (let* ((items (chatgpt-shell--user-assistant-messages
+      (let* ((items (chatgpt-shell-openai--user-assistant-messages
                      (list (shell-maker--command-and-response-at-point))))
              (command (string-trim (or (map-elt (seq-first items) 'content) "")))
              (response (string-trim (or (map-elt (car (last items)) 'content) ""))))
@@ -2266,31 +2794,8 @@ If no LENGTH set, use 2048."
 
 (defun chatgpt-shell--extract-history (text prompt-regexp)
   "Extract all command and responses in TEXT with PROMPT-REGEXP."
-  (chatgpt-shell--user-assistant-messages
+  (chatgpt-shell-openai--user-assistant-messages
    (shell-maker--extract-history text prompt-regexp)))
-
-(defun chatgpt-shell--user-assistant-messages (history)
-  "Convert HISTORY to ChatGPT format.
-
-Sequence must be a vector for json serialization.
-
-For example:
-
- [
-   ((role . \"user\") (content . \"hello\"))
-   ((role . \"assistant\") (content . \"world\"))
- ]"
-  (let ((result))
-    (mapc
-     (lambda (item)
-       (when (car item)
-         (push (list (cons 'role "user")
-                     (cons 'content (car item))) result))
-       (when (cdr item)
-         (push (list (cons 'role "assistant")
-                     (cons 'content (cdr item))) result)))
-     history)
-    (nreverse result)))
 
 (defun chatgpt-shell-run-command (command callback)
   "Run COMMAND list asynchronously and call CALLBACK function.
@@ -2373,6 +2878,102 @@ For example \"elisp\" -> \"emacs-lisp\"."
             (chatgpt-shell-execute-babel-block-action-at-point)
           (user-error "No primary action for %s blocks" (map-elt block 'language))))
     (user-error "No block at point")))
+
+(defun chatgpt-shell-edit-block-at-point ()
+  "Execute block at point."
+  (interactive)
+  (error "Not yet supported")
+  (if-let ((block (chatgpt-shell-markdown-block-at-point)))
+      (chatgpt-shell--view-code :language (map-elt block 'language)
+                                :code (buffer-substring-no-properties
+                                       (map-elt block 'start)
+                                       (map-elt block 'end))
+                                :on-finished (lambda (code)
+                                               (when-let ((inhibit-read-only t)
+                                                          (success code))
+                                                 (deactivate-mark)
+                                                 (delete-region (map-elt block 'start)
+                                                                (map-elt block 'end))
+                                                 (insert "\n"
+                                                         (string-trim code)
+                                                         "\n")
+                                                 (chatgpt-shell--put-source-block-overlays))))
+    (user-error "No block at point")))
+
+(defun chatgpt-shell-view-block-at-point ()
+  "View code block at point (using language's major mode)."
+  (interactive)
+  (if-let ((block (chatgpt-shell-markdown-block-at-point)))
+      (chatgpt-shell--view-code :language (map-elt block 'language)
+                                :code (buffer-substring-no-properties
+                                       (map-elt block 'start)
+                                       (map-elt block 'end))
+                                :on-finished #'identity)
+    (user-error "No block at point")))
+
+(cl-defun chatgpt-shell--view-code (&key edit language code on-finished)
+  "Open a temporary buffer for editing CODE in LANGUAGE major mode.
+When done, invoke the FINISHED function with the resulting code.
+
+ARGS:
+- EDIT: To enable editing CODE in own buffer.
+- LANGUAGE: A string with the language name.
+- CODE: A string with the initial content of the buffer.
+- ON-FINISHED: Invoked with saved changes, nil if cancelled."
+  (let* ((block-buffer (current-buffer))
+         (edit-buffer (generate-new-buffer (format "*%s code block*"
+                                                   (if edit "edit" "view"))))
+         (buffer-name (buffer-name edit-buffer))
+         (language-mode (intern (concat (or
+                                         (chatgpt-shell--resolve-internal-language language)
+                                         (downcase (string-trim language)))
+                                        "-mode"))))
+    (switch-to-buffer edit-buffer)
+    (set-visited-file-name (make-temp-file "chatgpt-shell-edit-block"))
+    (rename-buffer buffer-name)
+    (add-hook 'after-change-functions
+              (lambda (_beg _end _len)
+                (set-buffer-modified-p nil)) nil t)
+    (funcall language-mode)
+    (insert (or code ""))
+    (set-buffer-modified-p nil)
+    (if edit
+        (progn
+          (setq header-line-format
+                (concat
+                 " "
+                 (propertize "C-c '" 'face 'help-key-binding)
+                 " to Save. "
+                 (propertize "C-c C-k" 'face 'help-key-binding)
+                 " to Cancel and Discard."))
+          (let ((local-map (make-sparse-keymap)))
+            (define-key local-map (kbd "C-c '") (lambda ()
+                                                  (interactive)
+                                                  (let ((result (buffer-string)))
+                                                    (with-current-buffer block-buffer
+                                                      (funcall on-finished result))
+                                                    (set-buffer-modified-p nil)
+                                                    (kill-buffer edit-buffer))))
+            (define-key local-map (kbd "C-c C-k") (lambda ()
+                                                    (interactive)
+                                                    (with-current-buffer block-buffer
+                                                      (funcall on-finished nil))
+                                                    (set-buffer-modified-p nil)
+                                                    (kill-buffer edit-buffer)))
+            (use-local-map local-map)))
+      (setq header-line-format
+            (concat
+             " Press "
+             (propertize "q" 'face 'help-key-binding)
+             " to exit"))
+      (let ((local-map (make-sparse-keymap)))
+        (define-key local-map (kbd "q") (lambda ()
+                                          (interactive)
+                                          (quit-restore-window
+                                           (get-buffer-window edit-buffer) 'kill)))
+        (use-local-map local-map))
+      (setq buffer-read-only t))
+    (goto-char (point-min))))
 
 (defun chatgpt-shell--override-language-params (language params)
   "Override PARAMS for LANGUAGE if found in `chatgpt-shell-babel-headers'."
@@ -2517,7 +3118,7 @@ compiling source blocks."
   "Save variables across Emacs sessions."
   (setq-default chatgpt-shell-system-prompt
                 chatgpt-shell-system-prompt)
-  (with-temp-file (concat user-emacs-directory ".chatgpt-shell.el")
+  (with-temp-file (expand-file-name ".chatgpt-shell.el" chatgpt-shell-root-path)
     (prin1 (list
             (cons 'chatgpt-shell-system-prompt chatgpt-shell-system-prompt)
             (cons 'chatgpt-shell-system-prompt-resolved
@@ -2533,7 +3134,7 @@ compiling source blocks."
   (with-temp-buffer
     (condition-case nil
       ;; Try to insert the contents of .chatgpt-shell.el
-      (insert-file-contents (concat user-emacs-directory ".chatgpt-shell.el"))
+      (insert-file-contents (expand-file-name ".chatgpt-shell.el" chatgpt-shell-root-path))
       (error
         ;; If an error happens, execute chatgpt-shell--save-variables
         (chatgpt-shell--save-variables)))
@@ -2546,280 +3147,218 @@ compiling source blocks."
                              chatgpt-shell-system-prompts)))
         (setq chatgpt-shell-system-prompt (map-elt vars 'chatgpt-shell-system-prompt))))))
 
-;;; TODO: Move to chatgpt-shell-prompt-compose.el, but first update
-;;; the MELPA recipe, so it can load additional files other than chatgpt-shell.el.
-;;; https://github.com/melpa/melpa/blob/master/recipes/chatgpt-shell
+(defun chatgpt-shell--flymake-context ()
+  "Return flymake diagnostic context if available.  Nil otherwise."
+  (when-let* ((point (point))
+              (diagnostic (flymake-diagnostics (point)))
+              (line-start (line-beginning-position))
+              (line-end (line-end-position))
+              (top-context-start (max (line-beginning-position -5) (point-min)))
+              (top-context-end (max (line-beginning-position 1) (point-min)))
+              (bottom-context-start (min (line-beginning-position 2) (point-max)))
+              (bottom-context-end (min (line-beginning-position 7) (point-max)))
+              (current-line (buffer-substring line-start line-end)))
+    (list
+     (cons :point (point))
+     (cons :start top-context-start)
+     (cons :end bottom-context-end)
+     (cons :diagnostic (mapconcat #'flymake-diagnostic-text diagnostic "\n"))
+     (cons :content (concat
+                     (buffer-substring-no-properties top-context-start top-context-end)
+                     (buffer-substring-no-properties line-start line-end)
+                     " <--- issue is here\n"
+                     (buffer-substring-no-properties bottom-context-start bottom-context-end))))))
 
-(defvar-local chatgpt-shell-prompt-compose--exit-on-submit nil
-  "Whether or not compose buffer should close after submission.
+(when-let ((flymake-context (chatgpt-shell--flymake-context)))
+  (set-mark (map-elt flymake-context :start))
+  (goto-char (map-elt flymake-context :end)))
 
-This is typically used to craft prompts and immediately jump over to
-the shell to follow the response.")
-
-(defvar-local chatgpt-shell-prompt-compose--transient-frame-p nil
-  "Identifies whether or not buffer is running on a dedicated frame.
-
-t if invoked from a transient frame (quitting closes the frame).")
-
-(defvar chatgpt-shell-prompt-compose-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-c") #'chatgpt-shell-prompt-compose-send-buffer)
-    (define-key map (kbd "C-c C-k") #'chatgpt-shell-prompt-compose-cancel)
-    (define-key map (kbd "C-c C-s") #'chatgpt-shell-prompt-compose-swap-system-prompt)
-    (define-key map (kbd "C-c C-v") #'chatgpt-shell-prompt-compose-swap-model-version)
-    (define-key map (kbd "C-c C-o") #'chatgpt-shell-prompt-compose-other-buffer)
-    (define-key map (kbd "M-r") #'chatgpt-shell-prompt-compose-search-history)
-    (define-key map (kbd "M-p") #'chatgpt-shell-prompt-compose-previous-history)
-    (define-key map (kbd "M-n") #'chatgpt-shell-prompt-compose-next-history)
-    map))
-
-(define-derived-mode chatgpt-shell-prompt-compose-mode fundamental-mode "ChatGPT Compose"
-  "Major mode for composing ChatGPT prompts from a dedicated buffer."
-  :keymap chatgpt-shell-prompt-compose-mode-map)
-
-(defvar chatgpt-shell-prompt-compose-view-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "g") #'chatgpt-shell-prompt-compose-retry)
-    (define-key map (kbd "C-M-h") #'chatgpt-shell-mark-block)
-    (define-key map (kbd "n") #'chatgpt-shell-prompt-compose-next-block)
-    (define-key map (kbd "p") #'chatgpt-shell-prompt-compose-previous-block)
-    (define-key map (kbd "r") #'chatgpt-shell-prompt-compose-reply)
-    (define-key map (kbd "q") #'chatgpt-shell-prompt-compose-quit-and-close-frame)
-    (define-key map (kbd "e") #'chatgpt-shell-prompt-compose-request-entire-snippet)
-    (define-key map (kbd "m") #'chatgpt-shell-prompt-compose-request-more)
-    (define-key map (kbd "o") #'chatgpt-shell-prompt-compose-other-buffer)
-    (set-keymap-parent map view-mode-map)
-    map)
-  "Keymap for `chatgpt-shell-prompt-compose-view-mode'.")
-
-(define-minor-mode chatgpt-shell-prompt-compose-view-mode
-  "Like `view-mode`, but extended for ChatGPT Compose."
-  :lighter "ChatGPT view"
-  :keymap chatgpt-shell-prompt-compose-view-mode-map
-  (setq buffer-read-only chatgpt-shell-prompt-compose-view-mode))
-
-(defun chatgpt-shell-prompt-compose (prefix)
-  "Compose and send prompt from a dedicated buffer.
-
-With PREFIX, clear existing history (wipe asociated shell history).
-
-Whenever `chatgpt-shell-prompt-compose' is invoked, appends any active
-region (or flymake issue at point) to compose buffer.
-
-Additionally, if point is at an error/warning raised by flymake,
-automatically add context (error/warning + code) to expedite ChatGPT
-for help to fix the issue.
-
-The compose buffer always shows the latest interaction, but it's
-backed by the shell history.  You can always switch to the shell buffer
-to view the history.
-
-Editing: While compose buffer is in in edit mode, it offers a couple
-of magit-like commit buffer bindings.
-
- `\\[chatgpt-shell-prompt-compose-send-buffer]` to send the buffer query.
- `\\[chatgpt-shell-prompt-compose-cancel]` to cancel compose buffer.
- `\\[chatgpt-shell-prompt-compose-search-history]` search through history.
- `\\[chatgpt-shell-prompt-compose-previous-history]` cycle through previous
-item in history.
- `\\[chatgpt-shell-prompt-compose-next-history]` cycle through next item in
-history.
-
-Read-only: After sending a query, the buffer becomes read-only and
-enables additional key bindings.
-
- `\\[chatgpt-shell-prompt-compose-send-buffer]` After sending offers to abort
-query in-progress.
- `\\[View-quit]` Exits the read-only buffer.
- `\\[chatgpt-shell-prompt-compose-retry]` Refresh (re-send the query).  Useful
-to retry on disconnects.
- `\\[chatgpt-shell-prompt-compose-next-block]` Jump to next source block.
- `\\[chatgpt-shell-prompt-compose-previous-block]` Jump to next previous block.
- `\\[chatgpt-shell-prompt-compose-reply]` Reply to follow-up with additional questions.
- `\\[chatgpt-shell-prompt-compose-request-entire-snippet]` Send \"Show entire snippet\" query.
- `\\[chatgpt-shell-prompt-compose-request-more]` Send \"Show me more\" query.
- `\\[chatgpt-shell-prompt-compose-other-buffer]` Jump to other buffer (ie. the shell itself).
- `\\[chatgpt-shell-mark-block]` Mark block at point."
-  (interactive "P")
-  (chatgpt-shell-prompt-compose-show-buffer nil prefix))
-
-(defun chatgpt-shell-prompt-compose-show-buffer (&optional content clear-history transient-frame-p)
-  "Show a prompt compose buffer.
-
-Prepopulate buffer with optional CONTENT.
-
-Set CLEAR-HISTORY to wipe any existing shell history.
-
-Set TRANSIENT-FRAME-P to also close frame on exit."
-  (let* ((exit-on-submit (eq major-mode 'chatgpt-shell-mode))
-         (region (or content
-                     (when-let ((region-active (region-active-p))
-                                (region (buffer-substring (region-beginning)
-                                                          (region-end))))
-                       (deactivate-mark)
-                       (concat (if-let ((buffer-file-name (buffer-file-name))
-                                        (name (file-name-nondirectory buffer-file-name))
-                                        (is-key-file (seq-contains-p '(".babelrc"
-                                                                       ".editorconfig"
-                                                                       ".eslintignore"
-                                                                       ".eslintrc"
-                                                                       ".eslintrc.json"
-                                                                       ".mocharc.json"
-                                                                       ".prettierrc"
-                                                                       "package.json"
-                                                                       "tsconfig.json"
-                                                                       "wrangler.toml")
-                                                                     name)))
-                                   (format "%s: \n\n" name)
-                                 "")
-                               "```"
-                               (cond ((listp mode-name)
-                                      (downcase (car mode-name)))
-                                     ((stringp mode-name)
-                                      (downcase mode-name))
-                                     (t
-                                      ""))
-                               "\n"
-                               region
-                               "\n"
-                               "```"))
-                     (when (eq major-mode 'eshell-mode)
-                       (chatgpt-shell--eshell-last-last-command))
-                     (when-let* ((diagnostic (flymake-diagnostics (point)))
-                                 (line-start (line-beginning-position))
-                                 (line-end (line-end-position))
-                                 (top-context-start (max (line-beginning-position 1) (point-min)))
-                                 (top-context-end (max (line-beginning-position -5) (point-min)))
-                                 (bottom-context-start (min (line-beginning-position 2) (point-max)))
-                                 (bottom-context-end (min (line-beginning-position 7) (point-max)))
-                                 (current-line (buffer-substring line-start line-end)))
-                       (concat
-                        "Fix this code and only show me a diff without explanation\n\n"
-                        (mapconcat #'flymake-diagnostic-text diagnostic "\n")
-                        "\n\n"
-                        (buffer-substring top-context-start top-context-end)
-                        (buffer-substring line-start line-end)
-                        " <--- issue is here\n"
-                        (buffer-substring bottom-context-start bottom-context-end)))))
-         (instructions (concat "Type "
-                               (propertize "C-c C-c" 'face 'help-key-binding)
-                               " to send prompt. "
-                               (propertize "C-c C-k" 'face 'help-key-binding)
-                               " to cancel and exit. "))
-         (erase-buffer (or clear-history
-                           (not region)
-                           ;; view-mode = old query, erase for new one.
-                           (with-current-buffer (chatgpt-shell-prompt-compose-buffer)
-                             chatgpt-shell-prompt-compose-view-mode))))
-    (with-current-buffer (chatgpt-shell-prompt-compose-buffer)
-      (chatgpt-shell-prompt-compose-mode)
-      (setq-local chatgpt-shell-prompt-compose--exit-on-submit exit-on-submit)
-      (setq-local chatgpt-shell-prompt-compose--transient-frame-p transient-frame-p)
-      (visual-line-mode +1)
-      (when erase-buffer
-        (chatgpt-shell-prompt-compose-view-mode -1)
-        (erase-buffer))
-      (when region
-        (save-excursion
-          (goto-char (point-max))
-          (insert "\n\n")
-          (insert region)))
-      (when clear-history
-        (let ((chatgpt-shell-prompt-query-response-style 'inline))
-          (chatgpt-shell-send-to-buffer "clear")))
-      ;; TODO: Find a better alternative to prevent clash.
-      ;; Disable "n"/"p" for region-bindings-mode-map, so it doesn't
-      ;; clash with "n"/"p" selection binding.
-      (when (boundp 'region-bindings-mode-disable-predicates)
-        (add-to-list 'region-bindings-mode-disable-predicates
-                     (lambda () buffer-read-only)))
-      (defvar-local chatgpt-shell--ring-index nil)
-      (setq chatgpt-shell--ring-index nil)
-      (message instructions))
-    (unless transient-frame-p
-      (select-window (display-buffer (chatgpt-shell-prompt-compose-buffer))))
-    (chatgpt-shell-prompt-compose-buffer)))
-
-(defun chatgpt-shell-prompt-compose-search-history ()
-  "Search prompt history, select, and insert to current compose buffer."
+;;;###autoload
+(defun chatgpt-shell-fix-error-at-point ()
+  "Fixes flymake error at point."
   (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (let ((candidate (with-current-buffer (chatgpt-shell--primary-buffer)
-                     (completing-read
-                      "History: "
-                      (delete-dups
-                       (seq-filter
-                        (lambda (item)
-                          (not (string-empty-p item)))
-                        (ring-elements comint-input-ring))) nil t))))
-    (insert candidate)))
+  (if-let ((flymake-context (chatgpt-shell--flymake-context))
+           (progress-reporter (make-progress-reporter
+                               (format "%s " (chatgpt-shell--model-label))))
+           (buffer (current-buffer))
+           (prog-mode-p (derived-mode-p 'prog-mode)))
+      (progn
+        (chatgpt-shell--fader-start-fading-region
+         (save-excursion
+           (goto-char (map-elt flymake-context :point))
+           (line-beginning-position))
+         (save-excursion
+           (goto-char (map-elt flymake-context :point))
+           (line-end-position)))
+        (progress-reporter-update progress-reporter)
+        (chatgpt-shell-send-contextless-request
+         :system-prompt "Fix the error highlighted in code and show the entire snippet rewritten with the fix.
+Do not give explanations. Do not add comments.
+Do not balance unbalanced brackets or parenthesis at beginning or end of text.
+Do not wrap snippets in markdown blocks.\n\n"
+         :query (concat (map-elt flymake-context :diagnostic) "\n\n"
+                        "Code: \n\n"
+                        (map-elt flymake-context :content))
+         :streaming t
+         :on-output (lambda (_chunk)
+                      (progress-reporter-update progress-reporter))
+         :on-success (lambda (output)
+                       (with-current-buffer buffer
+                         ;; In prog mode, remove unnecessary
+                         ;; markdown blocks prior to insertion.
+                         (when prog-mode-p
+                           (setq output
+                                 (chatgpt-shell--remove-source-block-markers output)))
+                         (chatgpt-shell--fader-stop-fading)
+                         (progress-reporter-done progress-reporter)
+                         (chatgpt-shell--pretty-smerge-insert
+                          :text output
+                          :start (map-elt flymake-context :start)
+                          :end (map-elt flymake-context :end)
+                          :buffer buffer)))
+         :on-failure (lambda (output)
+                       (with-current-buffer buffer
+                         (chatgpt-shell--fader-stop-fading)
+                         (progress-reporter-done progress-reporter)
+                         (when (not (string-empty-p (string-trim
+                                                     (or output ""))))
+                           (message (or output "failed")))))))
+    (error "Nothing to fix")))
 
-(defun chatgpt-shell-prompt-compose-quit-and-close-frame ()
-  "Quit compose and close frame if it's the last window."
+(defun chatgpt-shell--region ()
+  "Return region info (ensuring start is always at bol).
+
+Of the form
+
+\((:buffer . buffer)
+ (:start . start)
+ (:end . end)
+ (:text . text))"
+  (when (region-active-p)
+    (let ((start (save-excursion
+                   ;; Always select from beginning of line.
+                   (goto-char (region-beginning))
+                   (line-beginning-position)))
+          (end (region-end)))
+      ;; Barf trailing space from selection.
+      (let ((text (buffer-substring-no-properties
+                   start
+                   end)))
+        (when (string-match "[ \n\t]+$"
+                            text)
+          (setq end (- end (length (match-string 0 text))))))
+      (list (cons :start start)
+            (cons :end end)
+            (cons :buffer (current-buffer))
+            (cons :text (buffer-substring start end))))))
+
+(cl-defun chatgpt-shell-request-and-insert-merged-response (&key query
+                                                                 context
+                                                                 (buffer (current-buffer))
+                                                                 (region (chatgpt-shell--region))
+                                                                 model-version
+                                                                 system-prompt
+                                                                 remove-block-markers
+                                                                 on-iterate)
+  "Send a contextless request (no history) and merge into BUFFER:
+
+QUERY: Request query text.
+CONTEXT: Any history context to include.
+BUFFER (optional): Buffer to insert to or omit to insert to current buffer.
+MODEL-VERSION (optional): Index from `chatgpt-shell-models' or string.
+SYSTEM-PROMPT (optional): As string."
+  (unless query
+    (error "Missing mandatory \"query\" param"))
+  (unless region
+    (error "No region selected"))
+  (let ((progress-reporter (make-progress-reporter
+                            (format "%s " (chatgpt-shell--model-label)))))
+    (chatgpt-shell--fader-start-fading-region (map-elt region :start)
+                                              (map-elt region :end))
+    (progress-reporter-update progress-reporter)
+    (chatgpt-shell-post :context (append
+                                  context
+                                  (list (cons query nil)))
+                        :system-prompt system-prompt
+                        :version model-version
+                        :streaming t
+                        :on-output (lambda (_chunk)
+                                     (progress-reporter-update progress-reporter))
+                        :on-success (lambda (output)
+                                      (with-current-buffer buffer
+                                        (when remove-block-markers
+                                          (setq output (chatgpt-shell--remove-source-block-markers output)))
+                                        (chatgpt-shell--fader-stop-fading)
+                                        (progress-reporter-done progress-reporter)
+                                        (if (equal (string-trim output)
+                                                   (string-trim (map-elt region :text)))
+                                            (message "No change suggested")
+                                          (let ((choice (chatgpt-shell--pretty-smerge-insert
+                                                         :text output
+                                                         :start (map-elt region :start)
+                                                         :end (map-elt region :end)
+                                                         :buffer buffer
+                                                         :iterate on-iterate)))
+                                            (cond ((and on-iterate
+                                                        (eq choice ?i))
+                                                   (funcall on-iterate output))
+                                                  ((eq choice ?n)
+                                                   (set-mark (map-elt region :end))
+                                                   (goto-char (map-elt region :start))))))))
+                        :on-failure (lambda (output)
+                                      (with-current-buffer buffer
+                                        (chatgpt-shell--fader-stop-fading)
+                                        (progress-reporter-done progress-reporter)
+                                        (when (not (string-empty-p (string-trim
+                                                                    (or output ""))))
+                                          (message (or output "failed"))))))))
+
+(defun chatgpt-shell--remove-source-block-markers (text)
+  "Remove markdown code block markers TEXT."
+  (replace-regexp-in-string
+   (rx (optional "\n") bol "```" (zero-or-more (or alphanumeric "-" "+"))
+       (zero-or-more space) eol (optional "\n"))
+   "" text t))
+
+;;;###autoload
+(defun chatgpt-shell-quick-insert(&optional context)
+  "Request from minibuffer and insert response into current buffer.
+
+Optionally include any CONTEXT to consider."
   (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (let ((transient-frame-p chatgpt-shell-prompt-compose--transient-frame-p))
-    (quit-restore-window (get-buffer-window (current-buffer)) 'kill)
-    (when (and transient-frame-p
-               (< (chatgpt-shell-prompt-compose-frame-window-count) 2))
-      (delete-frame))))
-
-(defun chatgpt-shell-prompt-compose-frame-window-count ()
-  "Get the number of windows per current frame."
-  (if-let ((window (get-buffer-window (current-buffer)))
-           (frame (window-frame window)))
-      (length (window-list frame))
-    0))
-
-(defun chatgpt-shell-prompt-compose-previous-history ()
-  "Insert previous prompt from history into compose buffer."
-  (interactive)
-  (unless chatgpt-shell-prompt-compose-view-mode
-    (let* ((ring (with-current-buffer (chatgpt-shell--primary-buffer)
-                   (seq-filter
-                    (lambda (item)
-                      (not (string-empty-p item)))
-                    (ring-elements comint-input-ring))))
-           (next-index (unless (seq-empty-p ring)
-                         (if chatgpt-shell--ring-index
-                             (1+ chatgpt-shell--ring-index)
-                           0))))
-      (let ((prompt (buffer-string)))
-        (with-current-buffer (chatgpt-shell--primary-buffer)
-          (unless (ring-member comint-input-ring prompt)
-            (ring-insert comint-input-ring prompt))))
-      (if next-index
-          (if (>= next-index (seq-length ring))
-              (setq chatgpt-shell--ring-index (1- (seq-length ring)))
-            (setq chatgpt-shell--ring-index next-index))
-        (setq chatgpt-shell--ring-index nil))
-      (when chatgpt-shell--ring-index
-        (erase-buffer)
-        (insert (seq-elt ring chatgpt-shell--ring-index))))))
-
-(defun chatgpt-shell-prompt-compose-next-history ()
-  "Insert next prompt from history into compose buffer."
-  (interactive)
-  (unless chatgpt-shell-prompt-compose-view-mode
-    (let* ((ring (with-current-buffer (chatgpt-shell--primary-buffer)
-                   (seq-filter
-                    (lambda (item)
-                      (not (string-empty-p item)))
-                    (ring-elements comint-input-ring))))
-           (next-index (unless (seq-empty-p ring)
-                         (if chatgpt-shell--ring-index
-                             (1- chatgpt-shell--ring-index)
-                           0))))
-      (if next-index
-          (if (< next-index 0)
-              (setq chatgpt-shell--ring-index nil)
-            (setq chatgpt-shell--ring-index next-index))
-        (setq chatgpt-shell--ring-index nil))
-      (when chatgpt-shell--ring-index
-        (erase-buffer)
-        (insert (seq-elt ring chatgpt-shell--ring-index))))))
+  (let ((system-prompt "Follow my instruction and only my instruction.
+Do not explain nor wrap in a markdown block.
+Do not balance unbalanced brackets or parenthesis at beginning or end of text.
+Write solutions in their entirety.")
+        (query (read-string (format "%s (%s) insert: "
+                                    (chatgpt-shell--model-label)
+                                    (chatgpt-shell--model-short-version)))))
+    (when (derived-mode-p 'prog-mode)
+      (setq system-prompt (format "%s\nUse `%s` programming language."
+                                  system-prompt
+                                  (string-trim-right (symbol-name major-mode) "-mode"))))
+    (if-let ((region (chatgpt-shell--region)))
+        (progn
+          (setq query (concat query
+                              "\n\n"
+                              "Apply my instruction to:"
+                              "\n\n"
+                              (map-elt region :text)))
+          (chatgpt-shell-request-and-insert-merged-response
+           :system-prompt system-prompt
+           :query query
+           :context context
+           :remove-block-markers t
+           :region region
+           :on-iterate (lambda (output)
+                         (set-mark (map-elt region :end))
+                         (goto-char (map-elt region :start))
+                         (chatgpt-shell-quick-insert (append context
+                                                             (list (cons query output)))))))
+      (chatgpt-shell-request-and-insert-response
+       :streaming t
+       :system-prompt system-prompt
+       :query query))))
 
 (defun chatgpt-shell-mark-block ()
   "Mark current block in compose buffer."
@@ -2828,220 +3367,238 @@ Set TRANSIENT-FRAME-P to also close frame on exit."
     (set-mark (map-elt block 'end))
     (goto-char (map-elt block 'start))))
 
-(defun chatgpt-shell-prompt-compose-send-buffer ()
-  "Send compose buffer content to shell for processing."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (with-current-buffer (chatgpt-shell--primary-buffer)
-    (when shell-maker--busy
-      (unless (y-or-n-p "Abort?")
-        (cl-return))
-      (shell-maker-interrupt t)
-      (with-current-buffer (chatgpt-shell-prompt-compose-buffer)
-        (progn
-          (chatgpt-shell-prompt-compose-view-mode -1)
-          (erase-buffer)))
-      (user-error "Aborted")))
-  (when (chatgpt-shell-block-action-at-point)
-    (chatgpt-shell-execute-block-action-at-point)
-    (cl-return))
-  (when (string-empty-p
-         (string-trim
-          (buffer-substring-no-properties
-           (point-min) (point-max))))
-    (erase-buffer)
-    (user-error "Nothing to send"))
-  (if chatgpt-shell-prompt-compose-view-mode
+;; pretty smerge start
+
+(cl-defun chatgpt-shell--pretty-smerge-insert (&key text start end buffer iterate)
+  "Insert TEXT, replacing content of START and END at BUFFER.
+
+With non-nil ITERATE, ask user if they'd like to iterate further on change.
+
+Return non-nil if either inserted or cancelled (for manual merge)."
+  (unless (and text (stringp text))
+    (error ":text is missing or not a string"))
+  (unless (and buffer (bufferp buffer))
+    (error ":buffer is missing or not a buffer"))
+  (unless (and start (integerp start))
+    (error ":start is missing or not an integer"))
+  (unless (and end (integerp end))
+    (error ":end is missing or not an integer"))
+  (with-current-buffer buffer
+    (let* ((needs-wrapping (not visual-line-mode))
+           (orig-start (copy-marker start))
+           (orig-end (copy-marker end))
+           (orig-text (buffer-substring-no-properties orig-start
+                                                      orig-end))
+           (diff (chatgpt-shell--pretty-smerge--make-merge-patch
+                  :old-label "Before" :old orig-text
+                  :new-label "After" :new text))
+           (outcome))
+      (delete-region orig-start orig-end)
+      (when (looking-at-p "\n")
+        (delete-char 1))
+      (goto-char orig-start)
+      (insert diff)
+      (when needs-wrapping
+        (visual-line-mode +1))
+      (smerge-mode +1)
+      (ignore-errors
+        (smerge-prev))
+      (chatgpt-shell--pretty-smerge-mode +1)
+      (condition-case nil
+          (unwind-protect
+              (progn
+                (setq outcome
+                      (if iterate
+                          (read-char-choice (substitute-command-keys
+                                             "Apply change? (\\`y' or \\`n') / Iterate? (\\`i'): ")
+                                            '(?y ?n ?i))
+                        (read-char-choice (substitute-command-keys
+                                           "Apply change? (\\`y' or \\`n'): ")
+                                          '(?y ?n))))
+                (cond
+                 ((eq outcome ?y)
+                  (smerge-keep-lower)
+                  (message "Applied"))
+                 ((eq outcome ?n)
+                  (smerge-keep-upper)
+                  (message "Skipped"))
+                 ((eq outcome ?i)
+                  (smerge-keep-upper))
+                 (t
+                  (smerge-keep-upper)))
+                (smerge-mode -1)
+                outcome)
+            (chatgpt-shell--pretty-smerge-mode -1)
+            (when needs-wrapping
+              (visual-line-mode -1))
+            outcome)
+        (quit
+         (chatgpt-shell--pretty-smerge-mode -1)
+         (when needs-wrapping
+           (visual-line-mode -1))
+         t)
+        (error nil)))))
+
+(cl-defun chatgpt-shell--pretty-smerge--make-merge-patch (&key old new old-label new-label)
+  "Write OLD and NEW to temporary files, run diff3, and return merge patch.
+OLD-LABEL (optional): To display for old text.
+NEW-LABEL (optional): To display for new text."
+  (let ((base-file (make-temp-file "base"))
+        (old-file (make-temp-file "old"))
+        (new-file (make-temp-file "new")))
+    (with-temp-file old-file
+      (insert old)
+      (unless (string-suffix-p "\n" old)
+        (insert "\n")))
+    (with-temp-file new-file
+      (insert new)
+      (unless (string-suffix-p "\n" new)
+        (insert "\n")))
+    (with-temp-buffer
+      (let ((retval (call-process "diff3" nil t nil "-m" old-file base-file new-file)))
+        (delete-file base-file)
+        (delete-file old-file)
+        (delete-file new-file)
+        ;; 0: No differences or no conflicts.
+        ;; 1: Merge conflicts.
+        ;; 2: Error occurred.
+        (when (= retval 2)
+          (error (buffer-substring-no-properties (point-min)
+                                                 (point-max))))
+        (goto-char (point-min))
+        (while (search-forward old-file nil t)
+          (replace-match (or old-label "old")))
+        (goto-char (point-min))
+        (while (search-forward new-file nil t)
+          (replace-match (or new-label "new")))
+        (goto-char (point-min))
+        (flush-lines "^|||||||")
+        (buffer-substring-no-properties (point-min)
+                                        (point-max))))))
+
+(define-minor-mode chatgpt-shell--pretty-smerge-mode
+  "Minor mode to display overlays for conflict markers."
+  :lighter " PrettySmerge"
+  (if chatgpt-shell--pretty-smerge-mode
       (progn
-        (chatgpt-shell-prompt-compose-view-mode -1)
-        (erase-buffer)
-        (message instructions))
-    (setq prompt
-          (string-trim
-           (buffer-substring-no-properties
-            (point-min) (point-max))))
-    (erase-buffer)
-    (insert (propertize (concat prompt "\n\n") 'face font-lock-doc-face))
-    (chatgpt-shell-prompt-compose-view-mode +1)
-    (setq view-exit-action 'kill-buffer)
-    (when (string-equal prompt "clear")
-      (view-mode -1)
-      (erase-buffer))
-    (if chatgpt-shell-prompt-compose--exit-on-submit
-        (let ((view-exit-action nil)
-              (chatgpt-shell-prompt-query-response-style 'shell))
-          (quit-window t (get-buffer-window (chatgpt-shell-prompt-compose-buffer)))
-          (chatgpt-shell-send-to-buffer prompt))
-      (let ((chatgpt-shell-prompt-query-response-style 'inline))
-        (chatgpt-shell-send-to-buffer prompt nil nil
-                                      (lambda ()
-                                        (with-current-buffer (chatgpt-shell-prompt-compose-buffer)
-                                          (chatgpt-shell--put-source-block-overlays))))))))
+        (chatgpt-shell--pretty-smerge--refresh)
+        (add-hook 'after-change-functions
+                  #'chatgpt-shell--pretty-smerge--autodisable
+                  nil t))
+    (chatgpt-shell--pretty-smerge-mode-remove--overlays)
+    (remove-hook 'after-change-functions
+                 #'chatgpt-shell--pretty-smerge--autodisable
+                 t)))
 
-(defun chatgpt-shell-prompt-compose-next-interaction (&optional backwards)
-  "Show next interaction (request / response).
+(defun chatgpt-shell--pretty-smerge--autodisable (_beg _end _len)
+  "Disable `chatgpt-shell--pretty-smerge-mode' on edit."
+  (chatgpt-shell--pretty-smerge-mode -1)
+  (remove-hook 'after-change-functions
+               #'chatgpt-shell--pretty-smerge--autodisable
+               t))
 
-If BACKWARDS is non-nil, go to previous interaction."
-  (interactive)
-  (unless (eq (current-buffer) (chatgpt-shell-prompt-compose-buffer))
-    (error "Not in a compose buffer"))
-  (when-let ((shell-buffer (chatgpt-shell--primary-buffer))
-             (compose-buffer (chatgpt-shell-prompt-compose-buffer))
-             (next (with-current-buffer (chatgpt-shell--primary-buffer)
-                     (shell-maker-next-command-and-response backwards))))
-    (chatgpt-shell-prompt-compose-replace-interaction
-     (car next) (cdr next))))
+(defun chatgpt-shell--pretty-smerge--refresh ()
+  "Apply overlays to conflict markers."
+  (chatgpt-shell--pretty-smerge-mode-remove--overlays)
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward
+            (concat
+             "^\\(<<<<<<<[ \t]*\\)" ;; begin marker
+             "\\(.*\\)\n"           ;; begin label
+             "\\(\\(?:.*\n\\)*?\\)"     ;; upper content
+             "\\(=======\n\\)"      ;; maker
+             "\\(\\(?:.*\n\\)*?\\)"     ;; lower content
+             "\\(>>>>>>>[ \t]*\\)"  ;; end marker
+             "\\(.*\\)\n")          ;; end label
+            nil t)
+      (let ((overlay (make-overlay (match-beginning 1)
+                                   (match-end 2))))
+        (overlay-put overlay 'category 'conflict-marker)
+        (overlay-put overlay 'display
+                     (concat (propertize (concat " " (match-string 2) " ")
+                                         'face '(:inherit default :box t))
+                             "\n"))
+        (overlay-put overlay 'evaporate t))
+      (let ((overlay (make-overlay (match-beginning 4)
+                                   (match-end 4))))
+        (overlay-put overlay 'category 'conflict-marker)
+        (overlay-put overlay 'display
+                     (concat "\n" (propertize (concat " " (match-string 7) " ")
+                                              'face '(:inherit default :box t)) "\n\n"))
+        (overlay-put overlay 'evaporate t))
+      (let ((overlay (make-overlay (match-beginning 6)
+                                   (match-end 7))))
+        (overlay-put overlay 'category 'conflict-marker)
+        (overlay-put overlay 'display "")
+        (overlay-put overlay 'face 'warning)
+        (overlay-put overlay 'evaporate t)))))
 
-(defun chatgpt-shell-prompt-compose-previous-interaction ()
-  "Show previous interaction (request / response)."
-  (interactive)
-  (chatgpt-shell-prompt-compose-next-interaction t))
+(defun chatgpt-shell--pretty-smerge-mode-remove--overlays ()
+  "Remove all conflict marker overlays."
+  (remove-overlays (point-min) (point-max) 'category 'conflict-marker))
 
-(defun chatgpt-shell-prompt-compose-replace-interaction (prompt &optional response)
-  "Replace the current compose's buffer interaction with PROMPT and RESPONSE."
-  (unless (eq (current-buffer) (chatgpt-shell-prompt-compose-buffer))
-    (error "Not in a compose buffer"))
-  (let ((inhibit-read-only t))
-    (erase-buffer)
-    (save-excursion
-      (insert (propertize (concat prompt "\n\n") 'face font-lock-doc-face))
-      (when response
-        (insert response))
-      (chatgpt-shell--put-source-block-overlays))
-    (chatgpt-shell-prompt-compose-view-mode +1)
-    (view-mode +1)))
+;; pretty smerge end
 
-;; TODO: Delete and use chatgpt-shell-prompt-compose-quit-and-close-frame instead.
-(defun chatgpt-shell-prompt-compose-cancel ()
-  "Cancel and close compose buffer."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (chatgpt-shell-prompt-compose-quit-and-close-frame))
+;; fader start
 
-(defun chatgpt-shell-prompt-compose-buffer-name ()
-  "Generate compose buffer name."
-  (concat (chatgpt-shell--minibuffer-prompt) "compose"))
+(defvar-local chatgpt-shell--fader-timer nil
+  "Timer object for animating the region.")
 
-(defun chatgpt-shell-prompt-compose-swap-system-prompt ()
-  "Swap the compose buffer's system prompt."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (with-current-buffer (chatgpt-shell--primary-buffer)
-    (chatgpt-shell-swap-system-prompt))
-  (rename-buffer (chatgpt-shell-prompt-compose-buffer-name)))
+(defvar-local chatgpt-shell--fader-overlays nil
+  "List of overlays for the animated regions.")
 
-(defun chatgpt-shell-prompt-compose-swap-model-version ()
-  "Swap the compose buffer's model version."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (with-current-buffer (chatgpt-shell--primary-buffer)
-    (chatgpt-shell-swap-model-version))
-  (rename-buffer (chatgpt-shell-prompt-compose-buffer-name)))
+(defun chatgpt-shell--fader-start-fading-region (start end)
+  "Animate the background color of the region between START and END."
+  (deactivate-mark)
+  (chatgpt-shell--fader-stop-fading)
+  (let ((colors (append (chatgpt-shell--fader-palette)
+                        (reverse (chatgpt-shell--fader-palette)))))
+    (dolist (ov chatgpt-shell--fader-overlays) (delete-overlay ov))
+    (setq chatgpt-shell--fader-overlays (list (make-overlay start end)))
+    (setq chatgpt-shell--fader-timer
+          (run-with-timer 0 0.01
+                          (lambda ()
+                            (let* ((color (pop colors)))
+                              (if (and color
+                                       chatgpt-shell--fader-overlays)
+                                  (progn
+                                    (overlay-put (car chatgpt-shell--fader-overlays) 'face `(:background ,color :extend t))
+                                    (setq colors (append colors (list color))))
+                                (chatgpt-shell--fader-stop-fading))))))))
 
-(defun chatgpt-shell-prompt-compose-buffer ()
-  "Get the available shell compose buffer."
-  (unless (chatgpt-shell--primary-buffer)
-    (error "No shell to compose to"))
-  (let* ((buffer (get-buffer-create (chatgpt-shell-prompt-compose-buffer-name))))
-    (unless buffer
-      (error "No compose buffer available"))
-    buffer))
+(defun chatgpt-shell--fader-palette ()
+  "Generate a gradient palette from the `region' face to the `default' face."
+  (let* ((start-color (or (face-background 'region) "#808080"))
+         (end-color (or (face-background 'default) "#1a1a1a"))
+         (start-rgb (color-name-to-rgb start-color))
+         (end-rgb (color-name-to-rgb end-color))
+         (steps 50))
+    (mapcar (lambda (step)
+              (apply #'color-rgb-to-hex
+                     (cl-mapcar (lambda (start end)
+                                  (+ start (* step (/ (- end start) (1- steps)))))
+                                start-rgb end-rgb)))
+            (number-sequence 0 (1- steps)))))
 
-(defun chatgpt-shell-prompt-compose-retry ()
-  "Retry sending request to shell.
+(defun chatgpt-shell--fader-start ()
+  "Start animating the currently active region."
+  (if (use-region-p)
+      (progn
+        (deactivate-mark)
+        (chatgpt-shell--fader-start-fading-region (region-beginning) (region-end)))
+    (message "No active region")))
 
-Useful if sending a request failed, perhaps from failed connectivity."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (when-let ((prompt (with-current-buffer (chatgpt-shell--primary-buffer)
-                       (seq-first (delete-dups
-                                   (seq-filter
-                                    (lambda (item)
-                                      (not (string-empty-p item)))
-                                    (ring-elements comint-input-ring))))))
-             (inhibit-read-only t)
-             (chatgpt-shell-prompt-query-response-style 'inline))
-    (erase-buffer)
-    (insert (propertize (concat prompt "\n\n") 'face font-lock-doc-face))
-    (chatgpt-shell-send-to-buffer prompt nil nil
-                                  (lambda ()
-                                    (with-current-buffer (chatgpt-shell-prompt-compose-buffer)
-                                      (chatgpt-shell--put-source-block-overlays))))))
+(defun chatgpt-shell--fader-stop-fading ()
+  "Stop animating and remove all overlays."
+  (when chatgpt-shell--fader-timer
+    (cancel-timer chatgpt-shell--fader-timer)
+    (setq chatgpt-shell--fader-timer nil))
+  (dolist (ov chatgpt-shell--fader-overlays)
+    (delete-overlay ov))
+  (setq chatgpt-shell--fader-overlays nil))
 
-(defun chatgpt-shell-prompt-compose-next-block ()
-  "Jump to and select next code block."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (let ((before (point)))
-    (call-interactively #'chatgpt-shell-next-source-block)
-    (call-interactively #'chatgpt-shell-mark-block)
-    (when (eq before (point))
-      (chatgpt-shell-prompt-compose-next-interaction))))
-
-(defun chatgpt-shell-prompt-compose-previous-block ()
-  "Jump to and select previous code block."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (let ((before (point)))
-    (call-interactively #'chatgpt-shell-previous-source-block)
-    (call-interactively #'chatgpt-shell-mark-block)
-    (when (eq before (point))
-      (chatgpt-shell-prompt-compose-previous-interaction))))
-
-(defun chatgpt-shell-prompt-compose-reply ()
-  "Reply as a follow-up and compose another query."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (with-current-buffer (chatgpt-shell--primary-buffer)
-    (when shell-maker--busy
-      (user-error "Busy, please wait")))
-  (chatgpt-shell-prompt-compose-view-mode -1)
-  (erase-buffer))
-
-(defun chatgpt-shell-prompt-compose-request-entire-snippet ()
-  "If the response code is incomplete, request the entire snippet."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (with-current-buffer (chatgpt-shell--primary-buffer)
-    (when shell-maker--busy
-      (user-error "Busy, please wait")))
-  (let ((prompt "show entire snippet")
-        (inhibit-read-only t)
-        (chatgpt-shell-prompt-query-response-style 'inline))
-    (erase-buffer)
-    (insert (propertize (concat prompt "\n\n") 'face font-lock-doc-face))
-    (chatgpt-shell-send-to-buffer prompt)))
-
-(defun chatgpt-shell-prompt-compose-request-more ()
-  "Request more data.  This is useful if you already requested examples."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (with-current-buffer (chatgpt-shell--primary-buffer)
-    (when shell-maker--busy
-      (user-error "Busy, please wait")))
-  (let ((prompt "give me more")
-        (inhibit-read-only t)
-        (chatgpt-shell-prompt-query-response-style 'inline))
-    (erase-buffer)
-    (insert (propertize (concat prompt "\n\n") 'face font-lock-doc-face))
-    (chatgpt-shell-send-to-buffer prompt)))
-
-(defun chatgpt-shell-prompt-compose-other-buffer ()
-  "Jump to the shell buffer (compose's other buffer)."
-  (interactive)
-  (unless (eq major-mode 'chatgpt-shell-prompt-compose-mode)
-    (user-error "Not in a shell compose buffer"))
-  (switch-to-buffer (chatgpt-shell--primary-buffer)))
+;; fader end
 
 (provide 'chatgpt-shell)
 

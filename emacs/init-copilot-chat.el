@@ -11,6 +11,7 @@
 
 (require 'ansi-color)
 (require 'markdown-mode)
+(require 'aio)
 (require 'copilot-chat)
 (require 'shell-maker)
 (custom-set-variables
@@ -37,6 +38,9 @@
                        (kill-buffer (current-buffer))))
     (switch-to-buffer temp-buffer)
     (variable-pitch-mode t))))
+
+;; This works poorly...
+;(add-hook 'git-commit-setup-hook 'copilot-chat-insert-commit-message)
 
 (global-set-key (kbd "<f6>") 'copy-buffer-to-temp-markdown)
 

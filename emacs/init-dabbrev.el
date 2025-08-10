@@ -7,10 +7,11 @@
 
 
 ;; Define abbreviations
+(setq-default abbrev-mode t)
 (define-abbrev-table 'global-abbrev-table '(
     ;; c-mode                                            
     ("vropt" "vsg::ref_ptr<vsg::Options> options")
-    ("vrx" "vsg::ref_ptr<vsg::> ")
+    ("vrx" "vsg::ref_ptr<vsg::@> ")
 ))
 
 (provide 'init-dabbrev)

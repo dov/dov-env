@@ -122,9 +122,6 @@ INSTANCE is `copilot-chat' instance, used to retrieve relative file path."
              relative-path)))
       content)))
 
-(defun copilot-chat--markdown-clean ()
-  "Clean the copilot chat markdown frontend.")
-
 (defun copilot-chat--get-markdown-block-content-at-point ()
   "Get the content of the markdown block at point."
   (let* ((props (text-properties-at (point)))
@@ -168,16 +165,10 @@ Replace selection if any."
 
 (defun copilot-chat--markdown-write (data)
   "Write DATA at the end of the chat part of the buffer."
-  (if copilot-chat-follow
-      (save-excursion
-        (copilot-chat--markdown-goto-input)
-        (forward-line -3)
-        (end-of-line)
-        (insert data))
-    (copilot-chat--markdown-goto-input)
-    (forward-line -3)
-    (end-of-line)
-    (insert data)))
+  (copilot-chat--markdown-goto-input)
+  (forward-line -3)
+  (end-of-line)
+  (insert data))
 
 (defun copilot-chat--markdown-goto-input ()
   "Go to the input part of the chat buffer.
@@ -210,10 +201,8 @@ The input is created if not found."
 (defun copilot-chat--markdown-get-spinner-buffers (instance)
   "Get markdown spinner buffers for INSTANCE."
   (let ((buffer (copilot-chat--markdown-get-buffer instance)))
-    (if copilot-chat-follow
-        buffer
-      (with-current-buffer buffer
-        (list (pm-get-buffer-of-mode 'markdown-view-mode) buffer)))))
+    (with-current-buffer buffer
+      (list (pm-get-buffer-of-mode 'markdown-view-mode) buffer))))
 
 (defun copilot-chat--markdown-insert-prompt (instance prompt)
   "Insert PROMPT in the chat buffer corresponding to INSTANCE."
@@ -242,7 +231,11 @@ INSTANCE is `copilot-chat' instance to use."
  (make-copilot-chat-frontend
   :id 'markdown
   :init-fn #'copilot-chat--markdown-init
-  :clean-fn #'copilot-chat--markdown-clean
+  :clean-fn nil
+  :instance-init-fn nil
+  :instance-clean-fn nil
+  :save-fn nil
+  :load-fn nil
   :format-fn #'copilot-chat--markdown-format-data
   :format-code-fn #'copilot-chat--markdown-format-code
   :format-buffer-fn #'copilot-chat--markdown-format-buffer

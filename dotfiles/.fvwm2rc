@@ -368,7 +368,7 @@ AddToFunc InitFunction 	  "I" Module FvwmPager *
 +                         "I" exec xcompmgr -c &
 #+                         "I" exec xrandr --output DP-1 --mode 1920x1080 --right-of DVI-D-0
 +                         "I" exec xrdb /home/dov/.Xdefaults
-+                         "I" exec env QT_QPA_PLATFORMTHEME=qt5ct mate-panel --sm-disable &
++                         "I" exec dconf write /org/mate/panel/toplevels/top/y-centered false && mate-panel --sm-disable &
 +                         "I" exec /usr/libexec/mate-settings-daemon &
 +                         "I" exec xset s 300 s blank dpms 300
 +                         "I" exec xset r rate 200 30

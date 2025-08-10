@@ -374,7 +374,6 @@
   (puthash ":-)" "☺" xmsi-abrvs)
   (puthash ":-(" "☹" xmsi-abrvs)
   (puthash "cherry" "🍒" xmsi-abrvs)
-
 ;; 2010-12-10
 
 ;; "		Prefix Command
@@ -694,6 +693,10 @@
   (puthash "vspace" "⌴" xmsi-abrvs)
   (puthash "redx" "⌴❌" xmsi-abrvs)
   (puthash "greenvee" "⌴✅" xmsi-abrvs)
+  (puthash "warning" "⌴⚠️" xmsi-abrvs)
+  (puthash "approx" "≈" xmsi-abrvs)
+  (puthash "~=" "≈" xmsi-abrvs)
+
   )
 
 (defun xmsi-hash-to-list (hashtable)

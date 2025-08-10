@@ -1,3 +1,5 @@
+; A few utilities for dealing with excel input
+
 (defun xlsx-copy-line-to-csv ()
   "Process the current line as tab-separated fields:
 1. Embed fields starting with [A-Z] (case insensitive) in double quotes.

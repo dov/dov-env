@@ -7,12 +7,15 @@
 (setq load-path (append
                  (list
                   (concat emacs-git "packages/deadgrep-20241210.1630/")
-                  (concat emacs-git "wgrep-deadgrep-20231215.1145/")
+                  (concat emacs-git "packages/wgrep-deadgrep-20231215.1145/")
                   (concat emacs-git "packages/spinner-1.7.4")
                   emacs-git
                   )
                  load-path))
 		  
+;(setq deadgrep-extra-arguments "--glob '!build*'")
+(setq deadgrep-extra-arguments nil)
+
 (global-set-key [(control c) ?s] 'deadgrep)
 (defun deadgrep-visit-result-other-window-and-stay ()
   """In dead grep open the current line in another window but keep the position inthe window"""
