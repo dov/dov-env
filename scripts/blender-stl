@@ -1,0 +1,14 @@
+#!/bin/bash
+# A command line launcher for opening an xjsf in blender
+
+#blender --python-expr 'import bpy; bpy.ops.import_mesh.stl(filepath="'$1'")'
+
+cmd="blender --python-expr 'import bpy;"
+
+for fn in "$@"; do
+  cmd+="bpy.ops.wm.stl_import(filepath=\"$fn\");"
+done
+
+cmd+="'"
+
+eval "$cmd"

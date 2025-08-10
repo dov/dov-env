@@ -1,0 +1,4 @@
+#!/bin/bash
+# A command line launcher for opening an xjsf in blender
+
+blender --python-expr 'import bpy; bpy.ops.import_scene.gltf(filepath="'$1'")'
