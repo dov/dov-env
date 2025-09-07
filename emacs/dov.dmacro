@@ -1048,7 +1048,7 @@ macro(my_exe exe)
     fmt::fmt
   )
   target_include_directories(${exe} PRIVATE
-    ${GLSLANG_INCLUDE_DIRS}/glslang
+    # Add extra includes here
   )
 endmacro()
 

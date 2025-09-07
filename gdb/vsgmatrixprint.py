@@ -33,6 +33,7 @@ class VsgMatrixPrint(gdb.Command):
       print("Unknown option '%s'!"%S_)
       return
 
+    pattern2 = re.compile(r'\{x = ([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?), y = ([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\}')
     pattern3 = re.compile(r'\{x = ([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?), y = ([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?), z = ([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)')
     pattern4 = re.compile(r'\{x = ([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?), y = ([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?), z = ([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?), w = ([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\}')
 
@@ -46,8 +47,11 @@ class VsgMatrixPrint(gdb.Command):
         val = val[val.find('=')+2:]
         gdb.execute("enable pretty-printer",False,True)
 
-        if typename in ['vsg::dvec3','vsg::vec3', 'vsg::t_vec3<double>','vsg::t_vec3<float>','vsg::t_box<double>::vec_type','vsg::t_box<float>::vec_type']:
+        if typename in ['vsg::dvec3','vsg::vec3', 'vsg::t_vec3<double>','vsg::t_vec3<float>','vsg::t_box<double>::vec_type','vsg::t_box<float>::vec_type','vsg::t_sphere<double>::center_type']:
             matches = pattern3.findall(val)
+            array = [float(w) for w in matches[0]]
+        elif typename in ['vsg::dvec2','vsg::vec2', 'vsg::t_vec2<double>','vsg::t_vec2<float>']:
+            matches = pattern2.findall(val)
             array = [float(w) for w in matches[0]]
         elif typename in ['vsg::dvec4','vsg::vec4', 'vsg::t_vec4<double>','vsg::t_vec4<float>']:
             matches = pattern4.findall(val)

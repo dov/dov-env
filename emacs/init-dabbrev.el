@@ -12,6 +12,7 @@
     ;; c-mode                                            
     ("vropt" "vsg::ref_ptr<vsg::Options> options")
     ("vrx" "vsg::ref_ptr<vsg::@> ")
+    ("sptr" "shared_ptr<vsg::@> ")
 ))
 
 (provide 'init-dabbrev)
