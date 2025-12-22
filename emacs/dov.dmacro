@@ -1002,8 +1002,7 @@ add_executable(~(pwdleaf)
     ~(pwdleaf).cpp
 )
 
-# Change to Qt6 for qt6
-target_link_libraries(~(pwdleaf) PRIVATE Qt5::Core ${FMT_LIBRARIES})
+target_link_libraries(~(pwdleaf) PRIVATE ${FMT_LIBRARIES})
 
 #
 
@@ -1022,12 +1021,16 @@ target_link_libraries(~(pwdleaf) PRIVATE
 qt6     expand
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt5 REQUIRED COMPONENTS Core)
-
-find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS
+  Core
+  Gui
+  Widgets
+)
 qt_standard_project_setup()
 target_link_libraries(~(pwdleaf) PRIVATE
   Qt6::Core
+  Qt6::Gui
+  Qt6::Widgets
   ${FMT_LIBRARIES})
 #
 
@@ -1052,4 +1055,47 @@ macro(my_exe exe)
   )
 endmacro()
 
+#
+###
+vcpkg   expand
+
+include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+
+#
+###
+fetchcontents   expand
+
+FetchContent_Declare(
+  vsgQt
+  GIT_REPOSITORY https://github.com/vsg-dev/vsgQt
+  GIT_TAG "HEAD" 
+  GIT_SHALLOW TRUE
+  GIT_PROGRESS ON
+  CMAKE_ARGS -DQT_PACKAGE_NAME=Qt6
+  SYSTEM
+)
+FetchContent_MakeAvailable(vsgQt)
+
+#
+###
+bindir    expand   Place all executables under binary
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+
+#
+#######
+# MODE:	js2-mode
+#######
+###
+vcpkg expand
+{
+  "dependencies": [
+    "spdlog",
+    "fmt",
+    "nlohmann-json"
+  ],
+  "builtin-baseline" : "1fc46db8b9b963ed3a26c619b68de76edb52061a"
+}
 #

@@ -61,12 +61,17 @@ class VsgMatrixPrint(gdb.Command):
             matches = pattern4.findall(val)
 
             array = [[float(w) for w in m] for m in matches]
+        elif typename in ['vsg::mat3', 'vsg::dmat3','vsg::t_mat3<double>','vsg::t_mat3<float>']:
+            #Find all matches
+            matches = pattern3.findall(val)
+
+            array = [[float(w) for w in m] for m in matches]
         elif typename in ['vsg::dbox', 'vsg::box','vsg::t_box<double>','vsg::t_box<float>']:
           matches = list(pattern3.findall(val))
           array = [[float(w) for w in m] for m in matches]
         else:
             pdb.set_trace()
-            raise RuntimeError('Unrecognized expression!')
+            raise RuntimeError(f'Unrecognized type: {typename}!')
         
         print(np.array2string(np.array(array), formatter={'float_kind': lambda x: f"{x:.3f}"}))
         

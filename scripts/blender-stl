@@ -9,6 +9,9 @@ for fn in "$@"; do
   cmd+="bpy.ops.wm.stl_import(filepath=\"$fn\");"
 done
 
+# Select all objects and frame selected (zoom to selection)
+cmd+="bpy.ops.object.select_all(action=\"SELECT\");"
+
 cmd+="'"
 
 eval "$cmd"

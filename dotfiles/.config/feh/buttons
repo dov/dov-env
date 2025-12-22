@@ -1,0 +1,10 @@
+# Unbind default scroll actions if needed, though usually not required for simple zoom
+# prev_img
+# next_img
+zoom
+
+# Assign zoom actions to scroll wheel buttons
+zoom_in 4
+zoom_out 5
+pan 2
+zoom 1

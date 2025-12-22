@@ -251,7 +251,7 @@
            '(("doc" . "libreoffice %s"))
            '(("docx" . "libreoffice %s"))
            '(("odt" . "libreoffice %s"))
-           '(("png" . "feh %s"))
+           '(("png" . "feh --auto-zoom --scale-down %s"))
            '(("pdf" . "evince %s"))
            '(("svg" . "inkscape %s"))
            '(("net" . "/usr/local/samiam/runsamiam %s"))

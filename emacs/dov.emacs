@@ -197,6 +197,8 @@
 (require 'init-org)
 (require 'init-multiple-cursors)
 (require 'init-helm)
+;(require 'init-compat)
+;(require 'init-vertico)
 (require 'init-cmake)
 (require 'init-default-text-scale)
 ;(require 'init-telega)
@@ -214,7 +216,8 @@
 (require 'transient)
 (require 'init-direnv)
 (require 'init-magit)
-(require 'init-magit-imerge)
+(require 'init-aidermacs)
+;(require 'init-magit-imerge)
 (require 'init-lua-mode)
 ;(require 'init-company-mode)
 (require 'init-csv-mode)
@@ -287,6 +290,7 @@
 ;(load "scott.emacs")
 (autoload 'find-matching-keyword "scott.emacs.el" nil t)
 (autoload 'basename "scott.emacs.el" nil t)
+(autoload 'untabify-buffer "scott.emacs.el" nil t)
 (autoload 'sgml-mode "sgml-mode" nil t)
 (autoload 'nsis-mode "nsis-mode" nil t)
 (autoload 'qt-pro-mode "qt-pro-mode" nil t)
@@ -1633,7 +1637,16 @@ With numeric ARG, display the images if and only if ARG is positive."
                     (setq file file-path)
                     (setq line line-number)
                     (message "File: %s, Line: %s" file line))))
-          ;; Default to python exception lines (this should be rewritten with regexps
+            ;; valgrind lines
+            (if (looking-at "^==[0-9]+==")
+                (let ((line-str (thing-at-point 'line t)))
+                  (if (string-match "(\\([^():]+\\):\\([0-9]+\\))" line-str)
+                      (let ((file-path (match-string 1 line-str))
+                            (line-number (match-string 2 line-str)))
+                        (setq file file-path)
+                        (setq line line-number)
+                        (message "File: %s, Line: %s (valgrind)" file line))))
+           ;; Default to python exception lines (this should be rewritten with regexps
           (progn
             (forward-word)
             (forward-char)
@@ -1651,7 +1664,7 @@ With numeric ARG, display the images if and only if ARG is positive."
             (forward-word)
             (exchange-point-and-mark)
             (setq line (buffer-substring-no-properties (point) (mark)))
-          )))
+          ))))
       (deactivate-mark)
       (beginning-of-line)
       (find-file-other-window file)
@@ -1769,6 +1782,11 @@ With numeric ARG, display the images if and only if ARG is positive."
   (interactive)
   (find-most-recent-pattern-buffer "magit"))
 
+(defun find-most-recent-aidermacs-buffer ()
+  "find the most recent aidermacs buffer in the history and switch to it"
+  (interactive)
+  (find-most-recent-pattern-buffer "aidermacs"))
+
 (defun find-most-reset-copilot-buffer ()
   "find the most recent code buffer in the history and switch to it"
   (interactive)
@@ -1812,9 +1830,11 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key [(control c) ?b ?p] 'find-most-recent-python-buffer)
 ;(global-set-key [(control c) ?b ?p] 'find-most-recent-mpremote-buffer)
 (global-set-key [(control c) ?b ?m] 'find-most-recent-magit-buffer)
+(global-set-key [(control c) ?b ?a] 'find-most-recent-aidermacs-buffer)
 (global-set-key [(control c) ?b ?o] 'find-most-recent-org-buffer)
 (global-set-key [(control c) ?b ?j] (lambda () (interactive) 
   (switch-to-buffer (find-most-recent-pattern-buffer "\\*ein: http"))))
+(global-set-key [(alt meta a)] 'find-most-recent-aidermacs-buffer)
 (global-set-key [(alt meta m)] 'find-most-recent-magit-buffer)
 (global-set-key [(alt meta c)] 'find-most-reset-copilot-buffer)
 (global-set-key [(alt meta y)] 'find-most-recent-python-buffer)
@@ -2117,11 +2137,18 @@ With numeric ARG, display the images if and only if ARG is positive."
 (global-set-key (kbd "<A-mouse-4>") (lambda () (interactive) (scroll-right 32)))
 (global-set-key (kbd "<A-wheel-up>") (lambda () (interactive) (scroll-left 32)))
 (global-set-key (kbd "<A-wheel-down>") (lambda () (interactive) (scroll-right 32)))
+(global-set-key (kbd "<S-wheel-down>") (lambda () (interactive) (scroll-right 4)))
+(global-set-key (kbd "<S-wheel-up>") (lambda () (interactive) (scroll-left 4)))
+(global-set-key (kbd "<C-S-wheel-down>") (lambda () (interactive) (scroll-right 1)))
+(global-set-key (kbd "<C-S-wheel-up>") (lambda () (interactive) (scroll-left 1)))
 
 (global-set-key (kbd "<mouse-5>") (lambda () (interactive) (scroll-up 4)))
 (global-set-key (kbd "<mouse-4>") (lambda () (interactive) (scroll-down 4)))
 (global-set-key (kbd "<M-mouse-5>") (lambda () (interactive) (scroll-up 16)))
 (global-set-key (kbd "<M-mouse-4>") (lambda () (interactive) (scroll-down 16)))
+(global-set-key (kbd "<mouse-8>") (lambda () (interactive) (previous-buffer)))
+(global-set-key (kbd "<mouse-9>") (lambda () (interactive) (next-buffer)))
+
 
 (defun rhino-js-eval-region-or-buffer ()
   "Evaluate the current buffer (or region if mark-active),
@@ -2909,4 +2936,3 @@ If a region is active, only process the region. Otherwise, process the entire bu
  '(column-number-mode t)
  '(show-paren-mode t)
  '(tool-bar-mode nil))
-
