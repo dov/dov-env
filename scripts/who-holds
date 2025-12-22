@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+######################################################################
+#  Check processes that with open files ona  specific path.
+#
+#  2025-10-14 Tue
+#  Dov Grobgeld <dov.grobgeld@gmail.com>
+######################################################################
+#!/usr/bin/env python3
+import sys
+import subprocess
+import argparse
+import signal
+import os
+
+def usage():
+  print(f"Usage: {sys.argv[0]} <path> [-k|--kill] [-s|--kill-signal SIGNAL]")
+  print("Shows processes with open files on the specified path. Optionally kill them.")
+  sys.exit(1)
+
+def filter_columns(header, lines):
+  cols = header.split()
+  exclude = {'FD', 'TYPE', 'DEVICE', 'SIZE/OFF', 'NODE'}
+  keep_indices = [i for i, col in enumerate(cols) if col not in exclude]
+  keep_cols = [cols[i] for i in keep_indices]
+
+  parsed_lines = []
+  for line in lines:
+    if not line.strip():
+      continue
+    fields = line.split()
+    if len(fields) > len(cols):
+      fixed_fields = fields[:len(cols)-1] + [' '.join(fields[len(cols)-1:])]
+      fields = fixed_fields
+    parsed_line = [fields[i] if i < len(fields) else '' for i in keep_indices]
+    parsed_lines.append(parsed_line)
+
+  col_widths = [len(col) for col in keep_cols]
+  for row in parsed_lines:
+    for i, field in enumerate(row):
+      col_widths[i] = max(col_widths[i], len(field))
+
+  def fmt_row(row):
+    return '  '.join(field.ljust(col_widths[i]) for i, field in enumerate(row))
+
+  aligned_header = fmt_row(keep_cols)
+  aligned_lines = [fmt_row(row) for row in parsed_lines]
+  return aligned_header, aligned_lines, keep_cols
+
+def list_holders(path):
+  try:
+    result = subprocess.run(
+      ['lsof', '-n', '-P', path],
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      text=True,
+      check=False
+    )
+  except FileNotFoundError:
+    print("Error: lsof is not installed or not found in PATH.")
+    sys.exit(2)
+
+  if result.returncode != 0 and not result.stdout:
+    print(f"No process is currently accessing '{path}' or insufficient permissions.")
+    sys.exit(0)
+
+  lines = result.stdout.strip().split('\n')
+  if not lines or len(lines) < 2:
+    print(f"No active holders for '{path}'.")
+    return [], []
+
+  header = lines[0]
+  data_lines = lines[1:]
+  filtered_header, filtered_lines, keep_cols = filter_columns(header, data_lines)
+  print(f"Processes holding '{path}':\n")
+  print(filtered_header)
+  for line in filtered_lines:
+    print(line)
+
+  # Find PID column index for kill
+  pid_idx = None
+  for i, col in enumerate(keep_cols):
+    if col == 'PID':
+      pid_idx = i
+      break
+  if pid_idx is None:
+    print("Could not find PID column.")
+    return [], []
+  # Collect PIDs
+  pids = []
+  for row in filtered_lines:
+    fields = row.split()
+    if pid_idx < len(fields):
+      try:
+        pids.append(int(fields[pid_idx]))
+      except ValueError:
+        continue
+  return pids, filtered_lines
+
+def kill_pids(pids, signal_name):
+  sig = getattr(signal, signal_name, None)
+  if sig is None:
+    # Try numeric signal
+    try:
+      sig = int(signal_name)
+    except ValueError:
+      print(f"Invalid signal: {signal_name}")
+      return
+  for pid in pids:
+    try:
+      os.kill(pid, sig)
+      print(f"Killed PID {pid} with signal {signal_name}")
+    except PermissionError:
+      print(f"Permission denied to kill PID {pid}")
+    except ProcessLookupError:
+      print(f"PID {pid} not found")
+    except Exception as e:
+      print(f"Error killing PID {pid}: {e}")
+
+def main():
+  parser = argparse.ArgumentParser(description="Show processes holding a file or path; optionally kill them.")
+  parser.add_argument('path', help="Path to check")
+  parser.add_argument('-k', '--kill', action='store_true', help="Kill the processes holding the path")
+  parser.add_argument('-s', '--kill-signal', default='SIGTERM', help="Signal to use (default: SIGTERM)")
+
+  args = parser.parse_args()
+  pids, _ = list_holders(args.path)
+  if args.kill and pids:
+    kill_pids(pids, args.kill_signal)
+
+if __name__ == "__main__":
+  main()

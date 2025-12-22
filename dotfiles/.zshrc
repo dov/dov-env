@@ -176,6 +176,29 @@ function zoom-zoom-out() {
     v4l2-ctl -d1 --set-ctrl zoom_absolute=100
 }
 
+function condense-spaces-widget() {
+  local left="$LBUFFER"
+  local right="$RBUFFER"
+  # Find position of first space in the run before the cursor
+  if [[ "$left" =~ ' *$' ]]; then
+    # How many spaces at the end?
+    local spaces="${left##*[^ ]}"
+    local n=${#spaces}
+    if (( n > 0 )); then
+      # Remove all those spaces
+      left="${left:0:${#left}-$n}"
+      # Insert a single space
+      LBUFFER="${left} "
+      # Cursor will be just after the space, before right part
+      return
+    fi
+  fi
+  # If no spaces, just insert a space normally
+  LBUFFER+=" "
+}
+zle -N condense-spaces-widget
+bindkey "^[ " condense-spaces-widget
+
 autoload -Uz add-zsh-hook
 if [[ -n "$INSIDE_EMACS" ]]; then
 else
@@ -206,6 +229,10 @@ compctl -C -c -x 'C[0,*/*]' -g '*[^~](*)' + -c
 alias lsd='ls -ld *(-/DN)'
 alias lsa='ls -ld .*'
 alias ls='ls -F --color=auto'
+alias ds='duf --only local'
+alias disk-space='duf --only local'
+
+
 # Not sure which of these is less introsive
 xd() { mkdir -p $1 && cd $1 }
 mcd() { mkdir -p $1 && cd $1 }

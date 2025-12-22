@@ -31,6 +31,23 @@ import gphoto2 as gp
 from pathlib import Path
 import signal
 
+import logging
+import sys
+
+# ANSI escape codes for colors
+COLOR_RESET = '\033[0m'
+COLOR_INFO = '\033[36m'   # Cyan
+COLOR_ERROR = '\033[31m'  # Red
+
+class ColorFormatter(logging.Formatter):
+    def format(self, record):
+        levelname = record.levelname
+        if levelname == 'INFO':
+            record.levelname = f"{COLOR_INFO}{levelname}{COLOR_RESET}"
+        elif levelname == 'ERROR':
+            record.levelname = f"{COLOR_ERROR}{levelname}{COLOR_RESET}"
+        return super().format(record)
+
 def die(msg):
   sys.stderr.write(msg)
   exit(-1)
@@ -110,12 +127,15 @@ def main():
     log_formatter = logging.Formatter('%(levelname)s: %(name)s: %(message)s')
     root_logger = logging.getLogger()
 
-#    filehandler = logging.FileHandler(f'get_photos_today.log')
-#    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-#    root_logger.addHandler(filehandler)
-        
+    # Create handler for stdout
+    handler = logging.StreamHandler(sys.stdout)
+    formatter = ColorFormatter('[%(levelname)s] %(message)s')
+    handler.setFormatter(formatter)
+
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(log_formatter)
+    formatter = ColorFormatter('[%(levelname)s] %(message)s')
+    console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
 
     logger = logging.getLogger('get_photos_today')
@@ -138,6 +158,8 @@ def main():
     else:
       files = get_files_from(camera, files, from_date=from_date)
 
+    num_errors = 0
+    failed_filenames = []
     for idx,f in enumerate(files):
       name = Path(f).name
       folder = Path(f).parent
@@ -147,16 +169,22 @@ def main():
           or ('raw' in get_types and 'cr3' in name.lower)):
         continue
 
-      if not Path(name).exists():
+      if not Path(name).exists() or Path(name).stat().st_size == 0:
         logger.info(f'Getting {name} ({idx+1}/{len(files)}) {str(get_file_date(camera,f))}')
         camera_file = gp.check_result(gp.gp_camera_file_get(
             camera, str(folder), str(name), gp.GP_FILE_TYPE_NORMAL))
         file_data = gp.check_result(gp.gp_file_get_data_and_size(camera_file))
+        if len(file_data) == 0:
+          logger.error(f'Failed getting file {name}! Got empty file!')
+          failed_filenames += [name]
+          num_errors += 1
         with open(name,'wb') as fh:
           data = memoryview(file_data)
           fh.write(data)
 
     gp.gp_camera_exit(camera)
+    if num_errors>0:
+      logger.error(f'Failed getting {num_errors} files! Try copying the following files manually:\n  ' + '\n  '.join(failed_filenames))
 
     return 0
 

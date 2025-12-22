@@ -18,4 +18,12 @@
 
 (setq magit-push-always-verify nil)
 
+(global-set-key "\C-ci" nil)
+(global-set-key "\C-cii" 'magit-status)
+(global-set-key "\C-cif" 'magit-file-popup)
+(global-set-key "\C-cib" 'magit-diff-buffer-file-popup)
+(global-set-key "\C-ciB" 'magit-blame-popup)
+(global-set-key "\C-cid" 'magit-diff-popup)
+(global-set-key "\C-c\C-b" 'magit-blame-mode)
+
 (provide 'init-magit)

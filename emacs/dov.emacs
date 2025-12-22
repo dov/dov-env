@@ -300,7 +300,7 @@
 (setq with-editor-file-name-history-exclude 'nil)
 ;(autoload 'magit-status "magit" "Open a Magit status buffer […]" t nil)
 ;(load "with-editor")
-(load "magit-popup")
+;(load "magit-popup")
 (load "ghub")
 ;(load "magit")
 ;(condition-case err
@@ -312,7 +312,7 @@
 (autoload 'xjet-remote-python-file "xjet-remote-client" nil t)
 
 (setq git-commit-summary-max-length 80)
-(autoload 'magit-blame "magit-blame" nil t)
+;(autoload 'magit-blame "magit-blame" nil t)
 (setq magit-diff-options '("-w"))
 (autoload 'mo-git-blame-file "mo-git-blame" nil t)
 (autoload 'mo-git-blame-current "mo-git-blame" nil t)
@@ -653,13 +653,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (require 'init-yassnippet)
 (require 'init-copilot)
 
-(global-set-key "\C-ci" nil)
-(global-set-key "\C-cii" 'magit-status)
-(global-set-key "\C-cif" 'magit-file-popup)
-(global-set-key "\C-cib" 'magit-diff-buffer-file-popup)
-(global-set-key "\C-ciB" 'magit-blame-popup)
-(global-set-key "\C-cid" 'magit-diff-popup)
-(global-set-key "\C-c\C-b" 'magit-blame-mode)
 (global-set-key "\C-c\C-o" 'org-open-at-point)
 (global-set-key (kbd "C-M-\\") 'clang-format-region)
 
