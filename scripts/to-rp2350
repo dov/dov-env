@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# The specific label you see in the MATE panel
+LABEL="RP2350"
+
+# The device path provided by the system based on that label
+DEV_PATH="/dev/disk/by-label/$LABEL"
+# The target mount point
+DEST="/run/media/$USER/$LABEL"
+
+# 1. Check if the device is plugged in at all
+if [ ! -L "$DEV_PATH" ]; then
+    echo "Error: Device with label '$LABEL' not found."
+    echo "Please ensure the ${LABEL} is plugged in."
+    exit 1
+fi
+
+# 2. Check if it's already mounted; if not, mount it
+if ! mountpoint -q "$DEST"; then
+    echo "Device '$LABEL' detected but not mounted. Mounting now..."
+    # udisksctl is great because it handles the /run/media folder creation for you
+    udisksctl mount -b "$DEV_PATH"
+    
+    # Final check to ensure mount succeeded
+    if ! mountpoint -q "$DEST"; then
+        echo "Error: Failed to mount the device."
+        exit 1
+    fi
+fi
+
+# 3. Check if arguments were provided
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <file1> <file2> ..."
+    exit 1
+fi
+
+# 4. Copy the files
+echo "Copying files to $DEST..."
+cp -rv "$@" "$DEST/"
+
+# 5. Ensure data is written
+sync
+
+echo "Done! $LABEL should be reloading now."
