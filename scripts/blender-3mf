@@ -1,10 +1,12 @@
 #!/bin/bash
 # A command line launcher for opening an xjsf in blender
 
+#blender --python-expr 'import bpy; bpy.ops.import_mesh.stl(filepath="'$1'")'
+
 cmd="blender --python-expr 'import bpy;"
 
 for fn in "$@"; do
-  cmd+="bpy.ops.import_scene.gltf(filepath=\"$fn\");"
+  cmd+="bpy.ops.import_mesh.threemf(filepath=\"$fn\");"
 done
 
 # Select all objects and frame selected (zoom to selection)
