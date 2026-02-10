@@ -1,0 +1,32 @@
+#!/bin/bash
+# Improved umount-encrypted.sh
+# Usage: sudo ./umount-encrypted.sh /mnt/sam500g
+
+MOUNT_POINT=$1
+
+if [[ -z "$MOUNT_POINT" ]]; then
+    echo "Usage: $0 <mount_point>"
+    exit 1
+fi
+
+# 1. Find the mapper device associated with this mount point
+MAPPER_DEVICE=$(findmnt -n -o SOURCE "$MOUNT_POINT")
+
+if [[ -z "$MAPPER_DEVICE" ]]; then
+    echo "Error: No device found mounted at $MOUNT_POINT"
+    exit 1
+fi
+
+# 2. Unmount the filesystem
+echo "Unmounting $MOUNT_POINT..."
+if umount "$MOUNT_POINT"; then
+    # 3. Close the LUKS mapping
+    # We take the basename (e.g., 'sdd1_crypt' from '/dev/mapper/sdd1_crypt')
+    MAP_NAME=$(basename "$MAPPER_DEVICE")
+    echo "Closing encrypted mapping $MAP_NAME..."
+    cryptsetup close "$MAP_NAME"
+    echo "Drive locked and secured."
+else
+    echo "Error: Could not unmount. Is a file or terminal open in that folder?"
+fi
+

@@ -1,0 +1,37 @@
+#!/bin/bash
+
+DEVICE=$1
+MOUNT_POINT=$2
+MAP_NAME="$(basename "$DEVICE")_crypt"
+
+# 1. Validation
+if [[ -z "$DEVICE" || -z "$MOUNT_POINT" ]]; then
+    echo "Usage: sudo $0 /dev/sdd1 /mnt/sam500g"
+    exit 1
+fi
+
+# 2. Layer 1: The Encryption Mapping
+if [ -b "/dev/mapper/$MAP_NAME" ]; then
+    echo "✔ Encryption mapping '$MAP_NAME' is already open."
+else
+    echo "🔑 Opening encrypted device $DEVICE..."
+    if ! cryptsetup open "$DEVICE" "$MAP_NAME"; then
+        echo "❌ Error: Could not open LUKS device."
+        exit 1
+    fi
+fi
+
+# 3. Layer 2: The Filesystem Mount
+if mountpoint -q "$MOUNT_POINT"; then
+    echo "✔ Device is already mounted at $MOUNT_POINT."
+else
+    echo "📂 Mounting /dev/mapper/$MAP_NAME to $MOUNT_POINT..."
+    mkdir -p "$MOUNT_POINT"
+    if mount /dev/mapper/"$MAP_NAME" "$MOUNT_POINT"; then
+        echo "🚀 Success! Accessible at $MOUNT_POINT"
+        chown "$SUDO_USER":"$SUDO_USER" "$MOUNT_POINT"
+    else
+        echo "❌ Error: Mount failed."
+        exit 1
+    fi
+fi
