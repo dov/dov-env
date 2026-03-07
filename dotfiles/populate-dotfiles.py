@@ -21,6 +21,11 @@ def die(msg):
   sys.stderr.write(msg.strip()+'\n')
   sys.exit(-1)
 
+def warn(msg):
+  logging.warn(msg.strip())
+  logging.warn('Exiting...')
+  sys.stderr.write(msg.strip()+'\n')
+
 # Run an external command and throw an exception on timout and on
 # rc != 0.
 def xec(cmd, decode=True, chomp=True, verbose=False, timeout=None):
@@ -106,15 +111,31 @@ if __name__ == '__main__':
                '.gitconfig',
                '.tmux.conf',
                '.vimrc',
-               '.zshrc',
-               '.config',
-               '.cmake'):
+               '.zshrc'):
     dest = Path(destination) / file
     print(f'Copying {file}')
     if dest.exists() and not args.force:
-      die(f'{dest} already exist. Use --force to override')
+      warn(f'{dest} already exist. Skipping')
+      continue
 
     xec(f'rsync -a {file} {destination}', verbose=True)
+
+for DirName in ('.config',
+                  '.cmake'):
+    SourcePath = Path(DirName)
+    if SourcePath.exists():
+      for Item in SourcePath.rglob('*'):
+        if Item.is_file():
+          RelPath = Item.relative_to(SourcePath)
+          DestPath = Path(destination) / DirName / RelPath
+          
+          if DestPath.exists() and not args.force:
+            warn(f'{DestPath} exists, skipping.')
+            continue
+          
+          # Proceed with sync
+          xec(f'rsync -av {Item} {DestPath}', verbose=True)
+
   print('ok')
     
     
