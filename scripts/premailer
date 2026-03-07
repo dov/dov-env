@@ -28,9 +28,7 @@ args = parser.parse_args()
 if args.filename is None:
   html = sys.stdin.read()
 else:
-  html = io.open(args.filename,encoding='UTF-8').read().encode('utf-8')
-
-html = html.decode()
+  html = io.open(args.filename,encoding='UTF-8').read()
 
 # Remove datasegments that premailer cannot deal with.
 if m:=re.search(r'<link rel="stylesheet" href="data:text/css,(.*)"\s*/>',html):

@@ -458,6 +458,7 @@ path=(/usr/local/bin
       $HOME/hd/bin
       $HOME/go/bin
       $HOME/.cargo/bin
+      $HOME/.local/bin
       /usr/bin
       /bin
       /usr/sbin

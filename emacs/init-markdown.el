@@ -1,20 +1,17 @@
-(setq load-path (append
-                 (list
-                  (concat emacs-git "packages/markdown-mode-20211022.55/"))
-                 load-path))
-;; (load "markdown-mode.el")
-;; ;(setq markdown-command (concat "pandoc --self-contained -t html --css " emacs-git "../lib/dov-org.css | /home/dov/scripts/premailer --stdout"))
-;; (setq markdown-command (concat emacs-git "../scripts/pandoc-premailer.sh"))
+(setq load-path 
+  (append
+    (list (concat emacs-git "packages/markdown-mode-20211022.55/"))
+    load-path))
 
-(use-package
-  markdown-mode
-  :config 
-  (setq markdown-command (concat emacs-git "../scripts/pandoc-premailer.sh")))
-
-(defun my-markdown-hook ()
+(defun MyMarkdownHook ()
   (variable-pitch-mode t))
 
-(setq markdown-fontify-code-blocks-natively t)
-(add-hook 'markdown-mode-hook 'my-markdown-hook)
+(use-package markdown-mode
+  :ensure nil
+  :mode ("\\.md\\'" . markdown-mode)
+  :config
+  (setq markdown-command (concat emacs-git "../scripts/pandoc-premailer.sh"))
+  (setq markdown-fontify-code-blocks-natively t)
+  (add-hook 'markdown-mode-hook 'MyMarkdownHook))
 
 (provide 'init-markdown)
