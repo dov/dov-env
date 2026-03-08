@@ -1,0 +1,15 @@
+#!/bin/bash
+# A command line launcher for opening an fbx files in blender
+
+cmd="blender --python-expr 'import bpy;"
+
+for fn in "$@"; do
+  cmd+="bpy.ops.wm.fbx_import(filepath=\"$fn\");"
+done
+
+# Select all objects and frame selected (zoom to selection)
+cmd+="bpy.ops.object.select_all(action=\"SELECT\");"
+
+cmd+="'"
+
+eval "$cmd"

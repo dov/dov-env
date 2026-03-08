@@ -54,6 +54,13 @@ GROUP-NUMBER is 1-based."
             (message "Could not resolve type for `auto`.")))
       (message "Not on an `auto` keyword."))))
 
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               `(python-mode . ("env"
+                                "PYTHONPATH=/home/dov/git/MetalJet/PyStubs/:/home/dov/git/MetalJet/XjetApps/MetalJet/Apps/Project/qt/Lib:/home/dov/git/MetalJet/XjetApps/MetalJet/Apps/Project/qt/Scripts"
+                                "pylsp"
+                                ))))
+
 ;; TBD - Not the best keybinding, but it works and is easily accessible
 (global-set-key (kbd "C-c M-t") 'my-eglot-deduce-auto)
 
