@@ -1,4 +1,11 @@
 #!/bin/bash
+######################################################################
+#  Compare the checked out modified files from a local repo to a
+#  remote repo.
+#
+#  2026-04-12 Sun
+#  Dov Grobgeld
+######################################################################
 
 # Ensure we have two arguments
 if [ "$#" -ne 2 ]; then
@@ -24,11 +31,35 @@ if [[ "$ACTION" != "diff" && "$ACTION" != "pull" && "$ACTION" != "push" ]]; then
     exit 1
 fi
 
-# Define a temporary file for storing the list of modified files
+# Define temporary files for list building
+#LOCAL_CHANGES=$(mktemp)
+#REMOTE_CHANGES=$(mktemp)
+LOCAL_CHANGES=/tmp/local.txt
+REMOTE_CHANGES=/tmp/remote.txt
 TEMP_FILE=$(mktemp)
 
-# SSH to the remote host and get the list of modified but uncommitted files
-ssh "$REMOTE_HOST" "cd $REMOTE_DIR && git status --porcelain=v1 | grep '^ M' | awk '{print \$2}'" > "$TEMP_FILE"
+# Only matches M, A, or ?? if they appear in the first two characters of the line
+GET_CHANGES="git status --porcelain=v1 | perl -ne 'print \"\$1\n\" if /^[ MA]{2}\s+(.*)/'"
+
+case "$ACTION" in
+    push)
+        eval "$GET_CHANGES" > "$TEMP_FILE"
+        ;;
+    pull)
+        ssh "$REMOTE_HOST" "cd $REMOTE_DIR && $GET_CHANGES" > "$TEMP_FILE"
+        ;;
+    diff)
+        echo "Calculating union of local and remote changes..."
+        # Get local list
+        eval "$GET_CHANGES" > "$LOCAL_CHANGES"
+        # Get remote list
+        ssh "$REMOTE_HOST" "cd $REMOTE_DIR && $GET_CHANGES" > "$REMOTE_CHANGES"
+        # Combine and unique
+        sort -u "$LOCAL_CHANGES" "$REMOTE_CHANGES" > "$TEMP_FILE"
+        ;;
+esac
+#cat $TEMP_FILE
+
 
 # Check if there are any modified files
 if [ ! -s "$TEMP_FILE" ]; then
@@ -38,7 +69,6 @@ if [ ! -s "$TEMP_FILE" ]; then
 fi
 
 echo "Found modified files:"
-cat "$TEMP_FILE"
 
 # Perform the specified action
 case "$ACTION" in
@@ -82,5 +112,7 @@ esac
 
 # Clean up
 rm "$TEMP_FILE"
+#rm "$LOCAL_CHANGES"
+#rm "$REMOTE_CHANGES"
 
 echo "Done!"
