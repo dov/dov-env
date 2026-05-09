@@ -30,6 +30,9 @@ import pdb
 import gphoto2 as gp
 from pathlib import Path
 import signal
+import getpass
+import shutil
+import filecmp
 
 import logging
 import sys
@@ -51,6 +54,18 @@ class ColorFormatter(logging.Formatter):
 def die(msg):
   sys.stderr.write(msg)
   exit(-1)
+
+def list_files_usb(root_path):
+  result = []
+  for root, dirs, files in os.walk(root_path):
+    for name in files:
+      full_path = os.path.join(root, name)
+      result.append(full_path)
+  return result
+
+def get_file_info_usb(path):
+  stat = os.stat(path)
+  return stat.st_mtime, stat.st_size
 
 def list_files(camera, path='/'):
   result = []
@@ -86,18 +101,41 @@ def get_num_files_from(camera, files, from_date=datetime.now()):
 
 def get_files_from(camera, files, from_date=datetime.now()):
   '''Get a list of all the files from the given date'''
-  return [f for f in files
-          if get_file_date(camera,f) >=from_date]
+  result = []
+  for f in files:
+    info = get_file_info(camera, f)
+    dt = datetime.fromtimestamp(info.file.mtime)
+    if dt >= from_date:
+      result.append((f, info))
+  return result
 
 def signal_handler(sig, frame):
     print('You pressed Ctrl+C!')
     sys.exit(0)
+
+def is_same_file(entry, local_path, use_sdcard):
+    if not os.path.exists(local_path):
+        return False
+    
+    local_size = os.path.getsize(local_path)
+    if entry['size'] != local_size:
+        return False
+    
+    if use_sdcard:
+        # For SD card, we can do a more robust check
+        return filecmp.cmp(entry['path'], local_path, shallow=True)
+    else:
+        # For camera, compare size and timestamp (assuming we preserved it)
+        local_mtime = os.path.getmtime(local_path)
+        # Use a small tolerance for float comparison if necessary, but mtime from gp is int
+        return abs(entry['mtime'] - local_mtime) < 1
 
 def main():
     from_date = dateparser.parse('2021-08-21 07:00')
 
     argp = 1
     get_types = []
+    use_sdcard = False
     while argp<len(sys.argv) and sys.argv[argp][0]=='-':
       S_ = sys.argv[argp]
       argp+=1
@@ -106,7 +144,7 @@ def main():
         print('get_photos_today - Get photos from a date\n'
               '\n'
               'Syntax:\n'
-              '  get_photos_today [--jpeg] [--mpeg] DATE'
+              '  get_photos_today [--jpeg] [--mpeg] [--mov] [--raw] [--sdcard] DATE'
               )
         exit(0)
       if S_=='--jpeg':
@@ -115,11 +153,17 @@ def main():
       if S_=='--mpeg':
         get_types += ['mpeg']
         continue
+      if S_=='--mov':
+        get_types += ['mov']
+        continue
       if S_=='--raw':
         get_types += ['raw']
         continue
+      if S_=='--sdcard':
+        use_sdcard = True
+        continue
 
-      die(f'Unknown option "S_"!')
+      die(f'Unknown option "{S_}"!')
   
     signal.signal(signal.SIGINT, signal_handler)
     
@@ -146,43 +190,126 @@ def main():
 
     logger.info(f'Getting photos from {str(from_date)}')
 
-    callback_obj = gp.check_result(gp.use_python_logging())
-    camera = gp.Camera()
-    camera.init()
-    files = list_files(camera)
-    logger.info(f'There are {len(files)} files on the camera')
+    files_with_info = [] # List of dictionaries
 
-    if False:
-      first_index_today = get_num_files_from(camera,files,from_date=from_date)
-      files = files[first_index_today:]
+    if use_sdcard:
+      username = getpass.getuser()
+      base_path = f'/run/media/{username}'
+      if not os.path.exists(base_path):
+        die(f'SD card mount base path {base_path} not found!')
+      
+      mounts = os.listdir(base_path)
+      if not mounts:
+        die(f'No SD cards found in {base_path}!')
+      
+      mount_path = os.path.join(base_path, mounts[0])
+      logger.info(f'Searching SD card: {mount_path}')
+      
+      raw_files = list_files_usb(mount_path)
+      for f in raw_files:
+        mtime, size = get_file_info_usb(f)
+        if datetime.fromtimestamp(mtime) >= from_date:
+          fname = Path(f).name
+          ftype = ''
+          if fname.lower().endswith(('.jpg', '.jpeg')): ftype = 'image/jpeg'
+          elif fname.lower().endswith(('.mp4', '.mov')): ftype = 'video/mp4'
+          files_with_info.append({'path': f, 'mtime': mtime, 'size': size, 'type': ftype, 'folder': str(Path(f).parent), 'name': fname})
     else:
-      files = get_files_from(camera, files, from_date=from_date)
+      callback_obj = gp.check_result(gp.use_python_logging())
+      camera = gp.Camera()
+      try:
+          camera.init()
+      except gp.GPhoto2Error as ex:
+          if ex.code == gp.GP_ERROR_MODEL_NOT_FOUND:
+              die('No camera detected!\n')
+          raise ex
+
+      raw_files = list_files(camera)
+      logger.info(f'There are {len(raw_files)} files on the camera')
+      
+      for f in raw_files:
+        info = get_file_info(camera, f)
+        mtime = info.file.mtime
+        if datetime.fromtimestamp(mtime) >= from_date:
+          folder, name = os.path.split(f)
+          files_with_info.append({'path': f, 'mtime': mtime, 'size': info.file.size, 'type': getattr(info.file, 'type', ''), 'folder': folder, 'name': name})
+      gp.gp_camera_exit(camera)
 
     num_errors = 0
     failed_filenames = []
-    for idx,f in enumerate(files):
-      name = Path(f).name
-      folder = Path(f).parent
+    for idx, entry in enumerate(files_with_info):
+      name = entry['name']
+      folder = entry['folder']
+      ftype = entry['type']
+      mtime = entry['mtime']
+      fpath = entry['path']
+      
+      is_mov_format = (ftype == 'video/mp4')
+
       if not (len(get_types)==0
           or ('jpeg' in get_types and 'jp' in name.lower())
           or ('mpeg' in get_types and 'mp' in name.lower())
-          or ('raw' in get_types and 'cr3' in name.lower)):
+          or ('raw' in get_types and 'cr3' in name.lower())
+          or ('mov' in get_types and is_mov_format)):
         continue
 
-      if not Path(name).exists() or Path(name).stat().st_size == 0:
-        logger.info(f'Getting {name} ({idx+1}/{len(files)}) {str(get_file_date(camera,f))}')
-        camera_file = gp.check_result(gp.gp_camera_file_get(
-            camera, str(folder), str(name), gp.GP_FILE_TYPE_NORMAL))
-        file_data = gp.check_result(gp.gp_file_get_data_and_size(camera_file))
-        if len(file_data) == 0:
-          logger.error(f'Failed getting file {name}! Got empty file!')
-          failed_filenames += [name]
-          num_errors += 1
-        with open(name,'wb') as fh:
-          data = memoryview(file_data)
-          fh.write(data)
+      dt = datetime.fromtimestamp(mtime)
+      if is_mov_format:
+        target_base = dt.strftime('VID_%Y%m%d_%H%M%S.mp4')
+      else:
+        target_base = name
 
-    gp.gp_camera_exit(camera)
+      target_name = target_base
+      skip_file = False
+      
+      if os.path.exists(target_name):
+          if is_same_file(entry, target_name, use_sdcard):
+              skip_file = True
+          else:
+              # Collision found, look for unique name or an existing copy
+              path_obj = Path(target_base)
+              stem = path_obj.stem
+              suffix = path_obj.suffix
+              counter = 1
+              while True:
+                  candidate = f"{stem}_{counter}{suffix}"
+                  if not os.path.exists(candidate):
+                      target_name = candidate
+                      break
+                  if is_same_file(entry, candidate, use_sdcard):
+                      target_name = candidate
+                      skip_file = True
+                      break
+                  counter += 1
+
+      if skip_file:
+          logger.info(f'Skipping {name} (already exists as {target_name})')
+          continue
+
+      logger.info(f'Getting {name} -> {target_name} ({idx+1}/{len(files_with_info)}) {str(dt)}')
+      
+      try:
+        if use_sdcard:
+          shutil.copy2(fpath, target_name)
+        else:
+          camera = gp.Camera()
+          camera.init()
+          camera_file = gp.check_result(gp.gp_camera_file_get(
+              camera, str(folder), str(name), gp.GP_FILE_TYPE_NORMAL))
+          file_data = gp.check_result(gp.gp_file_get_data_and_size(camera_file))
+          if len(file_data) == 0:
+            raise Exception('Got empty file!')
+          with open(target_name,'wb') as fh:
+            data = memoryview(file_data)
+            fh.write(data)
+          # Preserve timestamp
+          os.utime(target_name, (mtime, mtime))
+          camera.exit()
+      except Exception as e:
+        logger.error(f'Failed getting file {name}: {e}')
+        failed_filenames += [name]
+        num_errors += 1
+
     if num_errors>0:
       logger.error(f'Failed getting {num_errors} files! Try copying the following files manually:\n  ' + '\n  '.join(failed_filenames))
 
