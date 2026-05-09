@@ -1,14 +1,24 @@
 (setq load-path (append
                  (list
-                  (concat emacs-git "packages/transient-20240729.1524/")
                   (concat emacs-git "packages/git-commit-20240730.1355/")
-                  (concat emacs-git "packages/magit-section-20240730.1741/")
-                  (concat emacs-git "packages/magit-20240730.1741/"))
+                  (concat emacs-git "packages/magit-section-20260503.2051/")
+                  (concat emacs-git "packages/magit-20260506.643/"))
                  load-path))
 (use-package transient
   :ensure t)
 (use-package magit
   :ensure t)
+
+; prevent crash because of lacking tags, needed for using
+(with-eval-after-load 'magit
+  (defun magit-get-current-tag (&optional rev exact-match)
+    "A safety-wrapped version of the original function to prevent TRAMP crashes."
+    (let ((tag (magit-git-str "describe" "--tags"
+                              (and exact-match "--exact-match")
+                              rev)))
+      (if (and tag (>= (length tag) 7))
+          tag
+        nil))))
 
 (defun my-magit-mode-hook ()
   (define-key magit-mode-map (kbd "i") 'magit-gitignore-in-topdir)

@@ -221,15 +221,17 @@
 (require 'init-lua-mode)
 ;(require 'init-company-mode)
 (require 'init-csv-mode)
+(require 'init-kotlin-mode)
 (require 'init-bind-key)
 (require 'init-doom-themes)
 (require 'init-visual-fill-column)
 (require 'init-deadgrep)
 (require 'init-indent-bars)
+(require 'init-tramp)
 (ignore-errors
-  (require 'init-skeletor))
-(require 'init-copilot)
-(require 'init-copilot-chat)
+  (require 'init-skeletor)
+  (require 'init-copilot)
+  (require 'init-copilot-chat))
 
 ;; Emacs 24 support
 (when (>= emacs-major-version 24)
@@ -321,7 +323,7 @@
 (global-set-key [?\C-c ?j] 'ein:notebooklist-open)  ; j for jupyter
 
 ;(require 'org-loaddefs)
-(require 'ein-loaddefs)
+;(require 'ein-loaddefs)
 (require 'wgrep)
 (require 'pretty-mode)
 (require 'browse-kill-ring)
