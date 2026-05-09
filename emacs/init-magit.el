@@ -1,5 +1,6 @@
 (setq load-path (append
                  (list
+                  (concat emacs-git "packages/llama-20260508.949/")
                   (concat emacs-git "packages/git-commit-20240730.1355/")
                   (concat emacs-git "packages/magit-section-20260503.2051/")
                   (concat emacs-git "packages/magit-20260506.643/"))
