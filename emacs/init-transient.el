@@ -1,5 +1,6 @@
 (setq load-path (append
                  (list
+                  (concat emacs-git "packages/cond-let-20260508.948/")
                   (concat emacs-git "packages/transient-20260507.1521/"))
                  load-path))
 (load "transient.el")
