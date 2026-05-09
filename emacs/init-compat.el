@@ -1,6 +1,6 @@
 (setq load-path (append
                  (list
-                 (concat emacs-git "packages/compat-30.1.0.1/")
+                 (concat emacs-git "packages/compat-31.0.0.1")
                   )
                  load-path))
 		  
