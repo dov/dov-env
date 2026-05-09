@@ -653,7 +653,6 @@ Optional argument ARG is the same as for `backward-kill-word'."
 (require 'init-cc)
 (require 'init-dabbrev)
 (require 'init-yassnippet)
-(require 'init-copilot)
 
 (global-set-key "\C-c\C-o" 'org-open-at-point)
 (global-set-key (kbd "C-M-\\") 'clang-format-region)
