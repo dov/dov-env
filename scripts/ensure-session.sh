@@ -11,4 +11,5 @@ ensure_tmux_session() {
     fi
 }
 
-ensure_tmux_session $1 $2 $3
+ensure_tmux_session "$1" "$2" "$3"
+
