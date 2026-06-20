@@ -17,7 +17,7 @@
                   (concat emacs-git "packages/llama-20260601.1455/")
                   (concat emacs-git "packages/git-commit-20240730.1355/")
                   (concat emacs-git "packages/magit-section-20260503.2051/")
-                  (concat emacs-git "packages/magit-20260606.2041/"))
+                  (concat emacs-git "packages/magit-20260619.2310/"))
                  load-path))
 ;; 3. FORCE Llama to load natively with strict lexical rules before Magit initializes
 ;(eval-and-compile

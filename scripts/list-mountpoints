@@ -56,6 +56,8 @@ with open('/etc/fstab') as fh:
     if line.startswith('#'):
       continue
     fields = line.split()
+    if len(fields)<2:
+      continue
     mount_point = fields[1]
     if (mount_point == 'swap'
         or (args.not_mounted and mount_point in mounted)):
