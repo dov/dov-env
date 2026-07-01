@@ -282,6 +282,7 @@
 (autoload 'ps-mode "ps-mode" nil t)
 (autoload 'meson-mode "meson-mode" nil t)
 (autoload 'pyvenv-workon "pyvenv" nil t)
+(autoload 'pyvenv-activate "pyvenv" nil t)
 (autoload 'asy-mode "asy-mode" nil t)
 
 ;(icy-mode)
@@ -2592,13 +2593,20 @@ Does not delete the prompt."
   (switch-to-buffer my-buffer)))
 
 (defun shell-python-on-buffer ()
-  "Send the current (python) buffer to be evaluated by the python shell"
+  "Send the current (python) buffer to be evaluated by the python shell."
   (interactive)
-  (let ((python-path (if (and (boundp 'pyvenv-virtual-env) pyvenv-virtual-env)
-                         (concat pyvenv-virtual-env "bin/python")
-                         my-python-interpreter)))
+  (let ((python-path (cond
+                      ;; 1. Check if pyvenv is active
+                      ((and (boundp 'pyvenv-virtual-env) pyvenv-virtual-env)
+                       (concat pyvenv-virtual-env "bin/python"))
+                      ;; 2. Check for a local .venv directory up the path
+                      ((let ((local-venv (locate-dominating-file default-directory ".venv")))
+                         (and local-venv 
+                              (file-executable-p (expand-file-name ".venv/bin/python" local-venv))))
+                       (expand-file-name ".venv/bin/python" (locate-dominating-file default-directory ".venv")))
+                      ;; 3. Fallback to default interpreter
+                      (t my-python-interpreter))))
     (async-shell-command-on-buffer python-path "py")))
-
 
 (defun shell-lua-on-buffer ()
   "Send the current (lua) buffer to be evaluated by the lua shell"
